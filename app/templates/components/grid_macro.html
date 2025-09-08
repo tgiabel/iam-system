@@ -1,0 +1,27 @@
+{% macro render_grid(title, items, search_category=None, list_id='grid-list', search_id='grid-search') %}
+<div class="grid-list-wrapper"
+     data-category="{{ search_category }}"
+     data-list-id="{{ list_id }}"
+     data-search-id="{{ search_id }}">
+     
+    <div class="grid-list-header">
+        <div class="grid-header-left">
+            <h2>{{ title }}</h2>
+        </div>
+        
+        <div class="grid-header-center">
+            {% if search_category %}
+            <input type="text" id="{{ search_id }}" placeholder="Suche in {{ search_category }}" autocomplete="off">
+            {% endif %}
+        </div>
+        
+        <div class="grid-header-right">
+            <!-- Filter / Optionen kommen hier rein -->
+        </div>
+    </div>
+
+    <div class="grid-list" id="{{ list_id }}">
+        {{ items | safe }}
+    </div>
+</div>
+{% endmacro %}

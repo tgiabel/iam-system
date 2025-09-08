@@ -1,0 +1,49 @@
+{
+  "ressource_types": [
+    {
+      "id": 1,
+      "name": "Hardware",
+      "description": "",
+      "url": "hardware",
+      "icon": "hardware.png"
+    },
+    {
+      "id": 2,
+      "name": "Software",
+      "description": "",
+      "url": "software",
+      "icon": "software.png"
+    },
+    {
+      "id": 3,
+      "name": "T-Laufwerk",
+      "description": "",
+      "url": "directories",
+      "icon": "drive.png"
+    },
+    {
+      "id": 4,
+      "name": "Schlüssel",
+      "description": "",
+      "url": "keys",
+      "icon": "keys.png"
+    },
+    {
+      "id": 5,
+      "name": "Postfächer",
+      "description": "",
+      "url": "mailbox",
+      "icon": "mailbox.png"
+    },
+    {
+      "id": 6,
+      "name": "Verteiler",
+      "description": "",
+      "url": "mailing",
+      "icon": "mailing.png"
+    }
+  ],
+  "ressources": [
+    
+  ]
+}

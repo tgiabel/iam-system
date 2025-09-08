@@ -1,0 +1,32 @@
+{% import "components/grid_macro.html" as grid_macro %}
+{% import "components/card_overlay.html" as card %}
+
+{% extends "base.html" %}
+
+{% set page_title = "User" %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/overlay.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/card.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/grid.css') }}">
+{% endblock %}
+
+{% block content %}
+
+{{ grid_macro.render_grid(
+    title=grid["title"],
+    items=grid["items"],
+    search_category=grid["search_category"],
+    list_id=grid["list_id"],
+    search_id=grid["search_id"]
+) }}
+
+{% set add_entity = "user" %}
+{% include "components/floating_button.html" %}
+
+{{ card.overlay("user-overlay") }}
+
+{{ card.overlay("user-form-overlay") }}
+
+
+{% endblock %}

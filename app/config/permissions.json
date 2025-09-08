@@ -1,0 +1,35 @@
+{
+  "permission_types": [
+    {
+      "id": 1,
+      "name": "Konto",
+      "description": "",
+      "url": "",
+      "icon": ""
+    },
+    {
+      "id": 2,
+      "name": "Rolle",
+      "description": "",
+      "url": "",
+      "icon": ""
+    },
+    {
+      "id": 3,
+      "name": "Lizenz",
+      "description": "",
+      "url": "",
+      "icon": ""
+    },
+    {
+      "id": 4,
+      "name": "Ressource",
+      "description": "",
+      "url": "",
+      "icon": ""
+    }
+  ],
+  "permissions": [
+    
+  ]
+}

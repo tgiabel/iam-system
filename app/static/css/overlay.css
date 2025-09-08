@@ -1,0 +1,106 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.overlay-content-wrapper {
+  background-color: white;
+  border-radius: 12px;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  max-width: 90%;
+  width: 600px;
+  min-width: 400px;
+}
+
+.overlay-content {
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  gap: 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.overlay-form {
+  display: flex;
+  flex-direction: column;
+  padding: 30px;
+  gap: 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 30px 0 30px;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+  font-weight: 500;
+}
+
+.overlay-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 16px;
+}
+
+/* Wrapper für zwei Overlay-Content Blöcke */
+.overlay-content-column {
+  display: flex;
+  flex-wrap: nowrap; /* keine Zeilenumbruch */
+  gap: 20px; /* Abstand zwischen den beiden Blöcken */
+  padding-bottom: 10px; /* Platz für Scrollbar */
+}
+
+.overlay-content-column > .overlay-content {
+  flex: 0 0 50%; /* Jeder Block 50% der Breite, nicht schrumpfen */
+  box-sizing: border-box; /* Padding korrekt berücksichtigen */
+}
+
+/* Skeleton Loading */
+.skeleton {
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  margin: 10px 0;
+  background-image: linear-gradient(to right, #e0e0e0 0%, #f5f5f5 20%, #e0e0e0 40%, #e0e0e0 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.5s infinite ease-out;
+}
+
+.skeleton.title {
+  height: 24px;
+  width: 60%;
+}
+
+.skeleton.line {
+  height: 16px;
+  width: 100%;
+}
+
+.skeleton.line.short {
+  width: 50%;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: 200px 0; }
+}

@@ -1,0 +1,32 @@
+{
+  "system_types": [
+    {
+      "id": 1,
+      "name": "Grundsysteme",
+      "description": "Standardsysteme der Servodata"
+    },
+    {
+      "id": 2,
+      "name": "Backoffice-Systeme",
+      "description": "Systeme für das Backoffice der Servodata"
+    },
+    {
+      "id": 3,
+      "name": "Produktionssysteme",
+      "description": "Systeme für die Produktion der Servodata"
+    },
+    {
+      "id": 4,
+      "name": "Kundensysteme",
+      "description": "Systeme von Kunden der Servodata"
+    }
+  ],
+  "systems": [
+    {
+      "name": "Windows",
+      "description": "",
+      "type_id": 1,
+      "active": true
+    }
+  ]
+}

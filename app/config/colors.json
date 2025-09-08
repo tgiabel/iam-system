@@ -1,0 +1,19 @@
+{
+  "roles": {
+    "1": "grey",
+    "2": "blue",
+    "3": "blue",
+    "4": "red",
+    "14": "red"
+  },
+  "statuses": {
+    "active": "green",
+    "inactive": "red",
+    "pending": "yellow"
+  },
+  "card_types": {
+    "profile": "purple",
+    "project": "teal",
+    "task": "gray"
+  }
+}

@@ -1,0 +1,21 @@
+{% macro overlay(overlay_id) %}
+<div id="{{ overlay_id }}" class="overlay hidden">
+    <div class="overlay-content-wrapper">
+        
+        <div class="overlay-header">
+        </div>
+
+        {# Real Content Block #}
+        <div class="overlay-content">
+            {# Inhalte dynamisch hier einfügen #}
+            <div class="skeleton-block">
+                <div class="skeleton title"></div>
+                <div class="skeleton line"></div>
+                <div class="skeleton line"></div>
+                <div class="skeleton line short"></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endmacro %}

@@ -1,0 +1,117 @@
+{
+  "role_types": [
+    {
+      "id": 1,
+      "name": "Basis-Rolle",
+      "description": "Rolle, die für Systemfunktionen genutzt wird"
+    },
+    {
+      "id": 2,
+      "name": "Funktionale Rolle",
+      "description": "Rolle, für Unternehmenzugehörige"
+    },
+    {
+      "id": 3,
+      "name": "Skill-Rolle",
+      "description": "Rolle die durch Qualifikation erworben werden kann"
+    }
+  ],
+  "roles": [
+    {
+      "name": "SD-Mitarbeiter",
+      "description": "Grund-Ausstattung für jeden Servodata Mitarbeiter",
+      "type_id": 1,
+      "active": false
+    },
+    {
+      "name": "SD-Backoffice",
+      "description": "Standardbenutzer im Backoffice der Servodata",
+      "type_id": 1,
+      "active": false
+    },
+    {
+      "name": "SD-Führungskraft",
+      "description": "Standardbenutzer für eine Führungskraft der Servodata",
+      "type_id": 1,
+      "active": false
+    },
+    {
+      "name": "Extern",
+      "description": "Rolle für externe Partner der Servodata",
+      "type_id": 1,
+      "active": true
+    },
+    {
+      "name": "SD-Agent",
+      "description": "Servodata Produktion - Agent",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Teamleiter",
+      "description": "Servodata Produktion - Teamleiter",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Produktionsleitung",
+      "description": "Servodata Produktion - Agent",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Akademie",
+      "description": "Servodata Akademie - Coach",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Akademie-Leitung",
+      "description": "Servodata Akademie - Agent",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Personal",
+      "description": "Servodata Verwaltung & Vertrieb - Personalmanagement",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Steuerung",
+      "description": "Servodata Verwaltung & Vertrieb - Steuerung",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Controlling",
+      "description": "Servodata Verwaltung & Vertrieb - Controlling",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Produktmanagement",
+      "description": "Servodata Verwaltung & Vertrieb - Produktmanagement",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-IT",
+      "description": "Servodata Verwaltung & Vertrieb - IT",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-VV-Leitung",
+      "description": "Servodata Verwaltung & Vertrieb - Leitung",
+      "type_id": 2,
+      "active": true
+    },
+    {
+      "name": "SD-Personal",
+      "description": "Servodata Verwaltung & Vertrieb - SD-Personal",
+      "type_id": 2,
+      "active": true
+    }
+  ]
+}

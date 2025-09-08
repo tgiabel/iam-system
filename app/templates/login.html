@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% set page_title = "Login" %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/overlay.css') }}">
+{% endblock %}
+
+{% block content %}
+  {{ overlay|safe }}
+{% endblock %}

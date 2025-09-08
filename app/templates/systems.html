@@ -1,0 +1,45 @@
+{% import "components/grid_macro.html" as grid_macro %}
+{% import "components/menu_item.html" as menu %}
+
+{% extends "base.html" %}
+
+{% set page_title = "Systeme" %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/overlay.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/grid.css') }}">
+{% endblock %}
+
+{% block content %}
+<h1>Berechtigungsmanagement</h1>
+<div class="menu-row-container">
+    {% set url = "/permissions" %}
+    {% set title = "Berechtigungen" %}
+    {% set icon = url_for('static', filename='img/permissions.png') %}
+    {% include "components/menu_item.html" %}
+
+    {% set url = "/responsibilities" %}
+    {% set title = "Verantwortlichkeiten" %}
+    {% set icon = url_for('static', filename='img/responsibility.png') %}
+    {% include "components/menu_item.html" %}
+
+    {% set url = "/roles" %}
+    {% set title = "Rollen" %}
+    {% set icon = url_for('static', filename='img/roles.png') %}
+    {% include "components/menu_item.html" %}
+
+    {% set url = "/process" %}
+    {% set title = "Prozesse" %}
+    {% set icon = url_for('static', filename='img/process.png') %}
+    {% include "components/menu_item.html" %}
+</div>
+{{ grid_macro.render_grid(
+    title=grid["title"],
+    items=grid["items"],
+    search_category=grid["search_category"],
+    list_id=grid["list_id"],
+    search_id=grid["search_id"]
+) }}
+
+{% endblock %}

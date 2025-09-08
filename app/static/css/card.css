@@ -1,0 +1,66 @@
+/* Allgemeine Card-Komponente */
+.card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.card {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  min-height: 380px;
+  max-height: 380px;
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.card-header h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.card-body {
+  margin-top: 12px;
+  font-size: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: 16px;
+}
+
+.card-subtitle {
+  font-style: italic;
+  font-weight: 100;
+  color: #69aaff;
+  font-size: 0.8rem;
+}
+
+.card-meta {
+  color: #777;
+  text-decoration: none;
+}
+
+.card-meta a:hover {
+  text-decoration: underline;
+}
+
+.col {
+  flex-direction: column;
+}
