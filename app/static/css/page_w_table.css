@@ -1,0 +1,378 @@
+/* =========================
+   1. PAGE LAYOUT
+========================= */
+.page-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 1400px;
+    margin-top: 30px;
+}
+
+/* =========================
+   2. TOP BAR
+========================= */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--color-secondary);
+    padding: 12px 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    width: 100%;
+}
+
+.top-bar button {
+    background-color: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+.top-bar button:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.top-bar .search-field {
+    flex: 1;
+    margin: 0 20px;
+    display: flex;
+    align-items: center;
+}
+
+.top-bar .search-field input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.top-bar .search-field input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(65,105,225,0.2);
+    outline: none;
+}
+
+/* =========================
+   3. TABLE DESIGN
+========================= */
+.table-wrapper {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    width: 100%;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+thead {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+thead th {
+    padding: 12px 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+tbody tr {
+    border-bottom: 1px solid #eee;
+    transition: background-color 0.2s ease;
+}
+
+tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+tbody td {
+    padding: 12px 16px;
+    color: #333;
+    font-size: 0.95rem;
+}
+
+/* =========================
+   4. OVERLAY SIDEBAR
+========================= */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    backdrop-filter: blur(2px);
+    display: none;
+    justify-content: flex-end;
+    z-index: 3000;
+}
+
+.sidebar {
+    width: 400px;
+    height: 100%;
+    background-color: white;
+    box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.overlay.active { display: flex; }
+.overlay.active .sidebar { transform: translateX(0); }
+
+/* Skeleton Loader */
+.skeleton {
+    width: 80%;
+    height: 20px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e2e2e2 37%, #f0f0f0 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 6px;
+    margin: 10px 0;
+}
+@keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+}
+
+/* --- FILTER DROPDOWNS --- */
+.filter-container {
+    position: relative;
+    display: inline-block;
+}
+
+.filter-dropdown {
+    position: absolute;
+    top: 50px;
+    left: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    display: none;
+    flex-direction: column;
+    min-width: 180px;
+    z-index: 2100;
+}
+
+.filter-dropdown.active { display: flex; }
+
+.filter-dropdown button {
+    background: none;
+    color: #333;
+    border: none;
+    text-align: left;
+    padding: 10px 14px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 0.95rem;
+}
+.filter-dropdown button:hover {
+    background-color: var(--color-secondary-hover);
+}
+
+.subfilter-dropdown {
+    position: absolute;
+    top: 0;
+    left: 180px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    display: none;
+    flex-direction: column;
+    padding: 8px;
+    z-index: 2101;
+    min-width: 180px;
+}
+
+.subfilter-dropdown.active { display: flex; }
+
+.subfilter-dropdown label {
+    display: flex;
+    align-items: center;
+    color: #333;
+    gap: 6px;
+    padding: 6px 0;
+    cursor: pointer;
+}
+
+/* --- FILTER TAGS --- */
+.filter-tags {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+}
+
+.filter-tag {
+    background: var(--color-secondary);
+    color: #333;
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-tag span {
+    cursor: pointer;
+    font-weight: bold;
+}
+
+/* --- TOPBAR LAYOUT --- */
+.top-bar {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.top-bar-main {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.top-bar-title {
+    flex: 1;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+.label-ttip {
+    font-weight: 800;
+    color: var(--color-primary-hover);
+    cursor: help;
+    text-align: center;
+}
+
+/* =========================
+   5. SIDEBAR DESIGN
+========================= */
+
+/* Sidebar Layout */
+.sidebar {
+    width: 420px;
+    height: 100%;
+    background-color: #fff;
+    display: flex;
+    flex-direction: column;
+    box-shadow: -3px 0 10px rgba(0,0,0,0.2);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    position: relative;
+    padding: 0;
+}
+
+/* Fixierter Header (Name + Tabs) */
+.sidebar-header {
+    background: var(--color-primary);
+    color: #fff;
+    width: 100%;
+    padding: 20px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.3rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border-bottom: 3px solid var(--color-primary-hover);
+}
+
+/* Tabs Container */
+.sidebar-tabs {
+    display: flex;
+    width: 100%;
+    border-bottom: 1px solid #ddd;
+    background-color: #f7f7f7;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Einzelne Tabs */
+.sidebar-tabs .tab {
+    flex: 1;
+    padding: 12px 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #555;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.sidebar-tabs .tab:hover {
+    background-color: var(--color-secondary);
+    color: var(--color-primary);
+}
+
+.sidebar-tabs .tab.active {
+    background-color: var(--color-primary);
+    color: white;
+    border-bottom: 3px solid var(--color-primary-hover);
+}
+
+/* Inhalt */
+.tab-content {
+    padding: 20px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.tab-content.hidden {
+    display: none;
+}
+
+/* Detailinfos */
+#tab-details p {
+    margin: 8px 0;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+#tab-details strong {
+    display: inline-block;
+    width: 120px;
+    color: #555;
+}
+
+#tab-details h3 {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    color: var(--color-primary);
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+}
+
+/* Scrollbar dezent */
+.sidebar ::-webkit-scrollbar {
+    width: 8px;
+}
+.sidebar ::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+}
+.sidebar ::-webkit-scrollbar-thumb:hover {
+    background-color: #aaa;
+}

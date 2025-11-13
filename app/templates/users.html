@@ -1,32 +1,93 @@
-{% import "components/grid_macro.html" as grid_macro %}
-{% import "components/card_overlay.html" as card %}
-
 {% extends "base.html" %}
-
-{% set page_title = "User" %}
-
 {% block css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/overlay.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/card.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/grid.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/page_w_table.css') }}">
 {% endblock %}
-
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/page_w_table.js') }}"></script>
+{% endblock %}
+{% set page_title = "Userverwaltung" %}
 {% block content %}
+<div class="page-container">
 
-{{ grid_macro.render_grid(
-    title=grid["title"],
-    items=grid["items"],
-    search_category=grid["search_category"],
-    list_id=grid["list_id"],
-    search_id=grid["search_id"]
-) }}
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-main">
+            <div class="filter-container">
+                <button id="filter-btn">🔍 Filter</button>
+                <div id="filter-dropdown" class="filter-dropdown">
+                    <button data-filter="hauptrolle">Hauptrolle</button>
+                    <button data-filter="nebenrolle">Nebenrolle</button>
+                    <button data-filter="status">Status</button>
+                </div>
 
-{% set add_entity = "user" %}
-{% include "components/floating_button.html" %}
+                <!-- Subfilter-Dropdown -->
+                <div id="subfilter-dropdown" class="subfilter-dropdown">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
 
-{{ card.overlay("user-overlay") }}
+            <h2 class="top-bar-title">Userverwaltung</h2>
 
-{{ card.overlay("user-form-overlay") }}
+            <div>
+                <button id="action-btn">⚙️ Aktion</button>
+            </div>
+        </div>
+
+        <!-- Aktive Filter Tags -->
+        <div class="filter-tags" id="active-filters"></div>
+
+        <!-- Suchfeld -->
+        <div class="search-field" style="margin-top:8px; width: 60%;">
+            <input type="text" id="search-input" placeholder="Suche nach Name, E-Mail oder RACF...">
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table id="user-table">
+            <thead>
+                <tr>
+                    <th>RACF</th>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>E-Mail</th>
+                    <th>Hauptrolle</th>
+                    <th>Nebenrollen</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Wird dynamisch gefüllt -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Overlay Sidebar -->
+<div class="overlay" id="sidebar-overlay">
+    <div class="sidebar">
+        <div class="sidebar-header" id="sidebar-username">Max Mustermann</div>
+
+        <div class="sidebar-tabs">
+            <button class="tab active" data-tab="details">Details</button>
+            <button class="tab" data-tab="rollen">Rollen</button>
+            <button class="tab" data-tab="berechtigungen">Berechtigungen</button>
+        </div>
+
+        <div class="tab-content" id="tab-details">
+            <h3>Persönliche Infos</h3>
+            <p><strong>RACF:</strong> <span id="user-racf"></span></p>
+            <p><strong>Name:</strong> <span id="user-name"></span></p>
+            <p><strong>E-Mail:</strong> <span id="user-email"></span></p>
+            <p><strong>Adresse:</strong> <span id="user-adresse"></span></p>
+            <p><strong>Telefon:</strong> <span id="user-telefon"></span></p>
+            <p><strong>Geburtstag:</strong> <span id="user-geburtstag"></span></p>
+        </div>
+
+        <div class="tab-content hidden" id="tab-rollen"></div>
+        <div class="tab-content hidden" id="tab-berechtigungen"></div>
+    </div>
+</div>
 
 
 {% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/page_w_table.css') }}">
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/standortverwaltung.js') }}"></script>
+{% endblock %}
+{% set page_title = "Standortverwaltung" %}
+{% block content %}
+<div class="page-container">
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-main">
+            <div class="filter-container">
+                <button id="filter-btn">🔍 Filter</button>
+                <div id="filter-dropdown" class="filter-dropdown">
+                    <button data-filter="etage">Etage</button>
+                </div>
+                <div id="subfilter-dropdown" class="subfilter-dropdown"></div>
+            </div>
+
+            <h2 class="top-bar-title">Standortverwaltung</h2>
+
+            <div>
+                <button id="action-btn">⚙️ Aktion</button>
+            </div>
+        </div>
+
+        <div class="filter-tags" id="active-filters"></div>
+
+        <div class="search-field" style="margin-top:8px; width: 60%;">
+            <input type="text" id="search-input" placeholder="Suche nach Raum oder Bezeichnung...">
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table id="standort-table">
+            <thead>
+                <tr>
+                    <th>Raum-ID</th>
+                    <th>Etage</th>
+                    <th>Raum</th>
+                    <th>Bezeichnung</th>
+                    <th>Anzahl AP</th>
+                    <th>Anzahl BT</th>
+                    <th>Anzahl Schlüssel</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Wird dynamisch gefüllt -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

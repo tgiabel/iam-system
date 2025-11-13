@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/page_w_table.css') }}">
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/raum_detail.js') }}"></script>
+{% endblock %}
+{% set page_title = "Raumdetails" %}
+{% block content %}
+<div class="page-container">
+
+    <div class="top-bar">
+        <div class="top-bar-main">
+            <h2 class="top-bar-title">Raum {{ raum_id }} – Details</h2>
+            <div><button id="action-btn">⚙️ Toggle Ansicht</button></div>
+        </div>
+    </div>
+
+    <div class="table-wrapper">
+        <table id="raum-table">
+            <thead id="table-head"></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Overlay -->
+<div class="overlay" id="sidebar-overlay">
+    <div class="sidebar">
+        <div class="sidebar-header" id="sidebar-header">Details</div>
+        <div class="sidebar-content" id="sidebar-content"></div>
+    </div>
+</div>
+{% endblock %}

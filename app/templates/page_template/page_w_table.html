@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/page_w_table.css') }}">
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/page_w_table.js') }}"></script>
+{% endblock %}
+{% set page_title = "Reports" %}
+{% block content %}
+<div class="page-container">
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <button id="filter-btn">🔍 Filter</button>
+        <div class="search-field">
+            <input type="text" placeholder="Suche...">
+        </div>
+        <button id="action-btn">⚙️ Aktion</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>RACF</th>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>E-Mail</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>001</td>
+                    <td>Server-Alpha</td>
+                    <td><span class="badge status-green">Aktiv</span></td>
+                    <td>12.11.2025</td>
+                    <td><button class="btn btn-secondary">Details</button></td>
+                </tr>
+                <tr>
+                    <td>002</td>
+                    <td>Server-Beta</td>
+                    <td><span class="badge status-orange">Wartung</span></td>
+                    <td>10.11.2025</td>
+                    <td><button class="btn btn-secondary">Details</button></td>
+                </tr>
+                <tr>
+                    <td>003</td>
+                    <td>Server-Gamma</td>
+                    <td><span class="badge status-red">Fehler</span></td>
+                    <td>09.11.2025</td>
+                    <td><button class="btn btn-secondary">Details</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Overlay Sidebar -->
+<div class="overlay" id="sidebar-overlay">
+    <div class="sidebar">
+        <h3>Lade Daten...</h3>
+        <div class="skeleton" style="width: 70%;"></div>
+        <div class="skeleton" style="width: 90%;"></div>
+        <div class="skeleton" style="width: 60%;"></div>
+    </div>
+</div>
+{% endblock %}

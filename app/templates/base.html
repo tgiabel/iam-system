@@ -13,7 +13,7 @@
       rel="stylesheet"
     />
     <script src="{{ url_for('static', filename='js/base.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/_builder.js') }}"></script>
+    {% block scripts %}{% endblock %}
 </head>
 <body>
     <header class="main-header">
@@ -39,11 +39,11 @@
                 <a href="/tasks">Mein Bereich</a>
                 <a href="http://dashboard/" target="_blank" rel="noopener noreferrer">Reports</a>
                 <a href="/users">Userverwaltung</a>
-                <a href="/systems">Systemverwaltung</a>
+                <a href="/location">Standortverwaltung</a>
             </nav>
             <div class="profile-dropdown">
                 <img src="{{ url_for('static', filename='img/account_icon.png') }}" alt="Profil" class="profile-icon" id="profile-icon">
-                <div id="dropdown-menu" class="dropdown-menu hidden">
+                <div id="dropdown-menu" class="dropdown-menu nav-dropdown hidden">
                     {% if current_user.is_authenticated %}
                     <a href="/account">Account</a>
                     <a href="/logout">Logout</a>
