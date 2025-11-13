@@ -60,6 +60,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    function updateButtonLabel() {
+        if (mode === "BT") {
+            actionBtn.textContent = "Arbeitsplätze";
+        } else {
+            actionBtn.textContent = "Bodentanks";
+        }
+    }
+
     function openOverlay(id) {
         overlay.classList.add("active");
         sidebarHeader.textContent = `Details zu ${id}`;
@@ -73,7 +81,9 @@ document.addEventListener("DOMContentLoaded", () => {
     actionBtn.addEventListener("click", () => {
         mode = mode === "BT" ? "AP" : "BT";
         renderTable();
+        updateButtonLabel();
     });
 
     renderTable();
+    updateButtonLabel();
 });

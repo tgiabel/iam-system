@@ -8,21 +8,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const tableBody = document.querySelector("#user-table tbody");
     const searchInput = document.getElementById("search-input");
 
-    // Dummy user data
-    const users = [
-        { 
-            id: 1,
-            racf: "Y123456", vorname: "Max", nachname: "Mustermann", email: "max.mustermann@servodata.de", 
-            hauptrolle: "Agent", nebenrollen: ["TMA", "ISB"], status: "Aktiv",
-            adresse: "Musterstraße 1, 12345 Musterstadt", telefon: "+49 123 456789", geburtstag: "1990-01-01"
-        },
-        { id: 2, racf: "Y2234567", vorname: "Martha", nachname: "Mustermann", email: "martha.mustermann@servodata.de", hauptrolle: "Agent", nebenrollen: ["DSB"], status: "In Bearbeitung" },
-        { id: 3, racf: "Y3234567", vorname: "John", nachname: "Doe", email: "john.doe@servodata.de", hauptrolle: "Teamleiter", nebenrollen: ["KIH", "SD-Sperre"], status: "Überberechtigt" },
-        { id: 4, racf: "Y4234567", vorname: "Lisa", nachname: "Meyer", email: "lisa.meyer@servodata.de", hauptrolle: "Agent", nebenrollen: [], status: "Inaktiv" },
-        { id: 5, racf: "Y5234567", vorname: "Peter", nachname: "Schmidt", email: "peter.schmidt@servodata.de", hauptrolle: "Extern", nebenrollen: ["TMA"], status: "Error" }
-    ];
-
-
     const options = {
         hauptrolle: ["Extern", "Agent", "Teamleiter", "Steuerung", "Controlling", "Personalmangager", "Produktmanager", "IT", "Leitung Produktion", "Leitung V&V", "Leitung Akademie"],
         nebenrolle: ["TMA", "ISB", "DSB", "KIH", "SD-Sperre"],
@@ -35,64 +20,47 @@ document.addEventListener("DOMContentLoaded", () => {
     // Tabelle rendern
     // --------------------------
     function renderTable() {
-        const searchTerm = searchInput.value.toLowerCase();
-        const filtered = users.filter(u => {
-            const matchesSearch =
-                u.racf.toLowerCase().includes(searchTerm) ||
-                u.vorname.toLowerCase().includes(searchTerm) ||
-                u.nachname.toLowerCase().includes(searchTerm) ||
-                u.email.toLowerCase().includes(searchTerm);
-
-            const matchesFilters = Object.entries(activeFilterValues).every(([key, values]) => {
-                if (values.length === 0) return true;
-                if (key === "nebenrolle") {
-                    return u.nebenrollen.some(r => values.includes(r));
-                }
-                return values.includes(u[key]);
-            });
-
-            return matchesSearch && matchesFilters;
-        });
-
-        tableBody.innerHTML = filtered.map(u => {
+        tableBody.innerHTML = users.map(u => {
             const nebenrollenCount = u.nebenrollen.length;
-            const nebenrollenTooltip = nebenrollenCount > 0 ? u.nebenrollen.join(", ") : "";
             return `
-            <tr data-racf="${u.racf}" data-id="${u.id}">
+            <tr data-id="${u.id}">
                 <td>${u.racf}</td>
                 <td>${u.vorname}</td>
                 <td>${u.nachname}</td>
                 <td><a href="mailto:${u.email}">${u.email}</a></td>
-                <td><span class="badge status-blue">${u.hauptrolle}</span></td>
-                <td title="${nebenrollenTooltip}" class="label-ttip">${nebenrollenCount}</td>
+                <td>${renderHauptrolle(u.hauptrolle)}</td>
+                ${renderNebenRollenCount(u.nebenrollen)}
                 <td>${renderStatusBadge(u.status)}</td>
-            </tr>
-            `;
+            </tr>`;
         }).join("");
 
-        // Klick auf Zeile → Overlay öffnen + Daten laden
         document.querySelectorAll("#user-table tbody tr").forEach(tr => {
-            tr.addEventListener("click", () => {
-                const userId = parseInt(tr.dataset.id); // ID aus data-Attribut
-                const user = users.find(u => u.id === userId);
-                if (!user) return;
+            tr.addEventListener("click", async () => {
+                const userId = tr.dataset.id;
+                const resp = await fetch(`/api/users/${userId}/details`);
+                const user = await resp.json();
                 
-                document.getElementById("sidebar-username").textContent = `${user.vorname} ${user.nachname}`;
+                // Overlay befüllen
+                document.getElementById("sidebar-username").textContent = `${user.first_name} ${user.last_name}`;
+                document.getElementById("user-anrede").textContent = user.anrede || "-";
+                document.getElementById("user-vorname").textContent = user.first_name;
+                document.getElementById("user-nachname").textContent = user.last_name;
+                document.getElementById("user-geburtstag").textContent = user.geburtsdatum || "-";
+                document.getElementById("user-adresse").textContent = user.address || "-";
+                document.getElementById("user-telefon").textContent = user.telephone || "-";
 
-                // Overlay öffnen
+                const accountList = document.querySelector(".account-list");
+                accountList.innerHTML = user.accounts.map(acc => `
+                    <li title="${acc.system}"><span class="account-name">${acc.name}</span> <button class="account-cta">🔁</button></li>
+                `).join("");
+
                 overlay.classList.add("active");
-
-                // Daten in Details Tab einfügen
-                document.getElementById("user-racf").textContent = user.racf;
-                document.getElementById("user-name").textContent = `${user.vorname} ${user.nachname}`;
-                document.getElementById("user-email").textContent = user.email;
-                document.getElementById("user-adresse").textContent = user.adresse || "-";
-                document.getElementById("user-telefon").textContent = user.telefon || "-";
-                document.getElementById("user-geburtstag").textContent = user.geburtstag || "-";
             });
         });
 
-        // Tabs Logik
+        // --------------------------
+        // Sidebar Tabs Logik
+        // --------------------------
         document.querySelectorAll(".sidebar-tabs .tab").forEach(tabBtn => {
             tabBtn.addEventListener("click", () => {
                 // Tabs aktivieren
@@ -116,6 +84,15 @@ document.addEventListener("DOMContentLoaded", () => {
             "Error": "status-red"
         };
         return `<span class="badge ${map[status] || "status-grey"}">${status}</span>`;
+    }
+
+    function renderHauptrolle(mr) {
+        const map = mr == 'Extern' ? "red" : "blue";
+        return `<span class="badge status-${map}">${mr}</span>`;
+    }
+
+    function renderNebenRollenCount(nr) {
+        return `<td title="${nr}" class="label-ttip">${nr.length}</td>`;
     }
 
     // --------------------------

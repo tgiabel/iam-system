@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/page_w_table.css') }}">
+{% endblock %}
+{% block scripts %}
+<script>
+const users = {{ users | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/userverwaltung.js') }}"></script>
+{% endblock %}
+{% set page_title = "Userverwaltung" %}
+{% block content %}
+<div class="page-container">
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-main">
+            <div class="filter-container">
+                <button id="filter-btn">🔍 Filter</button>
+                <div id="filter-dropdown" class="filter-dropdown">
+                    <button data-filter="hauptrolle">Hauptrolle</button>
+                    <button data-filter="nebenrolle">Nebenrolle</button>
+                    <button data-filter="status">Status</button>
+                </div>
+
+                <!-- Subfilter-Dropdown -->
+                <div id="subfilter-dropdown" class="subfilter-dropdown">
+                    <!-- Wird dynamisch gefüllt -->
+                </div>
+            </div>
+
+            <h2 class="top-bar-title">Userverwaltung</h2>
+
+            <div>
+                <button id="action-btn">⚙️ Aktion</button>
+            </div>
+        </div>
+
+        <!-- Aktive Filter Tags -->
+        <div class="filter-tags" id="active-filters"></div>
+
+        <!-- Suchfeld -->
+        <div class="search-field" style="margin-top:8px; width: 60%;">
+            <input type="text" id="search-input" placeholder="Suche nach Name, E-Mail oder RACF...">
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table id="user-table">
+            <thead>
+                <tr>
+                    <th>RACF</th>
+                    <th>Vorname</th>
+                    <th>Nachname</th>
+                    <th>E-Mail</th>
+                    <th>Hauptrolle</th>
+                    <th>Nebenrollen</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Wird dynamisch gefüllt -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Overlay Sidebar -->
+<div class="overlay" id="sidebar-overlay">
+    <div class="sidebar">
+
+        <!-- Fester Header -->
+        <div class="sidebar-header" id="sidebar-username">Max Mustermann</div>
+
+        <!-- Tabs -->
+        <div class="sidebar-tabs">
+            <button class="tab active" data-tab="details">Details</button>
+            <button class="tab" data-tab="rollen">Rollen</button>
+            <button class="tab" data-tab="berechtigungen">Berechtigungen</button>
+        </div>
+
+        <!-- Inhalt -->
+        <div class="tab-content" id="tab-details">
+            <!-- Persönliche Infos -->
+            <section class="info-section">
+                <h3>Persönliche Infos</h3>
+                <div class="info-grid">
+                    <p><strong>Anrede:</strong> <span id="user-anrede">Herr</span></p>
+                    <p><strong>Nachname:</strong> <span id="user-nachname">Mustermann</span></p>
+                    <p><strong>Vorname:</strong> <span id="user-vorname">Max</span></p>
+                    <p><strong>Geburtsdatum:</strong> <span id="user-geburtstag">1990-01-01</span></p>
+                    <p><strong>E-Mail:</strong> <span id="user-email">max.mustermann@servodata.de</span></p>
+                    <p><strong>Telefon:</strong> <span id="user-telefon">+49 123 456789</span></p>
+                    <p><strong>Anschrift:</strong> <span id="user-adresse">Musterstraße 1, 12345 Musterstadt</span></p>
+                </div>
+            </section>
+
+            <!-- Betriebliche Infos -->
+            <section class="info-section">
+                <h3>Betriebliche Infos</h3>
+                <div class="info-grid">
+                    <p><strong>Personalnummer:</strong> <span id="user-persnr">10234</span></p>
+                    <p><strong>Abteilung:</strong> <span id="user-abteilung">Kundendienst</span></p>
+                    <p><strong>Wochenstunden:</strong> <span id="user-wochenstunden">40</span></p>
+                    <p><strong>Firmen-E-Mail:</strong> <span id="user-email2">m.mustermann@firma.de</span></p>
+                    <p><strong>Telefon (intern):</strong> <span id="user-tel-intern">123-456</span></p>
+                    <p><strong>Mobil:</strong> <span id="user-tel-mobil">+49 171 987654</span></p>
+                    <p><strong>Eintritt:</strong> <span id="user-eintritt">2015-04-01</span></p>
+                    <p><strong>Austritt:</strong> <span id="user-austritt">-</span></p>
+                </div>
+            </section>
+
+            <!-- Accounts -->
+            <section class="info-section">
+                <h3>Accounts</h3>
+                <ul class="account-list">
+                    <li title="Active Directory"><span class="account-name">mmustermann</span> <button class="account-cta">🔁</button></li>
+                    <li title="Exchange Mail"><span class="account-name">m.mustermann</span> <button class="account-cta">🔁</button></li>
+                    <li title="SAP HR"><span class="account-name">MMU123</span> <button class="account-cta">🔁</button></li>
+                </ul>
+            </section>
+
+            <!-- Hardware im Besitz -->
+            <section class="info-section">
+                <h3>Hardware im Besitz</h3>
+                <ul class="hardware-list">
+                    <li>💻 Firmenlaptop – Kennung NB-5487</li>
+                    <li>📱 Diensthandy – Samsung S23 (IMEI 1234567890)</li>
+                    <li>🖨️ Druckerzugang – Etage 3 West</li>
+                </ul>
+            </section>
+        </div>
+
+        <div class="tab-content hidden" id="tab-rollen"></div>
+        <div class="tab-content hidden" id="tab-berechtigungen"></div>
+    </div>
+</div>
+
+
+
+{% endblock %}

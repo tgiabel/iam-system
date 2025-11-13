@@ -9,7 +9,7 @@ main = Blueprint("main", __name__)
 # Dashboard (offen)
 @main.route("/")
 def index():
-    return render_template("page_template/page_w_table.html")
+    return render_template("dashboard.html")
 
 
 @main.route("/login", methods=["GET", "POST"])
@@ -52,23 +52,35 @@ def reports():
 @main.route("/users")
 @login_required
 def users():
-    # Configs
-    role_colors = current_app.config["ROLE_COLOR_MAP"]
-
-    # Aktive User aus der Identity-Tabelle laden
+    # Tabelle braucht nur minimalen Satz an Infos
     identities = Identity.query.filter_by(active=True).all()
+    # Wir geben nur die Felder mit, die die Tabelle anzeigt
+    table_data = [
+        {
+            "id": i.id,
+            "racf": i.username,
+            "vorname": i.first_name,
+            "nachname": i.last_name,
+            "email": i.email,
+            "hauptrolle": i.main_role.name if i.main_role else None,
+            "nebenrollen": [r.name for r in i.roles if r != i.main_role],
+            "status": "Aktiv" if i.active else "Inaktiv"
+        }
+        for i in identities
+    ]
+    role_colors = current_app.config.get("ROLE_COLOR_MAP", {})
 
-    return render_template("users.html", identities=identities)
+    return render_template("userverwaltung.html", users=table_data, role_colors=role_colors)
 
 @main.route("/location")
 @login_required
 def location():
     return render_template("standortverwaltung.html")
 
-@main.route("/location/<int:id>")
+@main.route("/location/<int:raum_id>")
 @login_required
-def room_details(id):
-    return render_template("raum_detail.html")
+def room_details(raum_id):
+    return render_template("raum_detail.html", raum_id=raum_id)
 
 @main.route("/permissions")
 @login_required
