@@ -1,0 +1,168 @@
+from fastapi import FastAPI, Request, Response, Cookie
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, RedirectResponse
+
+
+import json
+
+app = FastAPI(title="SOFA Frontend Refactor")
+
+templates = Jinja2Templates(directory="app/templates")
+
+# ---------------------------------------
+# Hilfsfunktion zum Auslesen des Users
+# ---------------------------------------
+def get_current_user(sofa_user: str | None):
+    if sofa_user:
+        return json.loads(sofa_user)
+    return None
+
+# ---------------------------------------
+# Dashboard (offen)
+# ---------------------------------------
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
+
+
+# ---------------------------------------
+# Login Overlay / POST (extern)
+# ---------------------------------------
+@app.get("/login", response_class=HTMLResponse)
+def login_page(request: Request):
+    # Einfach Overlay-Form oder Login-Template
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/login")
+def login(request: Request, response: Response):
+    # Platzhalter: hier später externes Backend aufrufen
+    # Beispiel: user_data = call_auth_api(username, password)
+    user_data = {
+        "username": "demo",
+        "first_name": "Max",
+        "roles": ["Admin"]
+    }
+
+    # Cookie setzen
+    cookie_value = json.dumps(user_data)
+    response = RedirectResponse(url="/", status_code=303)
+    response.set_cookie(
+        key="sofa_user",
+        value=cookie_value,
+        httponly=True,
+        max_age=3600*8
+    )
+    return response
+
+@app.get("/logout")
+def logout(response: Response):
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie("sofa_user")
+    return response
+
+# ---------------------------------------
+# Geschützte Bereiche (Templates beibehalten)
+# ---------------------------------------
+@app.get("/tasks", response_class=HTMLResponse)
+def tasks(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("tasks.html", {"request": request, "user": user})
+
+@app.get("/reports", response_class=HTMLResponse)
+def reports(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("reports.html", {"request": request, "user": user})
+
+@app.get("/users", response_class=HTMLResponse)
+def users(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    # Platzhalter-Daten oder externe API-Aufruf
+    table_data = []
+    role_colors = {}
+    return templates.TemplateResponse("userverwaltung.html", {"request": request, "user": user, "users": table_data, "role_colors": role_colors})
+
+@app.get("/location", response_class=HTMLResponse)
+def location(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("standortverwaltung.html", {"request": request, "user": user})
+
+@app.get("/location/{raum_id}", response_class=HTMLResponse)
+def room_details(request: Request, raum_id: int, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("raum_detail.html", {"request": request, "user": user, "raum_id": raum_id})
+
+@app.get("/permissions", response_class=HTMLResponse)
+def permissions(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("permissions.html", {"request": request, "user": user})
+
+@app.get("/responsibilities", response_class=HTMLResponse)
+def responsibilities(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("responsibilities.html", {"request": request, "user": user})
+
+@app.get("/roles", response_class=HTMLResponse)
+def roles(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("roles.html", {"request": request, "user": user})
+
+@app.get("/process", response_class=HTMLResponse)
+def process(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("process.html", {"request": request, "user": user})
+
+@app.get("/systems", response_class=HTMLResponse)
+def systems(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    # Platzhalter für Ressource Types
+    res_types = []
+    return templates.TemplateResponse("systemverwaltung.html", {"request": request, "user": user, "res_types": res_types})
+
+@app.get("/systems/hardware", response_class=HTMLResponse)
+def hardware(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    res_types = []
+    return templates.TemplateResponse("hardware.html", {"request": request, "user": user, "res_types": res_types})
+
+@app.get("/systems/software", response_class=HTMLResponse)
+def software_menu(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    res_types = []
+    return templates.TemplateResponse("software_menu.html", {"request": request, "user": user, "res_types": res_types})
+
+@app.get("/systems/software/{software}", response_class=HTMLResponse)
+def software(request: Request, software: str, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    # Beispiel-Datensatz wie bisher
+    if software.lower() == "genesys":
+        system = {
+            "name": "Genesys Cloud",
+            "schutzbedarf": "Mittel",
+            "accounts": [],
+            "roles": [],
+            "licenses": [],
+            "other_resources": []
+        }
+        critical_accounts = ["Admin", "Technischer Benutzer"]
+        employees = ["Lisa Müller", "Tom Becker", "Anna Schmidt", "Max Mustermann"]
+        roles = ["Agent", "Supervisor", "Admin"]
+    else:
+        return f"Kein Beispieldatensatz für {software}", 404
+
+    return templates.TemplateResponse(
+        "software.html",
+        {
+            "request": request,
+            "user": user,
+            "system": system,
+            "critical_accounts": critical_accounts,
+            "employees": employees,
+            "roles": roles
+        }
+    )
+
+@app.get("/account", response_class=HTMLResponse)
+def account(request: Request, sofa_user: str | None = Cookie(default=None)):
+    user = get_current_user(sofa_user)
+    return templates.TemplateResponse("account.html", {"request": request, "user": user})

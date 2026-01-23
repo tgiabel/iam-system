@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set page_title = "Hardwareverwaltung" %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/menu.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="menu-section">
+    <h2 class="menu-header">Hardware</h2>
+
+    <div class="menu-grid">
+        <a href="/computer" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/hardware.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Rechner</span>
+        </a>
+
+        <a href="/printer" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/software.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Drucker</span>
+        </a>
+
+        <a href="/phones" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/drive.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Smartphones</span>
+        </a>
+
+        <a href="/misc" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/mailbox.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Peripherie & Sonstige</span>
+        </a>
+    </div>
+</div>
+
+{% endblock %}

@@ -144,41 +144,89 @@ p, span, a, label {
 /* =========================
    5. NAVIGATION
 ========================= */
-.nav-links { flex-wrap: nowrap; }
-.nav-links a {
+.nav-links { flex-wrap: nowrap; display: flex; gap: 1rem; align-items: center; }
+.nav-links a, .nav-button {
     color: white;
     text-decoration: none;
     margin-right: 15px;
     font-weight: 500;
     white-space: nowrap;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1rem;
 }
-.nav-links a:hover { text-decoration: underline; }
+.nav-links a:hover, .nav-button:hover { text-decoration: underline; }
 
-.profile-icon { height: 36px; width: 36px; border-radius: 50%; cursor: pointer; }
-.profile-dropdown { position: relative; }
-.dropdown-menu {
-    background-color: white;
-    color: black;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    min-width: 120px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    z-index: 1001;
-    display: flex;
-    flex-direction: column;
-}
-.dropdown-menu a {
-    padding: 10px;
-    text-decoration: none;
-    color: black;
-}
-.dropdown-menu a:hover { background-color: #f0f0f0; }
+/* dropdown container */
+.nav-item, .profile-dropdown { position: relative; display: inline-flex; align-items: center; }
 
-.nav-dropdown {
+/* unified subnav/dropdown menu */
+.subnav {
+    display: none;
     position: absolute;
-    top: 45px;
-    right: 0;
+    top: calc(100% + 8px);
+    left: 0;
+    min-width: 200px;
+    background: white;
+    color: #222;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    flex-direction: column;
+    z-index: 1500;
+    padding: 6px 0;
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    transform-origin: top left;
+    opacity: 0;
+    transform: translateY(-4px);
+    pointer-events: none;
 }
+
+/* visible state controlled by JS by adding .open on parent */
+.dropdown.open > .subnav {
+    display: flex;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+/* menu items */
+.subnav-item, .subnav a {
+    padding: 8px 12px;
+    color: #333;
+    text-decoration: none;
+    display: block;
+    white-space: nowrap;
+}
+.subnav-item:hover, .subnav a:hover { background: #f5f5f5; }
+
+/* profile icon styles */
+.profile-button {
+    background: transparent;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+.profile-button:focus {
+    outline: 2px solid rgba(255,255,255,0.15);
+}
+.profile-icon {
+    width: 34px;
+    height: 34px;
+    display: block;
+    border-radius: 50%;
+}
+
+/* ensure no hover-only behavior remains */
+.nav-item:hover .subnav,
+.profile-dropdown:hover .subnav { /* no-op to avoid hover persistence */ }
+
 /* =========================
    6. ALERTS & FLASH MESSAGES
 ========================= */

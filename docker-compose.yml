@@ -1,29 +1,9 @@
+version: "3.9"
 services:
   app:
     build: .
     ports:
       - "8000:8000"
-    depends_on:
-      - db
-    environment:
-      - DATABASE_URL=mysql+pymysql://dev:dev@db/sd_monitor
     volumes:
-      - ./app:/app/app  
-      - ./run.py:/app/run.py
+      - ./app:/app/app
       - ./requirements.txt:/app/requirements.txt
-      - ./migrations:/app/migrations
-
-  db:
-    image: mariadb:10.11
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: sd_monitor
-      MYSQL_USER: dev
-      MYSQL_PASSWORD: dev
-    ports:
-      - "3307:3306"
-    volumes:
-      - sd_monitor_db_data:/var/lib/mysql
-
-volumes:
-  sd_monitor_db_data:

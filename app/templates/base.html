@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ page_title }} | SD Monitor</title>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='img/logo.png') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/_.css') }}">
+    <link rel="icon" type="image/x-icon" href="/static/img/logo.png">
+    <link rel="stylesheet" href="/static/css/_.css">
     {% block css %}{% endblock %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,17 +12,17 @@
       href="https://fonts.googleapis.com/css2?family=Abel&display=swap"
       rel="stylesheet"
     />
-    <script src="{{ url_for('static', filename='js/base.js') }}"></script>
+    <script src="/static/js/base.js"></script>
     {% block scripts %}{% endblock %}
 </head>
 <body>
     <header class="main-header">
         <div class="header-left">
             <div class="logo-wrapper">
-                <img src="{{ url_for('static', filename='img/handshake.png') }}" 
+                <img src="/static/img/handshake.png" 
                     alt="Logo" 
                     class="logo default-logo">
-                <img src="{{ url_for('static', filename='img/handshake_hover.png') }}" 
+                <img src="/static/img/handshake_hover.png" 
                     alt="Logo Hover" 
                     class="logo hover-logo">
             </div>
@@ -34,30 +34,51 @@
         </div>
 
         <div class="header-right">
-            <nav class="nav-links">
-                <a href="/">Dashboard</a>
-                <a href="/tasks">Mein Bereich</a>
-                <a href="http://dashboard/" target="_blank" rel="noopener noreferrer">Reports</a>
-                <a href="/users">Userverwaltung</a>
-                <a href="/location">Standortverwaltung</a>
+            <nav class="nav-links" role="navigation" aria-label="Hauptnavigation">
+                <a href="/" class="nav-link">Dashboard</a>
+
+                {% if user %}
+                    <!-- Nur eingeloggte User sehen diese Links -->
+                    <a href="/tasks" class="nav-link">Mein Bereich</a>
+                    <a href="http://dashboard/" target="_blank" rel="noopener noreferrer" class="nav-link">Reports</a>
+
+                    <!-- Admin dropdown (click-to-toggle) -->
+                    <div class="nav-item dropdown" id="nav-admin">
+                        <button id="admin-button" class="nav-button" type="button"
+                                aria-haspopup="true" aria-expanded="false" aria-controls="admin-subnav">
+                            Admin ▾
+                        </button>
+                        <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
+                            <a href="/users" role="menuitem" class="subnav-item">Userverwaltung</a>
+                            <a href="/systems" role="menuitem" class="subnav-item">Systemverwaltung</a>
+                            <a href="/location" role="menuitem" class="subnav-item">Standortverwaltung</a>
+                        </div>
+                    </div>
+
+                    <!-- Profile dropdown -->
+                    <div class="profile-dropdown dropdown" id="nav-profile">
+                        <button id="profile-button" class="profile-button" type="button"
+                                aria-haspopup="true" aria-expanded="false" aria-controls="profile-subnav" title="Profil">
+                            <img src="/static/img/account_icon.png" alt="Profil" class="profile-icon" />
+                        </button>
+                        <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
+                            <a href="/account" role="menuitem" class="subnav-item">Account</a>
+                            <a href="/logout" role="menuitem" class="subnav-item">Abmelden</a>
+                        </div>
+                    </div>
+                {% else %}
+                    <!-- Nur wenn nicht eingeloggt -->
+                    <a href="/login" class="nav-link">Login</a>
+                {% endif %}
             </nav>
-            <div class="profile-dropdown">
-                <img src="{{ url_for('static', filename='img/account_icon.png') }}" alt="Profil" class="profile-icon" id="profile-icon">
-                <div id="dropdown-menu" class="dropdown-menu nav-dropdown hidden">
-                    {% if current_user.is_authenticated %}
-                    <a href="/account">Account</a>
-                    <a href="/logout">Logout</a>
-                    {% else %}
-                    <a href="/login">Login</a>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+
+
+
+         </div>
     </header>
 
     <main>
         <!-- Flash messages -->
-        {% with flash_messages = get_flashed_messages(with_categories=true) %}
         {% if flash_messages %}
             <div class="flash-messages">
             {% for category, f_message in flash_messages %}
@@ -67,7 +88,6 @@
             {% endfor %}
             </div>
         {% endif %}
-        {% endwith %}
 
         {% block content %}{% endblock %}
     </main>

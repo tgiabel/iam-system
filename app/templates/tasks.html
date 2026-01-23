@@ -1,7 +1,76 @@
 {% extends "base.html" %}
 
 {% set page_title = "Mein Bereich" %}
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+{% endblock %}
 {% block content %}
-<h2>Willkommen, {{ current_user.username }}</h2>
-<p>Hier ist dein Bereich.</p>
+
+<div class="menu-section">
+    <h2 class="menu-header">Meine Tools</h2>
+
+    <div class="menu-grid">
+        <a href="" class="menu-tile">
+            <span class="menu-text">DAT Export Check</span>
+        </a>
+
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">Ticketbearbeitung</span>
+        </a>
+
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">...</span>
+        </a>
+    </div>
+</div>
+
+
+<div class="menu-section">
+    <h2 class="menu-header">Meine Reports</h2>
+
+    <div class="menu-grid">
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">Hardware</span>
+        </a>
+
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">Software</span>
+        </a>
+
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">Laufwerk</span>
+        </a>
+
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">Postfächer</span>
+        </a>
+
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">Verteiler</span>
+        </a>
+
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">Schlüssel</span>
+        </a>
+    </div>
+    <div class="menu-section">
+    <h2 class="menu-header">Meine Aufgaben</h2>
+
+    <div class="menu-grid">
+        <a href="" class="menu-tile">
+            <img src="" class="menu-icon" alt="">
+            <span class="menu-text">...</span>
+        </a>
+    </div>
+    </div>
+</div>
+
 {% endblock %}

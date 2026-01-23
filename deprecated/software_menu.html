@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set page_title = "Software Übersicht" %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/menu.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="menu-section">
+    <h2 class="menu-header">Hardware</h2>
+
+    <div class="menu-grid">
+        <a href="/systems/software/genesys" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/software.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Genesys</span>
+        </a>
+
+        <a href="/systems/software/windows" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/software.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Windows</span>
+        </a>
+
+        <a href="/systems/software/outsystems" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/software.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">OutSystems</span>
+        </a>
+
+        <a href="/misc" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/mailbox.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Peripherie & Sonstige</span>
+        </a>
+    </div>
+</div>
+
+{% endblock %}

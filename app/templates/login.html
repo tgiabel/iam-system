@@ -3,7 +3,7 @@
 {% set page_title = "Login" %}
 
 {% block css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/overlay.css') }}">
+<link rel="stylesheet" href="/static/css/overlay.css">
 {% endblock %}
 
 {% block content %}
@@ -14,11 +14,11 @@
     <div class="overlay-header">
       <h2>Login</h2>
       <span class="badge status-red">Anmeldung notwendig</span>
-      <button class="close-button" onclick="closeOverlay('login-overlay')">x</button>
+      <button class="close-button" onclick="window.location.href='/'">x</button>
     </div>
 
     <!-- Form -->
-    <form class="overlay-form" method="POST" action="{{ url_for('main.login_page') }}">
+    <form class="overlay-form" method="POST" action="{{ request.url_for('login') }}">
       <div class="form-item col">
         <span class="label">Benutzername</span>
         <input type="text" id="username" name="username" required>
@@ -30,7 +30,7 @@
       </div>
 
       <div class="overlay-actions">
-        <button type="button" class="btn btn-secondary" onclick="closeOverlay('login-overlay')">Abbrechen</button>
+        <button type="button" class="btn btn-secondary" onclick="window.location.href='/'">Abbrechen</button>
         <button type="submit" class="btn btn-primary">Login</button>
       </div>
     </form>

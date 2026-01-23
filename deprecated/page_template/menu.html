@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% set page_title = "Menü" %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/menu.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="menu-section">
+    <h2 class="menu-header">Allgemeine Funktionen</h2>
+
+    <div class="menu-grid">
+        <a href="/dashboard" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/menu/dashboard.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Dashboard</span>
+        </a>
+
+        <a href="/tasks" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/menu/tasks.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Mein Bereich</span>
+        </a>
+
+        <a href="/reports" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/menu/reports.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Reports</span>
+        </a>
+    </div>
+</div>
+
+
+<div class="menu-section">
+    <h2 class="menu-header">Administration</h2>
+
+    <div class="menu-grid">
+        <a href="/users" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/menu/users.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Userverwaltung</span>
+        </a>
+
+        <a href="/systems" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/menu/systems.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Systemverwaltung</span>
+        </a>
+
+        <a href="/location" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/menu/location.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Standortverwaltung</span>
+        </a>
+    </div>
+</div>
+
+{% endblock %}

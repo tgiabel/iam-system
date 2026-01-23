@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% set page_title = system.name %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/system_detail.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/system_detail.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- ================================= -->
+<!--            TOP OVERVIEW            -->
+<!-- ================================= -->
+<div class="system-overview">
+
+    <h2 class="system-title">{{ system.name }}</h2>
+
+    <div class="system-overview-grid">
+
+        <!-- Example: Schutzbedarf -->
+        <div class="sys-info-tile">
+            <div class="sys-info-head">Schutzbedarf</div>
+            <div class="sys-info-value">{{ system.schutzbedarf }}</div>
+        </div>
+
+        <!-- Example: kritische Konten -->
+        <div class="sys-info-tile">
+            <div class="sys-info-head">Kritische Konten</div>
+            <div class="sys-info-value">{{ critical_accounts|length }}</div>
+        </div>
+
+        <!-- Example: Anzahl Rollen -->
+        <div class="sys-info-tile">
+            <div class="sys-info-head">Rollen</div>
+            <div class="sys-info-value">{{ roles|length }}</div>
+        </div>
+
+        <!-- Example: Anzahl User -->
+        <div class="sys-info-tile">
+            <div class="sys-info-head">Benutzer</div>
+            <div class="sys-info-value">{{ employees|length }}</div>
+        </div>
+
+    </div>
+</div>
+
+
+
+<!-- ================================= -->
+<!--              SECTIONS              -->
+<!-- ================================= -->
+
+<div class="system-section">
+    <h3 class="section-title">Konten</h3>
+    <div class="resource-list">
+        {% for acc in system.accounts %}
+        <div class="resource-item" data-roles="{{ acc.roles|join(', ') }}" data-users="{{ acc.employees|join(', ') }}">
+            <div class="resource-name">{{ acc.name }}</div>
+            <div class="resource-meta">
+                <span class="badge">{{ acc.roles|length }} Rollen</span>
+                <span class="badge">{{ acc.employees|length }} Benutzer</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<div class="system-section">
+    <h3 class="section-title">Gruppen / Rollen</h3>
+    <div class="resource-list">
+        {% for role in system.roles %}
+        <div class="resource-item" data-roles="{{ role.roles|join(', ') }}" data-users="{{ role.employees|join(', ') }}">
+            <div class="resource-name">{{ role.name }}</div>
+            <div class="resource-meta">
+                <span class="badge">{{ role.roles|length }} Sub-Rollen</span>
+                <span class="badge">{{ role.employees|length }} Benutzer</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<div class="system-section">
+    <h3 class="section-title">Lizenzen</h3>
+    <div class="resource-list">
+        {% for lic in system.licenses %}
+        <div class="resource-item" data-roles="{{ lic.roles|join(', ') }}" data-users="{{ lic.employees|join(', ') }}">
+            <div class="resource-name">{{ lic.name }}</div>
+            <div class="resource-meta">
+                <span class="badge">{{ lic.roles|length }} Rollen</span>
+                <span class="badge">{{ lic.employees|length }} Benutzer</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<div class="system-section">
+    <h3 class="section-title">Sonstige Ressourcen</h3>
+    <div class="resource-list">
+        {% for res in system.other_resources %}
+        <div class="resource-item" data-roles="{{ res.roles|join(', ') }}" data-users="{{ res.employees|join(', ') }}">
+            <div class="resource-name">{{ res.name }}</div>
+            <div class="resource-meta">
+                <span class="badge">{{ res.roles|length }} Rollen</span>
+                <span class="badge">{{ res.employees|length }} Benutzer</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+<!-- Sidebar Overlay -->
+<div id="resource-sidebar-overlay"></div>
+
+<div id="resource-sidebar">
+    <div class="sidebar-header">
+        <h3 id="sidebar-title"></h3>
+        <button id="sidebar-close">×</button>
+    </div>
+
+    <div class="sidebar-content">
+        <h4>Rollen</h4>
+        <ul id="sidebar-roles"></ul>
+
+        <h4>Benutzer</h4>
+        <ul id="sidebar-users"></ul>
+    </div>
+</div>
+
+{% endblock %}

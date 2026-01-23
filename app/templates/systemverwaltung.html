@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% set page_title = "Systemverwaltung" %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/menu.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+
+<div class="menu-section">
+    <h2 class="menu-header">Berechtigungsmanagement</h2>
+
+    <div class="menu-grid">
+        <a href="/systems/roles" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/roles.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Rollen</span>
+        </a>
+
+        <a href="/systems/responsibility" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/responsibility.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Kontrollen</span>
+        </a>
+
+        <a href="/systems/process" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/process.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Prozesse</span>
+        </a>
+    </div>
+</div>
+
+
+<div class="menu-section">
+    <h2 class="menu-header">Systeme</h2>
+
+    <div class="menu-grid">
+        <a href="/systems/hardware" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/hardware.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Hardware</span>
+        </a>
+
+        <a href="/systems/software" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/software.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Software</span>
+        </a>
+
+        <a href="/systems/drive" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/drive.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Laufwerk</span>
+        </a>
+
+        <a href="/systems/mailbox" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/mailbox.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Postfächer</span>
+        </a>
+
+        <a href="/systems/mailing" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/mailing.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Verteiler</span>
+        </a>
+
+        <a href="/systems/keys" class="menu-tile">
+            <img src="{{ url_for('static', filename='img/keys.png') }}" class="menu-icon" alt="">
+            <span class="menu-text">Schlüssel</span>
+        </a>
+    </div>
+</div>
+
+{% endblock %}

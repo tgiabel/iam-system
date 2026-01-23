@@ -1,12 +1,12 @@
-from . import db
+from ..app import db
 from flask import Blueprint, abort, jsonify, request
 from .models import Identity
 from .rbac import requires_permission
 
 api = Blueprint("api", __name__, url_prefix="/api")
 
+'''@requires_permission("users:view")'''
 @api.route("/users/<int:user_id>/details", methods=["GET"])
-@requires_permission("users:view")
 def get_user_details(user_id):
     """Gibt alle Details eines Users für das Sidebar-Overlay zurück"""
     user = Identity.query.get_or_404(user_id)
