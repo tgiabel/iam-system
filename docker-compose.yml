@@ -7,3 +7,9 @@ services:
     volumes:
       - ./app:/app/app
       - ./requirements.txt:/app/requirements.txt
+    networks:
+      - dev_default
+
+networks:
+  dev_default:
+    external: true

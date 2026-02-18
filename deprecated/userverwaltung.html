@@ -29,7 +29,7 @@
             <h2 class="top-bar-title">Userverwaltung</h2>
 
             <div>
-                <button id="onboard-action-btn">Onboarding</button>
+                <button id="action-btn">Aktion</button>
             </div>
         </div>
 
@@ -47,14 +47,11 @@
         <table id="user-table">
             <thead>
                 <tr>
-                    <th class="select-col">
-                        <input type="checkbox" id="select-all">
-                    </th>
                     <th>PNR</th>
                     <th>Vorname</th>
                     <th>Nachname</th>
                     <th>E-Mail</th>
-                    <th>Funktion</th>
+                    <th>Hauptrolle</th>
                     <th>Nebenrollen</th>
                     <th>Status</th>
                 </tr>
@@ -86,26 +83,28 @@
             <section class="info-section">
                 <h3>Persönliche Infos</h3>
                 <div class="info-grid">
-                    <p><strong>Personalnummer:</strong> <span id="user-pnr">10234</span></p>
+                    <p><strong>Anrede:</strong> <span id="user-anrede">Herr</span></p>
                     <p><strong>Nachname:</strong> <span id="user-nachname">Mustermann</span></p>
                     <p><strong>Vorname:</strong> <span id="user-vorname">Max</span></p>
-                    <p><strong>Funktion:</strong> <span id="user-funktion"></span></p>
+                    <p><strong>Geburtsdatum:</strong> <span id="user-geburtstag">1990-01-01</span></p>
                     <p><strong>E-Mail:</strong> <span id="user-email">max.mustermann@servodata.de</span></p>
-                    <p><strong>Durchwahl:</strong> <span id="user-telefon"></span></p>
-                    <p><strong>Mobil:</strong> <span id="user-mobil"></span></p>
+                    <p><strong>Telefon:</strong> <span id="user-telefon">+49 123 456789</span></p>
+                    <p><strong>Anschrift:</strong> <span id="user-adresse">Musterstraße 1, 12345 Musterstadt</span></p>
+                </div>
+            </section>
+
+            <!-- Betriebliche Infos -->
+            <section class="info-section">
+                <h3>Betriebliche Infos</h3>
+                <div class="info-grid">
+                    <p><strong>Personalnummer:</strong> <span id="user-persnr">10234</span></p>
+                    <p><strong>Abteilung:</strong> <span id="user-abteilung">Kundendienst</span></p>
+                    <p><strong>Wochenstunden:</strong> <span id="user-wochenstunden">40</span></p>
+                    <p><strong>Firmen-E-Mail:</strong> <span id="user-email2">m.mustermann@firma.de</span></p>
+                    <p><strong>Telefon (intern):</strong> <span id="user-tel-intern">123-456</span></p>
+                    <p><strong>Mobil:</strong> <span id="user-tel-mobil">+49 171 987654</span></p>
                     <p><strong>Eintritt:</strong> <span id="user-eintritt">2015-04-01</span></p>
                     <p><strong>Austritt:</strong> <span id="user-austritt">-</span></p>
-                    <p>
-                    <strong></strong>
-                        <a
-                            id="user-helix-link"
-                            href="#"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            🔗 In Helix aufrufen
-                        </a>
-                    </p>
                 </div>
             </section>
 
@@ -118,13 +117,16 @@
                     <li title="SAP HR"><span class="account-name">MMU123</span> <button class="account-cta">🔁</button></li>
                 </ul>
             </section>
-            <section class="info-section">
-                <h3>Aktionen</h3>
-                <button class="btn-primary btn">Schulung</button>
-                <button class="btn-secondary btn">Temporäre Rolle</button>
-                <button class="btn-red btn">Offboarding</button>
-            </section>
 
+            <!-- Hardware im Besitz -->
+            <section class="info-section">
+                <h3>Hardware im Besitz</h3>
+                <ul class="hardware-list">
+                    <li>💻 Firmenlaptop – Kennung NB-5487</li>
+                    <li>📱 Diensthandy – Samsung S23 (IMEI 1234567890)</li>
+                    <li>🖨️ Druckerzugang – Etage 3 West</li>
+                </ul>
+            </section>
         </div>
 
         <div class="tab-content hidden" id="tab-rollen"></div>
@@ -132,28 +134,6 @@
     </div>
 </div>
 
-<!-- Onboarding Overlay -->
-<div class="overlay" id="onboard-overlay">
-    <div class="onboard-modal">
-        <h3>Onboarding</h3>
-        <div class="onboard-actions">
-            <button id="onboard-external-btn" class="btn btn-secondary">Extern</button>
-            <button id="onboard-employee-btn" class="btn btn-primary">Mitarbeiter</button>
-        </div>
-        <button id="onboard-close-btn" class="btn btn-secondary">Abbrechen</button>
-    </div>
-</div>
 
-<!-- Temporäre Rechte Overlay-->
-<div class="overlay" id="temp-rights-overlay">
-    <div class="temp-rights-modal">
-        <h3>Temporärer Rollenantrag</h3>
-        <div class="temp-rights-actions">
-            <button id="temp-rights-btn" class="btn btn-secondary">Extern</button>
-            <button id="temp-rights-btn" class="btn btn-primary">Mitarbeiter</button>
-        </div>
-        <button id="temp-rights-close-btn" class="btn btn-secondary">Abbrechen</button>
-    </div>
-</div>
 
 {% endblock %}

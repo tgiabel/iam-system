@@ -23,7 +23,35 @@
     gap: 32px;
 }
 
+.menu-slider {
+    display: flex;              /* horizontal anordnen */
+    flex-wrap: nowrap;          /* nicht umbrechen */
+    overflow-x: auto;           /* horizontal scrollen, wenn zu breit */
+    gap: 1rem;                  /* Abstand zwischen den Tiles */
+    padding: 0.5rem 0;          /* optional etwas Abstand oben/unten */
+}
+
 /* TILE --------------------------------------------------------------- */
+.menu-sl-tile {
+    flex: 0 0 auto;             /* Tiles behalten feste Größe */
+    width: 150px;               /* Beispielbreite, nach Bedarf anpassen */
+    height: 100px;              /* Beispielhöhe */
+    background-color: #f5f5f5;  /* nur als Platzhalter */
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    text-decoration: none;
+    color: #333;
+}
+
+.menu-sl-tile img.menu-icon {
+    max-width: 50px;
+    max-height: 50px;
+    margin-bottom: 0.5rem;
+}
 
 .menu-tile {
     background: var(--color-secondary);
@@ -66,4 +94,35 @@
     text-align: center;
     font-weight: 600;
     color: #333;
+}
+
+/* Tabs oben */
+.tab-container {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    padding-top: 1rem;
+    width: 100%;
+}
+.tab {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    background-color: #eee;
+    border-radius: 5px 5px 0 0;
+    font-weight: bold;
+}
+.tab.active {
+    background-color: #fff;
+    border-bottom: 2px solid #007bff;
+}
+
+/* Tab-Content */
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-width: 100%;
 }

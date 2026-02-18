@@ -2,75 +2,79 @@
 
 {% set page_title = "Mein Bereich" %}
 {% block css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/menu.css') }}">
+<link rel="stylesheet" href="/static/css/menu.css">
 {% endblock %}
+
 {% block content %}
 
-<div class="menu-section">
-    <h2 class="menu-header">Meine Tools</h2>
-
-    <div class="menu-grid">
-        <a href="" class="menu-tile">
-            <span class="menu-text">DAT Export Check</span>
-        </a>
-
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">Ticketbearbeitung</span>
-        </a>
-
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">...</span>
-        </a>
-    </div>
+<div class="tab-container">
+    <div class="tab active" data-tab="aufgaben">Aufgaben</div>
+    <div class="tab" data-tab="tools">Tools</div>
 </div>
 
+<!-- Aufgaben Tab -->
+<div class="tab-content active" id="tab-aufgaben">
 
-<div class="menu-section">
-    <h2 class="menu-header">Meine Reports</h2>
-
-    <div class="menu-grid">
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">Hardware</span>
-        </a>
-
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">Software</span>
-        </a>
-
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">Laufwerk</span>
-        </a>
-
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">Postfächer</span>
-        </a>
-
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">Verteiler</span>
-        </a>
-
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">Schlüssel</span>
-        </a>
-    </div>
     <div class="menu-section">
-    <h2 class="menu-header">Meine Aufgaben</h2>
-
-    <div class="menu-grid">
-        <a href="" class="menu-tile">
-            <img src="" class="menu-icon" alt="">
-            <span class="menu-text">...</span>
-        </a>
+        <h2 class="menu-header">Offene Aufgaben</h2>
+        <div class="menu-slider" id="open-tasks-slider"></div>
     </div>
+
+    <div class="menu-section">
+        <h2 class="menu-header">Meine Aufgaben</h2>
+        <div class="menu-slider" id="my-tasks-slider"></div>
+    </div>
+
+    <div class="menu-section">
+        <h2 class="menu-header">Zuletzt erledigt</h2>
+        <div class="menu-slider" id="completed-tasks-slider"></div>
     </div>
 </div>
+
+
+<!-- Tools Tab -->
+<div class="tab-content" id="tab-tools">
+    <div class="menu-section">
+        <h2 class="menu-header">Meine Tools</h2>
+        <div class="menu-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <a href="" class="menu-tile"><span class="menu-text">DAT-Export Check</span></a>
+            <a href="" class="menu-tile"><span class="menu-text">Ticketbearbeitung</span></a>
+            <a href="" class="menu-tile"><span class="menu-text">Ticketrecherche</span></a>
+            <a href="" class="menu-tile"><span class="menu-text">IKS</span></a>
+        </div>
+    </div>
+</div>
+<!-- Task Overlay -->
+<div class="task-overlay" id="task-overlay">
+    <div class="task-modal">
+
+        <!-- INFO BLOCK -->
+        <div class="task-info">
+            <h3 id="task-modal-title"></h3>
+            <p><strong>User:</strong> <span id="task-modal-user"></span></p>
+            <p><strong>Ressource:</strong> <span id="task-modal-resource"></span></p>
+            <p><strong>Status:</strong> <span id="task-modal-status"></span></p>
+        </div>
+
+        <!-- FORMULAR BLOCK -->
+        <div class="task-form" id="task-form">
+            <!-- Kommentarfeld, User-ID etc. werden hier von renderTaskActions() dynamisch eingefügt -->
+        </div>
+
+        <!-- ACTIONS BLOCK -->
+        <div class="task-actions" id="task-actions">
+        </div>
+
+    </div>
+</div>
+
+<script>
+    window.currentUserId = {{ user.user_id | tojson }};
+</script>
+
+{% block scripts %}
+    <script src="/static/js/tasks.js"></script>
+{% endblock %}
 
 {% endblock %}
+

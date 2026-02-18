@@ -20,8 +20,8 @@
     <!-- Form -->
     <form class="overlay-form" method="POST" action="{{ request.url_for('login') }}">
       <div class="form-item col">
-        <span class="label">Benutzername</span>
-        <input type="text" id="username" name="username" required>
+        <span class="label">Personalnummer</span>
+        <input type="text" id="pnr" name="pnr" required>
       </div>
 
       <div class="form-item col">
@@ -34,7 +34,6 @@
         <button type="submit" class="btn btn-primary">Login</button>
       </div>
     </form>
-
   </div>
 </div>
 {% endblock %}

@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/page_w_table.css">
+<link rel="stylesheet" href="/static/css/rollendetails.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/rollendetails.js"></script>
+{% endblock %}
+
+{% set page_title = "Rollendetails" %}
+
+{% block content %}
+<div class="page-container role-detail">
+
+    <!-- ========================= -->
+    <!-- ROLLEN INFOS -->
+    <!-- ========================= -->
+    <section class="info-section role-info">
+
+        <div class="section-header">
+            <h2>Rolleninformationen</h2>
+
+            <div class="section-actions">
+                <button class="btn btn-secondary" id="edit-role-btn">
+                    Bearbeiten
+                </button>
+                <button class="btn btn-secondary" id="edit-resources-btn">
+                    Ressourcen bearbeiten
+                </button>
+                <button class="btn btn-primary" id="add-resource-btn">
+                    Ressource hinzufügen
+                </button>
+            </div>
+        </div>
+
+        <div class="info-grid">
+
+            {% set fields = [
+                {"label": "ID", "id": "role-id", "type": "text", "readonly": true},
+                {"label": "Name", "id": "role-name", "type": "text"},
+                {"label": "Typ", "id": "role-type", "type": "select"},
+                {"label": "Status", "id": "role-status", "type": "select"},
+                {"label": "Erbt von", "id": "role-parent", "type": "select"},
+                {"label": "Verantwortlich", "id": "role-owner", "type": "select"}
+            ] %}
+
+            {% for field in fields %}
+            <div class="info-field">
+                <label><strong>{{ field.label }}</strong></label>
+
+                <!-- TEXT VIEW -->
+                <span class="field-text" id="{{ field.id }}-text">-</span>
+
+                <!-- INPUT -->
+                {% if field.type == "text" %}
+                    <input
+                        class="field-input input-txt"
+                        id="{{ field.id }}-input"
+                        type="text"
+                        {% if field.readonly %}readonly{% endif %}
+                        style="display:none;"
+                    >
+                {% elif field.type == "select" %}
+                    <select
+                        class="field-input"
+                        id="{{ field.id }}-input"
+                        style="display:none;"
+                    ></select>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+        </div>
+
+        <!-- SAVE / CANCEL -->
+        <div class="edit-actions" id="edit-actions" style="display:none; margin-top:16px; gap:16px;">
+            <button class="btn btn-secondary" id="cancel-edit-btn">
+                Abbrechen
+            </button>
+            <button class="btn btn-primary" id="save-edit-btn">
+                Speichern
+            </button>
+        </div>
+
+    </section>
+
+    <!-- ========================= -->
+    <!-- RESSOURCEN -->
+    <!-- ========================= -->
+    <section class="info-section resources-section">
+
+        <div class="section-header"><h2>Rollenpaket</h2></div>
+
+        <!-- Alle Ressourcen -->
+        <div class="resource-card resource-card-wide disabled" data-type="all">
+            <div class="resource-card-content">
+                <h3>Alle Ressourcen</h3>
+                <span class="resource-count" id="count-all">-</span>
+            </div>
+        </div>
+
+        <!-- 2x2 Grid -->
+        <div class="resource-card-grid">
+
+            <div class="resource-card disabled" data-type="own">
+                <div class="resource-card-content">
+                    <h4>Eigene Ressourcen</h4>
+                    <span class="resource-count" id="count-own">-</span>
+                </div>
+            </div>
+
+            <div class="resource-card disabled" data-type="inherited">
+                <div class="resource-card-content">
+                    <h4>Geerbte Ressourcen</h4>
+                    <span class="resource-count" id="count-inherited">-</span>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="table-wrapper" style="margin-top:16px;">
+            <table id="resources-table">
+                <thead>
+                    <tr>
+                        <th>Kürzel</th>
+                        <th>Name</th>
+                        <th>Ressourcen-Typ</th>
+                        <th>Zuweisung</th>
+                        <th>Geerbt</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Wird dynamisch per JS gefüllt -->
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ========================= -->
+    <!-- RESOURCE OVERLAY (gleich wie bei Systemen) -->
+    <!-- ========================= -->
+    <div id="resource-overlay" class="resource-overlay">
+        <div class="resource-modal">
+            <div class="resource-header">
+                <h3 id="resource-modal-title">Ressource bearbeiten</h3>
+                <button class="btn btn-secondary btn-sm" id="resource-close-btn">&times;</button>
+            </div>
+
+            <div class="resource-body">
+                <div id="resource-select-container">
+                    <label for="resource-select">Ressource auswählen:</label>
+                    <select id="resource-select">
+                        <option value="">-- Bitte wählen --</option>
+                    </select>
+                </div>
+
+                <div id="resource-form-container" style="display:none; margin-top:12px;">
+                    <div class="form-field">
+                        <label for="res-display-name">Name</label>
+                        <input type="text" id="res-display-name" class="form-input">
+                    </div>
+                    <div class="form-field">
+                        <label for="res-technical-id">Technischer Identifier</label>
+                        <input type="text" id="res-technical-id" class="form-input">
+                    </div>
+                    <div class="form-field">
+                        <label for="res-type">Typ</label>
+                        <select id="res-type" class="form-input">
+                            <option value="1">Konto</option>
+                            <option value="2">Gruppe</option>
+                            <option value="3">Lizenz</option>
+                            <option value="4">Sonstige</option>
+                        </select>
+                    </div>
+                    <div class="form-field">
+                        <label for="res-handling">Bearbeitungstyp</label>
+                        <select id="res-handling" class="form-input">
+                            <option value="INTERNAL">Internal</option>
+                            <option value="BOT">Bot</option>
+                            <option value="EXTERNAL">External</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="resource-actions">
+                <button class="btn btn-secondary" id="resource-cancel-btn">Abbrechen</button>
+                <button class="btn btn-primary" id="resource-save-btn">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+</script>
+{% endblock %}

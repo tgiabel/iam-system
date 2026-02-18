@@ -103,6 +103,18 @@ tbody td {
     font-size: 0.95rem;
 }
 
+.inactive-row {
+    opacity: 50%;
+}
+
+#user-table .select-col {
+    display:none;
+}
+
+#user-table.select-mode .select-col {
+    display:table-cell;
+}
+
 /* =========================
    4. OVERLAY SIDEBAR
 ========================= */
@@ -335,9 +347,10 @@ tbody td {
 
 /* Inhalt */
 .tab-content {
-    padding: 20px;
+    padding: 32px;
     flex: 1;
     overflow-y: auto;
+    width: 100%;
 }
 
 .tab-content.hidden {
@@ -455,15 +468,15 @@ tbody td {
     font-weight: 600;
 }
 .account-cta {
-    background: var(--color-primary);
+    background: inherit;
     color: #fff;
     border: none;
-    border-radius: 6px;
-    padding: 4px 8px;
+    border-radius: 50px;
+    padding: 4px;
     cursor: pointer;
     font-size: 0.9rem;
     transition: background 0.2s ease;
 }
 .account-cta:hover {
-    background: var(--color-primary-hover);
+    background: #eee;
 }

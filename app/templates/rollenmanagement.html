@@ -5,10 +5,10 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/systemverwaltung.js"></script>
+<script src="/static/js/rollenmanagement.js"></script>
 {% endblock %}
 
-{% set page_title = "Systemverwaltung" %}
+{% set page_title = "Rollenmanagement" %}
 
 {% block content %}
 <div class="page-container">
@@ -16,13 +16,12 @@
     <!-- Top Bar -->
     <div class="top-bar">
         <div class="top-bar-main">
+
             <div class="filter-container">
                 <button id="filter-btn">Filter</button>
 
                 <div id="filter-dropdown" class="filter-dropdown">
-                    <button data-filter="typ">Typ</button>
-                    <button data-filter="status">Status</button>
-                    <button data-filter="ressourcen">Ressourcen</button>
+              
                 </div>
 
                 <!-- Subfilter -->
@@ -31,9 +30,9 @@
                 </div>
             </div>
 
-            <h2 class="top-bar-title">Systemverwaltung</h2>
+            <h2 class="top-bar-title">Rollen</h2>
 
-            <!-- bewusst leer: kein Action Button -->
+            <!-- kein Action Button -->
             <div></div>
         </div>
 
@@ -45,28 +44,43 @@
             <input
                 type="text"
                 id="search-input"
-                placeholder="Suche nach Systemname, Kürzel oder ID..."
+                placeholder="Suche nach Rollenname oder ID..."
             >
         </div>
     </div>
 
     <!-- Table -->
     <div class="table-wrapper">
-        <table id="system-table">
+        <table id="rbac-table">
             <thead>
                 <tr>
-                    <th>Kürzel</th>
                     <th>Name</th>
                     <th>Typ</th>
+                    <th>Erbt von</th>
                     <th>Ressourcen</th>
+                    <th>Zuweisungen / User</th>
                     <th></th>
                 </tr>
             </thead>
             <tbody>
                 <!-- wird dynamisch gefüllt -->
-                
+
+                <tr>
+                    <td>HR Basisrolle</td>
+                    <td>Hauptrolle</td>
+                    <td>-</td>
+                    <td>18</td>
+                    <td>42</td>
+                    <td>
+                        <button class="btn btn-secondary">
+                            Details
+                        </button>
+                    </td>
+                </tr>
+
             </tbody>
         </table>
     </div>
+
 </div>
 {% endblock %}

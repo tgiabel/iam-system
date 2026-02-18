@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const navProfile = document.getElementById("nav-profile");
     const profileMenu = document.getElementById("profile-subnav");
 
+
     function closeAll() {
         [navAdmin, navProfile].forEach(parent => {
             if (!parent) return;
@@ -85,3 +86,28 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 2000);
     }
 });
+
+function showFlash(message, category="success") {
+
+    let main = document.querySelector("main");
+
+    let container = document.createElement("div");
+    container.className = "flash-messages";
+
+    let alert = document.createElement("div");
+    alert.className = `alert alert-${category}`;
+    alert.textContent = message;
+    alert.onclick = () => {
+        alert.remove();
+    };
+
+    container.appendChild(alert);
+
+    // GANZ OBEN einfügen
+    main.prepend(container);
+
+    // Auto remove
+    setTimeout(() => {
+        container.remove();
+    }, 4000);
+}
