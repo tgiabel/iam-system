@@ -521,7 +521,7 @@ p, span, a, label {
     min-width: 80px;
 }
 
-#tmp-rights-overlay {
+#tmp-rights-overlay, #new-skill-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -531,14 +531,14 @@ p, span, a, label {
     display: none; /* initial hidden */
     align-items: center;
     justify-content: center;
-    z-index: 1000; /* über Sidebar */
+    z-index: 3005; /* über Sidebar */
 }
 
-#tmp-rights-overlay.active {
+#tmp-rights-overlay.active, #new-skill-overlay.active {
     display: flex;
 }
 
-.tmp-rights-modal {
+.tmp-rights-modal, .new-skill-modal {
     background: #fff;
     padding: 24px;
     border-radius: 12px;
@@ -554,7 +554,38 @@ p, span, a, label {
     margin: 16px 0;
 }
 
-.tmp-rights-form input {
+.tmp-rights-form-field, .new-skill-form-field {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 8px 0;
+}
+
+.tmp-rights-form-field input, select {
+    padding: 4px;
+    width: 67%;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.new-skill-form-field input, select {
+    padding: 4px;
+    width: 67%;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.tmp-rights-form-field label {
+    width: 33%;
+    padding: 4px;
+}
+
+.new-skill-form-field label {
+    width: 33%;
+    padding: 4px;
+}
+
+.tmp-rights-form select {
     border: 1px solid #ccc;
     border-radius: 6px;
 }

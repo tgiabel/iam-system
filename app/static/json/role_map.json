@@ -1,5 +1,5 @@
 {
-  "1": "Admin",
-  "2": "Teamleiter",
-  "3": "Agent"
+  "1": { "name": "Admin", "type": "primary" },
+  "2": { "name": "Teamleiter", "type": "secondary" },
+  "3": { "name": "Agent", "type": "secondary" }
 }

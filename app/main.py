@@ -292,7 +292,7 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(ge
         )
     
 @app.post("/api/processes/onboarding")
-async def api_onboarding(
+async def api_start_onboarding_process(
     payload: dict,
     current_user=Depends(get_current_user_dep)):
     """
@@ -378,9 +378,6 @@ async def api_get_system_detail(system_id: int, current_user=Depends(get_current
     
 @app.get("/api/roles")
 async def api_role_overview(current_user=Depends(get_current_user_dep)):
-    """
-    Liefert die Systemliste für das Dashboard als JSON
-    """
     try:
         systems = await api_client.get_role_overview()
         return JSONResponse(content=systems)
@@ -396,11 +393,34 @@ async def api_role_overview(current_user=Depends(get_current_user_dep)):
             status_code=500
         )
     
+@app.get("/api/roles/map")
+async def api_role_map(current_user=Depends(get_current_user_dep)):
+    try:
+        roles = await api_client.get_role_map()
+
+        role_map = {
+            role["role_id"]: {
+                "name": role["name"],
+                "type": role["role_type"]
+            }
+            for role in roles
+        }
+
+        return JSONResponse(content=role_map)
+
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
 @app.get("/api/roles/{role_id}")
 async def api_get_role_detail(role_id: int, current_user=Depends(get_current_user_dep)):
-    """
-    Liefert Details + Ressourcen eines Systems für Frontend
-    """
     try:
         system_detail = await api_client.get_role_detail(role_id)
         return JSONResponse(content=system_detail)
@@ -410,6 +430,42 @@ async def api_get_role_detail(role_id: int, current_user=Depends(get_current_use
             status_code=e.response.status_code
         )
     except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
+@app.post("/api/processes/skill_assignment")
+async def api_start_skill_assignment_process(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.trigger_skill_assignment(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
+@app.post("/api/processes/tmp_role")
+async def api_start_temporary_role_process(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.trigger_temporary_role(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        print(e)
         return JSONResponse(
             content={"error": str(e)},
             status_code=500

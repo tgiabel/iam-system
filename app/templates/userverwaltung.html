@@ -120,8 +120,8 @@
             </section>
             <section class="info-section">
                 <h3>Aktionen</h3>
-                <button class="btn-primary btn">Schulung</button>
-                <button class="btn-secondary btn">Temporäre Rolle</button>
+                <button class="btn-primary btn" id="new-skill-action-btn">Neuer Skill/ Rolle</button>
+                <button class="btn-secondary btn" id="tmp-rights-action-btn">Temporäre Rolle</button>
                 <button class="btn-red btn">Offboarding</button>
             </section>
 
@@ -145,15 +145,20 @@
 </div>
 
 <!-- Temporäre Rechte Overlay-->
-<div class="overlay" id="temp-rights-overlay">
-    <div class="temp-rights-modal">
+<div class="overlay" id="tmp-rights-overlay">
+    <div class="tmp-rights-modal">
         <h3>Temporärer Rollenantrag</h3>
-        <div class="temp-rights-actions">
-            <button id="temp-rights-btn" class="btn btn-secondary">Extern</button>
-            <button id="temp-rights-btn" class="btn btn-primary">Mitarbeiter</button>
-        </div>
-        <button id="temp-rights-close-btn" class="btn btn-secondary">Abbrechen</button>
+
+        <button id="tmp-rights-close-btn" class="btn btn-secondary">Abbrechen</button>
     </div>
 </div>
 
+<!-- Neuer Skill Overlay-->
+<div class="overlay" id="new-skill-overlay">
+    <div class="new-skill-modal">
+        <h3>Neuer Skill/ Neue Rolle</h3>
+
+        <button id="new-skill-close-btn" class="btn btn-secondary">Abbrechen</button>
+    </div>
+</div>
 {% endblock %}

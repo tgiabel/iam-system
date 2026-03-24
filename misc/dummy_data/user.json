@@ -1,0 +1,67 @@
+{
+    "pnr": "10000",
+    "first_name": "Max",
+    "last_name": "Mustermann",
+    "is_active": true,
+    "user_id": 10,
+    "created_at": null,
+    "primary_role": {
+        "role_id": 3,
+        "name": "Agent",
+        "role_type": "PRIMARY"
+    },
+    "secondary_roles": [],
+    "accounts": [],
+    "resources": [
+        {
+            "system_id": 1,
+            "type_id": 1,
+            "display_name": "Windows Active Directory Konto",
+            "technical_identifier": "AD_ACC",
+            "override_handling_type": "EXTERNAL",
+            "resource_id": 1,
+            "type_name": "Konto",
+            "system_name": "Windows/ Active Directory"
+        },
+        {
+            "system_id": 1,
+            "type_id": 2,
+            "display_name": "Windows AD Gruppe - SD-Agent",
+            "technical_identifier": "AD_GRP_AGENT",
+            "override_handling_type": "EXTERNAL",
+            "resource_id": 3,
+            "type_name": "Gruppe",
+            "system_name": "Windows/ Active Directory"
+        },
+        {
+            "system_id": 3,
+            "type_id": 1,
+            "display_name": "OutSystems Konto",
+            "technical_identifier": "OUSYS_ACC",
+            "override_handling_type": "BOT",
+            "resource_id": 5,
+            "type_name": "Konto",
+            "system_name": "OutSystems"
+        },
+        {
+            "system_id": 3,
+            "type_id": 2,
+            "display_name": "OutSystems Callcenter Gruppe",
+            "technical_identifier": "OUSYS_GRP_CC",
+            "override_handling_type": "BOT",
+            "resource_id": 13,
+            "type_name": "Gruppe",
+            "system_name": "OutSystems"
+        },
+        {
+            "system_id": 4,
+            "type_id": 1,
+            "display_name": "Genesys Cloud Konto",
+            "technical_identifier": "GC_ACC",
+            "override_handling_type": "BOT",
+            "resource_id": 15,
+            "type_name": "Konto",
+            "system_name": "Genesys Cloud CX"
+        }
+    ]
+}

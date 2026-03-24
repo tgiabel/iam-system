@@ -2,7 +2,7 @@
 import httpx
 from typing import Any
 
-BASE_URL = "http://dev-api:8080"  # Backend-Base-URL
+BASE_URL = "http://dev-api:8080/dev"  # Backend-Base-URL
 
 class APIClient:
     def __init__(self, base_url: str = BASE_URL, timeout: int = 10):
@@ -44,30 +44,30 @@ class APIClient:
     # Konkrete API-Aufrufe
     # --------------------------
     async def login_user(self, pnr: str, password: str) -> dict:
-        return await self.post("/dev/users/login", data={"pnr": pnr, "password": password})
+        return await self.post("/users/login", data={"pnr": pnr, "password": password})
 
     async def list_users(self, is_active: bool | None = None) -> list[dict]:
         params = {"is_active": is_active} if is_active is not None else None
-        return await self.get("/dev/users/", params=params)
+        return await self.get("/users/", params=params)
 
     async def get_user_details(self, user_id: int) -> dict:
-        return await self.get(f"/dev/users/{user_id}/details")
+        return await self.get(f"/users/{user_id}/details")
     
     async def get_user_by_pnr(self, pnr: str):
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
-            resp = await client.get(f"/dev/users/{pnr}")
+            resp = await client.get(f"/users/{pnr}")
             resp.raise_for_status()
         return resp.json()
 
     async def get_user_by_id(self, user_id: int):
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
-            resp = await client.get(f"/dev/users/{user_id}")
+            resp = await client.get(f"/users/{user_id}")
             resp.raise_for_status()
         return resp.json()
 
     async def get_role_resources(self, role_id: int) -> list[dict]:
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
-            resp = await client.get(f"/dev/roles/{role_id}/resources")
+            resp = await client.get(f"/roles/{role_id}/resources")
             resp.raise_for_status()
         return resp.json()   
 
@@ -95,14 +95,14 @@ class APIClient:
             params["process_id"] = process_id
 
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
-            resp = await client.get("/dev/tasks/view", params=params)
+            resp = await client.get("/tasks/view", params=params)
             resp.raise_for_status()
             return resp.json()
         
     async def assign_task(self, task_id: int, user_id: int) -> dict:
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             resp = await client.patch(
-                f"/dev/tasks/{task_id}/assign",
+                f"/tasks/{task_id}/assign",
                 params={"user_id": user_id}
             )
             resp.raise_for_status()
@@ -115,7 +115,7 @@ class APIClient:
         """
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             resp = await client.delete(
-                f"/dev/tasks/{task_id}/assign",
+                f"/tasks/{task_id}/assign",
                 params={"user_id": user_id}
             )
 
@@ -142,7 +142,7 @@ class APIClient:
 
         async with httpx.AsyncClient(base_url=BASE_URL) as client:
             resp = await client.post(
-                f"/dev/tasks/{task_id}/complete",
+                f"/tasks/{task_id}/complete",
                 headers={"Content-Type": "application/json"},
                 json=payload
             )
@@ -155,7 +155,7 @@ class APIClient:
         payload muss enthalten: { "pnr": str, "initiator_user_id": int }
         """
         async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
-            resp = await client.post("/dev/processes/onboarding", json=payload)
+            resp = await client.post("/processes/onboarding", json=payload)
             resp.raise_for_status()  # HTTPError wenn Status != 2xx
             return resp.json()
 
@@ -164,7 +164,7 @@ class APIClient:
         Liefert eine Übersicht über Tasks für einen User (offen, erledigt, etc.)
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.get(f"/dev/tasks/overview", params={"user_id": user_id})
+            resp = await client.get(f"/tasks/overview", params={"user_id": user_id})
             resp.raise_for_status()
             return resp.json()
         
@@ -173,7 +173,7 @@ class APIClient:
         Liefert die Liste aller Systeme inkl. Resource-Namen
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.get("/dev/systems/")
+            resp = await client.get("/systems/")
             resp.raise_for_status()
             return resp.json()
         
@@ -182,7 +182,7 @@ class APIClient:
         Liefert SystemContext JSON vom Backend
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.get(f"/dev/systems/{system_id}")  # interne Backend-Route
+            resp = await client.get(f"/systems/{system_id}")  # interne Backend-Route
             resp.raise_for_status()
             return resp.json()
         
@@ -191,7 +191,13 @@ class APIClient:
         Liefert die Liste aller Systeme inkl. Resource-Namen
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.get("/dev/roles/")
+            resp = await client.get("/roles/")
+            resp.raise_for_status()
+            return resp.json()
+        
+    async def get_role_map(self) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.get(f"/roles/map")
             resp.raise_for_status()
             return resp.json()
         
@@ -200,7 +206,19 @@ class APIClient:
         Liefert SystemContext JSON vom Backend
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.get(f"/dev/roles/{role_id}")  # interne Backend-Route
+            resp = await client.get(f"/roles/{role_id}")  # interne Backend-Route
+            resp.raise_for_status()
+            return resp.json()
+        
+    async def trigger_skill_assignment(self, payload):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/processes/skill_assignment", json=payload)  # interne Backend-Route
+            resp.raise_for_status()
+            return resp.json()
+
+    async def trigger_temporary_role(self, payload):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/processes/tmp_role", json=payload)  # interne Backend-Route
             resp.raise_for_status()
             return resp.json()
         
