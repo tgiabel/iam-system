@@ -7,9 +7,47 @@ let role = null;
 const DOM = {};
 const STATE = {
     overlayMode: "view",
-    currentResource: null
+    currentResource: null,
+    systemMap: null
 };
 
+const api = {
+
+    async getSystemMap(){
+        if (STATE.systemMap) return STATE.systemMap;
+        const res = await fetch("/api/systems/map");
+        if (!res.ok) throw new Error("System Map konnte nicht geladen werden");
+
+        STATE.systemMap = await res.json();
+        return STATE.systemMap;
+    },
+
+    async getSystemResources(sysId) {
+        const res = await fetch(`/api/systems/${sysId}/resources`);
+        if(!res.ok) throw new Error(res.status);
+        return res.json();
+    },
+
+    async addResourcesToRole(roleId, resourceIds) {
+        const res = await fetch(`/api/roles/${roleId}/resources`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resource_ids: resourceIds })
+        });
+        if (!res.ok) throw new Error("Fehler beim Hinzufügen der Ressourcen");
+        return await res.json();
+    },
+
+    async removeResourcesFromRole(roleId, resourceIds) {
+        const res = await fetch(`/api/roles/${roleId}/resources`, {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resource_ids: resourceIds })
+        });
+        if (!res.ok) throw new Error("Fehler beim Entfernen der Ressourcen");
+        return await res.json();
+    }
+}
 //------------------------------------------------
 // INIT
 //------------------------------------------------
@@ -17,9 +55,14 @@ const STATE = {
 document.addEventListener("DOMContentLoaded", init);
 
 async function init(){
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('msg') === 'pkg-chg-suc') {
+        showFlash("Änderungen erfolgreich gespeichert!", "success"); 
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
     cacheDOM();
     bindBaseEvents();
-    await loadroleDetail();
+    await loadRoleDetail();
 }
 
 //------------------------------------------------
@@ -37,7 +80,8 @@ function cacheDOM(){
 
     DOM.form = document.getElementById("resource-form-container");
     DOM.selectContainer = document.getElementById("resource-select-container");
-    DOM.selectRes = document.getElementById("resource-select");
+    DOM.selectSys = document.getElementById("sys-select");
+    DOM.tableContainer = document.getElementById("resource-table-container");
 
     DOM.title = document.getElementById("resource-modal-title");
     DOM.saveResBtn = document.getElementById("resource-save-btn");
@@ -45,7 +89,7 @@ function cacheDOM(){
     DOM.tableBody = document.querySelector("#resources-table tbody");
 
     DOM.addResBtn = document.getElementById("add-resource-btn");
-    DOM.editResBtn = document.getElementById("edit-resources-btn");
+    DOM.rmResBtn = document.getElementById("rm-resources-btn");
 
     DOM.editBtn = document.querySelector("#edit-role-btn");
     DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
@@ -62,7 +106,7 @@ function cacheDOM(){
 // LOAD role
 //------------------------------------------------
 
-async function loadroleDetail(){
+async function loadRoleDetail(){
 
     const roleId = window.location.pathname.split("/").pop();
 
@@ -207,14 +251,13 @@ function bindBaseEvents(){
     DOM.cancelEdit.addEventListener("click", cancelEdit);
 
     DOM.addResBtn.addEventListener("click", ()=> openOverlay("add"));
-    DOM.editResBtn.addEventListener("click", ()=> openOverlay("edit"));
-    DOM.selectRes.addEventListener("change", onSelectResource);
+    DOM.rmResBtn.addEventListener("click", ()=> openOverlay("rm"));
 
     [DOM.closeBtn, DOM.cancelBtn].forEach(btn=>{
         btn.addEventListener("click", closeOverlay);
     });
 
-    DOM.saveResBtn.addEventListener("click", saveResource);
+    DOM.saveResBtn.addEventListener("click", saveResourceOverlay);
 }
 
 function editrole(){
@@ -278,7 +321,7 @@ function fillSelect(id, values){
 // OVERLAY
 //------------------------------------------------
 
-function openOverlay(mode, resource=null){
+async function openOverlay(mode, resource=null){
 
     STATE.overlayMode = mode;
     STATE.currentResource = resource;
@@ -299,7 +342,10 @@ function openOverlay(mode, resource=null){
 
     if(mode==="view"){
 
-        DOM.title.textContent = "Ressource Details";
+        DOM.title.textContent = "Ressourcen Details";
+        DOM.form.style.display = "block";
+        DOM.selectContainer.style.display = "none";
+        DOM.tableContainer.style.display = "none";
 
         DOM.form.querySelectorAll("input,select")
             .forEach(el=> el.disabled=true);
@@ -310,24 +356,54 @@ function openOverlay(mode, resource=null){
     }
 
     //--------------------------------
-    // EDIT
+    // REMOVE
     //--------------------------------
 
-    if(mode==="edit"){
+    if(mode==="rm"){
 
-        DOM.title.textContent = "Ressource bearbeiten";
-
+        DOM.title.textContent = "Ressourcen entfernen";
         DOM.form.style.display = "none";
-        DOM.selectContainer.style.display = "block";
+        DOM.selectContainer.style.display = "none";
+        DOM.tableContainer.style.display = "block";
 
-        DOM.selectRes.innerHTML =
-            "<option value=''>-- Bitte wählen --</option>";
+        const currentList = document.getElementById("res-list-current");
+        const removeList = document.getElementById("res-list-to-remove");
 
-        role.resources.forEach(r=>{
-            DOM.selectRes.innerHTML +=
-                `<option value="${r.resource_id}">
-                    ${r.display_name}
-                 </option>`;
+        // Leeren
+        currentList.innerHTML = "";
+        removeList.innerHTML = "";
+
+        // Funktion zum Erstellen einer Zeile
+        const createRow = (res, isRemoving) => {
+            const tr = document.createElement("tr");
+            tr.dataset.id = res.resource_id;
+            tr.innerHTML = `
+                <td>${res.display_name}</td>
+                <td>
+                    <button type="button" class="action-btn ${isRemoving ? "btn-transparent" : "btn-red btn-transparent"}">
+                        ${isRemoving ? "↑" : "✖"}
+                    </button>
+                </td>
+            `;
+
+            // Event-Listener für den Button
+            tr.querySelector(".action-btn").onclick = () => {
+                if (!isRemoving) {
+                    // Von "Aktuell" nach "Entfernen"
+                    removeList.appendChild(createRow(res, true));
+                } else {
+                    // Zurück nach "Aktuell"
+                    currentList.appendChild(createRow(res, false));
+                }
+                tr.remove(); // Die alte Zeile löschen
+            };
+
+            return tr;
+        };
+
+        // Initial befüllen
+        role.resources.forEach(r => {
+            currentList.appendChild(createRow(r, false));
         });
     }
 
@@ -335,25 +411,91 @@ function openOverlay(mode, resource=null){
     // ADD
     //--------------------------------
 
-    if(mode==="add"){
+    if (mode === "add") {
+        DOM.title.textContent = "Ressourcen hinzufügen";
+        const systems = await api.getSystemMap();
 
-        DOM.title.textContent = "Neue Ressource";
+        DOM.form.style.display = "none";
+        DOM.tableContainer.style.display = "none";
+        DOM.selectContainer.style.display = "block";
 
-        fillResourceForm({
-            display_name:"",
-            technical_identifier:"",
-            type_id:1,
-            override_handling_type:"INTERNAL"
+        const availContainer = document.getElementById("available-res-container");
+        const availList = document.getElementById("res-list-available");
+        const addList = document.getElementById("res-list-to-add");
+
+        // Select befüllen
+        DOM.selectSys.innerHTML = "<option value=''>-- Bitte wählen --</option>";
+        Object.entries(systems).forEach(([id, name]) => {
+            DOM.selectSys.innerHTML += `<option value="${id}">${name}</option>`;
         });
 
-        STATE.currentResource = null;
+        // Hilfsfunktion für Zeilen (ähnlich wie bei rm)
+        const createAddRow = (res, isStaged) => {
+            const tr = document.createElement("tr");
+            tr.dataset.id = res.resource_id;
+            tr.innerHTML = `
+                <td>${res.display_name}</td>
+                <td>
+                    <button type="button" class="action-btn ${isStaged ? "btn-red btn-transparent" : "btn-green btn-transparent"}">
+                        ${isStaged ? "✖" : "✚"}
+                    </button>
+                </td>
+            `;
+
+            tr.querySelector(".action-btn").onclick = () => {
+                if (!isStaged) {
+                    // Nach unten schieben (Markiert zum Hinzufügen)
+                    addList.appendChild(createAddRow(res, true));
+                } else {
+                    // Zurück nach oben schieben (Wieder verfügbar machen)
+                    availList.appendChild(createAddRow(res, false));
+                }
+                tr.remove();
+            };
+            return tr;
+        };
+
+        // Event: System ausgewählt
+        DOM.selectSys.onchange = async (e) => {
+            const sysId = e.target.value;
+            if (!sysId) {
+                availContainer.style.display = "none";
+                return;
+            }
+
+            // 1. Daten laden (ist direkt das Array)
+            const resources = await api.getSystemResources(sysId);
+            availList.innerHTML = "";
+            availContainer.style.display = "block";
+
+            // 2. Da 'resources' direkt das Array ist, prüfen wir .length direkt darauf
+            if (Array.isArray(resources) && resources.length > 0) {
+                resources.forEach(r => {
+                    // Prüfen, ob die Ressource bereits in der Rolle vorhanden ist
+                    const alreadyHas = role.resources.some(existing => 
+                        existing.resource_id === r.resource_id
+                    );
+                    
+                    if (!alreadyHas) {
+                        availList.appendChild(createAddRow(r, false));
+                    }
+                });
+
+                // Kleiner Bonus: Falls alle Ressourcen des Systems bereits in der Rolle sind
+                if (availList.innerHTML === "") {
+                    availList.innerHTML = "<tr><td colspan='2' style='font-style: italic; color: gray;'>Alle Ressourcen dieses Systems sind bereits zugewiesen.</td></tr>";
+                }
+            } else {
+                availList.innerHTML = "<tr><td colspan='2'>Keine Ressourcen für dieses System gefunden</td></tr>";
+            }
+        };
     }
 }
 
 function closeOverlay(){
     DOM.overlay.classList.remove("active");
-    DOM.selectRes.value = "";
     DOM.form.style.display = "none";
+    STATE.overlayMode = "";
 }
 
 //------------------------------------------------
@@ -388,32 +530,40 @@ function onSelectResource(){
 // SAVE
 //------------------------------------------------
 
-async function saveResource(){
+async function saveResourceOverlay(){
 
-    const payload = {
-        display_name: DOM.displayName.value,
-        technical_identifier: DOM.techId.value,
-        type_id: parseInt(DOM.type.value),
-        override_handling_type: DOM.handling.value
-    };
-
-    if(STATE.currentResource){
-
-        payload.resource_id =
-            STATE.currentResource.resource_id;
-
-        console.log("UPDATE", payload);
-
-        // await api.update()
-
-    }else{
-
-        payload.role_id = role.role_id;
-
-        console.log("CREATE", payload);
-
-        // await api.create()
+    const mode = STATE.overlayMode;
+    const roleIdToUpdate = role.role_id;
+    let resoureceIds = [];
+    try{
+        if (mode === "add") {
+            const rows = document.querySelectorAll("#res-list-to-add tr");
+            resoureceIds = Array.from(rows).map(tr => tr.dataset.id);
+            if (resoureceIds.length > 0) {
+                await api.addResourcesToRole(roleIdToUpdate, resoureceIds);
+            } else {
+                showFlash("Keine Ressourcen zum Hinzufügen ausgewählt", "failure");
+                return;
+            }
+        }
+        else if (mode === "rm") {
+            const rows = document.querySelectorAll("#res-list-to-remove tr");
+            resoureceIds = Array.from(rows).map(tr => tr.dataset.id);
+            if (resoureceIds.length > 0) {
+                await api.removeResourcesFromRole(roleIdToUpdate, resoureceIds);
+            } else {
+                showFlash("Keine Ressourcen zum Entfernen ausgewählt", "failure");
+                return;
+            }            
+        }
+        else {
+            showFlash("Fehler beim Speichern. [ovMode nicht gesetzt oder unbekannt]", "failure");
+            return;
+        }
+        window.location.href = window.location.pathname + "?msg=pkg-chg-suc";
+        showFlash("Erfolgreich gespeichert.", "success");
+    } catch (err) {
+        console.error("Speichern fehlgeschlagen:", err);
+        showFlash(err.message, "failure");
     }
-
-    closeOverlay();
 }

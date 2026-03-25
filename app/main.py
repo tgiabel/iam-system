@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates                  # type: ignore
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse    # type: ignore
 from fastapi.staticfiles import StaticFiles                     # type: ignore
 from fastapi.exceptions import HTTPException                    # type: ignore
-import httpx
+import httpx # type: ignore
 from app.api_client import api_client
 import os
 import json
@@ -337,6 +337,8 @@ async def api_tasks_overview(current_user=Depends(get_current_user_dep)):
             status_code=500
         )
     
+
+    
 @app.get("/api/systems")
 async def api_system_overview(current_user=Depends(get_current_user_dep)):
     """
@@ -356,7 +358,31 @@ async def api_system_overview(current_user=Depends(get_current_user_dep)):
             content={"error": str(e)},
             status_code=500
         )
-    
+
+@app.get("/api/systems/map")
+async def api_system_map(current_user=Depends(get_current_user_dep)):
+    try:
+        systems = await api_client.get_system_map()
+
+        system_map = {
+            system["system_id"]: system["name"]
+            for system in systems
+        }
+
+        return JSONResponse(content=system_map)
+
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+     
+
 @app.get("/api/systems/{system_id}")
 async def api_get_system_detail(system_id: int, current_user=Depends(get_current_user_dep)):
     """
@@ -364,6 +390,22 @@ async def api_get_system_detail(system_id: int, current_user=Depends(get_current
     """
     try:
         system_detail = await api_client.get_system_detail(system_id)
+        return JSONResponse(content=system_detail)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
+@app.get("/api/systems/{system_id}/resources")
+async def api_get_system_resources(system_id: int, current_user=Depends(get_current_user_dep)):
+    try:
+        system_detail = await api_client.get_system_resources(system_id)
         return JSONResponse(content=system_detail)
     except httpx.HTTPStatusError as e:
         return JSONResponse(
@@ -458,6 +500,51 @@ async def api_start_temporary_role_process(payload: dict, current_user=Depends(g
     try:
         payload["initiator_user_id"] = current_user["user_id"]
         result = await api_client.trigger_temporary_role(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
+@app.post("/api/roles/{role_id}/resources")
+async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload: dict = {}
+        payload["role_id"] = role_id
+        payload["resource_ids"] = resource_ids["resource_ids"]
+        payload["initiator_user_id"] = current_user["user_id"]
+
+        result = await api_client.add_resources_to_role(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+
+@app.delete("/api/roles/{role_id}/resources")
+async def api_remove_resources_from_role(role_id: int, resource_ids: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload: dict = {}
+        payload["role_id"] = role_id
+        payload["resource_ids"] = resource_ids["resource_ids"]
+        payload["initiator_user_id"] = current_user["user_id"]
+
+        result = await api_client.remove_resources_from_role(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
         return JSONResponse(

@@ -293,9 +293,10 @@ p, span, a, label {
 
 
 .btn-red { background-color: salmon; border: none; color: darkred; }
-.btn-green { background-color: #2a7a2e; border: none; color: #fff; }
-.btn-transparen { background-color: inherit; border: none;}
+.btn-green { background-color: lightgreen; border: none; color: darkgreen; }
+.btn-transparent { background-color: inherit; border: none;}
 
+.btn-transparent:hover { font-weight: 800; cursor: pointer;}
 /* Floating Action Button */
 .fab-button, .menu-fab-button {
     position: fixed;

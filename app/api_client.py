@@ -186,6 +186,13 @@ class APIClient:
             resp.raise_for_status()
             return resp.json()
         
+    async def get_system_resources(self, system_id: int) -> dict:
+        
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.get(f"/systems/{system_id}/resources")  
+            resp.raise_for_status()
+            return resp.json()
+        
     async def get_role_overview(self) -> dict:
         """
         Liefert die Liste aller Systeme inkl. Resource-Namen
@@ -201,24 +208,43 @@ class APIClient:
             resp.raise_for_status()
             return resp.json()
         
+    async def get_system_map(self) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.get(f"/systems/map")
+            resp.raise_for_status()
+            return resp.json()
+        
     async def get_role_detail(self, role_id: int) -> dict:
         """
         Liefert SystemContext JSON vom Backend
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.get(f"/roles/{role_id}")  # interne Backend-Route
+            resp = await client.get(f"/roles/{role_id}")  
             resp.raise_for_status()
             return resp.json()
         
     async def trigger_skill_assignment(self, payload):
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.post(f"/processes/skill_assignment", json=payload)  # interne Backend-Route
+            resp = await client.post(f"/processes/skill_assignment", json=payload)  
             resp.raise_for_status()
             return resp.json()
 
     async def trigger_temporary_role(self, payload):
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.post(f"/processes/tmp_role", json=payload)  # interne Backend-Route
+            resp = await client.post(f"/processes/tmp_role", json=payload)  
+            resp.raise_for_status()
+            return resp.json()
+        
+    async def add_resources_to_role(self, payload: dict):
+        print(payload)
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/roles/{payload['role_id']}/resources/add", json=payload)  
+            resp.raise_for_status()
+            return resp.json()
+        
+    async def remove_resources_from_role(self, payload: dict):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/roles/{payload["role_id"]}/resources/remove", json=payload)  
             resp.raise_for_status()
             return resp.json()
         

@@ -129,7 +129,7 @@ const tableController = {
                     <td>${u.last_name}</td>
                     <td>${u.email || ""}</td>
                     <td>${u.primary_role?.name || ""}</td>
-                    <td><span title="${u.secondary_roles.join("\n")}" style="cursor:help;"><strong>${u.secondary_roles.length}</strong></span></td>
+                    <td><span title="${u.secondary_roles.map(role => role.name).join("\n")}" style="cursor:help;"><strong>${u.secondary_roles.length}</strong></span></td>
                     <td>${u.is_active ? "Aktiv" : "Inaktiv"}</td>
                 </tr>
             `).join("");
