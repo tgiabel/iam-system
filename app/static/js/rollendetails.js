@@ -55,10 +55,13 @@ const api = {
 document.addEventListener("DOMContentLoaded", init);
 
 async function init(){
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('msg') === 'pkg-chg-suc') {
-        showFlash("Änderungen erfolgreich gespeichert!", "success"); 
-        window.history.replaceState({}, document.title, window.location.pathname);
+    const msg = sessionStorage.getItem("flash_msg");
+    const type = sessionStorage.getItem("flash_type");
+
+    if (msg) {
+        showFlash(msg, type);
+        sessionStorage.removeItem("flash_msg");
+        sessionStorage.removeItem("flash_type");
     }
     cacheDOM();
     bindBaseEvents();
@@ -560,8 +563,10 @@ async function saveResourceOverlay(){
             showFlash("Fehler beim Speichern. [ovMode nicht gesetzt oder unbekannt]", "failure");
             return;
         }
-        window.location.href = window.location.pathname + "?msg=pkg-chg-suc";
-        showFlash("Erfolgreich gespeichert.", "success");
+        sessionStorage.setItem("flash_msg", "Änderungen gespeichert!");
+        sessionStorage.setItem("flash_type", "success");
+        location.reload();
+
     } catch (err) {
         console.error("Speichern fehlgeschlagen:", err);
         showFlash(err.message, "failure");
