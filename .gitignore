@@ -67,5 +67,7 @@ coverage.xml
 # Logs
 *.log
 
+.env
+
 # Static / generated files that shouldn't be in Git
 app/static/uploads/

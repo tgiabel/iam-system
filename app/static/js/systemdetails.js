@@ -10,6 +10,40 @@ const STATE = {
     currentResource: null
 };
 
+const api = {
+    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType) {
+        const res = await fetch(`/api/resources/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                system_id: sysId,
+                type_id: typeId,
+                display_name: displayName,
+                technical_identifier: technicalIdentifier,
+                override_handling_type: handlingType
+             })
+        });
+        if (!res.ok) throw new Error("Fehler beim Erstellen der Ressourcen");
+        return await res.json();
+    },
+    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType) {
+            const res = await fetch(`/api/resources/${resId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                resource_id: resId,
+                system_id: sysId,
+                type_id: typeId,
+                display_name: displayName,
+                technical_identifier: technicalIdentifier,
+                override_handling_type: handlingType
+             })
+        });
+        if (!res.ok) throw new Error("Fehler beim Erstellen der Ressourcen");
+        return await res.json();
+    }
+}
+
 //------------------------------------------------
 // INIT
 //------------------------------------------------
@@ -393,7 +427,7 @@ async function saveResource(){
 
         console.log("UPDATE", payload);
 
-        // await api.update()
+        await api.updateResource(STATE.currentResource.resource_id, system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
 
     }else{
 
@@ -401,7 +435,7 @@ async function saveResource(){
 
         console.log("CREATE", payload);
 
-        // await api.create()
+        await api.createResource(system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
     }
 
     closeOverlay();

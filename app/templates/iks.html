@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/page_w_table.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/iks.js"></script>
+{% endblock %}
+
+{% set page_title = "IKS" %}
+
+{% block content %}
+<div class="page-container">
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-main">
+
+
+            <h2 class="top-bar-title">Kontrollen und Rezertifizierungen</h2>
+
+
+        </div>
+
+        <!-- Aktive Filter -->
+        <div class="filter-tags" id="active-filters"></div>
+
+        <!-- Suche -->
+        <div class="search-field" style="margin-top:8px; width: 60%;">
+            <input
+                type="text"
+                id="search-input"
+                placeholder="..."
+            >
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table id="system-table">
+            <thead>
+                <tr>
+                    <th>Typ</th>
+                    <th>Titel</th>
+                    <th>Verantwortung</th>
+                    <th>letzte Kontrolle</th>
+                    <th>nächste Kontrolle</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- wird dynamisch gefüllt -->
+                <tr>
+                    <td>IKS</td>
+                    <td>Austritte</td>
+                    <td>HR</td>
+                    <td>01.01.2026</td>
+                    <td>01.04.2026</td>
+                </tr>
+                <tr>
+                    <td>IKS</td>
+                    <td>temporäre Rechte</td>
+                    <td>Produktionsleitung</td>
+                    <td>01.02.2026</td>
+                    <td style="color: red; font-weight: bold;">01.03.2026</td>
+                </tr>
+                <tr>
+                    <td>Rezertifizierung</td>
+                    <td>Rollenpaket: Agent</td>
+                    <td>Teamleiter</td>
+                    <td>01.01.2026</td>
+                    <td>01.04.2027</td>
+                </tr>
+
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

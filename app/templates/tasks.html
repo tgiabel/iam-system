@@ -40,7 +40,7 @@
             <a href="" class="menu-tile"><span class="menu-text">DAT-Export Check</span></a>
             <a href="" class="menu-tile"><span class="menu-text">Ticketbearbeitung</span></a>
             <a href="" class="menu-tile"><span class="menu-text">Ticketrecherche</span></a>
-            <a href="" class="menu-tile"><span class="menu-text">IKS</span></a>
+            <a href="/iks" class="menu-tile"><span class="menu-text">IKS</span></a>
         </div>
     </div>
 </div>
@@ -54,6 +54,28 @@
             <p><strong>User:</strong> <span id="task-modal-user"></span></p>
             <p><strong>Ressource:</strong> <span id="task-modal-resource"></span></p>
             <p><strong>Status:</strong> <span id="task-modal-status"></span></p>
+            <div class="task-history-section">
+                <button type="button" id="history-toggle" class="history-toggle">
+                    <span>Verlauf anzeigen</span>
+                    <i class="chevron-icon">▼</i>
+                </button>
+                
+                <div id="history-container" class="history-container">
+                    <div class="history-scroll-area">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Zeitpunkt</th>
+                                    <th>Aktion</th>
+                                    <th>User</th>
+                                </tr>
+                            </thead>
+                            <tbody id="task-history-body">
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- FORMULAR BLOCK -->
@@ -65,6 +87,26 @@
         <div class="task-actions" id="task-actions">
         </div>
 
+    </div>
+</div>
+
+<div id="mail-dialog-overlay" class="overlay">
+    <div class="mail-modal-content">
+        <h3>E-Mail bearbeiten</h3>
+        
+        <label>Empfänger:</label>
+        <input type="email" id="mail-recipient" class="form-control">
+        
+        <label>Betreff:</label>
+        <input type="text" id="mail-subject" class="form-control">
+        
+        <label>Nachricht:</label>
+        <textarea id="mail-body" rows="10" class="form-control"></textarea>
+        
+        <div class="modal-actions">
+            <button class="btn btn-secondary" onclick="document.getElementById('mail-dialog-overlay').classList.remove('active')">Abbrechen</button>
+            <button id="send-mail-btn" class="btn btn-primary">E-Mail jetzt senden</button>
+        </div>
     </div>
 </div>
 

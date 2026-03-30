@@ -168,9 +168,18 @@ async def role_details(request: Request, role_id: str, user=Depends(get_current_
         },
     )
 
+@app.get("/iks", response_class=HTMLResponse)
+async def iks(request: Request, user=Depends(get_current_user_dep)):
+    return templates.TemplateResponse(
+        "iks.html",
+        {
+            "request": request,
+            "user": user
+        }
+    )
 
 # ------------------------------
-# API Route: alle Users (für JS)
+# API Routen
 # ------------------------------
 @app.get("/api/users")
 async def api_users():
@@ -325,6 +334,24 @@ async def api_tasks_overview(current_user=Depends(get_current_user_dep)):
         tasks = await api_client.get_task_overview(user_id)
         return JSONResponse(content=tasks)
 
+    except httpx.HTTPStatusError as e:
+        # Backend-Fehler sauber weitergeben
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.get("/api/tasks/{task_id}/history")
+async def api_task_logs(task_id, current_user=Depends(get_current_user_dep)):
+    try:
+        history = await api_client.get_task_logs(task_id)
+        return JSONResponse(content=history)
+    
     except httpx.HTTPStatusError as e:
         # Backend-Fehler sauber weitergeben
         return JSONResponse(

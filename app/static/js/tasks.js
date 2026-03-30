@@ -283,50 +283,89 @@ function initTaskActionHandling() {
             }
         }
 
+        if (action === "external") {
+            openMailDialog(task);
+        }
+
     });
 }
 
 function initTaskOverlay() {
-    document.addEventListener("click", e => {
+    // 1. Toggle-Event nur EINMAL beim Initialisieren binden (nicht im Click-Listener!)
+    const historyToggle = document.getElementById("history-toggle");
+    historyToggle?.addEventListener("click", () => {
+        const container = document.getElementById("history-container");
+        const isOpen = container.classList.toggle("open");
+        historyToggle.querySelector("span").textContent = isOpen ? "Verlauf ausblenden" : "Verlauf anzeigen";
+    });
+
+    document.addEventListener("click", async e => {
         const tile = e.target.closest(".task-tile");
         if (!tile) return;
 
         e.preventDefault();
-
         const taskId = tile.dataset.taskId;
         const task = window.taskIndex?.[taskId];
         if (!task) return;
 
         window.currentTask = task;
 
-        document.getElementById("task-modal-title").textContent =
+        // --- UI SOFORT ÖFFNEN ---
+        document.getElementById("task-modal-title").textContent = 
             task.task_type === "ASSIGNMENT" ? "Zuweisung" : "Löschung";
+        document.getElementById("task-modal-user").textContent = task.target_user_name;
+        document.getElementById("task-modal-resource").textContent = task.resource_name;
+        document.getElementById("task-modal-status").textContent = task.status;
 
-        document.getElementById("task-modal-user").textContent =
-            task.target_user_name;
-
-        document.getElementById("task-modal-resource").textContent =
-            task.resource_name;
-
-        document.getElementById("task-modal-status").textContent =
-            task.status;
+        // Verlauf-Bereich zurücksetzen
+        const historyContainer = document.getElementById("history-container");
+        const historyBody = document.getElementById("task-history-body");
+        historyContainer.classList.remove("open");
+        document.querySelector("#history-toggle span").textContent = "Verlauf anzeigen";
+        historyBody.innerHTML = '<tr><td colspan="3">Lade Verlauf...</td></tr>';
 
         renderTaskActions(task);
-
         document.getElementById("task-overlay").classList.add("active");
+
+        // --- DATEN ASYNCHRON NACHLADEN ---
+        try {
+            const res = await fetch(`/api/tasks/${taskId}/history`);
+            if (!res.ok) throw new Error("History failed");
+            const historyData = await res.json();
+
+            // Befüllen
+            historyBody.innerHTML = ""; 
+            if (historyData && historyData.length > 0) {
+                historyData.forEach(entry => {
+                    const row = `
+                        <tr>
+                            <td>
+                                ${new Date(entry.timestamp).toLocaleString('de-DE', {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                })}
+                            </td>
+                            <td>${entry.action}</td>
+                            <td>${entry.user_id || "-"}</td>
+                        </tr>`;
+                    historyBody.insertAdjacentHTML("beforeend", row);
+                });
+            } else {
+                historyBody.innerHTML = "<tr><td colspan='3'>Kein Verlauf verfügbar</td></tr>";
+            }
+        } catch (err) {
+            console.error("History Error:", err);
+            historyBody.innerHTML = "<tr><td colspan='3' style='color:red;'>Fehler beim Laden des Verlaufs</td></tr>";
+        }
     });
 
-    document.getElementById("task-close-btn")
-        ?.addEventListener("click", () =>
-            document.getElementById("task-overlay").classList.remove("active")
-        );
-
-    document.getElementById("task-overlay")
-        ?.addEventListener("click", e => {
-            if (e.target.id === "task-overlay") {
-                e.currentTarget.classList.remove("active");
-            }
-        });
+    // Close-Buttons (bleiben gleich)
+    document.getElementById("task-close-btn")?.addEventListener("click", () => 
+        document.getElementById("task-overlay").classList.remove("active")
+    );
 }
 
 function validateTaskCompletion(task) {
@@ -405,3 +444,34 @@ window.completeHandlers ||= {
     EXTERNAL: completeInternal, // gleiches Verhalten
     BOT: completeInternal      // erstmal auch
 };
+
+async function openMailDialog(task) {
+    if (!task) return;
+
+    // 1. Platzhalter-Daten (Später durch API-Call ersetzbar)
+    const mailData = {
+        recipient: "kunde@beispiel.de",
+        subject: `Informationen zu Ihrem Ticket #${task.task_id}`,
+        body: `Sehr geehrte Damen und Herren,\n\nbezüglich Ihres Tasks "${task.title}" haben wir folgende Rückfrage...\n\nMit freundlichen Grüßen\nSupport-Team`
+    };
+
+    // 2. UI-Elemente befüllen
+    // Ich nehme an, du hast entsprechende Inputs/Textareas im HTML
+    const recipientInput = document.getElementById("mail-recipient");
+    const subjectInput = document.getElementById("mail-subject");
+    const bodyInput = document.getElementById("mail-body");
+
+    if (recipientInput) recipientInput.value = mailData.recipient;
+    if (subjectInput) subjectInput.value = mailData.subject;
+    if (bodyInput) bodyInput.value = mailData.body;
+
+    // 3. Dialog anzeigen
+    const mailOverlay = document.getElementById("mail-dialog-overlay");
+    if (mailOverlay) {
+        mailOverlay.classList.add("active");
+    } else {
+        console.error("Mail-Dialog Overlay nicht im DOM gefunden!");
+        // Fallback, falls das UI noch nicht fertig ist:
+        alert("Mail-Dialog für Task " + task.task_id + " wird vorbereitet.");
+    }
+}
