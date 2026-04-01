@@ -152,7 +152,7 @@ function renderTaskActions(task) {
         formEl.appendChild(commentField);
 
         // Pflicht User-ID Feld nur für Account-Ressourcen (resource_type_id === 1)
-        if (task.resource_type_id === 1) {
+        if (task.resource_type_id === 1 && task.task_type === "ASSIGNMENT") {
             const userIdField = document.createElement("input");
             userIdField.type = "text";
             userIdField.id = "task-account-identifier";
@@ -350,6 +350,7 @@ function initTaskOverlay() {
                             </td>
                             <td>${entry.action}</td>
                             <td>${entry.user_id || "-"}</td>
+                            <td>${entry.comment || "-"}</td>
                         </tr>`;
                     historyBody.insertAdjacentHTML("beforeend", row);
                 });
@@ -370,7 +371,7 @@ function initTaskOverlay() {
 
 function validateTaskCompletion(task) {
 
-    if (task.resource_type_id === 1) {
+    if (task.resource_type_id === 1 && task.task_type === "ASSIGNMENT") {
 
         const val = document
             .getElementById("task-account-identifier")
@@ -400,7 +401,7 @@ async function completeInternal(task) {
         payload.comment = comment;
     }
 
-    if (task.resource_type_id === 1) {
+    if (task.resource_type_id === 1 && task.task_type === "ASSIGNMENT") {
 
         payload.account_identifier =
             document.getElementById("task-account-identifier").value.trim();

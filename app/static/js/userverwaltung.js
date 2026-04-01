@@ -39,13 +39,48 @@ const api = {
     },
 
     async startOnboarding(payload){
-        const res = await fetch("/api/processes/onboarding", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ pnr: payload })
-        });
-        if(!res.ok) throw new Error(res.status);
-        return res.json();
+        try {
+            const res = await fetch("/api/processes/onboarding", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pnr: payload })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                return;
+            }
+
+            showFlash(`Onboarding gestartet`, "success");
+
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
+    },
+
+    async startOffboarding(payload) {
+        try {
+            const res = await fetch("/api/processes/offboarding", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                return;
+            }
+
+            showFlash(`Austritt zum ${payload.exitdate} beantragt`, "success");
+
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
     },
 
     async startTmpRoleAssignment(payload) {
@@ -87,6 +122,29 @@ const api = {
             }
 
             showFlash(`Rolle ${state.roleMap?.[payload.role_id].name || roleId} beantragt`, "success");
+
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
+    },
+
+    async startNewSkillRevoke(payload){
+        try {
+            const res = await fetch("/api/processes/skill_revocation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                return;
+            }
+
+            showFlash(`Rollen-Entzug für ${state.roleMap?.[payload.role_id].name || roleId} beantragt`, "success");
 
         } catch (err) {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
@@ -164,6 +222,7 @@ const sidebarController = {
 
     close(){
         DOM.sidebarOverlay.classList.remove("active");
+        tableController.loadUsers();
     },
 
     async render(data){
@@ -263,6 +322,16 @@ const sidebarController = {
             .onclick = () =>
                 newSkillModalController.open(user);
 
+        document
+            .getElementById("skill-revoke-action-btn")
+            .onclick = () =>
+                skillRevokeModalController.open(user);
+
+        document
+            .getElementById("offboard-action-btn")
+            .onclick = () =>
+                offboardModalController.open(user);
+
         DOM.sidebarOverlay.onclick = (e) => {
             if (e.target === DOM.sidebarOverlay) {
                 this.close();
@@ -336,18 +405,11 @@ const onboardModalController = {
                 showFlash("Bitte Personalnummer eingeben", "failure");
                 return;
             }
-            try {
-                const data = await api.startOnboarding(pn);
 
-                console.log("Onboarding Prozess gestartet:", data);
-                await tableController.loadUsers();
-                showFlash("Prozess gestartet! ID: " + data.process_id, "success");
-                onboardModalController.close();
+            await api.startOnboarding(pn);
+            await tableController.loadUsers();
+            onboardModalController.close();
                 
-            } catch (err) {
-                console.error(err);
-                showFlash("Unerwarteter Fehler: " + err, "failure");
-            }
         });
     }
 }
@@ -531,6 +593,155 @@ const newSkillModalController = {
     }
 };
 
+const skillRevokeModalController = {
+
+    open(user){
+        this.render(user);
+        DOM.skillRevokeOverlay.classList.add("active");
+    },
+
+    close(){
+        DOM.skillRevokeOverlay.classList.remove("active");
+    },
+
+    render(user){
+        DOM.skillRevokeModal.innerHTML = `
+            <h3>Skill entziehen für ${user.first_name} ${user.last_name}</h3>
+
+            <div class="form-group">
+                <div class="skill-revoke-form-field">
+                    <label>Rolle</label>
+                    <select id="skill-revoke-select" required>
+                        <option value="" disabled selected>Rolle auswählen...</option>
+                    </select>
+                </div>    
+            </div>
+
+            <div class="form-group">
+                <div class="skill-revoke-form-field">
+                    <label>Ab wann (optional)</label>
+                    <input 
+                        type="date"
+                        id="skill-revoke-startdate"
+                        min="${new Date().toISOString().split("T")[0]}"
+                        disabled
+                    >
+                </div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <button id="skill-revoke-submit" class="btn btn-primary">
+                    Beantragen
+                </button>
+
+                <button id="skill-revoke-close-btn" class="btn btn-secondary">
+                    Abbrechen
+                </button>
+            </div>
+        `;
+
+        cacheDOM(); // DOM.skillRevokeSelect etc. definieren
+        DOM.skillRevokeCloseBtn.onclick = () => this.close();
+        this.loadRoles(user);
+        this.bindSubmit(user);
+    },
+
+    async loadRoles(user) {
+        const select = DOM.skillRevokeSelect;
+        select.innerHTML = '<option value="" disabled selected>Rolle auswählen...</option>';
+        roleList = user.secondary_roles;
+        Object.entries(roleList)
+            .filter(([id, role]) => role.type === "SECONDARY")
+            .forEach(([id, role]) => {
+                const opt = document.createElement("option");
+                opt.value = id;
+                opt.textContent = role.name;
+                select.appendChild(opt);
+            });
+    },
+
+    bindSubmit(user) {
+        DOM.skillRevokeSubmit.onclick = async () => {
+            const roleId = DOM.skillRevokeSelect.value;
+            const startdate = DOM.skillRevokeStartdate.value || null;
+
+            if (!roleId) {
+                showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
+                return;
+            }
+
+            await api.startSkillRevoke({
+                user_id: user.user_id,
+                role_id: roleId,
+                start_date: startdate
+            });
+
+            this.close();
+        };
+    }
+};
+
+const offboardModalController = {
+
+    open(user){
+        this.render(user);
+        DOM.offboardOverlay.classList.add("active");
+    },
+
+    close(){
+        DOM.offboardOverlay.classList.remove("active");
+    },
+
+    render(user){
+        DOM.offboardModal.innerHTML = `
+            <h3>Offboarding von ${user.first_name} ${user.last_name}</h3>
+
+            <div class="form-group">
+                <div class="offboard-form-field">
+                    <label>Austritt am</label>
+                    <input 
+                        type="date"
+                        id="offboard-exitdate"
+                        required
+                        min="${new Date().toISOString().split("T")[0]}"
+                    >
+                </div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <button id="offboard-submit" class="btn btn-primary">
+                    Bestätigen
+                </button>
+
+                <button id="offboard-close-btn" class="btn btn-secondary">
+                    Abbrechen
+                </button>
+            </div>
+        `;
+
+        cacheDOM(); // DOM.offboardExitdate etc. definieren
+        DOM.offboardCloseBtn.onclick = () => this.close();
+        this.bindSubmit(user);
+    },
+
+    bindSubmit(user) {
+        DOM.offboardSubmit.onclick = async () => {
+            const exitdate = DOM.offboardExitdate.value;
+
+            if (!exitdate) {
+                showFlash("Bitte das Austrittsdatum angeben", "failure");
+                return;
+            }
+
+            await api.startOffboarding({
+                user_id: user.user_id,
+                exitdate
+            });
+            this.close();
+        };
+    }
+};
+
 document.addEventListener("DOMContentLoaded", () => {
     
     cacheDOM();
@@ -573,6 +784,21 @@ function cacheDOM() {
     DOM.tmpRightsSelect = document.getElementById("tmp-role-select");
     DOM.tmpRightsStartdate = document.getElementById("tmp-startdate");
     DOM.tmpRightsEnddate = document.getElementById("tmp-enddate");
+
+    DOM.skillRevokeOverlay = document.getElementById("skill-revoke-overlay");
+    DOM.skillRevokeModal = document.querySelector(".skill-revoke-modal");
+    DOM.skillRevokeCloseBtn = document.getElementById("skill-revoke-close-btn");
+    DOM.skillRevokeActionBtn = document.getElementById("skill-revoke-action-btn");
+    DOM.skillRevokeSubmit = document.getElementById("skill-revoke-submit");
+    DOM.skillRevokeSelect = document.getElementById("skill-revoke-select");
+    DOM.skillRevokeStartDate = document.getElementById("skill-revoke-startdate");
+
+    DOM.offboardOverlay = document.getElementById("offboard-overlay");
+    DOM.offboardModal = document.querySelector(".offboard-modal");
+    DOM.offboardExitdate = document.getElementById("offboard-exitdate");
+    DOM.offboardSubmit = document.getElementById("offboard-submit");
+    DOM.offboardCloseBtn = document.getElementById("offboard-close-btn");
+    DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
     // Sidebar fields
     DOM.sidebarUsername = document.getElementById("sidebar-username");
     DOM.sidebarPNR = document.getElementById("user-pnr");

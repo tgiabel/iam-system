@@ -522,7 +522,10 @@ p, span, a, label {
     min-width: 80px;
 }
 
-#tmp-rights-overlay, #new-skill-overlay {
+#tmp-rights-overlay, 
+#new-skill-overlay, 
+#offboard-overlay, 
+#skill-revoke-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -535,11 +538,17 @@ p, span, a, label {
     z-index: 3005; /* über Sidebar */
 }
 
-#tmp-rights-overlay.active, #new-skill-overlay.active {
+#tmp-rights-overlay.active, 
+#new-skill-overlay.active, 
+#offboard-overlay.active,
+#skill-revoke-overlay.active {
     display: flex;
 }
 
-.tmp-rights-modal, .new-skill-modal {
+.tmp-rights-modal, 
+.new-skill-modal, 
+.offboard-modal,
+.skill-revoke-modal {
     background: #fff;
     padding: 24px;
     border-radius: 12px;
@@ -555,7 +564,10 @@ p, span, a, label {
     margin: 16px 0;
 }
 
-.tmp-rights-form-field, .new-skill-form-field {
+.tmp-rights-form-field, 
+.new-skill-form-field, 
+.offboard-form-field, 
+.skill-revoke-form-field {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
@@ -574,6 +586,30 @@ p, span, a, label {
     width: 67%;
     border: 1px solid #ccc;
     border-radius: 6px;
+}
+
+.offboard-form-field input, select {
+    padding: 4px;
+    width: 67%;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.skill-revoke-form-field input, select {
+    padding: 4px;
+    width: 67%;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+}
+
+.skill-revoke-form-field label {
+    width: 33%;
+    padding: 4px;
+}
+
+.offboard-form-field label {
+    width: 33%;
+    padding: 4px;
 }
 
 .tmp-rights-form-field label {

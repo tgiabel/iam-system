@@ -103,7 +103,7 @@
                             target="_blank"
                             rel="noopener noreferrer"
                         >
-                            🔗 In Helix aufrufen
+                            ↗︎ In Helix aufrufen
                         </a>
                     </p>
                 </div>
@@ -120,9 +120,10 @@
             </section>
             <section class="info-section">
                 <h3>Aktionen</h3>
-                <button class="btn-primary btn" id="new-skill-action-btn">Neuer Skill/ Rolle</button>
+                <button class="btn-primary btn" id="new-skill-action-btn">Neuer Rolle</button>
                 <button class="btn-secondary btn" id="tmp-rights-action-btn">Temporäre Rolle</button>
-                <button class="btn-red btn">Offboarding</button>
+                <button class="btn-red btn" id="skill-revoke-action-btn">Rolle entziehen</button>
+                <button class="btn-red btn" id="offboard-action-btn">Offboarding</button>
             </section>
 
         </div>
@@ -159,6 +160,24 @@
         <h3>Neuer Skill/ Neue Rolle</h3>
 
         <button id="new-skill-close-btn" class="btn btn-secondary">Abbrechen</button>
+    </div>
+</div>
+
+<!-- Skill Entzug Overlay-->
+<div class="overlay" id="skill-revoke-overlay">
+    <div class="skill-revoke-modal">
+        <h3>Neuer Skill/ Neue Rolle</h3>
+
+        <button id="skill-revoke-close-btn" class="btn btn-secondary">Abbrechen</button>
+    </div>
+</div>
+
+<!-- Offboarding Overlay -->
+<div class="overlay" id="offboard-overlay">
+    <div class="offboard-modal">
+        <h3>Temporärer Rollenantrag</h3>
+
+        <button id="offboard-close-btn" class="btn btn-secondary">Abbrechen</button>
     </div>
 </div>
 {% endblock %}

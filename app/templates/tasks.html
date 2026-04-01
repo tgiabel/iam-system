@@ -50,7 +50,10 @@
 
         <!-- INFO BLOCK -->
         <div class="task-info">
-            <h3 id="task-modal-title"></h3>
+            <div style="display: flex; flex-direction: row; justify-content: space-between;">
+                <h3 id="task-modal-title"></h3>
+                <button id="task-close-btn" class="btn btn-transparent" style="font-size: x-large;">x</button>
+            </div>
             <p><strong>User:</strong> <span id="task-modal-user"></span></p>
             <p><strong>Ressource:</strong> <span id="task-modal-resource"></span></p>
             <p><strong>Status:</strong> <span id="task-modal-status"></span></p>
@@ -68,6 +71,7 @@
                                     <th>Zeitpunkt</th>
                                     <th>Aktion</th>
                                     <th>User</th>
+                                    <th>Info</th>
                                 </tr>
                             </thead>
                             <tbody id="task-history-body">

@@ -228,10 +228,22 @@ class APIClient:
             resp = await client.post(f"/processes/skill_assignment", json=payload)  
             resp.raise_for_status()
             return resp.json()
+        
+    async def trigger_skill_removal(self, payload):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/processes/skill_removal", json=payload)  
+            resp.raise_for_status()
+            return resp.json()
 
     async def trigger_temporary_role(self, payload):
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.post(f"/processes/tmp_role", json=payload)  
+            resp.raise_for_status()
+            return resp.json()
+        
+    async def trigger_offboarding(self, payload):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/processes/offboarding", json=payload)  
             resp.raise_for_status()
             return resp.json()
         

@@ -540,6 +540,42 @@ async def api_start_temporary_role_process(payload: dict, current_user=Depends(g
             status_code=500
         )
     
+@app.post("/api/processes/offboarding")
+async def api_start_offboarding_process(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.trigger_offboarding(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
+@app.post("/api/processes/skill_revocation")
+async def api_start_skill_removal_process(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.trigger_skill_removal(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+    
 @app.post("/api/roles/{role_id}/resources")
 async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_user=Depends(get_current_user_dep)):
     try:
