@@ -158,6 +158,13 @@ class APIClient:
             resp = await client.post("/processes/onboarding", json=payload)
             resp.raise_for_status()  # HTTPError wenn Status != 2xx
             return resp.json()
+        
+    async def trigger_ext_onboarding(self, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+            resp = await client.post("/processes/onboarding-ext", json=payload)
+            resp.raise_for_status()  # HTTPError wenn Status != 2xx
+            return resp.json()
+
 
     async def get_task_overview(self, user_id: int) -> dict:
         """

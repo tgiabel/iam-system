@@ -60,6 +60,28 @@ const api = {
         }
     },
 
+    async startExternalOnboarding(payload){
+        try {
+            const res = await fetch("/api/processes/onboarding-ext", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                return;
+            }
+
+            showFlash(`Externen User angelegt`, "success");
+
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
+    },
+
     async startOffboarding(payload) {
         try {
             const res = await fetch("/api/processes/offboarding", {
@@ -182,7 +204,7 @@ const tableController = {
             )
             .map(u => `
                 <tr data-id="${u.user_id}">
-                    <td>${u.pnr}</td>
+                    <td>${u.pnr || "-"}</td>
                     <td>${u.first_name}</td>
                     <td>${u.last_name}</td>
                     <td>${u.email || ""}</td>
@@ -341,37 +363,40 @@ const sidebarController = {
 }
 
 const onboardModalController = {
-    init(){
-        
+    init() {
         this.originalHTML = DOM.onboardModal.innerHTML;
-        DOM.onboardActionBtn.addEventListener("click", this.open);
+
+        DOM.onboardActionBtn.addEventListener("click", () => this.open());
+
         DOM.onboardOverlay.addEventListener("click", (e) => {
-        if(e.target === DOM.onboardOverlay){
-            this.close();
-        }
-    });
+            if (e.target === DOM.onboardOverlay) {
+                this.close();
+            }
+        });
+
         this.render();
     },
-    open(){
+
+    open() {
         DOM.onboardOverlay.classList.add("active");
     },
-    render(){
-        DOM.onboardCloseBtn.addEventListener("click", this.close);
 
-        DOM.onboardInternBtn.addEventListener("click", this.internForm);
+    render() {
+        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
 
-        DOM.onboardExternalBtn.addEventListener("click", () => {
-            console.log("Extern gewählt");
-            // später: externes Onboarding Step 1
-        });
+        DOM.onboardInternBtn?.addEventListener("click", () => this.internForm());
+
+        DOM.onboardExternalBtn?.addEventListener("click", () => this.externForm());
     },
-    close(){
+
+    close() {
         DOM.onboardOverlay.classList.remove("active");
         DOM.onboardModal.innerHTML = this.originalHTML;
         cacheDOM();
         this.render();
     },
-    internForm(){
+
+    internForm() {
         DOM.onboardModal.innerHTML = `
             <h3>Onboarding Mitarbeiter</h3>
 
@@ -398,9 +423,12 @@ const onboardModalController = {
         `;
 
         cacheDOM();
-        DOM.onboardCloseBtn.addEventListener("click", () => onboardModalController.close());
-        DOM.onboardInternSubmitBtn.addEventListener("click", async () => {
+
+        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
+
+        DOM.onboardInternSubmitBtn?.addEventListener("click", async () => {
             const pn = DOM.onboardInternInput.value.trim();
+
             if (!pn) {
                 showFlash("Bitte Personalnummer eingeben", "failure");
                 return;
@@ -408,11 +436,84 @@ const onboardModalController = {
 
             await api.startOnboarding(pn);
             await tableController.loadUsers();
-            onboardModalController.close();
-                
+            this.close();
+        });
+    },
+
+    externForm() {
+        DOM.onboardModal.innerHTML = `
+            <h3>Externes Onboarding</h3>
+
+            <div class="onboard-form">
+                <input 
+                    id="extern-vorname-input"
+                    placeholder="Vorname"
+                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
+                />
+
+                <input 
+                    id="extern-nachname-input"
+                    placeholder="Nachname"
+                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
+                />
+
+                <input 
+                    id="extern-email-input"
+                    type="email"
+                    placeholder="E-Mail"
+                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
+                />
+
+                <input 
+                    id="extern-telefon-input"
+                    type="tel"
+                    placeholder="Telefon"
+                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
+                />
+
+                <button id="onboard-extern-submit-btn"
+                    class="btn btn-primary"
+                    style="margin-right:16px;"    
+                >
+                    Weiter
+                </button>
+
+                <button id="onboard-close-btn"
+                    class="btn btn-secondary">
+                    Abbrechen
+                </button>
+            </div>
+        `;
+
+        cacheDOM();
+
+        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
+
+        DOM.onboardExternSubmitBtn?.addEventListener("click", async () => {
+            const vorname = document.getElementById("extern-vorname-input")?.value.trim();
+            const nachname = document.getElementById("extern-nachname-input")?.value.trim();
+            const email = document.getElementById("extern-email-input")?.value.trim();
+            const telefon = document.getElementById("extern-telefon-input")?.value.trim();
+
+            if (!vorname || !nachname || !email || !telefon) {
+                showFlash("Bitte alle Felder ausfüllen", "failure");
+                return;
+            }
+
+            console.log("Externes Onboarding:", {
+                vorname,
+                nachname,
+                email,
+                telefon
+            });
+
+            await api.startExternalOnboarding({ vorname, nachname, email, telefon });
+            await tableController.loadUsers();
+
+            this.close();
         });
     }
-}
+};
 
 const tmpRightsModalController = {
 
@@ -769,6 +870,11 @@ function cacheDOM() {
     DOM.onboardInternSubmitBtn = document.getElementById("onboard-intern-submit-btn")
     DOM.onboardExternalBtn = document.getElementById("onboard-external-btn");
     DOM.onboardActionBtn = document.getElementById("onboard-action-btn");
+    DOM.onboardExternSubmitBtn = document.getElementById("onboard-extern-submit-btn");
+    DOM.onboardExternVornameInput = document.getElementById("extern-vorname-input");
+    DOM.onboardExternNachnameInput = document.getElementById("extern-nachname-input");
+    DOM.onboardExternEmailInput = document.getElementById("extern-email-input");
+    DOM.onboardExternTelefonInput = document.getElementById("extern-telefon-input");
 
     DOM.newSkillOverlay = document.getElementById("new-skill-overlay");
     DOM.newSkillModal = document.querySelector(".new-skill-modal");

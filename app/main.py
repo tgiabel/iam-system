@@ -322,6 +322,24 @@ async def api_start_onboarding_process(
         # Catch-All, kann noch spezifischer auf HTTPException oder ValueError mapen
         return JSONResponse(content={"error": str(e)}, status_code=500)
     
+@app.post("/api/processes/onboarding-ext")
+async def api_start_ext_onboarding_process(
+    payload: dict,
+    current_user=Depends(get_current_user_dep)):
+    """
+    Trigger den Onboarding-Prozess für einen Externen Dienstleister.
+    """
+    try:
+        user_id = current_user["user_id"] if isinstance(current_user, dict) else current_user.user_id
+        payload["initiator_user_id"] = user_id
+        result = await api_client.trigger_ext_onboarding(payload)
+        return JSONResponse(content={"process_id": result["process_id"], "status": "started"})
+    
+    except Exception as e:
+        # Catch-All, kann noch spezifischer auf HTTPException oder ValueError mapen
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+    
 @app.get("/api/tasks/overview")
 async def api_tasks_overview(current_user=Depends(get_current_user_dep)):
     try:
