@@ -129,7 +129,7 @@ const api = {
         }
     },
 
-    async startNewSkillRevoke(payload){
+    async startSkillRevoke(payload){
         try {
             const res = await fetch("/api/processes/skill_revocation", {
                 method: "POST",
@@ -649,12 +649,14 @@ const skillRevokeModalController = {
     async loadRoles(user) {
         const select = DOM.skillRevokeSelect;
         select.innerHTML = '<option value="" disabled selected>Rolle auswählen...</option>';
-        roleList = user.secondary_roles;
-        Object.entries(roleList)
-            .filter(([id, role]) => role.type === "SECONDARY")
-            .forEach(([id, role]) => {
+
+        const roleList = user.secondary_roles || [];
+
+        roleList
+            .filter(role => role.role_type === "SECONDARY")
+            .forEach(role => {
                 const opt = document.createElement("option");
-                opt.value = id;
+                opt.value = role.role_id;
                 opt.textContent = role.name;
                 select.appendChild(opt);
             });
@@ -663,7 +665,7 @@ const skillRevokeModalController = {
     bindSubmit(user) {
         DOM.skillRevokeSubmit.onclick = async () => {
             const roleId = DOM.skillRevokeSelect.value;
-            const startdate = DOM.skillRevokeStartdate.value || null;
+            const startdate = DOM.skillRevokeStartDate.value || null;
 
             if (!roleId) {
                 showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");

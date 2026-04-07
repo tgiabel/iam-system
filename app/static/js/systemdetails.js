@@ -12,35 +12,53 @@ const STATE = {
 
 const api = {
     async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType) {
-        const res = await fetch(`/api/resources/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                system_id: sysId,
-                type_id: typeId,
-                display_name: displayName,
-                technical_identifier: technicalIdentifier,
-                override_handling_type: handlingType
-             })
-        });
-        if (!res.ok) throw new Error("Fehler beim Erstellen der Ressourcen");
-        return await res.json();
+        try {    
+            const res = await fetch(`/api/resources`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                    system_id: sysId,
+                    type_id: typeId,
+                    display_name: displayName,
+                    technical_identifier: technicalIdentifier,
+                    override_handling_type: handlingType
+                })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                return;
+            }
+            showFlash(`Resource hinzugefügt.`, "success");
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
     },
     async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType) {
+        try{
             const res = await fetch(`/api/resources/${resId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                resource_id: resId,
-                system_id: sysId,
-                type_id: typeId,
-                display_name: displayName,
-                technical_identifier: technicalIdentifier,
-                override_handling_type: handlingType
-             })
-        });
-        if (!res.ok) throw new Error("Fehler beim Erstellen der Ressourcen");
-        return await res.json();
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    resource_id: resId,
+                    system_id: sysId,
+                    type_id: typeId,
+                    display_name: displayName,
+                    technical_identifier: technicalIdentifier,
+                    override_handling_type: handlingType
+                })
+            });
+            if (!res.ok) {
+                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                return;
+            }
+            showFlash(`Resource aktualisiert.`, "success");
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
     }
 }
 
@@ -51,6 +69,14 @@ const api = {
 document.addEventListener("DOMContentLoaded", init);
 
 async function init(){
+    const msg = sessionStorage.getItem("flash_msg");
+    const type = sessionStorage.getItem("flash_type");
+
+    if (msg) {
+        showFlash(msg, type);
+        sessionStorage.removeItem("flash_msg");
+        sessionStorage.removeItem("flash_type");
+    }
     cacheDOM();
     bindBaseEvents();
     await loadSystemDetail();
@@ -425,18 +451,15 @@ async function saveResource(){
         payload.resource_id =
             STATE.currentResource.resource_id;
 
-        console.log("UPDATE", payload);
-
         await api.updateResource(STATE.currentResource.resource_id, system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
 
     }else{
 
         payload.system_id = system.system_id;
 
-        console.log("CREATE", payload);
-
         await api.createResource(system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
     }
-
+    await loadSystemDetail();
     closeOverlay();
+
 }

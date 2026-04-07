@@ -193,6 +193,18 @@ class APIClient:
             resp.raise_for_status()
             return resp.json()
         
+    async def update_resource(self, resource_id, payload) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/resources/{resource_id}", json=payload)  
+            resp.raise_for_status()
+            return resp.json()  
+          
+    async def create_resource(self, payload) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/resources/", json=payload)  
+            resp.raise_for_status()
+            return resp.json()  
+    
     async def get_role_overview(self) -> dict:
         """
         Liefert die Liste aller Systeme inkl. Resource-Namen
