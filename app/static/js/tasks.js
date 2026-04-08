@@ -8,6 +8,60 @@ if (!window.taskOverlayInitialized) {
     window.taskOverlayInitialized = true;
 }
 
+const api = {
+    async getMailTemplate(resource_id, user_id){
+        try {
+            const res = await fetch("/api/resources/mail_template", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({resource_id: resource_id, user_id: user_id})
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                return;
+            }
+            return data;
+
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
+    },
+    async sendMail(mailToSend) {
+        try {
+            const payload = {
+                Absender: "test@servodata.de",
+                EmpfängerTo: mailToSend.recipient || "",
+                EmpfängerCC: mailToSend.cc || "",
+                EmpfängerBCC: mailToSend.bcc || "",
+                Betreff: mailToSend.subject || "",
+                Mailtext: mailToSend.body || "",
+                Html: 0                                  // 0 = Plain Text, 1 = HTML falls gewünscht
+            };
+            const res = await fetch("https://sd-api/v1/mail/send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Fehler beim Senden der E-Mail", "failure");
+                return;
+            }
+
+            showFlash("E-Mail erfolgreich gesendet", "success");
+            return data;
+
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
+    }
+};
 
 /* -----------------------------
    Tabs
@@ -449,30 +503,62 @@ window.completeHandlers ||= {
 async function openMailDialog(task) {
     if (!task) return;
 
-    // 1. Platzhalter-Daten (Später durch API-Call ersetzbar)
-    const mailData = {
-        recipient: "kunde@beispiel.de",
-        subject: `Informationen zu Ihrem Ticket #${task.task_id}`,
-        body: `Sehr geehrte Damen und Herren,\n\nbezüglich Ihres Tasks "${task.title}" haben wir folgende Rückfrage...\n\nMit freundlichen Grüßen\nSupport-Team`
-    };
+    // 1. Maildaten per API holen
+    // erwartet { recipient, subject, body }
+    let mailData;
+    try {
+        mailData = await api.getMailTemplate(task.resource_id, task.target_user_id);
+    } catch (err) {
+        console.error("Fehler beim Abrufen der Mailvorlage:", err);
+        showFlash("Mailvorlage konnte nicht geladen werden!", "failure");
+        return;
+    }
 
-    // 2. UI-Elemente befüllen
-    // Ich nehme an, du hast entsprechende Inputs/Textareas im HTML
+    // 2. UI-Elemente referenzieren
     const recipientInput = document.getElementById("mail-recipient");
     const subjectInput = document.getElementById("mail-subject");
     const bodyInput = document.getElementById("mail-body");
-
-    if (recipientInput) recipientInput.value = mailData.recipient;
-    if (subjectInput) subjectInput.value = mailData.subject;
-    if (bodyInput) bodyInput.value = mailData.body;
-
-    // 3. Dialog anzeigen
     const mailOverlay = document.getElementById("mail-dialog-overlay");
-    if (mailOverlay) {
-        mailOverlay.classList.add("active");
-    } else {
-        console.error("Mail-Dialog Overlay nicht im DOM gefunden!");
-        // Fallback, falls das UI noch nicht fertig ist:
-        alert("Mail-Dialog für Task " + task.task_id + " wird vorbereitet.");
+    const sendBtn = document.getElementById("send-mail-btn");
+
+    if (!recipientInput || !subjectInput || !bodyInput || !mailOverlay || !sendBtn) {
+        console.error("Mail-Dialog Elemente fehlen im DOM!");
+        return;
     }
+
+    // 3. Felder befüllen
+    recipientInput.value = mailData.recipient || "";
+    subjectInput.value = mailData.subject || "";
+    bodyInput.value = mailData.body || "";
+
+    // 4. Dialog anzeigen
+    mailOverlay.classList.add("active");
+
+    // 5. Click-Event für Senden vorbereiten
+    // Vorher alte Listener entfernen, damit kein Doppelversand passiert
+    sendBtn.replaceWith(sendBtn.cloneNode(true)); // simple remove old listeners
+    const newSendBtn = document.getElementById("send-mail-btn");
+
+    newSendBtn.addEventListener("click", async () => {
+        const mailToSend = {
+            recipient: recipientInput.value.trim(),
+            subject: subjectInput.value.trim(),
+            body: bodyInput.value.trim(),
+            task_id: task.task_id
+        };
+
+        if (!mailToSend.recipient || !mailToSend.subject || !mailToSend.body) {
+            showFlash("Bitte Empfänger, Betreff und Nachricht ausfüllen!", "failure");
+            return;
+        }
+
+        try {
+            await api.sendMail(mailToSend);
+            showFlash("E-Mail erfolgreich gesendet!", "success");
+            mailOverlay.classList.remove("active");
+        } catch (err) {
+            console.error("Fehler beim Senden der Mail:", err);
+            showFlash("Fehler beim Senden der E-Mail. Bitte erneut versuchen.", "failure");
+        }
+    });
 }

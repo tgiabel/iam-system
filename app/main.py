@@ -363,6 +363,24 @@ async def api_tasks_overview(current_user=Depends(get_current_user_dep)):
             content={"error": str(e)},
             status_code=500
         )
+    
+@app.post("/api/resources/mail_template")
+async def api_get_mail_template(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.get_mail_template(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        print(e)
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
 
 @app.get("/api/tasks/{task_id}/history")
 async def api_task_logs(task_id, current_user=Depends(get_current_user_dep)):

@@ -13,7 +13,6 @@ async function loadSystems() {
             tr.innerHTML = `
                 <td>${system.short_name}</td>
                 <td>${system.name}</td>
-                <td>bald typ..</td>
                 <td><span title="${system.resource_names.join("\n")}" style="cursor:help;"><strong>${system.resource_names.length}</strong></span></td>
                 <td>
                     <button class="btn btn-secondary" onclick="gotoSystem(${system.system_id})">

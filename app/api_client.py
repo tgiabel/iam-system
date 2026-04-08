@@ -1,5 +1,5 @@
 # app/api_client.py
-import httpx
+import httpx # type: ignore
 from typing import Any
 
 BASE_URL = "http://dev-api:8080/dev"  # Backend-Base-URL
@@ -230,6 +230,12 @@ class APIClient:
     async def get_system_map(self) -> dict:
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.get(f"/systems/map")
+            resp.raise_for_status()
+            return resp.json()
+        
+    async def get_mail_template(self, payload) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/resources/mail_template", json=payload)  
             resp.raise_for_status()
             return resp.json()
         
