@@ -33,14 +33,14 @@ const api = {
         try {
             const payload = {
                 Absender: "test@servodata.de",
-                EmpfängerTo: mailToSend.recipient || "",
+                EmpfängerTo: mailToSend.recipient,
                 EmpfängerCC: mailToSend.cc || "",
                 EmpfängerBCC: mailToSend.bcc || "",
-                Betreff: mailToSend.subject || "",
-                Mailtext: mailToSend.body || "",
+                Betreff: mailToSend.subject,
+                Mailtext: mailToSend.body,
                 Html: 0                                  // 0 = Plain Text, 1 = HTML falls gewünscht
             };
-            const res = await fetch("https://sd-api/v1/mail/send", {
+            const res = await fetch("/api/mail/send", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -341,6 +341,10 @@ function initTaskActionHandling() {
             openMailDialog(task);
         }
 
+        if (action === "bot") {
+            dispatchBot(task);
+        }
+
     });
 }
 
@@ -561,4 +565,8 @@ async function openMailDialog(task) {
             showFlash("Fehler beim Senden der E-Mail. Bitte erneut versuchen.", "failure");
         }
     });
+}
+
+async function dispatchBot(task) {
+    
 }

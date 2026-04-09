@@ -502,6 +502,7 @@ async def api_create_system_resource(payload: dict, current_user=Depends(get_cur
 @app.post("/api/resources/{resource_id}")
 async def api_update_system_resource(resource_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
     try:
+        print(payload["meta"])
         payload["initiator_user_id"] = current_user["user_id"]
         result = await api_client.update_resource(resource_id, payload)
         return JSONResponse(content=result)

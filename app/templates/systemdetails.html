@@ -218,6 +218,21 @@
                             <option value="EXTERNAL">External</option>
                         </select>
                     </div>
+                    <div class="form-field" id="resource-meta-container" style="display:none;">
+                        <label for="res-handling-meta">Meta-Informationen (JSON)</label>
+                        <textarea id="res-handling-meta" class="form-input" style="width: 100%;" rows="5" placeholder=
+'{
+    "external_contact":0,
+    "subject": "Betreff", 
+    "body": "Mail-Template"
+} 
+oder
+{
+    "bot":"",
+    "action":"",
+    "data": {...}
+}'></textarea>
+                    </div>
                 </div>
             </div>
 

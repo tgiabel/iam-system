@@ -11,18 +11,22 @@ const STATE = {
 };
 
 const api = {
-    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType) {
+    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, meta=null) {
         try {    
+            const body = { 
+                system_id: sysId,
+                type_id: typeId,
+                display_name: displayName,
+                technical_identifier: technicalIdentifier,
+                override_handling_type: handlingType
+            };
+            if (meta !== null && meta !== "") {
+                body.meta = meta;
+            }
             const res = await fetch(`/api/resources`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ 
-                    system_id: sysId,
-                    type_id: typeId,
-                    display_name: displayName,
-                    technical_identifier: technicalIdentifier,
-                    override_handling_type: handlingType
-                })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
 
@@ -36,19 +40,23 @@ const api = {
             console.error(err);
         }
     },
-    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType) {
+    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, meta=null) {
         try{
+            const body = {
+                resource_id: resId,
+                system_id: sysId,
+                type_id: typeId,
+                display_name: displayName,
+                technical_identifier: technicalIdentifier,
+                override_handling_type: handlingType
+            };
+            if (meta !== null && meta !== "") {
+                body.meta = meta;
+            }
             const res = await fetch(`/api/resources/${resId}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    resource_id: resId,
-                    system_id: sysId,
-                    type_id: typeId,
-                    display_name: displayName,
-                    technical_identifier: technicalIdentifier,
-                    override_handling_type: handlingType
-                })
+                body: JSON.stringify(body)
             });
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
@@ -116,6 +124,8 @@ function cacheDOM(){
     DOM.techId = document.getElementById("res-technical-id");
     DOM.type = document.getElementById("res-type");
     DOM.handling = document.getElementById("res-handling");
+    DOM.handlingMetaContainer = document.getElementById("resource-meta-container");
+    DOM.handlingMeta = document.getElementById("res-handling-meta");
 }
 
 //------------------------------------------------
@@ -258,6 +268,7 @@ function bindBaseEvents(){
     DOM.addResBtn.addEventListener("click", ()=> openOverlay("add"));
     DOM.editResBtn.addEventListener("click", ()=> openOverlay("edit"));
     DOM.selectRes.addEventListener("change", onSelectResource);
+    DOM.handling.addEventListener("change", toggleHandlingMetaField);
 
     [DOM.closeBtn, DOM.cancelBtn].forEach(btn=>{
         btn.addEventListener("click", closeOverlay);
@@ -265,6 +276,23 @@ function bindBaseEvents(){
 
     DOM.saveResBtn.addEventListener("click", saveResource);
 }
+
+function toggleHandlingMetaField(){
+    const showMeta = ["EXTERNAL","BOT"].includes(DOM.handling.value);
+    DOM.handlingMetaContainer.style.display = showMeta ? "block" : "none";
+    DOM.handlingMeta.disabled = !showMeta || STATE.overlayMode === "view";
+    
+    // Bei Wechsel des handling_type: Meta-Daten neu laden
+    if (showMeta && STATE.currentResource && STATE.currentResource.meta && Array.isArray(STATE.currentResource.meta)) {
+        const metaEntry = STATE.currentResource.meta.find(m => m.handling_type === DOM.handling.value);
+        if (metaEntry && metaEntry.meta) {
+            DOM.handlingMeta.value = JSON.stringify(metaEntry.meta, null, 2);
+        } else {
+            DOM.handlingMeta.value = "";
+        }
+    }
+}
+
 
 function editSystem(){
 
@@ -415,6 +443,17 @@ function fillResourceForm(res){
     DOM.techId.value = res.technical_identifier || "";
     DOM.type.value = res.type_id || 1;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
+    
+    // Lade die Meta-Information zum aktuellen handling_type aus dem meta-Array
+    let metaValue = "";
+    if (res.meta && Array.isArray(res.meta)) {
+        const metaEntry = res.meta.find(m => m.handling_type === DOM.handling.value);
+        if (metaEntry && metaEntry.meta) {
+            metaValue = JSON.stringify(metaEntry.meta, null, 2);
+        }
+    }
+    DOM.handlingMeta.value = metaValue;
+    toggleHandlingMetaField();
 }
 
 function onSelectResource(){
@@ -446,18 +485,28 @@ async function saveResource(){
         override_handling_type: DOM.handling.value
     };
 
+    if (DOM.handlingMetaContainer.style.display !== "none") {
+        payload.metadata_json = DOM.handlingMeta.value.trim();
+    }
+
     if(STATE.currentResource){
 
         payload.resource_id =
             STATE.currentResource.resource_id;
-
-        await api.updateResource(STATE.currentResource.resource_id, system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
-
+        if (DOM.handlingMetaContainer.style.display !== "none") {
+            await api.updateResource(STATE.currentResource.resource_id, system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value, DOM.handlingMeta.value.trim());
+        } else {   
+            await api.updateResource(STATE.currentResource.resource_id, system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
+        }
     }else{
 
         payload.system_id = system.system_id;
 
-        await api.createResource(system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
+        if (DOM.handlingMetaContainer.style.display !== "none") {
+            await api.createResource(system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value, OM.handlingMeta.value.trim());
+        } else {
+            await api.createResource(system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
+        }
     }
     await loadSystemDetail();
     closeOverlay();
