@@ -299,6 +299,26 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(ge
             content={"error": str(e)},
             status_code=500
         )
+
+@app.post("/api/tasks/dispatch_bot")
+async def api_dispatch_bot(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        task_id = payload.get("task_id")
+        result = await api_client.dispatch_bot(task_id)
+
+        return JSONResponse(content=result)
+
+    except httpx.HTTPStatusError as e:
+        # Fehler vom Backend sauber weiterreichen
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
     
 @app.post("/api/processes/onboarding")
 async def api_start_onboarding_process(

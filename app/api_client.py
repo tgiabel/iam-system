@@ -291,5 +291,11 @@ class APIClient:
             resp.raise_for_status()
             return resp.json()
         
+    async def dispatch_bot(self, task_id):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/tasks/{task_id}/dispatch_bot", json=task_id)  
+            resp.raise_for_status()
+            return resp.json()
+        
 # Singleton-Client
 api_client = APIClient()

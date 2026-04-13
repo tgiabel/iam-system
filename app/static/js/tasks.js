@@ -60,6 +60,28 @@ const api = {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
         }
+    },
+    async dispatchBot(task_id) {
+        try {
+            const res = await fetch("/api/tasks/dispatch_bot", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_id: task_id })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showFlash(data.detail || "Fehler beim Dispatchen des Bots", "failure");
+                return;
+            }
+
+            showFlash("Bot erfolgreich dispatched", "success");
+            return data;
+
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+        }
     }
 };
 
@@ -568,5 +590,36 @@ async function openMailDialog(task) {
 }
 
 async function dispatchBot(task) {
-    
+    try {
+        // History laden
+        const historyRes = await fetch(`/api/tasks/${task.task_id}/history`);
+        if (!historyRes.ok) {
+            showFlash("Fehler beim Laden der History", "failure");
+            return;
+        }
+        const history = await historyRes.json();
+
+        // Prüfen, ob bereits ein erfolgreicher BOT_RESPONSE existiert
+        const hasSuccessfulBotResponse = history.some(entry => 
+            entry.action === "BOT_RESPONSE" && 
+            entry.details && 
+            JSON.parse(entry.details).status === "success"
+        );
+
+        if (hasSuccessfulBotResponse) {
+            showFlash("Bot wurde bereits erfolgreich ausgeführt. Bitte prüfen Sie den Verlauf.", "info");
+            return;
+        }
+
+        // Bot dispatchen
+        await api.dispatchBot(task.task_id);
+
+        // Overlay schließen und Tasks neu laden
+        document.getElementById("task-overlay").classList.remove("active");
+        await loadTasks();
+
+    } catch (err) {
+        console.error("Bot Dispatch Error:", err);
+        showFlash("Fehler beim Dispatchen des Bots", "failure");
+    }
 }
