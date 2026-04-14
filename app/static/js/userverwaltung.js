@@ -200,7 +200,8 @@ const tableController = {
             .filter(u =>
                 u.first_name.toLowerCase().includes(filter) ||
                 u.last_name.toLowerCase().includes(filter) ||
-                (u.pnr || "").toLowerCase().includes(filter)
+                (u.pnr || "").toLowerCase().includes(filter) ||
+                (u.racf || "").toLowerCase().includes(filter)
             )
             .map(u => `
                 <tr data-id="${u.user_id}">

@@ -507,6 +507,23 @@ async def api_system_overview(current_user=Depends(get_current_user_dep)):
             status_code=500
         )
 
+@app.post("/api/systems")
+async def api_create_system(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.create_system(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
 @app.get("/api/systems/map")
 async def api_system_map(current_user=Depends(get_current_user_dep)):
     try:
@@ -610,6 +627,23 @@ async def api_role_overview(current_user=Depends(get_current_user_dep)):
         systems = await api_client.get_role_overview()
         return JSONResponse(content=systems)
 
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.post("/api/roles")
+async def api_create_role(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.create_role(payload)
+        return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
         return JSONResponse(
             content=e.response.json(),

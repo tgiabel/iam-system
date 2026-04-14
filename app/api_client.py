@@ -183,6 +183,12 @@ class APIClient:
             resp = await client.get("/systems/")
             resp.raise_for_status()
             return resp.json()
+
+    async def create_system(self, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post("/systems/", json=payload)
+            resp.raise_for_status()
+            return resp.json()
         
     async def get_system_detail(self, system_id: int) -> dict:
         """
@@ -218,6 +224,12 @@ class APIClient:
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.get("/roles/")
+            resp.raise_for_status()
+            return resp.json()
+
+    async def create_role(self, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post("/roles/", json=payload)
             resp.raise_for_status()
             return resp.json()
         

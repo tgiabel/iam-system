@@ -2,6 +2,117 @@
 
 {% block css %}
 <link rel="stylesheet" href="/static/css/page_w_table.css">
+<style>
+    .floating-create-btn {
+        position: fixed;
+        right: 32px;
+        bottom: 96px;
+        width: 64px;
+        height: 64px;
+        border: none;
+        border-radius: 50%;
+        background: var(--color-primary);
+        color: #fff;
+        font-size: 2.2rem;
+        line-height: 1;
+        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+        cursor: pointer;
+        z-index: 2200;
+    }
+
+    .floating-create-btn:hover {
+        background: var(--color-primary-hover);
+    }
+
+    .create-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(15, 23, 42, 0.45);
+        z-index: 2300;
+        padding: 20px;
+    }
+
+    .create-modal.active {
+        display: flex;
+    }
+
+    .create-modal-card {
+        width: min(100%, 520px);
+        background: #fff;
+        border-radius: 18px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+        overflow: hidden;
+    }
+
+    .create-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 22px 24px 10px;
+    }
+
+    .create-modal-header h3 {
+        margin: 0;
+    }
+
+    .create-modal-close {
+        border: none;
+        background: transparent;
+        font-size: 1.8rem;
+        line-height: 1;
+        cursor: pointer;
+        color: #475569;
+    }
+
+    .create-modal-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 0 24px 24px;
+    }
+
+    .create-modal-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .create-modal-field label {
+        font-weight: 600;
+        color: #334155;
+    }
+
+    .create-modal-field input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        font: inherit;
+    }
+
+    .create-modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 8px;
+    }
+
+    @media (max-width: 640px) {
+        .floating-create-btn {
+            right: 20px;
+            bottom: 20px;
+            width: 58px;
+            height: 58px;
+        }
+
+        .create-modal {
+            padding: 12px;
+        }
+    }
+</style>
 {% endblock %}
 
 {% block scripts %}
@@ -66,6 +177,41 @@
                 
             </tbody>
         </table>
+    </div>
+</div>
+
+<button
+    id="system-create-fab"
+    class="floating-create-btn"
+    type="button"
+    aria-label="Neues System anlegen"
+>
+    +
+</button>
+
+<div id="system-create-modal" class="create-modal" aria-hidden="true">
+    <div class="create-modal-card" role="dialog" aria-modal="true" aria-labelledby="system-create-title">
+        <div class="create-modal-header">
+            <h3 id="system-create-title">Neues System anlegen</h3>
+            <button id="system-create-close" class="create-modal-close" type="button" aria-label="Schließen">&times;</button>
+        </div>
+
+        <form id="system-create-form" class="create-modal-form">
+            <div class="create-modal-field">
+                <label for="system-create-name">Name</label>
+                <input id="system-create-name" name="name" type="text" required>
+            </div>
+
+            <div class="create-modal-field">
+                <label for="system-create-short-name">Kürzel</label>
+                <input id="system-create-short-name" name="short_name" type="text" required>
+            </div>
+
+            <div class="create-modal-actions">
+                <button id="system-create-cancel" class="btn btn-secondary" type="button">Abbrechen</button>
+                <button class="btn btn-primary" type="submit">System anlegen</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
