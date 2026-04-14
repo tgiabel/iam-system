@@ -140,6 +140,27 @@ p, span, a, label {
 .logo-wrapper:hover .default-logo { opacity: 0; }
 .logo-wrapper:hover .hover-logo { opacity: 1; }
 
+.back-logo-button {
+    width: 50px;
+    height: 50px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-decoration: none;
+}
+
+.back-logo-button:hover {
+    text-decoration: underline;
+}
+
+.back-logo-arrow {
+    font-size: 1.5rem;
+    line-height: 1;
+    font-weight: 900;
+    color: white;
+}
+
 .site-title {
     margin: 0;
     font-size: 1.5rem;

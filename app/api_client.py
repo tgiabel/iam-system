@@ -271,6 +271,12 @@ class APIClient:
             resp = await client.post(f"/processes/offboarding", json=payload)  
             resp.raise_for_status()
             return resp.json()
+
+    async def trigger_iks_process_report(self, payload):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/processes/iks", json=payload)
+            resp.raise_for_status()
+            return resp.json()
         
     async def add_resources_to_role(self, payload: dict):
         print(payload)
@@ -281,7 +287,7 @@ class APIClient:
         
     async def remove_resources_from_role(self, payload: dict):
         async with httpx.AsyncClient(base_url=self.base_url) as client:
-            resp = await client.post(f"/roles/{payload["role_id"]}/resources/remove", json=payload)  
+            resp = await client.post(f"/roles/{payload['role_id']}/resources/remove", json=payload)
             resp.raise_for_status()
             return resp.json()
         

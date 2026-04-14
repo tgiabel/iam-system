@@ -1,0 +1,281 @@
+.container {
+    max-width: 1120px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+h2 {
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.radio-group {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+select, input[type="date"] {
+    width: 100%;
+    padding: 8px;
+    margin-top: 8px;
+    box-sizing: border-box;
+}
+
+.date-range {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.date-range input {
+    flex: 1;
+}
+
+.btn-primary {
+    padding: 10px 15px;
+    background-color: #2d72d9;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.btn-primary:hover {
+    background-color: #1b5bbf;
+}
+
+.btn-secondary {
+    padding: 10px 15px;
+    background-color: #eef4ff;
+    color: #19416f;
+    border: 1px solid #bfd4f2;
+    cursor: pointer;
+}
+
+.btn-secondary:hover {
+    background-color: #e1ecff;
+}
+
+.report-section {
+    margin-top: 32px;
+    padding: 24px;
+    border: 1px solid #dce7f5;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fafcff 0%, #f4f8fd 100%);
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+}
+
+.report-kicker {
+    margin: 0 0 6px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #5d7490;
+}
+
+.report-header h3 {
+    margin: 0;
+}
+
+.report-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.report-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.report-meta-item {
+    padding: 14px;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px solid #e1eaf5;
+}
+
+.report-meta-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6c819b;
+}
+
+.report-meta-value {
+    color: #1f2f40;
+    font-weight: 600;
+    word-break: break-word;
+}
+
+.report-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.process-card {
+    overflow: hidden;
+    border: 1px solid #d7e4f2;
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.process-toggle {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 18px;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.process-toggle:hover {
+    background: #f7fbff;
+}
+
+.process-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.process-title {
+    font-weight: 700;
+    color: #19324d;
+}
+
+.process-subtitle {
+    color: #5f7389;
+    font-size: 0.95rem;
+}
+
+.process-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #51677f;
+    flex-wrap: wrap;
+}
+
+.process-chevron {
+    font-size: 1.1rem;
+    color: #547192;
+}
+
+.process-card.open .process-chevron {
+    transform: rotate(180deg);
+}
+
+.process-body {
+    padding: 0 18px 18px;
+    border-top: 1px solid #edf3f9;
+}
+
+.task-strip {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding-top: 16px;
+    scrollbar-width: thin;
+}
+
+.task-card {
+    min-width: 280px;
+    max-width: 320px;
+    padding: 16px;
+    border-radius: 14px;
+    border: 2px solid #d5dee8;
+    background: #fbfdff;
+    box-sizing: border-box;
+}
+
+.task-card.status-open {
+    border-color: #f0a93b;
+}
+
+.task-card.status-completed {
+    border-color: #49a56b;
+}
+
+.task-card.status-failed,
+.task-card.status-cancelled {
+    border-color: #d46868;
+}
+
+.task-card.status-in-progress {
+    border-color: #4f8bd6;
+}
+
+.task-title {
+    margin-bottom: 10px;
+    font-weight: 700;
+    color: #1f3145;
+}
+
+.task-grid {
+    display: grid;
+    gap: 8px;
+    font-size: 0.92rem;
+}
+
+.task-row {
+    display: grid;
+    gap: 3px;
+}
+
+.task-key {
+    color: #698097;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.task-value {
+    color: #213547;
+    word-break: break-word;
+}
+
+.empty-state {
+    padding: 22px;
+    border-radius: 14px;
+    background: #ffffff;
+    border: 1px dashed #c7d7ea;
+    color: #61758d;
+}
+
+@media (max-width: 760px) {
+    .container {
+        padding: 16px;
+    }
+
+    .report-header,
+    .date-range {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .process-toggle {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

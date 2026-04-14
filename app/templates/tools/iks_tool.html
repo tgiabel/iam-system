@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tools & Reports" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% block css %}
+<link rel="stylesheet" href="/static/css/tools.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/tools/iks.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>IKS Kontrollbericht erstellen</h2>
+
+    <form id="reportForm">
+        <!-- Auswahl: Rolle oder Prozess -->
+        <div class="form-group">
+            <label>Was möchten Sie tun?</label>
+            <div class="radio-group">
+                <label>
+                    <input type="radio" name="type" value="role" disabled>
+                    Rolle rezertifizieren
+                </label>
+                <label>
+                    <input type="radio" name="type" value="process" checked>
+                    Prozess auswerten
+                </label>
+            </div>
+        </div>
+
+        <!-- Dropdown -->
+        <div class="form-group">
+            <label for="selection" id="selectionLabel">Rolle</label>
+            <select id="selection" name="selection" required>
+                <!-- Wird per JS befüllt -->
+            </select>
+            <input type="hidden" id="selectedRoleId" name="role_id">
+        </div>
+
+        <!-- Zeitraum -->
+        <div class="form-group">
+            <label>Zeitraum</label>
+
+            <select id="preset">
+                <option value="">Individuell wählen</option>
+                <option value="last_month">Letzter Monat</option>
+                <option value="last_quarter">Letztes Quartal</option>
+                <option value="this_year">Dieses Jahr</option>
+                <option value="last_year">Letztes Jahr</option>
+            </select>
+
+            <div class="date-range">
+                <input type="date" id="fromDate" name="from" required>
+                <span>bis</span>
+                <input type="date" id="toDate" name="to" required>
+            </div>
+        </div>
+
+        <!-- Button -->
+        <button type="submit" class="btn btn-primary">
+            Bericht generieren
+        </button>
+    </form>
+
+    <section id="reportSection" class="report-section" hidden>
+        <div class="report-header">
+            <div>
+                <p class="report-kicker">IKS Report</p>
+                <h3 id="reportTitle">Bericht</h3>
+            </div>
+            <div class="report-actions">
+                <button type="button" id="downloadHtmlButton" class="btn btn-secondary">
+                    HTML herunterladen
+                </button>
+                <button type="button" id="downloadJsonButton" class="btn btn-secondary">
+                    Rohdaten herunterladen
+                </button>
+            </div>
+        </div>
+
+        <div id="reportMeta" class="report-meta"></div>
+        <div id="reportContent" class="report-content"></div>
+    </section>
+</div>
+
+{% endblock %}

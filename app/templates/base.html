@@ -18,14 +18,20 @@
 <body>
     <header class="main-header">
         <div class="header-left">
-            <div class="logo-wrapper">
-                <img src="/static/img/handshake.png" 
-                    alt="Logo" 
-                    class="logo default-logo">
-                <img src="/static/img/handshake_hover.png" 
-                    alt="Logo Hover" 
-                    class="logo hover-logo">
-            </div>
+            {% if sub_page %}
+                <a href="{{ sub_page_back_url or '/' }}" class="back-logo-button" aria-label="{{ sub_page_back_label or 'Zurück' }}">
+                    <span class="back-logo-arrow" aria-hidden="true">←</span>
+                </a>
+            {% else %}
+                <div class="logo-wrapper">
+                    <img src="/static/img/handshake.png" 
+                        alt="Logo" 
+                        class="logo default-logo">
+                    <img src="/static/img/handshake_hover.png" 
+                        alt="Logo Hover" 
+                        class="logo hover-logo">
+                </div>
+            {% endif %}
         <h1 class="site-title">SOFA {{ page_title }}</h1>
         </div>
 
