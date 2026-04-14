@@ -18,10 +18,15 @@
 
     <div class="menu-section">
         <h2 class="menu-header">Meine Tools</h2>
-        <div class="menu-grid" style="grid-template-columns: repeat(3, 1fr);">
-            <a href="" class="menu-tile"><span class="menu-text">DAT-Export Check</span></a>
-            <a href="/tools/iks" class="menu-tile"><span class="menu-text">IKS-Bericht Generator</span></a>
-            <a href="" class="menu-tile"><span class="menu-text">Ticketrecherche</span></a>
+        <div class="menu-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <a href="/tools/datex" class="menu-tile">
+                <span class="menu-text">DAT-Export Check</span>
+                <img src="/static/img/process.png" class="menu-icon" alt="">
+            </a>
+            <a href="/tools/iks" class="menu-tile">
+                <span class="menu-text">IKS-Bericht Generator</span>
+                <img src="/static/img/roles.png" class="menu-icon" alt="">
+            </a>
         </div>
     </div>
 
@@ -33,9 +38,7 @@
     <div class="menu-section">
         <h2 class="menu-header">Meine Reports</h2>
         <div class="menu-grid" style="grid-template-columns: repeat(3, 1fr);">
-            <a href="" class="menu-tile"><span class="menu-text">Ticketreport</span></a>
-            <a href="" class="menu-tile"><span class="menu-text">SVL Report</span></a>
-            <a href="" class="menu-tile"><span class="menu-text">...</span></a>
+            <a href="/reports" class="menu-tile"><span class="menu-text">Prozessdaten</span></a>
         </div>
     </div>
 </div>
@@ -49,4 +52,3 @@
 {% endblock %}
 
 {% endblock %}
-

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tools & Reports" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/tools.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/tools/datex.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>DAT-Export konvertieren</h2>
+    <p class="report-kicker">Upload einer DAT-Datei und direkter Excel-Download</p>
+
+    <form id="datexForm" action="/api/tools/datex/convert" method="post" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="fileInput">DAT-Datei</label>
+            <div id="dropArea" class="process-card process-toggle" tabindex="0" role="button" aria-controls="fileInput" aria-label="DAT-Datei auswählen oder hineinziehen">
+                <div class="process-main">
+                    <span class="process-title">Datei hierher ziehen oder klicken</span>
+                    <span class="process-subtitle">Unterstützt das bestehende DAT-Export-Format mit festen 207 Zeichen pro Datensatz.</span>
+                </div>
+                <span class="process-chevron" aria-hidden="true">↑</span>
+            </div>
+            <input type="file" id="fileInput" name="datfile" accept=".dat,text/plain" required hidden>
+            <div id="fileName" class="report-meta">
+                <div class="report-meta-item">
+                    <span class="report-meta-label">Ausgewählte Datei</span>
+                    <span class="report-meta-value">Keine Datei ausgewählt</span>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Excel-Datei erzeugen</button>
+    </form>
+</div>
+{% endblock %}

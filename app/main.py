@@ -1,11 +1,12 @@
 from functools import wraps
-from fastapi import FastAPI, Request, Cookie, Depends, Form    # type: ignore
+from fastapi import FastAPI, Request, Cookie, Depends, Form, File, UploadFile    # type: ignore
 from fastapi.templating import Jinja2Templates                  # type: ignore
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse    # type: ignore
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse    # type: ignore
 from fastapi.staticfiles import StaticFiles                     # type: ignore
 from fastapi.exceptions import HTTPException                    # type: ignore
 import httpx # type: ignore
 from app.api_client import api_client
+from app.helpers.datex import build_datex_export
 import os
 import json
 
@@ -190,6 +191,56 @@ async def iks_tool(request: Request, user=Depends(get_current_user_dep)):
             "request": request,
             "user": user
         }
+    )
+
+
+@app.get("/tools/datex", response_class=HTMLResponse)
+async def datex_tool(request: Request, user=Depends(get_current_user_dep)):
+    return templates.TemplateResponse(
+        "tools/datex_tool.html",
+        {
+            "request": request,
+            "user": user,
+        }
+    )
+
+
+@app.post("/api/tools/datex/convert")
+async def convert_datex_file(
+    request: Request,
+    datfile: UploadFile = File(...),
+    user=Depends(get_current_user_dep),
+):
+    try:
+        if not datfile.filename:
+            return templates.TemplateResponse(
+                "tools/datex_tool.html",
+                {
+                    "request": request,
+                    "user": user,
+                    "flash_messages": [("failure", "Bitte waehlen Sie eine DAT-Datei aus.")],
+                },
+                status_code=400,
+            )
+
+        filename, workbook = build_datex_export(await datfile.read())
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            "tools/datex_tool.html",
+            {
+                "request": request,
+                "user": user,
+                "flash_messages": [("failure", str(exc))],
+            },
+            status_code=400,
+        )
+    finally:
+        await datfile.close()
+
+    return StreamingResponse(
+        workbook,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 # ------------------------------
