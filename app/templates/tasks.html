@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 
-{% set page_title = "Mein Bereich" %}
+{% set page_title = "To-Dos" %}
 {% block css %}
 <link rel="stylesheet" href="/static/css/menu.css">
+<link rel="stylesheet" href="/static/css/page_w_table.css">
 {% endblock %}
 
 {% block content %}
 
 <div class="tab-container">
     <div class="tab active" data-tab="aufgaben">Aufgaben</div>
-    <div class="tab" data-tab="tools">Tools</div>
+    <div class="tab" data-tab="prozesse">Prozesse</div>
 </div>
 
 <!-- Aufgaben Tab -->
@@ -33,15 +34,45 @@
 
 
 <!-- Tools Tab -->
-<div class="tab-content" id="tab-tools">
-    <div class="menu-section">
-        <h2 class="menu-header">Meine Tools</h2>
-        <div class="menu-grid" style="grid-template-columns: repeat(3, 1fr);">
-            <a href="" class="menu-tile"><span class="menu-text">DAT-Export Check</span></a>
-            <a href="" class="menu-tile"><span class="menu-text">Ticketbearbeitung</span></a>
-            <a href="" class="menu-tile"><span class="menu-text">Ticketrecherche</span></a>
-            <a href="/iks" class="menu-tile"><span class="menu-text">IKS</span></a>
-        </div>
+<div class="tab-content" id="tab-prozesse">
+    <h2>Laufende Prozesse</h2>
+    <div class="table-wrapper">
+        <table id="system-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Prozess</th>
+                    <th>Für</th>
+                    <th>Ausgelöst von</th>
+                    <th>Prozessstart</th>
+                    <th>Offene Aufgaben</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- wird dynamisch gefüllt -->
+
+            </tbody>
+        </table>
+    </div>
+    <br />
+    <h2>Abgeschlossene Prozesse</h2>
+    <div class="table-wrapper">
+        <table id="system-table">
+            <thead style="background-color: gray;">
+                <tr>
+                    <th>ID</th>
+                    <th>Prozess</th>
+                    <th>Für</th>
+                    <th>Ausgelöst von</th>
+                    <th>Prozessstart</th>
+                    <th>Prozessende</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- wird dynamisch gefüllt -->
+
+            </tbody>
+        </table>
     </div>
 </div>
 <!-- Task Overlay -->

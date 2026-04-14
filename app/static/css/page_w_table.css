@@ -481,3 +481,7 @@ tbody td {
 .account-cta:hover {
     background: #eee;
 }
+
+.history-table thead {
+    background-color: transparent;
+}

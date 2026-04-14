@@ -106,8 +106,7 @@ function initTabs() {
 /* -----------------------------
    Task Rendering
 ----------------------------- */
-function renderTaskTile(task, blocked = false) {
-    console.log("Rendering Task:", task, "Blocked:", blocked);
+function renderTaskTile(task, blocked = false, done = false) {
     const title = task.task_type === "ASSIGNMENT"
         ? "Zuweisung"
         : "Löschung";
@@ -119,7 +118,7 @@ function renderTaskTile(task, blocked = false) {
     }[task.handling_type] || "badge-default";
 
     // Optionales CSS für Blocked Tasks
-    const blockedClass = blocked ? "task-blocked" : "";
+    const blockedClass = blocked || done ? "task-blocked" : "";
 
     return `
         <a href="#" class="task-tile ${blockedClass}" data-task-id="${task.task_id}">
@@ -169,7 +168,7 @@ async function loadTasks() {
         // Completed Tasks (neuer Abschnitt)
         const completedContainer = document.getElementById("completed-tasks-slider");
         if (completedContainer) {
-            completedContainer.innerHTML = completedTasks.map(t => renderTaskTile(t)).join("") || "<p>Keine abgeschlossenen Aufgaben</p>";
+            completedContainer.innerHTML = completedTasks.map(t => renderTaskTile(t, false, true)).join("") || "<p>Keine abgeschlossenen Aufgaben</p>";
         }
 
     } catch (err) {

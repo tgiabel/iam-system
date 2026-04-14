@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tools & Reports" %}
+{% block css %}
+<link rel="stylesheet" href="/static/css/menu.css">
+<link rel="stylesheet" href="/static/css/page_w_table.css">
+{% endblock %}
+
+{% block content %}
+
+<div class="tab-container">
+    <div class="tab active" data-tab="tools">Tools</div>
+    <div class="tab" data-tab="reports">Reports</div>
+</div>
+
+<!-- Tools Tab -->
+<div class="tab-content active" id="tab-tools">
+
+    <div class="menu-section">
+        <h2 class="menu-header">Meine Tools</h2>
+        <div class="menu-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <a href="" class="menu-tile"><span class="menu-text">DAT-Export Check</span></a>
+            <a href="" class="menu-tile"><span class="menu-text">Ticketbearbeitung</span></a>
+            <a href="" class="menu-tile"><span class="menu-text">Ticketrecherche</span></a>
+        </div>
+    </div>
+
+</div>
+
+
+<!-- Reports Tab -->
+<div class="tab-content" id="tab-reports">
+    <div class="menu-section">
+        <h2 class="menu-header">Meine Reports</h2>
+        <div class="menu-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <a href="" class="menu-tile"><span class="menu-text">Ticketreport</span></a>
+            <a href="" class="menu-tile"><span class="menu-text">SVL Report</span></a>
+            <a href="" class="menu-tile"><span class="menu-text">...</span></a>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.currentUserId = {{ user.user_id | tojson }};
+</script>
+
+{% block scripts %}
+    <script src="/static/js/tools.js"></script>
+{% endblock %}
+
+{% endblock %}
+

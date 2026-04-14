@@ -104,6 +104,10 @@ def logout():
 def tasks(request: Request, user=Depends(get_current_user_dep)):
     return templates.TemplateResponse("tasks.html", {"request": request, "user": user})
 
+@app.get("/tools", response_class=HTMLResponse)
+def tools(request: Request, user=Depends(get_current_user_dep)):
+    return templates.TemplateResponse("tools.html", {"request": request, "user": user})
+
 # ------------------------------
 # Userverwaltung-Seite
 # ------------------------------
