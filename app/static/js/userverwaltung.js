@@ -22,7 +22,7 @@ const api = {
 
     async getSystemMap(){
         if (state.systemMap) return state.systemMap;
-        const res = await fetch("/static/json/system_map.json");
+        const res = await fetch("/api/systems/map");
         if (!res.ok) throw new Error("System Map konnte nicht geladen werden");
 
         state.systemMap = await res.json();
@@ -276,7 +276,7 @@ const sidebarController = {
         DOM.sidebarAccounts.innerHTML = accounts.map(acc=>{
 
             const system =
-                state.systemMap[acc.system_id] ||
+                state.systemMap[acc.system_id]?.name ||
                 `System #${acc.system_id}`;
 
             return `
@@ -308,7 +308,7 @@ const sidebarController = {
             header.classList.add("role-header");
 
             header.textContent =
-                map?.[role.role_id] ||
+                map?.[role.role_id]?.name ||
                 role.name;
 
             const body = document.createElement("div");

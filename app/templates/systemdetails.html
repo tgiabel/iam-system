@@ -40,14 +40,12 @@
         <div class="info-grid">
 
             {% set fields = [
-                {"label": "ID", "id": "system-id", "type": "text", "readonly": true},
-
-                {"label": "Name", "id": "system-name", "type": "text"},
-                {"label": "Kürzel", "id": "system-short", "type": "text"},
-
-                {"label": "Typ", "id": "system-type", "type": "select"},
-                {"label": "Status", "id": "system-status", "type": "select"},
-                {"label": "Verantwortlich", "id": "system-owner", "type": "select"}
+                {"label": "ID", "id": "system-id", "type": "text", "readonly": true, "editable": false},
+                {"label": "Name", "id": "system-name", "type": "text", "editable": true},
+                {"label": "Kürzel", "id": "system-short", "type": "text", "editable": true},
+                {"label": "Typ", "id": "system-type", "type": "text", "editable": false},
+                {"label": "Status", "id": "system-status", "type": "text", "editable": false},
+                {"label": "Verantwortlich", "id": "system-owner", "type": "text", "editable": false}
             ] %}
 
             {% for field in fields %}
@@ -58,7 +56,7 @@
                 <span class="field-text" id="{{ field.id }}-text">-</span>
 
                 <!-- INPUT -->
-                {% if field.type == "text" %}
+                {% if field.type == "text" and field.editable %}
                     <input
                         class="field-input input-txt"
                         id="{{ field.id }}-input"
@@ -66,14 +64,6 @@
                         {% if field.readonly %}readonly{% endif %}
                         style="display:none;"
                     >
-                {% elif field.type == "select" %}
-                    <select
-                        class="field-input"
-                        id="{{ field.id }}-input"
-                        style="display:none;"
-                    >
-                        <!-- Optionen werden dynamisch geladen -->
-                    </select>
                 {% endif %}
 
             </div>
@@ -221,19 +211,71 @@
                         </select>
                     </div>
                     <div class="form-field" id="resource-meta-container" style="display:none;">
-                        <label for="res-handling-meta">Meta-Informationen (JSON)</label>
-                        <textarea id="res-handling-meta" class="form-input" style="width: 100%;" rows="5" placeholder=
-'{
-    "external_contact":0,
-    "subject": "Betreff", 
-    "body": "Mail-Template"
-} 
-oder
-{
-    "bot":"",
-    "action":"",
-    "data": {...}
-}'></textarea>
+                        <label>Meta-Informationen</label>
+                        <div id="resource-meta-sections">
+                            <div class="resource-meta-group" data-task-type="ASSIGNMENT">
+                                <h4>Zuweisung</h4>
+                                <div class="resource-meta-fields" data-handling-type="EXTERNAL" style="display:none;">
+                                    <div class="form-field">
+                                        <label for="res-external-recipient-assignment">Empfänger</label>
+                                        <select id="res-external-recipient-assignment" class="form-input"></select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-external-subject-assignment">Betreff</label>
+                                        <input type="text" id="res-external-subject-assignment" class="form-input">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-external-body-assignment">Mailvorlage</label>
+                                        <textarea id="res-external-body-assignment" class="form-input" style="width: 100%;" rows="5"></textarea>
+                                    </div>
+                                </div>
+                                <div class="resource-meta-fields" data-handling-type="BOT" style="display:none;">
+                                    <div class="form-field">
+                                        <label for="res-bot-name-assignment">Bot</label>
+                                        <input type="text" id="res-bot-name-assignment" class="form-input">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-bot-action-assignment">Action</label>
+                                        <input type="text" id="res-bot-action-assignment" class="form-input">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-bot-data-assignment">Data</label>
+                                        <input type="text" id="res-bot-data-assignment" class="form-input">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="resource-meta-group" data-task-type="REVOCATION">
+                                <h4>Löschung</h4>
+                                <div class="resource-meta-fields" data-handling-type="EXTERNAL" style="display:none;">
+                                    <div class="form-field">
+                                        <label for="res-external-recipient-revocation">Empfänger</label>
+                                        <select id="res-external-recipient-revocation" class="form-input"></select>
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-external-subject-revocation">Betreff</label>
+                                        <input type="text" id="res-external-subject-revocation" class="form-input">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-external-body-revocation">Mailvorlage</label>
+                                        <textarea id="res-external-body-revocation" class="form-input" style="width: 100%;" rows="5"></textarea>
+                                    </div>
+                                </div>
+                                <div class="resource-meta-fields" data-handling-type="BOT" style="display:none;">
+                                    <div class="form-field">
+                                        <label for="res-bot-name-revocation">Bot</label>
+                                        <input type="text" id="res-bot-name-revocation" class="form-input">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-bot-action-revocation">Action</label>
+                                        <input type="text" id="res-bot-action-revocation" class="form-input">
+                                    </div>
+                                    <div class="form-field">
+                                        <label for="res-bot-data-revocation">Data</label>
+                                        <input type="text" id="res-bot-data-revocation" class="form-input">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

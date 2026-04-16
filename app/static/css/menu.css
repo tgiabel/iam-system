@@ -123,6 +123,6 @@
 .tab-content.active {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: space-evenly;
     max-width: 100%;
 }

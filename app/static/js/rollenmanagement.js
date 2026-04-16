@@ -210,6 +210,7 @@ function injectRoleManagementUI() {
                     <select id="role-create-type" name="role_type" required>
                         <option value="PRIMARY">Hauptrolle</option>
                         <option value="SECONDARY">Nebenrolle</option>
+                        <option value="TEMPLATE">Template</option>
                     </select>
                 </div>
                 <div class="create-modal-field">

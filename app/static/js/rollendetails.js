@@ -8,12 +8,24 @@ const DOM = {};
 const STATE = {
     overlayMode: "view",
     currentResource: null,
-    systemMap: null
+    systemMap: null,
+    roleMap: null,
+    isEditing: false
 };
 
-const api = {
+const ROLE_TYPE_OPTIONS = [
+    { value: "PRIMARY", label: "Hauptrolle" },
+    { value: "SECONDARY", label: "Nebenrolle" },
+    { value: "TEMPLATE", label: "Template" }
+];
 
-    async getSystemMap(){
+const ROLE_STATUS_OPTIONS = [
+    { value: "ACTIVE", label: "Aktiv" },
+    { value: "INACTIVE", label: "Inaktiv" }
+];
+
+const api = {
+    async getSystemMap() {
         if (STATE.systemMap) return STATE.systemMap;
         const res = await fetch("/api/systems/map");
         if (!res.ok) throw new Error("System Map konnte nicht geladen werden");
@@ -22,10 +34,32 @@ const api = {
         return STATE.systemMap;
     },
 
+    async getRoleMap() {
+        if (STATE.roleMap) return STATE.roleMap;
+        const res = await fetch("/api/roles/map");
+        if (!res.ok) throw new Error("Role Map konnte nicht geladen werden");
+
+        STATE.roleMap = await res.json();
+        return STATE.roleMap;
+    },
+
     async getSystemResources(sysId) {
         const res = await fetch(`/api/systems/${sysId}/resources`);
-        if(!res.ok) throw new Error(res.status);
+        if (!res.ok) throw new Error(res.status);
         return res.json();
+    },
+
+    async updateRole(roleId, payload) {
+        const res = await fetch(`/api/roles/${roleId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "Rolle konnte nicht gespeichert werden");
+        }
+        return data;
     },
 
     async addResourcesToRole(roleId, resourceIds) {
@@ -47,14 +81,15 @@ const api = {
         if (!res.ok) throw new Error("Fehler beim Entfernen der Ressourcen");
         return await res.json();
     }
-}
+};
+
 //------------------------------------------------
 // INIT
 //------------------------------------------------
 
 document.addEventListener("DOMContentLoaded", init);
 
-async function init(){
+async function init() {
     const msg = sessionStorage.getItem("flash_msg");
     const type = sessionStorage.getItem("flash_type");
 
@@ -72,11 +107,10 @@ async function init(){
 // DOM CACHE
 //------------------------------------------------
 
-function cacheDOM(){
-    
+function cacheDOM() {
     DOM.infoFields = document.querySelectorAll(".info-field");
     DOM.sectionButtons = document.querySelectorAll(".section-actions button");
-    
+
     DOM.overlay = document.getElementById("resource-overlay");
     DOM.closeBtn = document.getElementById("resource-close-btn");
     DOM.cancelBtn = document.getElementById("resource-cancel-btn");
@@ -96,6 +130,7 @@ function cacheDOM(){
 
     DOM.editBtn = document.querySelector("#edit-role-btn");
     DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
+    DOM.saveEdit = document.querySelector("#save-edit-btn");
     DOM.editActions = document.querySelector("#edit-actions");
 
     // form fields
@@ -103,56 +138,74 @@ function cacheDOM(){
     DOM.techId = document.getElementById("res-technical-id");
     DOM.type = document.getElementById("res-type");
     DOM.handling = document.getElementById("res-handling");
+
+    // info inputs
+    DOM.roleNameInput = document.getElementById("role-name-input");
+    DOM.roleTypeInput = document.getElementById("role-type-input");
+    DOM.roleStatusInput = document.getElementById("role-status-input");
+    DOM.roleParentInput = document.getElementById("role-parent-input");
+    DOM.roleDescriptionInput = document.getElementById("role-description-input");
 }
 
 //------------------------------------------------
-// LOAD role
+// LOAD ROLE
 //------------------------------------------------
 
-async function loadRoleDetail(){
-
+async function loadRoleDetail() {
     const roleId = window.location.pathname.split("/").pop();
 
-    try{
-
+    try {
         const resp = await fetch(`/api/roles/${roleId}`);
+        if (!resp.ok) throw new Error("Rollendetails konnten nicht geladen werden");
+
         role = await resp.json();
-        console.info(role);
-        fillroleInfo();
+        fillRoleInfo();
         renderResourceTable();
         setupCards();
-
-    }catch(e){
+    } catch (e) {
         console.error("Fehler beim Laden:", e);
+        showFlash("Fehler beim Laden der Rollendetails", "failure");
     }
 }
 
 //------------------------------------------------
-// role INFO
+// ROLE INFO
 //------------------------------------------------
 
-function fillroleInfo(){
+function fillRoleInfo() {
+    setText("role-id-text", role.role_id);
+    setText("role-name-text", role.name);
+    setText("role-type-text", formatRoleType(role.role_type));
+    setText("role-status-text", formatRoleStatus(getRoleStatusValue()));
+    setText("role-parent-text", role.parent_role_name || "-");
+    setText("role-description-text", role.description || "-");
+}
 
-    document.querySelector("#role-id-text").textContent = role.role_id;
-    document.querySelector("#role-name-text").textContent = role.name;
-    document.querySelector("#role-type-text").textContent = role.role_type || "-";
-    document.querySelector("#role-status-text").textContent = role.status || "-";
-    document.querySelector("#role-parent-text").textContent = role.parent_role_name || "-";
-    document.querySelector("#role-owner-text").textContent = role.owner || "-";
+function setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value || "-";
+}
+
+function getRoleStatusValue() {
+    return role.status || role.role_status || "ACTIVE";
+}
+
+function formatRoleType(value) {
+    return ROLE_TYPE_OPTIONS.find(option => option.value === value)?.label || value || "-";
+}
+
+function formatRoleStatus(value) {
+    return ROLE_STATUS_OPTIONS.find(option => option.value === value)?.label || value || "-";
 }
 
 //------------------------------------------------
 // RESOURCE TABLE
 //------------------------------------------------
 
-function renderResourceTable(){
-
-    const resourceTypes = {1:"konto",2:"gruppe",3:"lizenz",4:"sonstige"};
-
+function renderResourceTable() {
     DOM.tableBody.innerHTML = "";
 
-    role.resources.forEach(res=>{
-
+    role.resources.forEach(res => {
         const tr = document.createElement("tr");
 
         tr.dataset.type = "own";
@@ -168,8 +221,8 @@ function renderResourceTable(){
 
         DOM.tableBody.appendChild(tr);
     });
-    role.inherited_resources.forEach(res=>{
 
+    role.inherited_resources.forEach(res => {
         const tr = document.createElement("tr");
 
         tr.dataset.type = "inherited";
@@ -191,41 +244,34 @@ function renderResourceTable(){
 // RESOURCE CARDS
 //------------------------------------------------
 
-function setupCards(){
-
+function setupCards() {
     const cards = {
         all: document.querySelector("#count-all"),
         own: document.querySelector("#count-own"),
         inherited: document.querySelector("#count-inherited")
     };
 
-    const resourceTypes = {1:"own",2:"inherited"};
-
     const counts = {
-        all: role.resources.length,
-        own:role.resources.length, inherited:role.inherited_resources.length
+        all: role.resources.length + role.inherited_resources.length,
+        own: role.resources.length,
+        inherited: role.inherited_resources.length
     };
 
-    Object.entries(counts).forEach(([key,val])=>{
-
+    Object.entries(counts).forEach(([key, val]) => {
         const el = cards[key];
-        if(!el) return;
+        if (!el) return;
 
         el.textContent = val;
 
         const card = el.closest(".resource-card");
-
         card.classList.toggle("disabled", val === 0);
 
-        card.onclick = ()=>{
-            if(val === 0) return;
+        card.onclick = () => {
+            if (val === 0) return;
 
             document.querySelectorAll("#resources-table tbody tr")
-                .forEach(tr=>{
-                    tr.style.display =
-                        key==="all" || tr.dataset.type===key
-                        ? ""
-                        : "none";
+                .forEach(tr => {
+                    tr.style.display = key === "all" || tr.dataset.type === key ? "" : "none";
                 });
         };
     });
@@ -235,97 +281,159 @@ function setupCards(){
 // EVENTS
 //------------------------------------------------
 
-function bindBaseEvents(){
-
-    // Table click (event delegation)
-    DOM.tableBody.addEventListener("click", e=>{
-
+function bindBaseEvents() {
+    DOM.tableBody.addEventListener("click", e => {
         const tr = e.target.closest("tr");
-        if(!tr) return;
+        if (!tr) return;
 
-        const res = role.resources.find(
-            r=>r.resource_id == tr.dataset.res_id
-        );
+        const resources = [...role.resources, ...role.inherited_resources];
+        const res = resources.find(r => r.resource_id == tr.dataset.res_id);
+        if (!res) return;
 
         openOverlay("view", res);
     });
 
-    DOM.editBtn.addEventListener("click", editrole);
+    DOM.editBtn.addEventListener("click", editRole);
     DOM.cancelEdit.addEventListener("click", cancelEdit);
+    DOM.saveEdit.addEventListener("click", saveRoleEdit);
 
-    DOM.addResBtn.addEventListener("click", ()=> openOverlay("add"));
-    DOM.rmResBtn.addEventListener("click", ()=> openOverlay("rm"));
+    DOM.addResBtn.addEventListener("click", () => openOverlay("add"));
+    DOM.rmResBtn.addEventListener("click", () => openOverlay("rm"));
 
-    [DOM.closeBtn, DOM.cancelBtn].forEach(btn=>{
+    [DOM.closeBtn, DOM.cancelBtn].forEach(btn => {
         btn.addEventListener("click", closeOverlay);
     });
 
     DOM.saveResBtn.addEventListener("click", saveResourceOverlay);
 }
 
-function editrole(){
+async function editRole() {
+    try {
+        await populateRoleEditFields();
 
-    DOM.infoFields.forEach(field=>{
+        DOM.infoFields.forEach(field => {
+            const text = field.querySelector(".field-text");
+            const input = field.querySelector(".field-input");
 
-        const text = field.querySelector(".field-text");
-        const input = field.querySelector(".field-input");
+            if (!input) return;
 
-        if(!input) return;
+            text.style.display = "none";
+            input.style.display = input.tagName === "TEXTAREA" ? "block" : "block";
+        });
 
-        input.value = text.textContent;
-
-        text.style.display = "none";
-        input.style.display = "block";
-    });
-
-    DOM.sectionButtons.forEach(btn=> btn.disabled = true);
-
-    DOM.editActions.style.display = "flex";
-
-    fillSelect("role-type", ["Applikation","Service","Tool"]);
-    fillSelect("role-status", ["Aktiv","Inaktiv"]);
-    fillSelect("role-owner", ["IT HR","IT Core","Security"]);
+        DOM.sectionButtons.forEach(btn => btn.disabled = true);
+        DOM.editBtn.disabled = true;
+        DOM.editActions.style.display = "flex";
+        STATE.isEditing = true;
+    } catch (err) {
+        console.error(err);
+        showFlash("Bearbeitungsdaten konnten nicht geladen werden", "failure");
+    }
 }
 
-
-function cancelEdit(){
-
-    DOM.infoFields.forEach(field=>{
-
+function cancelEdit() {
+    DOM.infoFields.forEach(field => {
         const text = field.querySelector(".field-text");
         const input = field.querySelector(".field-input");
 
-        if(!input) return;
+        if (!input) return;
 
         input.style.display = "none";
         text.style.display = "block";
     });
 
-    DOM.sectionButtons.forEach(btn=> btn.disabled = false);
-
+    DOM.sectionButtons.forEach(btn => btn.disabled = false);
+    DOM.editBtn.disabled = false;
     DOM.editActions.style.display = "none";
+    STATE.isEditing = false;
 }
 
+async function populateRoleEditFields() {
+    const roleMap = await api.getRoleMap();
 
-function fillSelect(id, values){
-    const select = document.querySelector(`#${id}-input`);
+    fillSelect(DOM.roleTypeInput, ROLE_TYPE_OPTIONS, role.role_type);
+    fillSelect(DOM.roleStatusInput, ROLE_STATUS_OPTIONS, getRoleStatusValue());
+    fillParentRoleSelect(roleMap, role.parent_role_id);
+
+    DOM.roleNameInput.value = role.name || "";
+    DOM.roleDescriptionInput.value = role.description || "";
+}
+
+function fillSelect(select, options, selectedValue = "") {
+    if (!select) return;
 
     select.innerHTML = "";
 
-    values.forEach(v=>{
+    options.forEach(optionData => {
         const opt = document.createElement("option");
-        opt.value = v;
-        opt.textContent = v;
+        opt.value = optionData.value;
+        opt.textContent = optionData.label;
+        opt.selected = String(optionData.value) === String(selectedValue);
         select.appendChild(opt);
     });
+}
+
+function fillParentRoleSelect(roleMap, selectedValue = null) {
+    if (!DOM.roleParentInput) return;
+
+    DOM.roleParentInput.innerHTML = '<option value="">Keine</option>';
+
+    Object.entries(roleMap)
+        .filter(([roleId]) => Number(roleId) !== Number(role.role_id))
+        .sort(([, a], [, b]) => a.name.localeCompare(b.name, "de"))
+        .forEach(([roleId, roleData]) => {
+            const opt = document.createElement("option");
+            opt.value = roleId;
+            opt.textContent = `${roleData.name} (${formatRoleType(roleData.type)})`;
+            opt.selected = String(roleId) === String(selectedValue ?? "");
+            DOM.roleParentInput.appendChild(opt);
+        });
+}
+
+async function saveRoleEdit() {
+    const payload = {
+        name: String(DOM.roleNameInput.value || "").trim(),
+        description: String(DOM.roleDescriptionInput.value || "").trim(),
+        role_type: DOM.roleTypeInput.value,
+        status: DOM.roleStatusInput.value,
+        parent_role_id: DOM.roleParentInput.value ? Number(DOM.roleParentInput.value) : null
+    };
+
+    if (!payload.name || !payload.description || !payload.role_type) {
+        showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
+        return;
+    }
+
+    DOM.saveEdit.disabled = true;
+
+    try {
+        const updatedRole = await api.updateRole(role.role_id, payload);
+        role = { ...role, ...updatedRole, ...payload };
+
+        if (payload.parent_role_id === null) {
+            role.parent_role_name = null;
+        } else {
+            const roleMap = await api.getRoleMap();
+            role.parent_role_name = roleMap[payload.parent_role_id]?.name || role.parent_role_name;
+        }
+
+        STATE.roleMap = null;
+        fillRoleInfo();
+        cancelEdit();
+        showFlash("Rollendetails gespeichert", "success");
+    } catch (err) {
+        console.error("Speichern fehlgeschlagen:", err);
+        showFlash(err.message || "Rollendetails konnten nicht gespeichert werden", "failure");
+    } finally {
+        DOM.saveEdit.disabled = false;
+    }
 }
 
 //------------------------------------------------
 // OVERLAY
 //------------------------------------------------
 
-async function openOverlay(mode, resource=null){
-
+async function openOverlay(mode, resource = null) {
     STATE.overlayMode = mode;
     STATE.currentResource = resource;
 
@@ -335,35 +443,25 @@ async function openOverlay(mode, resource=null){
     DOM.form.style.display = "block";
 
     DOM.form.querySelectorAll("input,select")
-        .forEach(el=> el.disabled=false);
+        .forEach(el => el.disabled = false);
 
     DOM.saveResBtn.style.display = "inline-block";
 
-    //--------------------------------
-    // VIEW
-    //--------------------------------
-
-    if(mode==="view"){
-
+    if (mode === "view") {
         DOM.title.textContent = "Ressourcen Details";
         DOM.form.style.display = "block";
         DOM.selectContainer.style.display = "none";
         DOM.tableContainer.style.display = "none";
 
         DOM.form.querySelectorAll("input,select")
-            .forEach(el=> el.disabled=true);
+            .forEach(el => el.disabled = true);
 
         DOM.saveResBtn.style.display = "none";
 
         fillResourceForm(resource);
     }
 
-    //--------------------------------
-    // REMOVE
-    //--------------------------------
-
-    if(mode==="rm"){
-
+    if (mode === "rm") {
         DOM.title.textContent = "Ressourcen entfernen";
         DOM.form.style.display = "none";
         DOM.selectContainer.style.display = "none";
@@ -372,11 +470,9 @@ async function openOverlay(mode, resource=null){
         const currentList = document.getElementById("res-list-current");
         const removeList = document.getElementById("res-list-to-remove");
 
-        // Leeren
         currentList.innerHTML = "";
         removeList.innerHTML = "";
 
-        // Funktion zum Erstellen einer Zeile
         const createRow = (res, isRemoving) => {
             const tr = document.createElement("tr");
             tr.dataset.id = res.resource_id;
@@ -389,30 +485,22 @@ async function openOverlay(mode, resource=null){
                 </td>
             `;
 
-            // Event-Listener für den Button
             tr.querySelector(".action-btn").onclick = () => {
                 if (!isRemoving) {
-                    // Von "Aktuell" nach "Entfernen"
                     removeList.appendChild(createRow(res, true));
                 } else {
-                    // Zurück nach "Aktuell"
                     currentList.appendChild(createRow(res, false));
                 }
-                tr.remove(); // Die alte Zeile löschen
+                tr.remove();
             };
 
             return tr;
         };
 
-        // Initial befüllen
         role.resources.forEach(r => {
             currentList.appendChild(createRow(r, false));
         });
     }
-
-    //--------------------------------
-    // ADD
-    //--------------------------------
 
     if (mode === "add") {
         DOM.title.textContent = "Ressourcen hinzufügen";
@@ -426,13 +514,16 @@ async function openOverlay(mode, resource=null){
         const availList = document.getElementById("res-list-available");
         const addList = document.getElementById("res-list-to-add");
 
-        // Select befüllen
         DOM.selectSys.innerHTML = "<option value=''>-- Bitte wählen --</option>";
-        Object.entries(systems).forEach(([id, name]) => {
-            DOM.selectSys.innerHTML += `<option value="${id}">${name}</option>`;
-        });
+        Object.entries(systems)
+            .sort(([, a], [, b]) => a.name.localeCompare(b.name, "de"))
+            .forEach(([id, systemData]) => {
+                const optionLabel = systemData.type
+                    ? `${systemData.name} (${systemData.type})`
+                    : systemData.name;
+                DOM.selectSys.innerHTML += `<option value="${id}">${optionLabel}</option>`;
+            });
 
-        // Hilfsfunktion für Zeilen (ähnlich wie bei rm)
         const createAddRow = (res, isStaged) => {
             const tr = document.createElement("tr");
             tr.dataset.id = res.resource_id;
@@ -447,10 +538,8 @@ async function openOverlay(mode, resource=null){
 
             tr.querySelector(".action-btn").onclick = () => {
                 if (!isStaged) {
-                    // Nach unten schieben (Markiert zum Hinzufügen)
                     addList.appendChild(createAddRow(res, true));
                 } else {
-                    // Zurück nach oben schieben (Wieder verfügbar machen)
                     availList.appendChild(createAddRow(res, false));
                 }
                 tr.remove();
@@ -458,33 +547,28 @@ async function openOverlay(mode, resource=null){
             return tr;
         };
 
-        // Event: System ausgewählt
-        DOM.selectSys.onchange = async (e) => {
+        DOM.selectSys.onchange = async e => {
             const sysId = e.target.value;
             if (!sysId) {
                 availContainer.style.display = "none";
                 return;
             }
 
-            // 1. Daten laden (ist direkt das Array)
             const resources = await api.getSystemResources(sysId);
             availList.innerHTML = "";
             availContainer.style.display = "block";
 
-            // 2. Da 'resources' direkt das Array ist, prüfen wir .length direkt darauf
             if (Array.isArray(resources) && resources.length > 0) {
                 resources.forEach(r => {
-                    // Prüfen, ob die Ressource bereits in der Rolle vorhanden ist
-                    const alreadyHas = role.resources.some(existing => 
+                    const alreadyHas = role.resources.some(existing =>
                         existing.resource_id === r.resource_id
                     );
-                    
+
                     if (!alreadyHas) {
                         availList.appendChild(createAddRow(r, false));
                     }
                 });
 
-                // Kleiner Bonus: Falls alle Ressourcen des Systems bereits in der Rolle sind
                 if (availList.innerHTML === "") {
                     availList.innerHTML = "<tr><td colspan='2' style='font-style: italic; color: gray;'>Alle Ressourcen dieses Systems sind bereits zugewiesen.</td></tr>";
                 }
@@ -495,7 +579,7 @@ async function openOverlay(mode, resource=null){
     }
 }
 
-function closeOverlay(){
+function closeOverlay() {
     DOM.overlay.classList.remove("active");
     DOM.form.style.display = "none";
     STATE.overlayMode = "";
@@ -505,68 +589,48 @@ function closeOverlay(){
 // FORM
 //------------------------------------------------
 
-function fillResourceForm(res){
-
+function fillResourceForm(res) {
     DOM.displayName.value = res.display_name || "";
     DOM.techId.value = res.technical_identifier || "";
     DOM.type.value = res.type_id || 1;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
 }
 
-function onSelectResource(){
-
-    const res = role.resources.find(
-        r=> r.resource_id == DOM.selectRes.value
-    );
-
-    if(!res) return;
-
-    DOM.selectContainer.style.display = "none";
-    DOM.form.style.display = "block";
-
-    fillResourceForm(res);
-
-    STATE.currentResource = res;
-}
-
 //------------------------------------------------
 // SAVE
 //------------------------------------------------
 
-async function saveResourceOverlay(){
-
+async function saveResourceOverlay() {
     const mode = STATE.overlayMode;
     const roleIdToUpdate = role.role_id;
-    let resoureceIds = [];
-    try{
+    let resourceIds = [];
+
+    try {
         if (mode === "add") {
             const rows = document.querySelectorAll("#res-list-to-add tr");
-            resoureceIds = Array.from(rows).map(tr => tr.dataset.id);
-            if (resoureceIds.length > 0) {
-                await api.addResourcesToRole(roleIdToUpdate, resoureceIds);
+            resourceIds = Array.from(rows).map(tr => tr.dataset.id);
+            if (resourceIds.length > 0) {
+                await api.addResourcesToRole(roleIdToUpdate, resourceIds);
             } else {
                 showFlash("Keine Ressourcen zum Hinzufügen ausgewählt", "failure");
                 return;
             }
-        }
-        else if (mode === "rm") {
+        } else if (mode === "rm") {
             const rows = document.querySelectorAll("#res-list-to-remove tr");
-            resoureceIds = Array.from(rows).map(tr => tr.dataset.id);
-            if (resoureceIds.length > 0) {
-                await api.removeResourcesFromRole(roleIdToUpdate, resoureceIds);
+            resourceIds = Array.from(rows).map(tr => tr.dataset.id);
+            if (resourceIds.length > 0) {
+                await api.removeResourcesFromRole(roleIdToUpdate, resourceIds);
             } else {
                 showFlash("Keine Ressourcen zum Entfernen ausgewählt", "failure");
                 return;
-            }            
-        }
-        else {
+            }
+        } else {
             showFlash("Fehler beim Speichern. [ovMode nicht gesetzt oder unbekannt]", "failure");
             return;
         }
         sessionStorage.setItem("flash_msg", "Änderungen gespeichert!");
         sessionStorage.setItem("flash_type", "success");
         location.reload();
-
     } catch (err) {
         console.error("Speichern fehlgeschlagen:", err);
         showFlash(err.message, "failure");

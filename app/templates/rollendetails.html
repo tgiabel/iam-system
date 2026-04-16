@@ -45,7 +45,7 @@
                 {"label": "Typ", "id": "role-type", "type": "select"},
                 {"label": "Status", "id": "role-status", "type": "select"},
                 {"label": "Erbt von", "id": "role-parent", "type": "select"},
-                {"label": "Verantwortlich", "id": "role-owner", "type": "select"}
+                {"label": "Beschreibung", "id": "role-description", "type": "textarea"}
             ] %}
 
             {% for field in fields %}
@@ -70,6 +70,12 @@
                         id="{{ field.id }}-input"
                         style="display:none;"
                     ></select>
+                {% elif field.type == "textarea" %}
+                    <textarea
+                        class="field-input input-txt"
+                        id="{{ field.id }}-input"
+                        style="display:none;"
+                    ></textarea>
                 {% endif %}
             </div>
             {% endfor %}

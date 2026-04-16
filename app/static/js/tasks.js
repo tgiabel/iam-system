@@ -9,12 +9,12 @@ if (!window.taskOverlayInitialized) {
 }
 
 const api = {
-    async getMailTemplate(resource_id, user_id){
+    async getMailTemplate(resource_id, user_id, task_type){
         try {
             const res = await fetch("/api/resources/mail_template", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({resource_id: resource_id, user_id: user_id})
+                body: JSON.stringify({resource_id: resource_id, user_id: user_id, task_type: task_type})
             });
             const data = await res.json();
 
@@ -532,7 +532,7 @@ async function openMailDialog(task) {
     // erwartet { recipient, subject, body }
     let mailData;
     try {
-        mailData = await api.getMailTemplate(task.resource_id, task.target_user_id);
+        mailData = await api.getMailTemplate(task.resource_id, task.target_user_id, task.task_type);
     } catch (err) {
         console.error("Fehler beim Abrufen der Mailvorlage:", err);
         showFlash("Mailvorlage konnte nicht geladen werden!", "failure");

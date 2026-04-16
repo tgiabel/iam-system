@@ -7,11 +7,15 @@ let system = null;
 const DOM = {};
 const STATE = {
     overlayMode: "view",
-    currentResource: null
+    currentResource: null,
+    users: [],
+    isEditing: false
 };
 
+const TASK_TYPES = ["ASSIGNMENT", "REVOCATION"];
+
 const api = {
-    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, meta=null) {
+    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, meta = null) {
         try {    
             const body = { 
                 system_id: sysId,
@@ -20,7 +24,7 @@ const api = {
                 technical_identifier: technicalIdentifier,
                 override_handling_type: handlingType
             };
-            if (meta !== null && meta !== "") {
+            if (Array.isArray(meta) && meta.length > 0) {
                 body.meta = meta;
             }
             const res = await fetch(`/api/resources`, {
@@ -32,15 +36,17 @@ const api = {
 
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
             showFlash(`Resource hinzugefügt.`, "success");
+            return true;
         } catch (err) {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            return false;
         }
     },
-    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, meta=null) {
+    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, meta = null) {
         try{
             const body = {
                 resource_id: resId,
@@ -50,7 +56,7 @@ const api = {
                 technical_identifier: technicalIdentifier,
                 override_handling_type: handlingType
             };
-            if (meta !== null && meta !== "") {
+            if (Array.isArray(meta) && meta.length > 0) {
                 body.meta = meta;
             }
             const res = await fetch(`/api/resources/${resId}`, {
@@ -58,14 +64,38 @@ const api = {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body)
             });
+            const data = await res.json();
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
             showFlash(`Resource aktualisiert.`, "success");
+            return true;
         } catch (err) {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            return false;
+        }
+    },
+    async updateSystem(systemId, payload) {
+        try {
+            const res = await fetch(`/api/systems/${systemId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                showFlash(data.detail || data.error || "System konnte nicht gespeichert werden", "failure");
+                return false;
+            }
+
+            return data;
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+            return false;
         }
     }
 }
@@ -87,6 +117,7 @@ async function init(){
     }
     cacheDOM();
     bindBaseEvents();
+    await loadUsers();
     await loadSystemDetail();
 }
 
@@ -117,6 +148,7 @@ function cacheDOM(){
 
     DOM.editBtn = document.querySelector("#edit-system-btn");
     DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
+    DOM.saveEdit = document.querySelector("#save-edit-btn");
     DOM.editActions = document.querySelector("#edit-actions");
 
     // form fields
@@ -125,7 +157,36 @@ function cacheDOM(){
     DOM.type = document.getElementById("res-type");
     DOM.handling = document.getElementById("res-handling");
     DOM.handlingMetaContainer = document.getElementById("resource-meta-container");
-    DOM.handlingMeta = document.getElementById("res-handling-meta");
+    DOM.metaFields = {
+        EXTERNAL: {
+            ASSIGNMENT: {
+                recipient: document.getElementById("res-external-recipient-assignment"),
+                subject: document.getElementById("res-external-subject-assignment"),
+                body: document.getElementById("res-external-body-assignment")
+            },
+            REVOCATION: {
+                recipient: document.getElementById("res-external-recipient-revocation"),
+                subject: document.getElementById("res-external-subject-revocation"),
+                body: document.getElementById("res-external-body-revocation")
+            }
+        },
+        BOT: {
+            ASSIGNMENT: {
+                bot: document.getElementById("res-bot-name-assignment"),
+                action: document.getElementById("res-bot-action-assignment"),
+                data: document.getElementById("res-bot-data-assignment")
+            },
+            REVOCATION: {
+                bot: document.getElementById("res-bot-name-revocation"),
+                action: document.getElementById("res-bot-action-revocation"),
+                data: document.getElementById("res-bot-data-revocation")
+            }
+        }
+    };
+    DOM.metaSections = DOM.handlingMetaContainer.querySelectorAll(".resource-meta-fields");
+
+    DOM.systemNameInput = document.getElementById("system-name-input");
+    DOM.systemShortInput = document.getElementById("system-short-input");
 }
 
 //------------------------------------------------
@@ -148,6 +209,21 @@ async function loadSystemDetail(){
     }catch(e){
         console.error("Fehler beim Laden:", e);
     }
+}
+
+async function loadUsers() {
+    try {
+        const res = await fetch("/api/users");
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "Benutzer konnten nicht geladen werden");
+        }
+        STATE.users = Array.isArray(data) ? data : [];
+    } catch (e) {
+        console.error("Fehler beim Laden der Benutzer:", e);
+        STATE.users = [];
+    }
+    fillRecipientOptions();
 }
 
 //------------------------------------------------
@@ -264,6 +340,7 @@ function bindBaseEvents(){
 
     DOM.editBtn.addEventListener("click", editSystem);
     DOM.cancelEdit.addEventListener("click", cancelEdit);
+    DOM.saveEdit.addEventListener("click", saveSystemEdit);
 
     DOM.addResBtn.addEventListener("click", ()=> openOverlay("add"));
     DOM.editResBtn.addEventListener("click", ()=> openOverlay("edit"));
@@ -278,44 +355,45 @@ function bindBaseEvents(){
 }
 
 function toggleHandlingMetaField(){
-    const showMeta = ["EXTERNAL","BOT"].includes(DOM.handling.value);
+    const selectedHandlingType = DOM.handling.value;
+    const showMeta = ["EXTERNAL","BOT"].includes(selectedHandlingType);
     DOM.handlingMetaContainer.style.display = showMeta ? "block" : "none";
-    DOM.handlingMeta.disabled = !showMeta || STATE.overlayMode === "view";
-    
-    // Bei Wechsel des handling_type: Meta-Daten neu laden
-    if (showMeta && STATE.currentResource && STATE.currentResource.meta && Array.isArray(STATE.currentResource.meta)) {
-        const metaEntry = STATE.currentResource.meta.find(m => m.handling_type === DOM.handling.value);
-        if (metaEntry && metaEntry.meta) {
-            DOM.handlingMeta.value = JSON.stringify(metaEntry.meta, null, 2);
-        } else {
-            DOM.handlingMeta.value = "";
-        }
+    const readOnly = !showMeta || STATE.overlayMode === "view";
+
+    DOM.metaSections.forEach(section => {
+        const isActive = showMeta && section.dataset.handlingType === selectedHandlingType;
+        section.style.display = isActive ? "block" : "none";
+
+        section.querySelectorAll("input, select, textarea").forEach(field => {
+            field.disabled = !isActive || readOnly;
+        });
+    });
+
+    if (showMeta) {
+        fillMetaFieldsForHandling(selectedHandlingType, STATE.currentResource);
     }
 }
 
 
 function editSystem(){
-
     DOM.infoFields.forEach(field=>{
-
         const text = field.querySelector(".field-text");
         const input = field.querySelector(".field-input");
 
         if(!input) return;
 
-        input.value = text.textContent;
-
         text.style.display = "none";
         input.style.display = "block";
     });
 
+    DOM.systemNameInput.value = system.name || "";
+    DOM.systemShortInput.value = system.short_name || "";
+
     DOM.sectionButtons.forEach(btn=> btn.disabled = true);
+    DOM.editBtn.disabled = true;
 
     DOM.editActions.style.display = "flex";
-
-    fillSelect("system-type", ["Applikation","Service","Tool"]);
-    fillSelect("system-status", ["Aktiv","Inaktiv"]);
-    fillSelect("system-owner", ["IT HR","IT Core","Security"]);
+    STATE.isEditing = true;
 }
 
 
@@ -333,22 +411,38 @@ function cancelEdit(){
     });
 
     DOM.sectionButtons.forEach(btn=> btn.disabled = false);
+    DOM.editBtn.disabled = false;
 
     DOM.editActions.style.display = "none";
+    STATE.isEditing = false;
 }
 
+async function saveSystemEdit() {
+    const payload = {
+        name: String(DOM.systemNameInput.value || "").trim(),
+        short_name: String(DOM.systemShortInput.value || "").trim()
+    };
 
-function fillSelect(id, values){
-    const select = document.querySelector(`#${id}-input`);
+    if (!payload.name || !payload.short_name) {
+        showFlash("Bitte Name und Kürzel ausfüllen", "failure");
+        return;
+    }
 
-    select.innerHTML = "";
+    DOM.saveEdit.disabled = true;
 
-    values.forEach(v=>{
-        const opt = document.createElement("option");
-        opt.value = v;
-        opt.textContent = v;
-        select.appendChild(opt);
-    });
+    try {
+        const updatedSystem = await api.updateSystem(system.system_id, payload);
+        if (!updatedSystem) {
+            return;
+        }
+
+        system = { ...system, ...updatedSystem, ...payload };
+        fillSystemInfo();
+        cancelEdit();
+        showFlash("Systemdetails gespeichert", "success");
+    } finally {
+        DOM.saveEdit.disabled = false;
+    }
 }
 
 //------------------------------------------------
@@ -365,7 +459,7 @@ function openOverlay(mode, resource=null){
     DOM.selectContainer.style.display = "none";
     DOM.form.style.display = "block";
 
-    DOM.form.querySelectorAll("input,select")
+    DOM.form.querySelectorAll("input,select,textarea")
         .forEach(el=> el.disabled=false);
 
     DOM.saveResBtn.style.display = "inline-block";
@@ -378,7 +472,7 @@ function openOverlay(mode, resource=null){
 
         DOM.title.textContent = "Ressource Details";
 
-        DOM.form.querySelectorAll("input,select")
+        DOM.form.querySelectorAll("input,select,textarea")
             .forEach(el=> el.disabled=true);
 
         DOM.saveResBtn.style.display = "none";
@@ -443,16 +537,8 @@ function fillResourceForm(res){
     DOM.techId.value = res.technical_identifier || "";
     DOM.type.value = res.type_id || 1;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
-    
-    // Lade die Meta-Information zum aktuellen handling_type aus dem meta-Array
-    let metaValue = "";
-    if (res.meta && Array.isArray(res.meta)) {
-        const metaEntry = res.meta.find(m => m.handling_type === DOM.handling.value);
-        if (metaEntry && metaEntry.meta) {
-            metaValue = JSON.stringify(metaEntry.meta, null, 2);
-        }
-    }
-    DOM.handlingMeta.value = metaValue;
+
+    resetMetaFields();
     toggleHandlingMetaField();
 }
 
@@ -464,12 +550,12 @@ function onSelectResource(){
 
     if(!res) return;
 
+    STATE.currentResource = res;
+
     DOM.selectContainer.style.display = "none";
     DOM.form.style.display = "block";
 
     fillResourceForm(res);
-
-    STATE.currentResource = res;
 }
 
 //------------------------------------------------
@@ -477,38 +563,227 @@ function onSelectResource(){
 //------------------------------------------------
 
 async function saveResource(){
-
-    const payload = {
-        display_name: DOM.displayName.value,
-        technical_identifier: DOM.techId.value,
-        type_id: parseInt(DOM.type.value),
-        override_handling_type: DOM.handling.value
-    };
-
-    if (DOM.handlingMetaContainer.style.display !== "none") {
-        payload.metadata_json = DOM.handlingMeta.value.trim();
-    }
+    const handlingType = DOM.handling.value;
+    const typeId = parseInt(DOM.type.value, 10);
+    const meta = buildMetaPayload(handlingType);
+    let success = false;
 
     if(STATE.currentResource){
-
-        payload.resource_id =
-            STATE.currentResource.resource_id;
-        if (DOM.handlingMetaContainer.style.display !== "none") {
-            await api.updateResource(STATE.currentResource.resource_id, system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value, DOM.handlingMeta.value.trim());
-        } else {   
-            await api.updateResource(STATE.currentResource.resource_id, system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
-        }
+        success = await api.updateResource(
+            STATE.currentResource.resource_id,
+            system.system_id,
+            typeId,
+            DOM.displayName.value,
+            DOM.techId.value,
+            handlingType,
+            meta
+        );
     }else{
-
-        payload.system_id = system.system_id;
-
-        if (DOM.handlingMetaContainer.style.display !== "none") {
-            await api.createResource(system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value, OM.handlingMeta.value.trim());
-        } else {
-            await api.createResource(system.system_id, parseInt(DOM.type.value), DOM.displayName.value, DOM.techId.value, DOM.handling.value);
-        }
+        success = await api.createResource(
+            system.system_id,
+            typeId,
+            DOM.displayName.value,
+            DOM.techId.value,
+            handlingType,
+            meta
+        );
     }
+
+    if (!success) {
+        return;
+    }
+
     await loadSystemDetail();
     closeOverlay();
 
+}
+
+function fillRecipientOptions() {
+    const recipients = getRecipientOptions();
+    const recipientSelects = [
+        DOM.metaFields.EXTERNAL.ASSIGNMENT.recipient,
+        DOM.metaFields.EXTERNAL.REVOCATION.recipient
+    ];
+
+    recipientSelects.forEach(select => {
+        const currentValue = select.value;
+        select.innerHTML = "<option value=''>-- Bitte wählen --</option>";
+
+        recipients.forEach(recipient => {
+            const option = document.createElement("option");
+            option.value = recipient.value;
+            option.textContent = recipient.label;
+            select.appendChild(option);
+        });
+
+        if (recipients.some(recipient => recipient.value === currentValue)) {
+            select.value = currentValue;
+        }
+    });
+}
+
+function getRecipientOptions() {
+    const options = [];
+    const seen = new Set();
+
+    STATE.users.forEach(user => {
+        if (!user.user_id) {
+            return;
+        }
+
+        const label = `${user.first_name || ""} ${user.last_name || ""}`.trim();
+        const optionValue = String(user.user_id);
+        const optionLabel = label
+            ? `${label}${user.email ? ` (${user.email})` : ""}`
+            : (user.email || optionValue);
+
+        if (!seen.has(optionValue)) {
+            seen.add(optionValue);
+            options.push({ value: optionValue, label: optionLabel });
+        }
+    });
+
+    const currentMeta = Array.isArray(STATE.currentResource?.meta) ? STATE.currentResource.meta : [];
+    currentMeta.forEach(entry => {
+        const value = getExternalRecipientValue(entry?.meta);
+        if (value && !seen.has(value)) {
+            seen.add(value);
+            options.push({ value, label: value });
+        }
+    });
+
+    return options;
+}
+
+function resetMetaFields() {
+    Object.values(DOM.metaFields.EXTERNAL).forEach(fields => {
+        fields.recipient.value = "";
+        fields.subject.value = "";
+        fields.body.value = "";
+    });
+
+    Object.values(DOM.metaFields.BOT).forEach(fields => {
+        fields.bot.value = "";
+        fields.action.value = "";
+        fields.data.value = "";
+    });
+
+    fillRecipientOptions();
+}
+
+function fillMetaFieldsForHandling(handlingType, resource) {
+    resetFieldsForHandling(handlingType);
+
+    if (!resource || !Array.isArray(resource.meta)) {
+        return;
+    }
+
+    TASK_TYPES.forEach(taskType => {
+        const metaEntry = findMetaEntry(resource.meta, handlingType, taskType);
+
+        if (!metaEntry || !metaEntry.meta) {
+            return;
+        }
+
+        const formFields = DOM.metaFields[handlingType]?.[taskType];
+        if (!formFields) {
+            return;
+        }
+
+        if (handlingType === "EXTERNAL") {
+            formFields.recipient.value = getExternalRecipientValue(metaEntry.meta);
+            formFields.subject.value = metaEntry.meta.subject || "";
+            formFields.body.value = metaEntry.meta.body || metaEntry.meta.mail_template || "";
+        }
+
+        if (handlingType === "BOT") {
+            formFields.bot.value = metaEntry.meta.bot || "";
+            formFields.action.value = metaEntry.meta.action || "";
+            formFields.data.value = metaEntry.meta.data || "";
+        }
+    });
+}
+
+function findMetaEntry(metaEntries, handlingType, taskType) {
+    return metaEntries.find(entry =>
+        entry.handling_type === handlingType && entry.task_type === taskType
+    ) || metaEntries.find(entry =>
+        entry.handling_type === handlingType && !entry.task_type
+    );
+}
+
+function resetFieldsForHandling(handlingType) {
+    const fieldsByTaskType = DOM.metaFields[handlingType];
+    if (!fieldsByTaskType) {
+        return;
+    }
+
+    Object.values(fieldsByTaskType).forEach(fields => {
+        Object.values(fields).forEach(field => {
+            field.value = "";
+        });
+    });
+}
+
+function buildMetaPayload(handlingType) {
+    const existingMeta = Array.isArray(STATE.currentResource?.meta)
+        ? STATE.currentResource.meta.filter(entry => entry.handling_type !== handlingType)
+        : [];
+
+    if (!["EXTERNAL", "BOT"].includes(handlingType)) {
+        return existingMeta;
+    }
+
+    const newMeta = TASK_TYPES.map(taskType => {
+        const meta = buildMetaForTaskType(handlingType, taskType);
+        return {
+            handling_type: handlingType,
+            task_type: taskType,
+            meta
+        };
+    });
+
+    return [...existingMeta, ...newMeta];
+}
+
+function buildMetaForTaskType(handlingType, taskType) {
+    const fields = DOM.metaFields[handlingType]?.[taskType];
+    if (!fields) {
+        return {};
+    }
+
+    if (handlingType === "EXTERNAL") {
+        return {
+            external_contact: normalizeRecipientValue(fields.recipient.value),
+            subject: fields.subject.value.trim(),
+            body: fields.body.value.trim()
+        };
+    }
+
+    if (handlingType === "BOT") {
+        return {
+            bot: fields.bot.value.trim(),
+            action: fields.action.value.trim(),
+            data: fields.data.value.trim()
+        };
+    }
+
+    return {};
+}
+
+function getExternalRecipientValue(meta) {
+    if (!meta) {
+        return "";
+    }
+
+    return String(meta.external_contact || meta.recipient || "");
+}
+
+function normalizeRecipientValue(value) {
+    if (!value) {
+        return "";
+    }
+
+    const normalized = value.trim();
+    return /^\d+$/.test(normalized) ? parseInt(normalized, 10) : normalized;
 }

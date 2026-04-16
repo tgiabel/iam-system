@@ -530,7 +530,10 @@ async def api_system_map(current_user=Depends(get_current_user_dep)):
         systems = await api_client.get_system_map()
 
         system_map = {
-            system["system_id"]: system["name"]
+            system["system_id"]: {
+                "name": system["name"],
+                "type": system.get("type")
+            }
             for system in systems
         }
 
@@ -556,6 +559,23 @@ async def api_get_system_detail(system_id: int, current_user=Depends(get_current
     try:
         system_detail = await api_client.get_system_detail(system_id)
         return JSONResponse(content=system_detail)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.post("/api/systems/{system_id}")
+async def api_update_system(system_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.update_system(system_id, payload)
+        return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
         return JSONResponse(
             content=e.response.json(),
@@ -604,7 +624,6 @@ async def api_create_system_resource(payload: dict, current_user=Depends(get_cur
 @app.post("/api/resources/{resource_id}")
 async def api_update_system_resource(resource_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
     try:
-        print(payload["meta"])
         payload["initiator_user_id"] = current_user["user_id"]
         result = await api_client.update_resource(resource_id, payload)
         return JSONResponse(content=result)
@@ -686,6 +705,23 @@ async def api_get_role_detail(role_id: int, current_user=Depends(get_current_use
     try:
         system_detail = await api_client.get_role_detail(role_id)
         return JSONResponse(content=system_detail)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.post("/api/roles/{role_id}")
+async def api_update_role(role_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.update_role(role_id, payload)
+        return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
         return JSONResponse(
             content=e.response.json(),

@@ -198,6 +198,12 @@ class APIClient:
             resp = await client.get(f"/systems/{system_id}")  # interne Backend-Route
             resp.raise_for_status()
             return resp.json()
+
+    async def update_system(self, system_id: int, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/systems/{system_id}", json=payload)
+            resp.raise_for_status()
+            return resp.json()
         
     async def get_system_resources(self, system_id: int) -> dict:
         
@@ -257,6 +263,12 @@ class APIClient:
         """
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.get(f"/roles/{role_id}")  
+            resp.raise_for_status()
+            return resp.json()
+
+    async def update_role(self, role_id: int, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/roles/{role_id}", json=payload)
             resp.raise_for_status()
             return resp.json()
         
