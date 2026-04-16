@@ -2,7 +2,13 @@ const state = {
     users: [],
     systemMap: null,
     roleMap: null,
-    currentUserDetail: null
+    currentUserDetail: null,
+    filters: {
+        primaryRoleIds: [],
+        secondaryRoleIds: [],
+        includeInactive: false,
+        openCategory: null
+    }
 };
 
 const DOM = {};
@@ -10,7 +16,8 @@ const DOM = {};
 const api = {
 
     async getUsers(){
-        const res = await fetch("/api/users");
+        const isActive = String(!state.filters.includeInactive);
+        const res = await fetch(`/api/users?is_active=${isActive}`);
         if(!res.ok) throw new Error(res.status);
         return res.json();
     },
@@ -209,6 +216,222 @@ const api = {
     }
 };
 
+function normalizeValue(value) {
+    return String(value || "").toLowerCase();
+}
+
+function getRoleOptionsByType(type) {
+    return Object.entries(state.roleMap || {})
+        .filter(([, role]) => role.type === type)
+        .sort(([, a], [, b]) => a.name.localeCompare(b.name, "de"));
+}
+
+const filterController = {
+
+    async init() {
+        this.bindEvents();
+
+        try {
+            await api.getRoleMap();
+        } catch (err) {
+            console.error("Role Map konnte nicht für Filter geladen werden", err);
+        }
+
+        this.renderActiveTags();
+    },
+
+    bindEvents() {
+        DOM.filterBtn?.addEventListener("click", (event) => {
+            event.stopPropagation();
+
+            const shouldOpen = !DOM.filterDropdown.classList.contains("active");
+            this.closeMenus();
+
+            if (shouldOpen) {
+                DOM.filterDropdown.classList.add("active");
+            }
+        });
+
+        DOM.filterDropdown?.querySelectorAll("[data-filter]").forEach(button => {
+            button.addEventListener("click", async (event) => {
+                event.stopPropagation();
+                await this.openSubfilter(button.dataset.filter);
+            });
+        });
+
+        DOM.subfilterDropdown?.addEventListener("click", (event) => {
+            event.stopPropagation();
+        });
+
+        DOM.subfilterDropdown?.addEventListener("change", async (event) => {
+            const target = event.target;
+
+            if (!(target instanceof HTMLInputElement)) return;
+
+            if (target.dataset.filterType === "status") {
+                state.filters.includeInactive = target.checked;
+                this.renderActiveTags();
+                await tableController.loadUsers();
+                await this.openSubfilter("status");
+                return;
+            }
+
+            if (target.dataset.filterType === "primary") {
+                this.toggleRoleFilter("primaryRoleIds", target.value, target.checked);
+            }
+
+            if (target.dataset.filterType === "secondary") {
+                this.toggleRoleFilter("secondaryRoleIds", target.value, target.checked);
+            }
+
+            this.renderActiveTags();
+            tableController.render();
+        });
+
+        DOM.activeFilters?.addEventListener("click", async (event) => {
+            const target = event.target;
+
+            if (!(target instanceof HTMLElement) || target.tagName !== "SPAN") return;
+
+            const { filterType, value } = target.dataset;
+            if (!filterType) return;
+
+            if (filterType === "status") {
+                state.filters.includeInactive = false;
+                this.renderActiveTags();
+                this.rerenderOpenSubfilter();
+                await tableController.loadUsers();
+                return;
+            }
+
+            if (filterType === "primary") {
+                this.toggleRoleFilter("primaryRoleIds", value, false);
+            }
+
+            if (filterType === "secondary") {
+                this.toggleRoleFilter("secondaryRoleIds", value, false);
+            }
+
+            this.renderActiveTags();
+            this.rerenderOpenSubfilter();
+            tableController.render();
+        });
+
+        document.addEventListener("click", (event) => {
+            if (!DOM.filterContainer?.contains(event.target)) {
+                this.closeMenus();
+            }
+        });
+    },
+
+    async openSubfilter(category) {
+        state.filters.openCategory = category;
+
+        if (!state.roleMap && category !== "status") {
+            await api.getRoleMap();
+        }
+
+        DOM.filterDropdown.classList.add("active");
+        DOM.subfilterDropdown.classList.add("active");
+        this.renderSubfilter(category);
+    },
+
+    closeMenus() {
+        DOM.filterDropdown?.classList.remove("active");
+        DOM.subfilterDropdown?.classList.remove("active");
+        state.filters.openCategory = null;
+    },
+
+    rerenderOpenSubfilter() {
+        if (!state.filters.openCategory || !DOM.subfilterDropdown?.classList.contains("active")) return;
+        this.renderSubfilter(state.filters.openCategory);
+    },
+
+    renderSubfilter(category) {
+        if (!DOM.subfilterDropdown) return;
+
+        if (category === "status") {
+            DOM.subfilterDropdown.innerHTML = `
+                <label>
+                    <input
+                        type="checkbox"
+                        data-filter-type="status"
+                        ${state.filters.includeInactive ? "checked" : ""}
+                    >
+                    Inaktive User mitladen
+                </label>
+            `;
+            return;
+        }
+
+        const roleType = category === "hauptrolle" ? "PRIMARY" : "SECONDARY";
+        const selectedIds = category === "hauptrolle"
+            ? state.filters.primaryRoleIds
+            : state.filters.secondaryRoleIds;
+        const filterType = category === "hauptrolle" ? "primary" : "secondary";
+        const options = getRoleOptionsByType(roleType);
+
+        DOM.subfilterDropdown.innerHTML = options.length
+            ? options.map(([roleId, role]) => `
+                <label>
+                    <input
+                        type="checkbox"
+                        value="${roleId}"
+                        data-filter-type="${filterType}"
+                        ${selectedIds.includes(String(roleId)) ? "checked" : ""}
+                    >
+                    ${role.name}
+                </label>
+            `).join("")
+            : "<span>Keine Rollen gefunden</span>";
+    },
+
+    toggleRoleFilter(key, roleId, checked) {
+        const normalizedRoleId = String(roleId);
+        const values = new Set(state.filters[key].map(String));
+
+        if (checked) {
+            values.add(normalizedRoleId);
+        } else {
+            values.delete(normalizedRoleId);
+        }
+
+        state.filters[key] = Array.from(values);
+    },
+
+    renderActiveTags() {
+        if (!DOM.activeFilters) return;
+
+        const tags = [
+            ...state.filters.primaryRoleIds.map(roleId => ({
+                filterType: "primary",
+                value: roleId,
+                label: `Funktion: ${state.roleMap?.[roleId]?.name || roleId}`
+            })),
+            ...state.filters.secondaryRoleIds.map(roleId => ({
+                filterType: "secondary",
+                value: roleId,
+                label: `Nebenrolle: ${state.roleMap?.[roleId]?.name || roleId}`
+            }))
+        ];
+
+        if (state.filters.includeInactive) {
+            tags.push({
+                filterType: "status",
+                value: "inactive",
+                label: "Inaktive inkl."
+            });
+        }
+
+        DOM.activeFilters.innerHTML = tags.map(tag => `
+            <div class="filter-tag">
+                ${tag.label}
+                <span data-filter-type="${tag.filterType}" data-value="${tag.value}">&times;</span>
+            </div>
+        `).join("");
+    }
+};
+
 const tableController = {
 
     async init(){
@@ -227,33 +450,59 @@ const tableController = {
     },
 
     render(){
+        const users = this.getFilteredUsers();
 
-        const filter = DOM.searchInput.value.toLowerCase();
-
-        DOM.tableBody.innerHTML = state.users
-            .filter(u =>
-                u.first_name.toLowerCase().includes(filter) ||
-                u.last_name.toLowerCase().includes(filter) ||
-                (u.pnr || "").toLowerCase().includes(filter) ||
-                (u.racf || "").toLowerCase().includes(filter)
-            )
-            .map(u => `
+        DOM.tableBody.innerHTML = users.length
+            ? users.map(u => `
                 <tr data-id="${u.user_id}">
                     <td>${u.pnr || "-"}</td>
                     <td>${u.first_name}</td>
                     <td>${u.last_name}</td>
                     <td>${u.email || ""}</td>
                     <td>${u.primary_role?.name || ""}</td>
-                    <td><span title="${u.secondary_roles.map(role => role.name).join("\n")}" style="cursor:help;"><strong>${u.secondary_roles.length}</strong></span></td>
+                    <td><span title="${(u.secondary_roles || []).map(role => role.name).join("\n")}" style="cursor:help;"><strong>${(u.secondary_roles || []).length}</strong></span></td>
                     <td>${u.is_active ? "Aktiv" : "Inaktiv"}</td>
                 </tr>
-            `).join("");
+            `).join("")
+            : `<tr><td colspan="8">Keine User gefunden</td></tr>`;
 
         this.bindRows();
     },
 
+    getFilteredUsers() {
+        const searchValue = normalizeValue(DOM.searchInput?.value);
+
+        return state.users
+            .filter(user => this.matchesSearch(user, searchValue))
+            .filter(user => this.matchesPrimaryRoles(user))
+            .filter(user => this.matchesSecondaryRoles(user));
+    },
+
+    matchesSearch(user, searchValue) {
+        if (!searchValue) return true;
+
+        return normalizeValue(user.first_name).includes(searchValue) ||
+            normalizeValue(user.last_name).includes(searchValue) ||
+            normalizeValue(user.pnr).includes(searchValue) ||
+            normalizeValue(user.racf).includes(searchValue);
+    },
+
+    matchesPrimaryRoles(user) {
+        if (!state.filters.primaryRoleIds.length) return true;
+
+        return state.filters.primaryRoleIds.includes(String(user.primary_role?.role_id || ""));
+    },
+
+    matchesSecondaryRoles(user) {
+        if (!state.filters.secondaryRoleIds.length) return true;
+
+        const secondaryRoleIds = (user.secondary_roles || []).map(role => String(role.role_id));
+        return state.filters.secondaryRoleIds.some(roleId => secondaryRoleIds.includes(String(roleId)));
+    },
+
     bindRows(){
         DOM.tableBody.querySelectorAll("tr").forEach(tr=>{
+            if (!tr.dataset.id) return;
             tr.onclick = () =>
                 sidebarController.open(tr.dataset.id);
         });
@@ -1035,6 +1284,7 @@ const offboardModalController = {
 document.addEventListener("DOMContentLoaded", () => {
     
     cacheDOM();
+    filterController.init();
     tableController.init();
     onboardModalController.init();
     sofaAccessModalController.init();
@@ -1045,6 +1295,11 @@ function cacheDOM() {
     DOM.userTable = document.getElementById("user-table");
     DOM.tableBody = DOM.userTable.querySelector("tbody");
     DOM.searchInput = document.getElementById("search-input");
+    DOM.filterContainer = document.querySelector(".filter-container");
+    DOM.filterBtn = document.getElementById("filter-btn");
+    DOM.filterDropdown = document.getElementById("filter-dropdown");
+    DOM.subfilterDropdown = document.getElementById("subfilter-dropdown");
+    DOM.activeFilters = document.getElementById("active-filters");
 
     DOM.sidebarOverlay = document.getElementById("sidebar-overlay");
     DOM.tabs = document.querySelectorAll(".sidebar-tabs .tab");

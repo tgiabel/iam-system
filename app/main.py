@@ -247,9 +247,9 @@ async def convert_datex_file(
 # API Routen
 # ------------------------------
 @app.get("/api/users")
-async def api_users():
+async def api_users(is_active: bool = True):
     try:
-        users = await api_client.list_users()
+        users = await api_client.list_users(is_active=is_active)
         return JSONResponse(content=users)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
