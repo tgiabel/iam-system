@@ -262,6 +262,56 @@ async def api_user_details(user_id: int):
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
+@app.post("/api/users/{user_id}/sofa-access/setup")
+async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        request_payload = {
+            "password": payload.get("password"),
+            "initiator_user_id": current_user["user_id"]
+        }
+        result = await api_client.setup_user_sofa_access(user_id, request_payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@app.post("/api/users/{user_id}/sofa-access/reset-password")
+async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        request_payload = {
+            "password": payload.get("password"),
+            "initiator_user_id": current_user["user_id"]
+        }
+        result = await api_client.reset_user_sofa_password(user_id, request_payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@app.post("/api/users/{user_id}/sofa-access/revoke")
+async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(get_current_user_dep)):
+    try:
+        request_payload = {
+            "initiator_user_id": current_user["user_id"]
+        }
+        result = await api_client.revoke_user_sofa_access(user_id, request_payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 @app.get("/api/roles/{role_id}/resources")
 async def api_role_resources(role_id: int):
     try:

@@ -52,6 +52,24 @@ class APIClient:
 
     async def get_user_details(self, user_id: int) -> dict:
         return await self.get(f"/users/{user_id}/details")
+
+    async def setup_user_sofa_access(self, user_id: int, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/users/{user_id}/sofa-access/setup", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+
+    async def reset_user_sofa_password(self, user_id: int, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/users/{user_id}/sofa-access/reset-password", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+
+    async def revoke_user_sofa_access(self, user_id: int, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/users/{user_id}/sofa-access/revoke", json=payload)
+            resp.raise_for_status()
+            return resp.json()
     
     async def get_user_by_pnr(self, pnr: str):
         async with httpx.AsyncClient(base_url=BASE_URL) as client:

@@ -120,6 +120,8 @@
             </section>
             <section class="info-section">
                 <h3>Aktionen</h3>
+                <div id="sofa-access-status" style="margin-bottom:12px; color:#475569;"></div>
+                <div id="sofa-access-actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;"></div>
                 <button class="btn-primary btn" id="new-skill-action-btn">Neuer Rolle</button>
                 <button class="btn-secondary btn" id="tmp-rights-action-btn">Temporäre Rolle</button>
                 <button class="btn-red btn" id="skill-revoke-action-btn">Rolle entziehen</button>
@@ -178,6 +180,14 @@
         <h3>Temporärer Rollenantrag</h3>
 
         <button id="offboard-close-btn" class="btn btn-secondary">Abbrechen</button>
+    </div>
+</div>
+
+<!-- SOFA Access Overlay -->
+<div class="overlay" id="sofa-access-overlay">
+    <div class="onboard-modal" id="sofa-access-modal">
+        <h3>SOFA Zugriff</h3>
+        <button id="sofa-access-close-btn" class="btn btn-secondary">Abbrechen</button>
     </div>
 </div>
 {% endblock %}

@@ -1,7 +1,8 @@
 const state = {
     users: [],
     systemMap: null,
-    roleMap: null
+    roleMap: null,
+    currentUserDetail: null
 };
 
 const DOM = {};
@@ -18,6 +19,39 @@ const api = {
         const res = await fetch(`/api/users/${id}/details`);
         if(!res.ok) throw new Error(res.status);
         return res.json();
+    },
+
+    async setupSofaAccess(userId, password) {
+        const res = await fetch(`/api/users/${userId}/sofa-access/setup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht eingerichtet werden");
+        return data;
+    },
+
+    async resetSofaPassword(userId, password) {
+        const res = await fetch(`/api/users/${userId}/sofa-access/reset-password`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || data.error || "SOFA Passwort konnte nicht zurückgesetzt werden");
+        return data;
+    },
+
+    async revokeSofaAccess(userId) {
+        const res = await fetch(`/api/users/${userId}/sofa-access/revoke`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht entzogen werden");
+        return data;
     },
 
     async getSystemMap(){
@@ -235,6 +269,7 @@ const sidebarController = {
     async open(userId){
         try{
             const data = await api.getUserDetails(userId);
+            state.currentUserDetail = data;
             await this.render(data);
             DOM.sidebarOverlay.classList.add("active");
 
@@ -245,7 +280,16 @@ const sidebarController = {
 
     close(){
         DOM.sidebarOverlay.classList.remove("active");
+        state.currentUserDetail = null;
         tableController.loadUsers();
+    },
+
+    async refreshCurrentUser() {
+        if (!state.currentUserDetail?.user_id) return;
+
+        const data = await api.getUserDetails(state.currentUserDetail.user_id);
+        state.currentUserDetail = data;
+        await this.render(data);
     },
 
     async render(data){
@@ -256,7 +300,7 @@ const sidebarController = {
         DOM.sidebarPNR.textContent = user.pnr || "-";
         DOM.sidebarLastName.textContent = user.last_name || "-";
         DOM.sidebarFirstName.textContent = user.first_name || "-";
-        DOM.sidebarFunktion.textContent = user.primary_role.name || "-";
+        DOM.sidebarFunktion.textContent = user.primary_role?.name || "-";
         DOM.sidebarEmail.textContent = user.email || "-";
         DOM.sidebarTelefon.textContent = user.telefon || "-";
         DOM.sidebarMobil.textContent = user.mobile || "-";
@@ -265,7 +309,26 @@ const sidebarController = {
 
         await this.renderAccounts(data.accounts);
         await this.renderRoles(data);
+        this.renderSofaAccessActions(user);
         this.bindActions(user);
+    },
+
+    renderSofaAccessActions(user) {
+        const hasSofaAccess = Boolean(user.has_sofa_access);
+
+        DOM.sofaAccessStatus.textContent = hasSofaAccess
+            ? "SOFA Zugriff ist eingerichtet."
+            : "Kein SOFA Zugriff eingerichtet.";
+        DOM.sofaAccessStatus.style.color = hasSofaAccess ? "#166534" : "#991b1b";
+
+        DOM.sofaAccessActions.innerHTML = hasSofaAccess
+            ? `
+                <button class="btn btn-secondary" id="sofa-password-reset-btn">SOFA Passwort zurücksetzen</button>
+                <button class="btn btn-red" id="sofa-access-revoke-btn">SOFA Zugriff entziehen</button>
+            `
+            : `
+                <button class="btn btn-primary" id="sofa-access-setup-btn">SOFA Zugriff einrichten</button>
+            `;
     },
 
     async renderAccounts(accounts=[]){
@@ -289,8 +352,13 @@ const sidebarController = {
     },
 
     async renderRoles(data){
-
-        const roles = data.roles || [];
+        const roles = [
+            ...(data.primary_role ? [data.primary_role] : []),
+            ...(data.secondary_roles || []),
+            ...(data.roles || [])
+        ].filter((role, index, arr) =>
+            role?.role_id && arr.findIndex(entry => entry?.role_id === role.role_id) === index
+        );
         const map = await api.getRoleMap();
 
         DOM.sidebarRoles.innerHTML="";
@@ -334,6 +402,17 @@ const sidebarController = {
         });
     },
     bindActions(user){
+        document.getElementById("sofa-access-setup-btn")?.addEventListener("click", () => {
+            sofaAccessModalController.open(user, "setup");
+        });
+
+        document.getElementById("sofa-password-reset-btn")?.addEventListener("click", () => {
+            sofaAccessModalController.open(user, "reset");
+        });
+
+        document.getElementById("sofa-access-revoke-btn")?.addEventListener("click", () => {
+            sofaAccessModalController.open(user, "revoke");
+        });
 
         document
             .getElementById("tmp-rights-action-btn")
@@ -362,6 +441,113 @@ const sidebarController = {
         };
     }
 }
+
+const sofaAccessModalController = {
+    init() {
+        this.originalHTML = DOM.sofaAccessModal.innerHTML;
+
+        DOM.sofaAccessOverlay.addEventListener("click", (e) => {
+            if (e.target === DOM.sofaAccessOverlay) {
+                this.close();
+            }
+        });
+
+        DOM.sofaAccessCloseBtn?.addEventListener("click", () => this.close());
+    },
+
+    open(user, mode) {
+        this.render(user, mode);
+        DOM.sofaAccessOverlay.classList.add("active");
+    },
+
+    close() {
+        DOM.sofaAccessOverlay.classList.remove("active");
+        DOM.sofaAccessModal.innerHTML = this.originalHTML;
+        cacheDOM();
+        DOM.sofaAccessCloseBtn?.addEventListener("click", () => this.close());
+    },
+
+    render(user, mode) {
+        const titleMap = {
+            setup: `SOFA Zugriff für ${user.first_name} ${user.last_name} einrichten`,
+            reset: `SOFA Passwort für ${user.first_name} ${user.last_name} zurücksetzen`,
+            revoke: `SOFA Zugriff für ${user.first_name} ${user.last_name} entziehen`
+        };
+
+        if (mode === "revoke") {
+            DOM.sofaAccessModal.innerHTML = `
+                <h3>${titleMap[mode]}</h3>
+                <p style="margin:12px 0 20px;">Der Zugriff auf die SOFA Anwendung wird entzogen.</p>
+                <button id="sofa-access-submit-btn" class="btn btn-red" style="margin-right:16px;">Bestätigen</button>
+                <button id="sofa-access-close-btn" class="btn btn-secondary">Abbrechen</button>
+            `;
+        } else {
+            DOM.sofaAccessModal.innerHTML = `
+                <h3>${titleMap[mode]}</h3>
+                <div class="onboard-form">
+                    <input
+                        id="sofa-access-password-input"
+                        type="password"
+                        placeholder="Passwort"
+                        style="width:100%;padding:8px;margin:12px 0;box-sizing:border-box;"
+                    />
+                    <input
+                        id="sofa-access-password-confirm-input"
+                        type="password"
+                        placeholder="Passwort bestätigen"
+                        style="width:100%;padding:8px;margin:12px 0;box-sizing:border-box;"
+                    />
+                    <button id="sofa-access-submit-btn" class="btn btn-primary" style="margin-right:16px;">
+                        Speichern
+                    </button>
+                    <button id="sofa-access-close-btn" class="btn btn-secondary">Abbrechen</button>
+                </div>
+            `;
+        }
+
+        cacheDOM();
+
+        DOM.sofaAccessCloseBtn?.addEventListener("click", () => this.close());
+        DOM.sofaAccessSubmitBtn?.addEventListener("click", async () => {
+            try {
+                if (mode === "setup" || mode === "reset") {
+                    const password = DOM.sofaAccessPasswordInput?.value.trim() || "";
+                    const passwordConfirm = DOM.sofaAccessPasswordConfirmInput?.value.trim() || "";
+
+                    if (!password || !passwordConfirm) {
+                        showFlash("Bitte Passwort und Bestätigung ausfüllen", "failure");
+                        return;
+                    }
+
+                    if (password !== passwordConfirm) {
+                        showFlash("Die Passwörter stimmen nicht überein", "failure");
+                        return;
+                    }
+
+                    if (mode === "setup") {
+                        await api.setupSofaAccess(user.user_id, password);
+                        showFlash("SOFA Zugriff eingerichtet", "success");
+                    } else {
+                        await api.resetSofaPassword(user.user_id, password);
+                        showFlash("SOFA Passwort zurückgesetzt", "success");
+                    }
+                }
+
+                if (mode === "revoke") {
+                    await api.revokeSofaAccess(user.user_id);
+                    showFlash("SOFA Zugriff entzogen", "success");
+                }
+
+                await sidebarController.refreshCurrentUser();
+                await tableController.loadUsers();
+                this.close();
+            } catch (err) {
+                console.error(err);
+                showFlash(err.message || "SOFA Aktion fehlgeschlagen", "failure");
+            }
+        });
+    }
+};
 
 const onboardModalController = {
     init() {
@@ -851,6 +1037,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cacheDOM();
     tableController.init();
     onboardModalController.init();
+    sofaAccessModalController.init();
 
 });
 
@@ -908,6 +1095,15 @@ function cacheDOM() {
     DOM.offboardSubmit = document.getElementById("offboard-submit");
     DOM.offboardCloseBtn = document.getElementById("offboard-close-btn");
     DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
+
+    DOM.sofaAccessStatus = document.getElementById("sofa-access-status");
+    DOM.sofaAccessActions = document.getElementById("sofa-access-actions");
+    DOM.sofaAccessOverlay = document.getElementById("sofa-access-overlay");
+    DOM.sofaAccessModal = document.getElementById("sofa-access-modal");
+    DOM.sofaAccessCloseBtn = document.getElementById("sofa-access-close-btn");
+    DOM.sofaAccessSubmitBtn = document.getElementById("sofa-access-submit-btn");
+    DOM.sofaAccessPasswordInput = document.getElementById("sofa-access-password-input");
+    DOM.sofaAccessPasswordConfirmInput = document.getElementById("sofa-access-password-confirm-input");
     // Sidebar fields
     DOM.sidebarUsername = document.getElementById("sidebar-username");
     DOM.sidebarPNR = document.getElementById("user-pnr");
