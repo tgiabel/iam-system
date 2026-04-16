@@ -2,50 +2,132 @@
 
 {% set page_title = "Tools & Reports" %}
 {% block css %}
-<link rel="stylesheet" href="/static/css/menu.css">
 <link rel="stylesheet" href="/static/css/page_w_table.css">
+<link rel="stylesheet" href="/static/css/ui.css">
+<link rel="stylesheet" href="/static/css/tools_overview.css">
 {% endblock %}
 
 {% block content %}
-
-<div class="tab-container">
-    <div class="tab active" data-tab="tools">Tools</div>
-    <div class="tab" data-tab="reports">Reports</div>
-</div>
-
-<!-- Tools Tab -->
-<div class="tab-content active" id="tab-tools">
-
-    <div class="menu-section">
-        <h2 class="menu-header">Meine Tools</h2>
-        <div class="menu-grid" style="grid-template-columns: repeat(4, 1fr);">
-            <a href="/tools/datex" class="menu-tile">
-                <span class="menu-text">DAT-Export Check</span>
-                <img src="/static/img/process.png" class="menu-icon" alt="">
-            </a>
-            <a href="/tools/iks" class="menu-tile">
-                <span class="menu-text">IKS-Bericht Generator</span>
-                <img src="/static/img/roles.png" class="menu-icon" alt="">
-            </a>
+<div class="page-container tools-overview-page">
+    <section class="tools-overview-shell">
+        <div class="overview-tabs" role="tablist" aria-label="Tools Navigation">
+            <button
+                type="button"
+                class="overview-tab active"
+                data-tab="tools"
+                role="tab"
+                aria-selected="true"
+                aria-controls="tab-tools"
+                id="overview-tab-tools">
+                Tools
+            </button>
+            <button
+                type="button"
+                class="overview-tab"
+                data-tab="reports"
+                role="tab"
+                aria-selected="false"
+                aria-controls="tab-reports"
+                id="overview-tab-reports">
+                Reports
+            </button>
         </div>
-    </div>
 
+        <section class="overview-panel active" id="tab-tools" role="tabpanel" aria-labelledby="overview-tab-tools">
+            <div class="overview-section">
+                <div class="ui-section-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Arbeitswerkzeuge</p>
+                        <h2 class="ui-section-title">Meine Tools</h2>
+                        <p class="ui-section-copy">Schnelle Einstiege für Konvertierung, Analyse und Prozessauswertung.</p>
+                    </div>
+                </div>
+
+                <div class="overview-card-grid">
+                    <a href="/tools/datex" class="overview-card overview-card-link">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/process.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-primary">Tool</span>
+                                <span class="ui-chip ui-chip-warning">Upload</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Datei-Workflow</p>
+                                <h3 class="overview-card-title">DAT-Export Check</h3>
+                            </div>
+                            <p class="overview-card-copy">DAT-Dateien hochladen und direkt in ein auswertbares Excel-Format umwandeln.</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">Tool öffnen</span>
+                        </div>
+                    </a>
+
+                    <a href="/tools/iks" class="overview-card overview-card-link">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/roles.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-primary">Tool</span>
+                                <span class="ui-chip ui-chip-accent">Analyse</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Kontrolle & Audit</p>
+                                <h3 class="overview-card-title">IKS-Bericht Generator</h3>
+                            </div>
+                            <p class="overview-card-copy">Prozesse auswerten, Berichte generieren und Ergebnisse als HTML oder Rohdaten exportieren.</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">Tool öffnen</span>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="overview-panel" id="tab-reports" role="tabpanel" aria-labelledby="overview-tab-reports">
+            <div class="overview-section">
+                <div class="ui-section-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Auswertungen</p>
+                        <h2 class="ui-section-title">Meine Reports</h2>
+                        <p class="ui-section-copy">Geplante Report-Zugänge und zentrale Übersichten für wiederkehrende Auswertungen.</p>
+                    </div>
+                </div>
+
+                <div class="overview-card-grid">
+                    <article class="overview-card overview-card-disabled" aria-disabled="true">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/drive.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-neutral">Report</span>
+                                <span class="ui-chip ui-chip-warning">Coming Soon</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Prozessübersicht</p>
+                                <h3 class="overview-card-title">Prozessdaten</h3>
+                            </div>
+                            <p class="overview-card-copy">Die zentrale Report-Seite ist vorgesehen, im aktuellen Stand aber noch nicht an eine Route angebunden.</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-note">Wird vorbereitet</span>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </section>
 </div>
-
-
-<!-- Reports Tab -->
-<div class="tab-content" id="tab-reports">
-    <div class="menu-section">
-        <h2 class="menu-header">Meine Reports</h2>
-        <div class="menu-grid" style="grid-template-columns: repeat(3, 1fr);">
-            <a href="/reports" class="menu-tile"><span class="menu-text">Prozessdaten</span></a>
-        </div>
-    </div>
-</div>
-
-<script>
-    window.currentUserId = {{ user.user_id | tojson }};
-</script>
 
 {% block scripts %}
     <script src="/static/js/tools.js"></script>

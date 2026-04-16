@@ -1,18 +1,31 @@
 document.addEventListener("DOMContentLoaded", () => {
-        initTabs();
-    });
+    initTabs();
+});
 
 function initTabs() {
-    const tabs = document.querySelectorAll(".tab-container .tab");
-    const tabContents = document.querySelectorAll(".tab-content");
+    const tabs = document.querySelectorAll(".overview-tab");
+    const panels = document.querySelectorAll(".overview-panel");
+
+    function activateTab(target) {
+        tabs.forEach(tab => {
+            const isActive = tab.dataset.tab === target;
+            tab.classList.toggle("active", isActive);
+            tab.setAttribute("aria-selected", String(isActive));
+        });
+
+        panels.forEach(panel => {
+            const isActive = panel.id === `tab-${target}`;
+            panel.classList.toggle("active", isActive);
+            panel.setAttribute("aria-hidden", String(!isActive));
+        });
+    }
 
     tabs.forEach(tab => {
         tab.addEventListener("click", () => {
-            const target = tab.dataset.tab;
-            tabs.forEach(t => t.classList.toggle("active", t === tab));
-            tabContents.forEach(tc =>
-                tc.classList.toggle("active", tc.id === `tab-${target}`)
-            );
+            activateTab(tab.dataset.tab);
         });
     });
+
+    const initiallyActive = document.querySelector(".overview-tab.active")?.dataset.tab || "tools";
+    activateTab(initiallyActive);
 }
