@@ -198,6 +198,21 @@ function formatRoleStatus(value) {
     return ROLE_STATUS_OPTIONS.find(option => option.value === value)?.label || value || "-";
 }
 
+function getOwnResources() {
+    return Array.isArray(role?.resources) ? role.resources : [];
+}
+
+function getInheritedResources() {
+    return Array.isArray(role?.inherited_resources) ? role.inherited_resources : [];
+}
+
+function getAllRoleResources() {
+    return [
+        ...getOwnResources().map(resource => ({ ...resource, isInherited: false })),
+        ...getInheritedResources().map(resource => ({ ...resource, isInherited: true }))
+    ];
+}
+
 //------------------------------------------------
 // RESOURCE TABLE
 //------------------------------------------------
@@ -205,35 +220,19 @@ function formatRoleStatus(value) {
 function renderResourceTable() {
     DOM.tableBody.innerHTML = "";
 
-    role.resources.forEach(res => {
+    getAllRoleResources().forEach(res => {
         const tr = document.createElement("tr");
 
-        tr.dataset.type = "own";
+        tr.dataset.type = res.isInherited ? "inherited" : "own";
         tr.dataset.res_id = res.resource_id;
+        tr.dataset.system_id = res.system_id || "";
 
         tr.innerHTML = `
             <td>${res.technical_identifier || ""}</td>
             <td>${res.display_name}</td>
             <td>${res.type_name}</td>
             <td>${res.override_handling_type || ""}</td>
-            <td>Nein</td>
-        `;
-
-        DOM.tableBody.appendChild(tr);
-    });
-
-    role.inherited_resources.forEach(res => {
-        const tr = document.createElement("tr");
-
-        tr.dataset.type = "inherited";
-        tr.dataset.res_id = res.resource_id;
-
-        tr.innerHTML = `
-            <td>${res.technical_identifier || ""}</td>
-            <td>${res.display_name}</td>
-            <td>${res.type_name}</td>
-            <td>${res.override_handling_type || ""}</td>
-            <td>Ja</td>
+            <td>${res.isInherited ? "Ja" : "Nein"}</td>
         `;
 
         DOM.tableBody.appendChild(tr);
@@ -252,9 +251,9 @@ function setupCards() {
     };
 
     const counts = {
-        all: role.resources.length + role.inherited_resources.length,
-        own: role.resources.length,
-        inherited: role.inherited_resources.length
+        all: getAllRoleResources().length,
+        own: getOwnResources().length,
+        inherited: getInheritedResources().length
     };
 
     Object.entries(counts).forEach(([key, val]) => {
@@ -286,8 +285,10 @@ function bindBaseEvents() {
         const tr = e.target.closest("tr");
         if (!tr) return;
 
-        const resources = [...role.resources, ...role.inherited_resources];
-        const res = resources.find(r => r.resource_id == tr.dataset.res_id);
+        const res = getAllRoleResources().find(r =>
+            String(r.resource_id) === String(tr.dataset.res_id) &&
+            String(r.system_id || "") === String(tr.dataset.system_id || "")
+        );
         if (!res) return;
 
         openOverlay("view", res);
@@ -497,7 +498,7 @@ async function openOverlay(mode, resource = null) {
             return tr;
         };
 
-        role.resources.forEach(r => {
+        getOwnResources().forEach(r => {
             currentList.appendChild(createRow(r, false));
         });
     }
@@ -560,8 +561,9 @@ async function openOverlay(mode, resource = null) {
 
             if (Array.isArray(resources) && resources.length > 0) {
                 resources.forEach(r => {
-                    const alreadyHas = role.resources.some(existing =>
-                        existing.resource_id === r.resource_id
+                    const alreadyHas = getAllRoleResources().some(existing =>
+                        String(existing.resource_id) === String(r.resource_id) &&
+                        String(existing.system_id || "") === String(r.system_id || "")
                     );
 
                     if (!alreadyHas) {
