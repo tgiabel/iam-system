@@ -2,98 +2,179 @@
 
 {% set page_title = "To-Dos" %}
 {% block css %}
-<link rel="stylesheet" href="/static/css/menu.css">
 <link rel="stylesheet" href="/static/css/page_w_table.css">
+<link rel="stylesheet" href="/static/css/ui.css">
+<link rel="stylesheet" href="/static/css/tasks.css">
 {% endblock %}
 
 {% block content %}
+<div class="page-container tasks-page">
+    <section class="tasks-shell">
+        <div class="tasks-tabs" role="tablist" aria-label="Tasks Navigation">
+            <button type="button" class="tasks-tab active" data-tab="aufgaben" role="tab" aria-selected="true" aria-controls="tab-aufgaben" id="tasks-tab-aufgaben">
+                Aufgaben
+            </button>
+            <button type="button" class="tasks-tab" data-tab="prozesse" role="tab" aria-selected="false" aria-controls="tab-prozesse" id="tasks-tab-prozesse">
+                Prozesse
+            </button>
+        </div>
 
-<div class="tab-container">
-    <div class="tab active" data-tab="aufgaben">Aufgaben</div>
-    <div class="tab" data-tab="prozesse">Prozesse</div>
-</div>
-
-<!-- Aufgaben Tab -->
-<div class="tab-content active" id="tab-aufgaben">
-
-    <div class="menu-section">
-        <h2 class="menu-header">Offene Aufgaben</h2>
-        <div class="menu-slider" id="open-tasks-slider"></div>
-    </div>
-
-    <div class="menu-section">
-        <h2 class="menu-header">Meine Aufgaben</h2>
-        <div class="menu-slider" id="my-tasks-slider"></div>
-    </div>
-
-    <div class="menu-section">
-        <h2 class="menu-header">Zuletzt erledigt</h2>
-        <div class="menu-slider" id="completed-tasks-slider"></div>
-    </div>
-</div>
-
-
-<!-- Tools Tab -->
-<div class="tab-content" id="tab-prozesse">
-    <h2>Laufende Prozesse</h2>
-    <div class="table-wrapper">
-        <table id="system-table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Prozess</th>
-                    <th>Für</th>
-                    <th>Ausgelöst von</th>
-                    <th>Prozessstart</th>
-                    <th>Offene Aufgaben</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- wird dynamisch gefüllt -->
-
-            </tbody>
-        </table>
-    </div>
-    <br />
-    <h2>Abgeschlossene Prozesse</h2>
-    <div class="table-wrapper">
-        <table id="system-table">
-            <thead style="background-color: gray;">
-                <tr>
-                    <th>ID</th>
-                    <th>Prozess</th>
-                    <th>Für</th>
-                    <th>Ausgelöst von</th>
-                    <th>Prozessstart</th>
-                    <th>Prozessende</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- wird dynamisch gefüllt -->
-
-            </tbody>
-        </table>
-    </div>
-</div>
-<!-- Task Overlay -->
-<div class="task-overlay" id="task-overlay">
-    <div class="task-modal">
-
-        <!-- INFO BLOCK -->
-        <div class="task-info">
-            <div style="display: flex; flex-direction: row; justify-content: space-between;">
-                <h3 id="task-modal-title"></h3>
-                <button id="task-close-btn" class="btn btn-transparent" style="font-size: x-large;">x</button>
+        <section class="tasks-tab-panel active" id="tab-aufgaben" role="tabpanel" aria-labelledby="tasks-tab-aufgaben">
+            <div class="task-section">
+                <div class="ui-section-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Inbox</p>
+                        <h3 class="ui-section-title">Offene Aufgaben</h3>
+                        <p class="ui-section-copy">Alle aktuell verfügbaren Aufgaben inklusive blockierter Einträge.</p>
+                    </div>
+                    <span class="ui-count-pill" id="open-tasks-count">0</span>
+                </div>
+                <div class="task-strip" id="open-tasks-slider"></div>
             </div>
-            <p><strong>User:</strong> <span id="task-modal-user"></span></p>
-            <p><strong>Ressource:</strong> <span id="task-modal-resource"></span></p>
-            <p><strong>Status:</strong> <span id="task-modal-status"></span></p>
-            <div class="task-history-section">
-                <button type="button" id="history-toggle" class="history-toggle">
+
+            <div class="task-section">
+                <div class="ui-section-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Mein Fokus</p>
+                        <h3 class="ui-section-title">Meine Aufgaben</h3>
+                        <p class="ui-section-copy">Aufgaben, die gerade von dir bearbeitet werden.</p>
+                    </div>
+                    <span class="ui-count-pill" id="my-tasks-count">0</span>
+                </div>
+                <div class="task-strip" id="my-tasks-slider"></div>
+            </div>
+
+            <div class="task-section">
+                <div class="ui-section-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Rückblick</p>
+                        <h3 class="ui-section-title">Zuletzt erledigt</h3>
+                        <p class="ui-section-copy">Abgeschlossene Aufgaben zur schnellen Nachverfolgung.</p>
+                    </div>
+                </div>
+                <div class="task-strip" id="completed-tasks-slider"></div>
+            </div>
+        </section>
+
+        <section class="tasks-tab-panel" id="tab-prozesse" role="tabpanel" aria-labelledby="tasks-tab-prozesse">
+            <div class="process-section">
+                <div class="ui-section-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Aktiv</p>
+                        <h3 class="ui-section-title">Laufende Prozesse</h3>
+                        <p class="ui-section-copy">Aktive Prozesse und die Anzahl ihrer noch offenen Aufgaben.</p>
+                    </div>
+                </div>
+                <div class="ui-table-card">
+                    <div class="table-wrapper">
+                        <table id="running-processes-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Prozess</th>
+                                    <th>Für</th>
+                                    <th>Ausgelöst von</th>
+                                    <th>Prozessstart</th>
+                                    <th>Offene Aufgaben</th>
+                                </tr>
+                            </thead>
+                            <tbody id="running-processes-body">
+                                <tr class="process-empty-row">
+                                    <td colspan="6">
+                                        <div class="ui-empty-state ui-empty-inline">Keine laufenden Prozesse vorhanden.</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="process-section">
+                <div class="ui-section-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Historie</p>
+                        <h3 class="ui-section-title">Abgeschlossene Prozesse</h3>
+                        <p class="ui-section-copy">Beendete Prozesse für Rückfragen und Nachvollziehbarkeit.</p>
+                    </div>
+                </div>
+                <div class="ui-table-card ui-table-card-muted">
+                    <div class="table-wrapper">
+                        <table id="completed-processes-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Prozess</th>
+                                    <th>Für</th>
+                                    <th>Ausgelöst von</th>
+                                    <th>Prozessstart</th>
+                                    <th>Prozessende</th>
+                                </tr>
+                            </thead>
+                            <tbody id="completed-processes-body">
+                                <tr class="process-empty-row">
+                                    <td colspan="6">
+                                        <div class="ui-empty-state ui-empty-inline">Keine abgeschlossenen Prozesse vorhanden.</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </section>
+</div>
+
+<div class="task-overlay ui-modal-overlay" id="task-overlay" aria-hidden="true">
+    <div class="task-modal ui-modal" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+        <div class="ui-modal-header">
+            <div class="task-modal-heading">
+                <p class="ui-section-kicker" id="task-modal-subtitle">Task</p>
+                <h3 id="task-modal-title">Task-Details</h3>
+            </div>
+            <div class="task-modal-header-actions">
+                <span class="ui-status-badge ui-status-neutral" id="task-modal-status">Offen</span>
+                <button id="task-close-btn" class="ui-icon-button" type="button" aria-label="Task schließen">&times;</button>
+            </div>
+        </div>
+
+        <div class="ui-modal-body">
+            <section class="ui-card task-meta-card">
+                <div class="task-meta-grid">
+                    <div class="task-meta-item">
+                        <span class="task-meta-label">Nutzer</span>
+                        <span class="task-meta-value" id="task-modal-user">-</span>
+                    </div>
+                    <div class="task-meta-item">
+                        <span class="task-meta-label">Ressource</span>
+                        <span class="task-meta-value" id="task-modal-resource">-</span>
+                    </div>
+                    <div class="task-meta-item">
+                        <span class="task-meta-label">Handling</span>
+                        <span class="task-meta-value" id="task-modal-handling">-</span>
+                    </div>
+                    <div class="task-meta-item">
+                        <span class="task-meta-label">Typ</span>
+                        <span class="task-meta-value" id="task-modal-type">-</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ui-card task-form-card">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Bearbeitung</p>
+                    <h4 class="ui-section-title">Aktionen und Eingaben</h4>
+                </div>
+                <div class="task-form" id="task-form"></div>
+            </section>
+
+            <section class="ui-card task-history-card">
+                <button type="button" id="history-toggle" class="history-toggle" aria-expanded="false" aria-controls="history-container">
                     <span>Verlauf anzeigen</span>
-                    <i class="chevron-icon">▼</i>
+                    <i class="chevron-icon" aria-hidden="true">▾</i>
                 </button>
-                
+
                 <div id="history-container" class="history-container">
                     <div class="history-scroll-area">
                         <table class="history-table">
@@ -105,42 +186,47 @@
                                     <th>Info</th>
                                 </tr>
                             </thead>
-                            <tbody id="task-history-body">
-                                </tbody>
+                            <tbody id="task-history-body"></tbody>
                         </table>
                     </div>
                 </div>
-            </div>
+            </section>
         </div>
 
-        <!-- FORMULAR BLOCK -->
-        <div class="task-form" id="task-form">
-            <!-- Kommentarfeld, User-ID etc. werden hier von renderTaskActions() dynamisch eingefügt -->
-        </div>
-
-        <!-- ACTIONS BLOCK -->
-        <div class="task-actions" id="task-actions">
-        </div>
-
+        <div class="ui-modal-footer task-actions" id="task-actions"></div>
     </div>
 </div>
 
-<div id="mail-dialog-overlay" class="overlay">
-    <div class="mail-modal-content">
-        <h3>E-Mail bearbeiten</h3>
-        
-        <label>Empfänger:</label>
-        <input type="email" id="mail-recipient" class="form-control">
-        
-        <label>Betreff:</label>
-        <input type="text" id="mail-subject" class="form-control">
-        
-        <label>Nachricht:</label>
-        <textarea id="mail-body" rows="10" class="form-control"></textarea>
-        
-        <div class="modal-actions">
-            <button class="btn btn-secondary" onclick="document.getElementById('mail-dialog-overlay').classList.remove('active')">Abbrechen</button>
-            <button id="send-mail-btn" class="btn btn-primary">E-Mail jetzt senden</button>
+<div id="mail-dialog-overlay" class="ui-modal-overlay" aria-hidden="true">
+    <div class="mail-modal ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="mail-modal-title">
+        <div class="ui-modal-header">
+            <div class="task-modal-heading">
+                <p class="ui-section-kicker">Kommunikation</p>
+                <h3 id="mail-modal-title">E-Mail bearbeiten</h3>
+            </div>
+            <button id="mail-close-btn" class="ui-icon-button" type="button" aria-label="Mail-Dialog schließen">&times;</button>
+        </div>
+
+        <div class="ui-modal-body">
+            <div class="ui-field-group">
+                <label for="mail-recipient" class="ui-field-label">Empfänger</label>
+                <input type="email" id="mail-recipient" class="ui-input">
+            </div>
+
+            <div class="ui-field-group">
+                <label for="mail-subject" class="ui-field-label">Betreff</label>
+                <input type="text" id="mail-subject" class="ui-input">
+            </div>
+
+            <div class="ui-field-group">
+                <label for="mail-body" class="ui-field-label">Nachricht</label>
+                <textarea id="mail-body" rows="10" class="ui-textarea"></textarea>
+            </div>
+        </div>
+
+        <div class="ui-modal-footer">
+            <button id="mail-cancel-btn" class="btn btn-secondary" type="button">Abbrechen</button>
+            <button id="send-mail-btn" class="btn btn-primary" type="button">E-Mail jetzt senden</button>
         </div>
     </div>
 </div>
@@ -154,4 +240,3 @@
 {% endblock %}
 
 {% endblock %}
-
