@@ -1,49 +1,29 @@
 const roleState = {
+    roles: [],
     roleMap: null,
+    searchTerm: "",
     ui: {}
 };
 
-async function loadRoles() {
-    const tableBody = document.querySelector("#rbac-table tbody");
-    tableBody.innerHTML = "";
-
-    try {
-        const resp = await fetch("/api/roles");
-        const roles = await resp.json();
-        console.info(roles);
-
-        roles.forEach(role => {
-            const tr = document.createElement("tr");
-            tr.dataset.roleId = role.role_id;
-
-            if (role.role_status == "INACTIVE") tr.classList.add("inactive-row");
-
-            tr.innerHTML = `
-                <td>${role.name}</td>
-                <td>${typeMap(role.role_type)}</td>
-                <td>${role.parent_role_name ? role.parent_role_name : "-"}</td>
-                <td><span title="${role.resources.join("\n")}" style="cursor:help;"><strong>${role.resources.length}</strong></span></td>
-                <td><span title="${role.assigned_to.join("\n")}" style="cursor:help;"><strong>${role.assigned_to.length}</strong></span></td>
-                <td>
-                    <button class="btn btn-secondary" onclick="gotoRole(${role.role_id})">
-                        Details
-                    </button>
-                </td>
-            `;
-            tableBody.appendChild(tr);
-        });
-    } catch (e) {
-        showFlash("Fehler beim Laden der Rollen", "failure");
-        console.error("Fehler beim Laden der Rollen", e);
-    }
+function normalizeValue(value) {
+    return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
 }
 
-function gotoRole(roleId) {
-    window.location.href = `/roles/${roleId}`;
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
-function typeMap(role_type) {
-    switch (role_type) {
+function typeMap(roleType) {
+    switch (roleType) {
         case "PRIMARY":
             return "Hauptrolle";
         case "SECONDARY":
@@ -51,188 +31,197 @@ function typeMap(role_type) {
         case "TEMPLATE":
             return "Template";
         default:
-            return role_type;
+            return roleType || "-";
     }
 }
 
-function injectRoleManagementUI() {
-    if (document.getElementById("role-create-fab")) return;
+function getTypeClass(roleType) {
+    switch (roleType) {
+        case "PRIMARY":
+            return "roles-type-primary";
+        case "SECONDARY":
+            return "roles-type-secondary";
+        case "TEMPLATE":
+            return "roles-type-template";
+        default:
+            return "roles-type-template";
+    }
+}
 
-    const style = document.createElement("style");
-    style.textContent = `
-        .floating-create-btn {
-            position: fixed;
-            right: 32px;
-            bottom: 96px;
-            width: 64px;
-            height: 64px;
-            border: none;
-            border-radius: 50%;
-            background: var(--color-primary);
-            color: #fff;
-            font-size: 2.2rem;
-            line-height: 1;
-            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
-            cursor: pointer;
-            z-index: 2200;
-        }
+function getPreview(items, emptyLabel) {
+    if (!items.length) {
+        return {
+            text: emptyLabel,
+            title: emptyLabel,
+            isEmpty: true
+        };
+    }
 
-        .floating-create-btn:hover {
-            background: var(--color-primary-hover);
-        }
+    if (items.length === 1) {
+        return {
+            text: items[0],
+            title: items[0],
+            isEmpty: false
+        };
+    }
 
-        .create-modal {
-            position: fixed;
-            inset: 0;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            background: rgba(15, 23, 42, 0.45);
-            z-index: 2300;
-            padding: 20px;
-        }
+    if (items.length === 2) {
+        return {
+            text: items.join(", "),
+            title: items.join("\n"),
+            isEmpty: false
+        };
+    }
 
-        .create-modal.active {
-            display: flex;
-        }
+    const preview = items.slice(0, 2).join(", ");
+    return {
+        text: `${preview} +${items.length - 2} weitere`,
+        title: items.join("\n"),
+        isEmpty: false
+    };
+}
 
-        .create-modal-card {
-            width: min(100%, 560px);
-            background: #fff;
-            border-radius: 18px;
-            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
-            overflow: hidden;
-        }
+function sortRoles(roles) {
+    return [...roles].sort((left, right) => {
+        const leftKey = normalizeValue(left.name || left.role_id);
+        const rightKey = normalizeValue(right.name || right.role_id);
+        return leftKey.localeCompare(rightKey, "de");
+    });
+}
 
-        .create-modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 22px 24px 10px;
-        }
+function matchesSearch(role, searchTerm) {
+    if (!searchTerm) {
+        return true;
+    }
 
-        .create-modal-header h3 {
-            margin: 0;
-        }
+    const haystack = [
+        role.role_id,
+        role.name,
+        role.parent_role_name,
+        ...(Array.isArray(role.resources) ? role.resources : []),
+        ...(Array.isArray(role.assigned_to) ? role.assigned_to : [])
+    ]
+        .map(normalizeValue)
+        .join(" ");
 
-        .create-modal-close {
-            border: none;
-            background: transparent;
-            font-size: 1.8rem;
-            line-height: 1;
-            cursor: pointer;
-            color: #475569;
-        }
+    return haystack.includes(searchTerm);
+}
 
-        .create-modal-form {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            padding: 0 24px 24px;
-        }
+function getFilteredRoles() {
+    return sortRoles(roleState.roles).filter(role => matchesSearch(role, roleState.searchTerm));
+}
 
-        .create-modal-field {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
+function renderEmptyState(message) {
+    if (!roleState.ui.tableBody) {
+        return;
+    }
 
-        .create-modal-field label {
-            font-weight: 600;
-            color: #334155;
-        }
+    roleState.ui.tableBody.innerHTML = `
+        <tr class="roles-empty-row">
+            <td colspan="6">
+                <div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>
+            </td>
+        </tr>
+    `;
+}
 
-        .create-modal-field input,
-        .create-modal-field textarea,
-        .create-modal-field select {
-            width: 100%;
-            padding: 12px 14px;
-            border: 1px solid #cbd5e1;
-            border-radius: 10px;
-            font: inherit;
-        }
+function renderRoles() {
+    if (!roleState.ui.tableBody) {
+        return;
+    }
 
-        .create-modal-field textarea {
-            min-height: 110px;
-            resize: vertical;
-        }
+    const roles = getFilteredRoles();
+    if (!roles.length) {
+        renderEmptyState(roleState.searchTerm ? "Keine Rollen für diese Suche gefunden." : "Keine Rollen vorhanden.");
+        return;
+    }
 
-        .create-modal-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 8px;
-        }
+    roleState.ui.tableBody.innerHTML = roles.map(role => {
+        const resources = Array.isArray(role.resources) ? role.resources : [];
+        const assignments = Array.isArray(role.assigned_to) ? role.assigned_to : [];
+        const resourcePreview = getPreview(resources, "Keine Ressourcen verknüpft");
+        const assignmentPreview = getPreview(assignments, "Keine User zugewiesen");
+        const roleUrl = `/roles/${encodeURIComponent(role.role_id)}`;
+        const isInactive = String(role.role_status || "").toUpperCase() === "INACTIVE";
 
-        @media (max-width: 640px) {
-            .floating-create-btn {
-                right: 20px;
-                bottom: 20px;
-                width: 58px;
-                height: 58px;
+        return `
+            <tr class="roles-table-row ${isInactive ? "is-inactive" : ""}" data-role-id="${escapeHtml(role.role_id)}" data-role-url="${escapeHtml(roleUrl)}">
+                <td class="roles-name-cell">
+                    <div class="roles-name-block">
+                        <span class="roles-name-main">${escapeHtml(role.name || "-")}</span>
+                        <span class="roles-name-meta">ID ${escapeHtml(role.role_id)}${isInactive ? " · Inaktiv" : ""}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="roles-type-badge ${getTypeClass(role.role_type)}">${escapeHtml(typeMap(role.role_type))}</span>
+                </td>
+                <td class="roles-parent-cell">${escapeHtml(role.parent_role_name || "-")}</td>
+                <td class="roles-resource-cell">
+                    <div class="roles-resource-block">
+                        <span class="roles-resource-count" title="${escapeHtml(resourcePreview.title)}">${resources.length}</span>
+                        <span class="roles-resource-preview ${resourcePreview.isEmpty ? "is-empty" : ""}" title="${escapeHtml(resourcePreview.title)}">
+                            ${escapeHtml(resourcePreview.text)}
+                        </span>
+                    </div>
+                </td>
+                <td class="roles-resource-cell">
+                    <div class="roles-resource-block">
+                        <span class="roles-resource-count" title="${escapeHtml(assignmentPreview.title)}">${assignments.length}</span>
+                        <span class="roles-resource-preview ${assignmentPreview.isEmpty ? "is-empty" : ""}" title="${escapeHtml(assignmentPreview.title)}">
+                            ${escapeHtml(assignmentPreview.text)}
+                        </span>
+                    </div>
+                </td>
+                <td class="roles-detail-cell">
+                    <a class="roles-action-link" href="${escapeHtml(roleUrl)}" aria-label="Details zu ${escapeHtml(role.name || role.role_id)} öffnen" title="Details öffnen">
+                        →
+                    </a>
+                </td>
+            </tr>
+        `;
+    }).join("");
+
+    bindRows();
+}
+
+function bindRows() {
+    roleState.ui.tableBody?.querySelectorAll(".roles-table-row").forEach(row => {
+        row.addEventListener("dblclick", event => {
+            const interactiveTarget = event.target.closest("a, button, input");
+            if (interactiveTarget) {
+                return;
             }
 
-            .create-modal {
-                padding: 12px;
+            const targetUrl = row.dataset.roleUrl;
+            if (targetUrl) {
+                window.location.href = targetUrl;
             }
+        });
+    });
+}
+
+async function loadRoles() {
+    try {
+        const resp = await fetch("/api/roles");
+        const roles = await resp.json();
+
+        if (!resp.ok) {
+            throw new Error(roles.detail || roles.error || "Rollen konnten nicht geladen werden");
         }
-    `;
-    document.head.appendChild(style);
 
-    const button = document.createElement("button");
-    button.id = "role-create-fab";
-    button.className = "floating-create-btn";
-    button.type = "button";
-    button.setAttribute("aria-label", "Neue Rolle anlegen");
-    button.textContent = "+";
-
-    const modal = document.createElement("div");
-    modal.id = "role-create-modal";
-    modal.className = "create-modal";
-    modal.setAttribute("aria-hidden", "true");
-    modal.innerHTML = `
-        <div class="create-modal-card" role="dialog" aria-modal="true" aria-labelledby="role-create-title">
-            <div class="create-modal-header">
-                <h3 id="role-create-title">Neue Rolle anlegen</h3>
-                <button id="role-create-close" class="create-modal-close" type="button" aria-label="Schließen">&times;</button>
-            </div>
-            <form id="role-create-form" class="create-modal-form">
-                <div class="create-modal-field">
-                    <label for="role-create-name">Name</label>
-                    <input id="role-create-name" name="name" type="text" required>
-                </div>
-                <div class="create-modal-field">
-                    <label for="role-create-description">Beschreibung</label>
-                    <textarea id="role-create-description" name="description" required></textarea>
-                </div>
-                <div class="create-modal-field">
-                    <label for="role-create-type">Rollen-Typ</label>
-                    <select id="role-create-type" name="role_type" required>
-                        <option value="PRIMARY">Hauptrolle</option>
-                        <option value="SECONDARY">Nebenrolle</option>
-                        <option value="TEMPLATE">Template</option>
-                    </select>
-                </div>
-                <div class="create-modal-field">
-                    <label for="role-create-parent">Geerbte Rolle</label>
-                    <select id="role-create-parent" name="parent_role_id">
-                        <option value="">Keine</option>
-                    </select>
-                </div>
-                <div class="create-modal-actions">
-                    <button id="role-create-cancel" class="btn btn-secondary" type="button">Abbrechen</button>
-                    <button class="btn btn-primary" type="submit">Rolle anlegen</button>
-                </div>
-            </form>
-        </div>
-    `;
-
-    document.body.appendChild(button);
-    document.body.appendChild(modal);
+        roleState.roles = Array.isArray(roles) ? roles : [];
+        renderRoles();
+    } catch (error) {
+        showFlash("Fehler beim Laden der Rollen", "failure");
+        console.error("Fehler beim Laden der Rollen", error);
+        renderEmptyState("Rollen konnten nicht geladen werden.");
+    }
 }
 
 async function fetchRoleMap() {
-    if (roleState.roleMap) return roleState.roleMap;
+    if (roleState.roleMap) {
+        return roleState.roleMap;
+    }
 
     const resp = await fetch("/api/roles/map");
     if (!resp.ok) {
@@ -245,37 +234,41 @@ async function fetchRoleMap() {
 
 async function populateParentRoleOptions() {
     const parentSelect = roleState.ui.parentSelect;
-    if (!parentSelect) return;
+    if (!parentSelect) {
+        return;
+    }
 
     parentSelect.innerHTML = '<option value="">Keine</option>';
 
     try {
         const roleMap = await fetchRoleMap();
         Object.entries(roleMap)
-            .sort(([, a], [, b]) => a.name.localeCompare(b.name, "de"))
+            .sort(([, left], [, right]) => left.name.localeCompare(right.name, "de"))
             .forEach(([roleId, roleData]) => {
                 const option = document.createElement("option");
                 option.value = roleId;
                 option.textContent = `${roleData.name} (${typeMap(roleData.type)})`;
                 parentSelect.appendChild(option);
             });
-    } catch (err) {
+    } catch (error) {
         showFlash("Geerbte Rollen konnten nicht geladen werden", "failure");
-        console.error(err);
+        console.error(error);
     }
 }
 
 function openRoleCreateModal() {
-    roleState.ui.modal.classList.add("active");
-    roleState.ui.modal.setAttribute("aria-hidden", "false");
-    roleState.ui.form.reset();
+    roleState.ui.modal?.classList.add("active");
+    roleState.ui.modal?.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    roleState.ui.form?.reset();
     populateParentRoleOptions();
     document.getElementById("role-create-name")?.focus();
 }
 
 function closeRoleCreateModal() {
-    roleState.ui.modal.classList.remove("active");
-    roleState.ui.modal.setAttribute("aria-hidden", "true");
+    roleState.ui.modal?.classList.remove("active");
+    roleState.ui.modal?.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
 }
 
 async function createRole(event) {
@@ -295,8 +288,10 @@ async function createRole(event) {
         return;
     }
 
-    const submitButton = roleState.ui.form.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
+    const submitButton = roleState.ui.form?.querySelector('button[type="submit"]');
+    if (submitButton) {
+        submitButton.disabled = true;
+    }
 
     try {
         const resp = await fetch("/api/roles", {
@@ -315,19 +310,29 @@ async function createRole(event) {
         closeRoleCreateModal();
         roleState.roleMap = null;
         await loadRoles();
-    } catch (err) {
+    } catch (error) {
         showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-        console.error("Fehler beim Anlegen der Rolle", err);
+        console.error("Fehler beim Anlegen der Rolle", error);
     } finally {
-        submitButton.disabled = false;
+        if (submitButton) {
+            submitButton.disabled = false;
+        }
     }
 }
 
-function initRoleManagementUI() {
-    injectRoleManagementUI();
+function bindSearch() {
+    roleState.ui.searchInput?.addEventListener("input", event => {
+        roleState.searchTerm = normalizeValue(event.target.value);
+        renderRoles();
+    });
+}
 
+function initRoleManagementUI() {
     roleState.ui = {
+        searchInput: document.getElementById("search-input"),
+        tableBody: document.getElementById("roles-table-body"),
         fab: document.getElementById("role-create-fab"),
+        trigger: document.getElementById("role-create-trigger"),
         modal: document.getElementById("role-create-modal"),
         form: document.getElementById("role-create-form"),
         parentSelect: document.getElementById("role-create-parent"),
@@ -337,18 +342,19 @@ function initRoleManagementUI() {
         ].filter(Boolean)
     };
 
-    roleState.ui.fab.addEventListener("click", openRoleCreateModal);
+    roleState.ui.fab?.addEventListener("click", openRoleCreateModal);
+    roleState.ui.trigger?.addEventListener("click", openRoleCreateModal);
     roleState.ui.closeButtons.forEach(button => button.addEventListener("click", closeRoleCreateModal));
-    roleState.ui.form.addEventListener("submit", createRole);
+    roleState.ui.form?.addEventListener("submit", createRole);
 
-    roleState.ui.modal.addEventListener("click", (event) => {
+    roleState.ui.modal?.addEventListener("click", event => {
         if (event.target === roleState.ui.modal) {
             closeRoleCreateModal();
         }
     });
 
-    window.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && roleState.ui.modal.classList.contains("active")) {
+    window.addEventListener("keydown", event => {
+        if (event.key === "Escape" && roleState.ui.modal?.classList.contains("active")) {
             closeRoleCreateModal();
         }
     });
@@ -356,5 +362,6 @@ function initRoleManagementUI() {
 
 document.addEventListener("DOMContentLoaded", () => {
     initRoleManagementUI();
+    bindSearch();
     loadRoles();
 });

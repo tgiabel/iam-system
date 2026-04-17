@@ -1,118 +1,9 @@
 {% extends "base.html" %}
 
 {% block css %}
+<link rel="stylesheet" href="/static/css/ui.css">
 <link rel="stylesheet" href="/static/css/page_w_table.css">
-<style>
-    .floating-create-btn {
-        position: fixed;
-        right: 32px;
-        bottom: 96px;
-        width: 64px;
-        height: 64px;
-        border: none;
-        border-radius: 50%;
-        background: var(--color-primary);
-        color: #fff;
-        font-size: 2.2rem;
-        line-height: 1;
-        box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
-        cursor: pointer;
-        z-index: 2200;
-    }
-
-    .floating-create-btn:hover {
-        background: var(--color-primary-hover);
-    }
-
-    .create-modal {
-        position: fixed;
-        inset: 0;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background: rgba(15, 23, 42, 0.45);
-        z-index: 2300;
-        padding: 20px;
-    }
-
-    .create-modal.active {
-        display: flex;
-    }
-
-    .create-modal-card {
-        width: min(100%, 520px);
-        background: #fff;
-        border-radius: 18px;
-        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
-        overflow: hidden;
-    }
-
-    .create-modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 22px 24px 10px;
-    }
-
-    .create-modal-header h3 {
-        margin: 0;
-    }
-
-    .create-modal-close {
-        border: none;
-        background: transparent;
-        font-size: 1.8rem;
-        line-height: 1;
-        cursor: pointer;
-        color: #475569;
-    }
-
-    .create-modal-form {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        padding: 0 24px 24px;
-    }
-
-    .create-modal-field {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .create-modal-field label {
-        font-weight: 600;
-        color: #334155;
-    }
-
-    .create-modal-field input {
-        width: 100%;
-        padding: 12px 14px;
-        border: 1px solid #cbd5e1;
-        border-radius: 10px;
-        font: inherit;
-    }
-
-    .create-modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        margin-top: 8px;
-    }
-
-    @media (max-width: 640px) {
-        .floating-create-btn {
-            right: 20px;
-            bottom: 20px;
-            width: 58px;
-            height: 58px;
-        }
-
-        .create-modal {
-            padding: 12px;
-        }
-    }
-</style>
+<link rel="stylesheet" href="/static/css/systemverwaltung.css">
 {% endblock %}
 
 {% block scripts %}
@@ -122,92 +13,96 @@
 {% set page_title = "Systemverwaltung" %}
 
 {% block content %}
-<div class="page-container">
-
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="top-bar-main">
-            <div class="filter-container">
-                <button id="filter-btn">Filter</button>
-
-                <div id="filter-dropdown" class="filter-dropdown">
-                    <button data-filter="typ">Typ</button>
-                    <button data-filter="status">Status</button>
-                    <button data-filter="ressourcen">Ressourcen</button>
+<div class="page-container systems-page">
+    <section class="systems-shell">
+        <div class="systems-header ui-card">
+            <div class="systems-header-main">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Übersicht</p>
+                    <h2 class="ui-section-title">Systemverwaltung</h2>
+                    <p class="ui-section-copy">
+                        Suche nach Systemname, Kürzel, ID oder Ressource und springe direkt in die Detailansicht.
+                    </p>
                 </div>
 
-                <!-- Subfilter -->
-                <div id="subfilter-dropdown" class="subfilter-dropdown">
-                    <!-- wird dynamisch gefüllt -->
-                </div>
+                <button id="system-create-trigger" class="btn btn-primary systems-create-btn" type="button">
+                    Neues System
+                </button>
             </div>
 
-            <h2 class="top-bar-title">Systemverwaltung</h2>
-
-            <!-- bewusst leer: kein Action Button -->
-            <div></div>
+            <div class="systems-search-row">
+                <label for="search-input" class="ui-field-label systems-search-label">Suche</label>
+                <div class="systems-search-field">
+                    <input
+                        type="text"
+                        id="search-input"
+                        class="ui-input"
+                        placeholder="Suche..."
+                    >
+                </div>
+            </div>
         </div>
 
-        <!-- Aktive Filter -->
-        <div class="filter-tags" id="active-filters"></div>
-
-        <!-- Suche -->
-        <div class="search-field" style="margin-top:8px; width: 60%;">
-            <input
-                type="text"
-                id="search-input"
-                placeholder="Suche nach Systemname, Kürzel oder ID..."
-            >
+        <div class="ui-table-card systems-table-card">
+            <div class="table-wrapper">
+                <table id="system-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Kürzel</th>
+                            <th>Name</th>
+                            <th>Schutzbedarf</th>
+                            <th>Ressourcen</th>
+                            <th>Verknüpfte Rollen</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="system-table-body">
+                        <tr class="systems-empty-row">
+                            <td colspan="7">
+                                <div class="ui-empty-state ui-empty-inline">Systeme werden geladen...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-    </div>
-
-    <!-- Table -->
-    <div class="table-wrapper">
-        <table id="system-table">
-            <thead>
-                <tr>
-                    <th>Kürzel</th>
-                    <th>Name</th>
-                    <th>Ressourcen</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- wird dynamisch gefüllt -->
-                
-            </tbody>
-        </table>
-    </div>
+    </section>
 </div>
 
 <button
     id="system-create-fab"
-    class="floating-create-btn"
+    class="systems-create-fab"
     type="button"
     aria-label="Neues System anlegen"
 >
     +
 </button>
 
-<div id="system-create-modal" class="create-modal" aria-hidden="true">
-    <div class="create-modal-card" role="dialog" aria-modal="true" aria-labelledby="system-create-title">
-        <div class="create-modal-header">
-            <h3 id="system-create-title">Neues System anlegen</h3>
-            <button id="system-create-close" class="create-modal-close" type="button" aria-label="Schließen">&times;</button>
+<div id="system-create-modal" class="ui-modal-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact systems-modal" role="dialog" aria-modal="true" aria-labelledby="system-create-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Anlegen</p>
+                <h3 id="system-create-title">Neues System</h3>
+            </div>
+            <button id="system-create-close" class="ui-icon-button" type="button" aria-label="Schließen">&times;</button>
         </div>
 
-        <form id="system-create-form" class="create-modal-form">
-            <div class="create-modal-field">
-                <label for="system-create-name">Name</label>
-                <input id="system-create-name" name="name" type="text" required>
+        <form id="system-create-form" class="systems-create-form">
+            <div class="ui-modal-body">
+                <div class="ui-field-group">
+                    <label for="system-create-name" class="ui-field-label">Name</label>
+                    <input id="system-create-name" name="name" type="text" class="ui-input" required>
+                </div>
+
+                <div class="ui-field-group">
+                    <label for="system-create-short-name" class="ui-field-label">Kürzel</label>
+                    <input id="system-create-short-name" name="short_name" type="text" class="ui-input" required>
+                </div>
             </div>
 
-            <div class="create-modal-field">
-                <label for="system-create-short-name">Kürzel</label>
-                <input id="system-create-short-name" name="short_name" type="text" required>
-            </div>
-
-            <div class="create-modal-actions">
+            <div class="ui-modal-footer">
                 <button id="system-create-cancel" class="btn btn-secondary" type="button">Abbrechen</button>
                 <button class="btn btn-primary" type="submit">System anlegen</button>
             </div>

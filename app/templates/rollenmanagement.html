@@ -1,7 +1,9 @@
 {% extends "base.html" %}
 
 {% block css %}
+<link rel="stylesheet" href="/static/css/ui.css">
 <link rel="stylesheet" href="/static/css/page_w_table.css">
+<link rel="stylesheet" href="/static/css/rollenmanagement.css">
 {% endblock %}
 
 {% block scripts %}
@@ -11,76 +13,115 @@
 {% set page_title = "Rollenmanagement" %}
 
 {% block content %}
-<div class="page-container">
-
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="top-bar-main">
-
-            <div class="filter-container">
-                <button id="filter-btn">Filter</button>
-
-                <div id="filter-dropdown" class="filter-dropdown">
-              
+<div class="page-container roles-page">
+    <section class="roles-shell">
+        <div class="roles-header ui-card">
+            <div class="roles-header-main">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Übersicht</p>
+                    <h2 class="ui-section-title">Rollenmanagement</h2>
+                    <p class="ui-section-copy">
+                        Suche nach Rollenname, ID, geerbten Rollen, Ressourcen oder zugewiesenen Usern und springe direkt in die Detailansicht.
+                    </p>
                 </div>
 
-                <!-- Subfilter -->
-                <div id="subfilter-dropdown" class="subfilter-dropdown">
-                    <!-- wird dynamisch gefüllt -->
+                <button id="role-create-trigger" class="btn btn-primary roles-create-btn" type="button">
+                    Neue Rolle
+                </button>
+            </div>
+
+            <div class="roles-search-row">
+                <label for="search-input" class="ui-field-label roles-search-label">Suche</label>
+                <div class="roles-search-field">
+                    <input
+                        type="text"
+                        id="search-input"
+                        class="ui-input"
+                        placeholder="Suche nach Rolle, ID, Ressource oder User..."
+                    >
+                </div>
+            </div>
+        </div>
+
+        <div class="ui-table-card roles-table-card">
+            <div class="table-wrapper">
+                <table id="rbac-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Typ</th>
+                            <th>Erbt von</th>
+                            <th>Ressourcen</th>
+                            <th>Zuweisungen / User</th>
+                            <th>Aktion</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roles-table-body">
+                        <tr class="roles-empty-row">
+                            <td colspan="6">
+                                <div class="ui-empty-state ui-empty-inline">Rollen werden geladen...</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+
+<button
+    id="role-create-fab"
+    class="roles-create-fab"
+    type="button"
+    aria-label="Neue Rolle anlegen"
+>
+    +
+</button>
+
+<div id="role-create-modal" class="ui-modal-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact roles-modal" role="dialog" aria-modal="true" aria-labelledby="role-create-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Anlegen</p>
+                <h3 id="role-create-title">Neue Rolle</h3>
+            </div>
+            <button id="role-create-close" class="ui-icon-button" type="button" aria-label="Schließen">&times;</button>
+        </div>
+
+        <form id="role-create-form" class="roles-create-form">
+            <div class="ui-modal-body">
+                <div class="ui-field-group">
+                    <label for="role-create-name" class="ui-field-label">Name</label>
+                    <input id="role-create-name" name="name" type="text" class="ui-input" required>
+                </div>
+
+                <div class="ui-field-group">
+                    <label for="role-create-description" class="ui-field-label">Beschreibung</label>
+                    <textarea id="role-create-description" name="description" class="ui-textarea" required></textarea>
+                </div>
+
+                <div class="ui-field-group">
+                    <label for="role-create-type" class="ui-field-label">Rollen-Typ</label>
+                    <select id="role-create-type" name="role_type" class="ui-input" required>
+                        <option value="PRIMARY">Hauptrolle</option>
+                        <option value="SECONDARY">Nebenrolle</option>
+                        <option value="TEMPLATE">Template</option>
+                    </select>
+                </div>
+
+                <div class="ui-field-group">
+                    <label for="role-create-parent" class="ui-field-label">Geerbte Rolle</label>
+                    <select id="role-create-parent" name="parent_role_id" class="ui-input">
+                        <option value="">Keine</option>
+                    </select>
                 </div>
             </div>
 
-            <h2 class="top-bar-title">Rollen</h2>
-
-            <!-- kein Action Button -->
-            <div></div>
-        </div>
-
-        <!-- Aktive Filter -->
-        <div class="filter-tags" id="active-filters"></div>
-
-        <!-- Suche -->
-        <div class="search-field" style="margin-top:8px; width: 60%;">
-            <input
-                type="text"
-                id="search-input"
-                placeholder="Suche nach Rollenname oder ID..."
-            >
-        </div>
+            <div class="ui-modal-footer">
+                <button id="role-create-cancel" class="btn btn-secondary" type="button">Abbrechen</button>
+                <button class="btn btn-primary" type="submit">Rolle anlegen</button>
+            </div>
+        </form>
     </div>
-
-    <!-- Table -->
-    <div class="table-wrapper">
-        <table id="rbac-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Typ</th>
-                    <th>Erbt von</th>
-                    <th>Ressourcen</th>
-                    <th>Zuweisungen / User</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- wird dynamisch gefüllt -->
-
-                <tr>
-                    <td>HR Basisrolle</td>
-                    <td>Hauptrolle</td>
-                    <td>-</td>
-                    <td>18</td>
-                    <td>42</td>
-                    <td>
-                        <button class="btn btn-secondary">
-                            Details
-                        </button>
-                    </td>
-                </tr>
-
-            </tbody>
-        </table>
-    </div>
-
 </div>
 {% endblock %}
