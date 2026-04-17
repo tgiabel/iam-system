@@ -6,6 +6,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const profileBtn = document.getElementById("profile-button");
     const navProfile = document.getElementById("nav-profile");
     const profileMenu = document.getElementById("profile-subnav");
+    const themeToggleButton = document.getElementById("theme-toggle-button");
+    const themeToggleIcon = document.getElementById("theme-toggle-icon");
+    const themeIcons = [
+        { key: "sun", src: "/static/img/sun-icon-white.png", label: "Sonnenmodus-Symbol" },
+        { key: "moon", src: "/static/img/moon-icon-white.png", label: "Mondmodus-Symbol" },
+        { key: "duck", src: "/static/img/duck-icon-white.png", label: "Entenmodus-Symbol" }
+    ];
 
 
     function closeAll() {
@@ -17,6 +24,81 @@ document.addEventListener("DOMContentLoaded", () => {
             const menu = parent.querySelector(".subnav");
             if (menu) menu.setAttribute("aria-hidden", "true");
         });
+    }
+
+    function normalizePath(path) {
+        if (!path || path === "/") return "/";
+        return path.endsWith("/") ? path.slice(0, -1) : path;
+    }
+
+    function pathMatches(path, basePath) {
+        const normalizedPath = normalizePath(path);
+        const normalizedBasePath = normalizePath(basePath);
+
+        if (normalizedBasePath === "/") return normalizedPath === "/";
+        return normalizedPath === normalizedBasePath || normalizedPath.startsWith(`${normalizedBasePath}/`);
+    }
+
+    function clearActiveNavigation() {
+        document
+            .querySelectorAll(".nav-link.is-active, .subnav-item.is-active, .nav-item.is-active, .profile-dropdown.is-active")
+            .forEach(element => element.classList.remove("is-active"));
+    }
+
+    function markActiveNavigation() {
+        const currentPath = normalizePath(window.location.pathname);
+        clearActiveNavigation();
+
+        const directTargets = [
+            { selector: '[data-nav-target="dashboard"]', match: pathMatches(currentPath, "/") },
+            { selector: '[data-nav-target="tasks"]', match: pathMatches(currentPath, "/tasks") },
+            { selector: '[data-nav-target="tools"]', match: pathMatches(currentPath, "/tools") },
+            { selector: '[data-nav-target="login"]', match: pathMatches(currentPath, "/login") }
+        ];
+
+        directTargets.forEach(({ selector, match }) => {
+            if (!match) return;
+            const element = document.querySelector(selector);
+            if (element) element.classList.add("is-active");
+        });
+
+        const adminTargets = [
+            { selector: '[data-nav-target="users"]', path: "/users" },
+            { selector: '[data-nav-target="systems"]', path: "/systems" },
+            { selector: '[data-nav-target="roles"]', path: "/roles" },
+            { selector: '[data-nav-target="iks"]', path: "/iks" }
+        ];
+
+        const activeAdminItem = adminTargets.find(({ path }) => pathMatches(currentPath, path));
+        if (activeAdminItem) {
+            const adminItem = document.querySelector(activeAdminItem.selector);
+            if (adminItem) adminItem.classList.add("is-active");
+            if (navAdmin) navAdmin.classList.add("is-active");
+        }
+
+        if (pathMatches(currentPath, "/account")) {
+            const accountItem = document.querySelector('[data-nav-target="account"]');
+            if (accountItem) accountItem.classList.add("is-active");
+            if (navProfile) navProfile.classList.add("is-active");
+        }
+    }
+
+    function updateThemeIcon(nextIconKey) {
+        if (!themeToggleIcon) return;
+
+        const nextIcon = themeIcons.find(icon => icon.key === nextIconKey) || themeIcons[0];
+        themeToggleIcon.src = nextIcon.src;
+        if (themeToggleButton) {
+            themeToggleButton.setAttribute("data-theme-icon", nextIcon.key);
+            themeToggleButton.setAttribute("aria-label", `${nextIcon.label} aktivieren`);
+            themeToggleButton.setAttribute("title", `${nextIcon.label} aktivieren`);
+        }
+
+        try {
+            window.localStorage.setItem("sofaThemeToggleIcon", nextIcon.key);
+        } catch (error) {
+            console.debug("Theme icon state could not be persisted.", error);
+        }
     }
 
     // toggle helper
@@ -65,6 +147,28 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
     }
+
+    if (themeToggleButton && themeToggleIcon) {
+        let initialThemeIcon = themeIcons[0].key;
+
+        try {
+            initialThemeIcon = window.localStorage.getItem("sofaThemeToggleIcon") || initialThemeIcon;
+        } catch (error) {
+            console.debug("Theme icon state could not be restored.", error);
+        }
+
+        updateThemeIcon(initialThemeIcon);
+
+        themeToggleButton.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const currentIcon = themeToggleButton.getAttribute("data-theme-icon") || themeIcons[0].key;
+            const currentIndex = themeIcons.findIndex(icon => icon.key === currentIcon);
+            const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % themeIcons.length : 0;
+            updateThemeIcon(themeIcons[nextIndex].key);
+        });
+    }
+
+    markActiveNavigation();
 
     // click outside closes menus
     window.addEventListener("click", () => {

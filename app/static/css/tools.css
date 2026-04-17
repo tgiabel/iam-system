@@ -143,7 +143,7 @@ select, input[type="date"] {
     align-items: center;
     gap: 14px;
     padding: 18px;
-    border: 0;
+    border: 1px dashed gray;
     background: transparent;
     cursor: pointer;
     text-align: left;

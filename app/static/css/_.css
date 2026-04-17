@@ -7,6 +7,9 @@
     --color-primary-hover: #0056b3;
     --color-secondary: #f1f1f1;
     --color-secondary-hover: #e0e0e0;
+    --header-surface: rgba(255, 255, 255, 0.1);
+    --header-surface-hover: rgba(255, 255, 255, 0.18);
+    --header-border: rgba(255, 255, 255, 0.18);
 
     /* Status Colors */
     --status-blue-bg: #e6f7ff;
@@ -120,21 +123,35 @@ p, span, a, label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
-    min-height: 80px;
+    padding: 0 28px;
+    min-height: 88px;
     gap: 20px;
+    box-shadow: 0 10px 28px rgba(29, 55, 137, 0.18);
 }
 
 .header-left, .header-center, .header-right {
     display: flex;
     align-items: center;
+    flex: 1;
+    min-width: 0;
 }
 
-.header-left { flex: 1; }
-.header-center { flex: 1; justify-content: center; }
-.header-right { justify-content: flex-end; gap: 20px; width: max-content; }
+.header-left { justify-content: flex-start; gap: 14px; }
+.header-center { justify-content: center; }
+.header-right { justify-content: flex-end; gap: 12px; }
 
-.logo-wrapper { position: relative; width: 50px; height: 50px; }
+.header-right .nav-links {
+    width: auto;
+    justify-content: flex-end;
+}
+
+.brand-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.logo-wrapper { position: relative; width: 60px; height: 60px; }
 .logo-wrapper .logo { position: absolute; top: 0; left: 0; width: 100%; height: auto; transition: opacity 0.1s ease-in-out; }
 .default-logo { opacity: 1; }
 .hover-logo { opacity: 0; }
@@ -142,21 +159,26 @@ p, span, a, label {
 .logo-wrapper:hover .hover-logo { opacity: 1; }
 
 .back-logo-button {
-    width: 50px;
-    height: 50px;
+    width: 56px;
+    height: 56px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: white;
     text-decoration: none;
+    border-radius: 16px;
+    background: var(--header-surface);
+    border: 1px solid var(--header-border);
+    transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .back-logo-button:hover {
-    text-decoration: underline;
+    background: var(--header-surface-hover);
+    transform: translateY(-1px);
 }
 
 .back-logo-arrow {
-    font-size: 1.5rem;
+    font-size: 1.85rem;
     line-height: 1;
     font-weight: 900;
     color: white;
@@ -164,29 +186,85 @@ p, span, a, label {
 
 .site-title {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 2rem;
     text-align: center;
-    padding-left: 16px;
-    color: white
+    color: white;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    font-weight: 700;
 }
 
 /* =========================
    5. NAVIGATION
 ========================= */
-.nav-links { flex-wrap: nowrap; display: flex; gap: 1rem; align-items: center; }
-.nav-links a, .nav-button {
+.nav-links {
+    flex-wrap: nowrap;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.nav-link, .nav-button {
     color: white;
     text-decoration: none;
-    margin-right: 15px;
-    font-weight: 500;
+    margin-right: 0;
+    font-weight: 700;
     white-space: nowrap;
     background: none;
     border: none;
     cursor: pointer;
     font-family: inherit;
-    font-size: 1rem;
+    font-size: 1.05rem;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.45rem;
+    position: relative;
+    opacity: 0.92;
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.nav-links a:hover, .nav-button:hover { text-decoration: underline; }
+
+.nav-button span {
+    color: inherit;
+}
+
+.nav-link:hover, .nav-button:hover,
+.nav-link:focus-visible, .nav-button:focus-visible {
+    opacity: 1;
+}
+
+.nav-link::after, .nav-button::after {
+    content: "";
+    position: absolute;
+    left: 0.45rem;
+    right: 0.45rem;
+    bottom: 4px;
+    height: 3px;
+    border-radius: 999px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: center;
+    transition: transform 0.18s ease;
+}
+
+.nav-link:hover::after, .nav-link:focus-visible::after, .nav-link.is-active::after,
+.nav-button:hover::after, .nav-button:focus-visible::after,
+.nav-item.is-active > .nav-button::after {
+    transform: scaleX(1);
+}
+
+.nav-link.is-active,
+.nav-item.is-active > .nav-button {
+    opacity: 1;
+}
+
+.nav-caret {
+    font-size: 0.95rem;
+    transform: translateY(1px);
+}
 
 /* dropdown container */
 .nav-item, .profile-dropdown { position: relative; display: inline-flex; align-items: center; }
@@ -195,21 +273,22 @@ p, span, a, label {
 .subnav {
     display: none;
     position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    min-width: 200px;
-    background: white;
-    color: #222;
-    border-radius: 6px;
-    border: 1px solid #ddd;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    top: calc(100% - 6px);
+    left: 50%;
+    min-width: 180px;
+    background: ghostwhite;
+    color: #1a3997;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 16px 28px rgba(11, 24, 69, 0.12);
     flex-direction: column;
-    z-index: 1500;
-    padding: 6px 0;
-    transition: opacity 0.12s ease, transform 0.12s ease;
-    transform-origin: top left;
+    z-index: 990;
+    gap: 0;
+    padding: 12px 10px 8px;
+    transition: opacity 0.18s ease, transform 0.22s ease;
+    transform-origin: top center;
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateX(-50%) translateY(-16px);
     pointer-events: none;
 }
 
@@ -217,44 +296,159 @@ p, span, a, label {
 .dropdown.open > .subnav {
     display: flex;
     opacity: 1;
-    transform: translateX(-75%);
+    transform: translateX(-50%) translateY(0);
     pointer-events: auto;
+}
+
+.profile-dropdown > .subnav {
+    left: auto;
+    right: 0;
+    min-width: 150px;
+    transform: translateX(0) translateY(-16px);
+    transform-origin: top right;
+}
+
+.profile-dropdown.open > .subnav {
+    transform: translateX(0) translateY(0);
 }
 
 /* menu items */
 .subnav-item, .subnav a {
-    padding: 8px 12px;
-    color: #333;
+    padding: 8px 0;
+    color: #1a3997;
     text-decoration: none;
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     white-space: nowrap;
+    border-radius: 0;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    background: transparent;
+    position: relative;
+    text-align: center;
+    transition: color 0.18s ease;
 }
-.subnav-item:hover, .subnav a:hover { background: #f5f5f5; }
+
+.subnav-item::after,
+.subnav a::after {
+    content: "";
+    position: absolute;
+    left: 18%;
+    right: 18%;
+    bottom: 2px;
+    height: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.18s ease;
+}
+
+.subnav-item:hover, .subnav a:hover,
+.subnav-item:focus-visible, .subnav a:focus-visible {
+    color: #274cc0;
+}
+
+.subnav-item.is-active {
+    color: #274cc0;
+}
+
+.subnav-item:hover::after, .subnav a:hover::after,
+.subnav-item:focus-visible::after, .subnav a:focus-visible::after,
+.subnav-item.is-active::after {
+    transform: scaleX(1);
+}
 
 /* profile icon styles */
-.profile-button {
+.profile-button, .theme-toggle-button {
     background: transparent;
     border: none;
-    padding: 4px;
+    padding: 8px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 16px;
+    min-width: 50px;
+    min-height: 50px;
+    transition: background-color 0.2s ease, transform 0.2s ease;
 }
-.profile-button:focus {
+
+.profile-button {
+    background: transparent;
+    border-radius: 999px;
+}
+
+.theme-toggle-button {
+    background: var(--header-surface);
+    border-radius: 999px;
+}
+
+.theme-toggle-button:hover,
+.theme-toggle-button:focus-visible {
+    background: var(--header-surface-hover);
+    transform: translateY(-1px);
+}
+
+.profile-button:hover,
+.profile-button:focus-visible,
+.dropdown.open > .profile-button,
+.profile-dropdown.is-active > .profile-button {
+    background: transparent;
+    transform: translateY(-1px);
+}
+
+.profile-button:focus,
+.theme-toggle-button:focus {
     outline: 2px solid rgba(255,255,255,0.15);
+    outline-offset: 2px;
 }
+
 .profile-icon {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     display: block;
     border-radius: 50%;
+}
+
+.theme-toggle-icon {
+    width: 28px;
+    height: 28px;
+    display: block;
+    object-fit: contain;
 }
 
 /* ensure no hover-only behavior remains */
 .nav-item:hover .subnav,
 .profile-dropdown:hover .subnav { /* no-op to avoid hover persistence */ }
+
+@media (max-width: 1080px) {
+    .main-header {
+        flex-wrap: wrap;
+        padding: 12px 18px;
+    }
+
+    .header-left, .header-center, .header-right {
+        width: 100%;
+    }
+
+    .header-left { order: 1; }
+    .header-right { order: 2; }
+    .header-center { order: 3; }
+
+    .header-right {
+        justify-content: flex-end;
+    }
+
+    .nav-links {
+        flex-wrap: wrap;
+        row-gap: 0.35rem;
+    }
+
+    .site-title {
+        font-size: 1.7rem;
+    }
+}
 
 /* =========================
    6. ALERTS & FLASH MESSAGES
@@ -656,4 +850,3 @@ p, span, a, label {
 .tmp-rights-form button {
     min-width: 80px;
 }
-

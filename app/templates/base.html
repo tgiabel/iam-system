@@ -23,65 +23,70 @@
                     <span class="back-logo-arrow" aria-hidden="true">←</span>
                 </a>
             {% else %}
-                <div class="logo-wrapper">
-                    <img src="/static/img/handshake.png" 
-                        alt="Logo" 
-                        class="logo default-logo">
-                    <img src="/static/img/handshake_hover.png" 
-                        alt="Logo Hover" 
-                        class="logo hover-logo">
-                </div>
+                <a href="/" class="brand-link" aria-label="Zur Startseite">
+                    <div class="logo-wrapper">
+                        <img src="/static/img/handshake.png"
+                            alt="Logo"
+                            class="logo default-logo">
+                        <img src="/static/img/handshake_hover.png"
+                            alt="Logo Hover"
+                            class="logo hover-logo">
+                    </div>
+                </a>
             {% endif %}
-        <h1 class="site-title">SOFA {{ page_title }}</h1>
+            <h1 class="site-title">SOFA</h1>
         </div>
 
         <div class="header-center">
-            
-        </div>
-
-        <div class="header-right">
             <nav class="nav-links" role="navigation" aria-label="Hauptnavigation">
-                <a href="/" class="nav-link">Dashboard</a>
+                <a href="/" class="nav-link" data-nav-target="dashboard">Dashboard</a>
 
                 {% if user %}
                     <!-- Nur eingeloggte User sehen diese Links -->
-                    <a href="/tasks" class="nav-link">To-Dos</a>
-                    <a href="/tools" class="nav-link">Tools & Reports</a>
+                    <a href="/tasks" class="nav-link" data-nav-target="tasks">To-Dos</a>
+                    <a href="/tools" class="nav-link" data-nav-target="tools">Tools & Reports</a>
 
                     <!-- Admin dropdown (click-to-toggle) -->
-                    <div class="nav-item dropdown" id="nav-admin">
+                    <div class="nav-item dropdown" id="nav-admin" data-nav-target="admin">
                         <button id="admin-button" class="nav-button" type="button"
                                 aria-haspopup="true" aria-expanded="false" aria-controls="admin-subnav">
-                            Admin ▾
+                            <span>Admin</span>
+                            <span class="nav-caret" aria-hidden="true">▾</span>
                         </button>
                         <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
-                            <a href="/users" role="menuitem" class="subnav-item">Userverwaltung</a>
-                            <a href="/systems" role="menuitem" class="subnav-item">Systemverwaltung</a>
-                            <a href="/roles" role="menuitem" class="subnav-item">Rollenmanagement</a>
-                            <a href="/iks" role="menuitem" class="subnav-item">Kontrollsystem</a>
+                            <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users">Userverwaltung</a>
+                            <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems">Systemverwaltung</a>
+                            <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
+                            <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks">Kontrollsystem</a>
                         </div>
                     </div>
-
-                    <!-- Profile dropdown -->
-                    <div class="profile-dropdown dropdown" id="nav-profile">
-                        <button id="profile-button" class="profile-button" type="button"
-                                aria-haspopup="true" aria-expanded="false" aria-controls="profile-subnav" title="Profil">
-                            <img src="/static/img/account_icon.png" alt="Profil" class="profile-icon" />
-                        </button>
-                        <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
-                            <a href="/account" role="menuitem" class="subnav-item">Account</a>
-                            <a href="/logout" role="menuitem" class="subnav-item">Abmelden</a>
-                        </div>
-                    </div>
-                {% else %}
-                    <!-- Nur wenn nicht eingeloggt -->
-                    <a href="/login" class="nav-link">Login</a>
                 {% endif %}
             </nav>
+        </div>
 
-
-
-         </div>
+        <div class="header-right">
+            {% if user %}
+                <!-- Profile dropdown -->
+                <div class="profile-dropdown dropdown" id="nav-profile" data-nav-target="profile">
+                    <button id="profile-button" class="profile-button" type="button"
+                            aria-haspopup="true" aria-expanded="false" aria-controls="profile-subnav" title="Profil">
+                        <img src="/static/img/account_icon.png" alt="Profil" class="profile-icon" />
+                    </button>
+                    <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
+                        <a href="/account" role="menuitem" class="subnav-item" data-nav-target="account">Account</a>
+                        <a href="/logout" role="menuitem" class="subnav-item">Abmelden</a>
+                    </div>
+                </div>
+            {% else %}
+                <nav class="nav-links" role="navigation" aria-label="Login Navigation">
+                    <a href="/login" class="nav-link" data-nav-target="login">Login</a>
+                </nav>
+            {% endif %}
+            <button id="theme-toggle-button" class="theme-toggle-button" type="button"
+                    aria-label="Theme-Symbol wechseln" title="Theme-Symbol wechseln">
+                <img src="/static/img/sun-icon-white.png" alt="" class="theme-toggle-icon" id="theme-toggle-icon" />
+            </button>
+        </div>
     </header>
 
     <main>
