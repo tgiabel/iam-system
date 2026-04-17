@@ -3,6 +3,8 @@ const state = {
     systemMap: null,
     roleMap: null,
     currentUserDetail: null,
+    currentUserActivity: null,
+    activeUserTab: "details",
     filters: {
         primaryRoleIds: [],
         secondaryRoleIds: [],
@@ -13,19 +15,51 @@ const state = {
 
 const DOM = {};
 
-const api = {
+const STATUS_LABELS = {
+    active: "Aktiv",
+    inactive: "Inaktiv",
+    pending: "Offen",
+    in_progress: "In Bearbeitung",
+    requested: "Beantragt",
+    temp_role_active: "Temp. Rolle aktiv",
+    onboarding_pending: "Onboarding offen",
+    offboarding_pending: "Offboarding offen",
+    revocation_requested: "Entzug angefragt",
+    revoked: "Entzogen"
+};
 
-    async getUsers(){
+const ASSIGNMENT_LABELS = {
+    requested: "Beantragt",
+    active: "Aktiv",
+    revocation_requested: "Entzug angefragt",
+    revoked: "Entzogen"
+};
+
+const api = {
+    async getUsers() {
         const isActive = String(!state.filters.includeInactive);
         const res = await fetch(`/api/users?is_active=${isActive}`);
-        if(!res.ok) throw new Error(res.status);
+        if (!res.ok) {
+            throw new Error(`Users konnten nicht geladen werden (${res.status})`);
+        }
         return res.json();
     },
 
-    async getUserDetails(id){
+    async getUserDetails(id) {
         const res = await fetch(`/api/users/${id}/details`);
-        if(!res.ok) throw new Error(res.status);
+        if (!res.ok) {
+            throw new Error(`Userdetails konnten nicht geladen werden (${res.status})`);
+        }
         return res.json();
+    },
+
+    async getUserActivity(id) {
+        const res = await fetch(`/api/users/${id}/activity`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || `Aktivitäten konnten nicht geladen werden (${res.status})`);
+        }
+        return data;
     },
 
     async setupSofaAccess(userId, password) {
@@ -35,7 +69,9 @@ const api = {
             body: JSON.stringify({ password })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht eingerichtet werden");
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht eingerichtet werden");
+        }
         return data;
     },
 
@@ -46,7 +82,9 @@ const api = {
             body: JSON.stringify({ password })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || data.error || "SOFA Passwort konnte nicht zurückgesetzt werden");
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "SOFA Passwort konnte nicht zurückgesetzt werden");
+        }
         return data;
     },
 
@@ -57,69 +95,83 @@ const api = {
             body: JSON.stringify({})
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht entzogen werden");
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht entzogen werden");
+        }
         return data;
     },
 
-    async getSystemMap(){
-        if (state.systemMap) return state.systemMap;
+    async getSystemMap() {
+        if (state.systemMap) {
+            return state.systemMap;
+        }
+
         const res = await fetch("/api/systems/map");
-        if (!res.ok) throw new Error("System Map konnte nicht geladen werden");
+        if (!res.ok) {
+            throw new Error("System Map konnte nicht geladen werden");
+        }
 
         state.systemMap = await res.json();
         return state.systemMap;
     },
 
-    async getRoleMap(){
-        if (state.roleMap) return state.roleMap;
+    async getRoleMap() {
+        if (state.roleMap) {
+            return state.roleMap;
+        }
+
         const res = await fetch("/api/roles/map");
-        if (!res.ok) throw new Error("Role Map konnte nicht geladen werden");
+        if (!res.ok) {
+            throw new Error("Role Map konnte nicht geladen werden");
+        }
 
         state.roleMap = await res.json();
         return state.roleMap;
     },
 
-    async startOnboarding(payload){
+    async startOnboarding(payload) {
         try {
             const res = await fetch("/api/processes/onboarding", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ pnr: payload })
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
 
-            showFlash(`Onboarding gestartet`, "success");
-
+            showFlash("Onboarding gestartet", "success");
+            return true;
         } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
         }
     },
 
-    async startExternalOnboarding(payload){
+    async startExternalOnboarding(payload) {
         try {
             const res = await fetch("/api/processes/onboarding-ext", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
 
-            showFlash(`Externen User angelegt`, "success");
-
+            showFlash("Externer User angelegt", "success");
+            return true;
         } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
         }
     },
 
@@ -130,19 +182,19 @@ const api = {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
 
             showFlash(`Austritt zum ${payload.exitdate} beantragt`, "success");
-
+            return true;
         } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
         }
     },
 
@@ -153,120 +205,399 @@ const api = {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
 
-            showFlash(`Temporäre Rolle ${state.roleMap?.[payload.role_id].name || roleId} beantragt`, "success");
-
+            const roleName = state.roleMap?.[payload.role_id]?.name || payload.role_id;
+            showFlash(`Temporäre Rolle ${roleName} beantragt`, "success");
+            return true;
         } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
         }
     },
 
-    async startNewSkillAssignment(payload){
+    async startNewSkillAssignment(payload) {
         try {
             const res = await fetch("/api/processes/skill_assignment", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
 
-            showFlash(`Rolle ${state.roleMap?.[payload.role_id].name || roleId} beantragt`, "success");
-
+            const roleName = state.roleMap?.[payload.role_id]?.name || payload.role_id;
+            showFlash(`Rolle ${roleName} beantragt`, "success");
+            return true;
         } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
         }
     },
 
-    async startSkillRevoke(payload){
+    async startSkillRevoke(payload) {
         try {
             const res = await fetch("/api/processes/skill_revocation", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
-
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return;
+                return false;
             }
 
-            showFlash(`Rollen-Entzug für ${state.roleMap?.[payload.role_id].name || roleId} beantragt`, "success");
-
+            const roleName = state.roleMap?.[payload.role_id]?.name || payload.role_id;
+            showFlash(`Rollen-Entzug für ${roleName} beantragt`, "success");
+            return true;
         } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
         }
     }
 };
 
 function normalizeValue(value) {
-    return String(value || "").toLowerCase();
+    return String(value || "").trim().toLowerCase();
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function humanizeToken(value) {
+    if (value === null || value === undefined || value === "") {
+        return "-";
+    }
+
+    return String(value)
+        .toLowerCase()
+        .split("_")
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+}
+
+function formatDate(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return date.toLocaleDateString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+    });
+}
+
+function formatDateTime(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return date.toLocaleString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
 }
 
 function getRoleOptionsByType(type) {
     return Object.entries(state.roleMap || {})
         .filter(([, role]) => role.type === type)
-        .sort(([, a], [, b]) => a.name.localeCompare(b.name, "de"));
+        .sort(([, left], [, right]) => left.name.localeCompare(right.name, "de"));
+}
+
+function updateBodyScrollLock() {
+    const hasOpenModal = document.querySelector(".ui-modal-overlay.active");
+    document.body.classList.toggle("modal-open", Boolean(hasOpenModal));
+}
+
+function openOverlay(id) {
+    const overlay = document.getElementById(id);
+    if (!overlay) {
+        return;
+    }
+    overlay.classList.add("active");
+    overlay.setAttribute("aria-hidden", "false");
+    updateBodyScrollLock();
+}
+
+function closeOverlay(id) {
+    const overlay = document.getElementById(id);
+    if (!overlay) {
+        return;
+    }
+    overlay.classList.remove("active");
+    overlay.setAttribute("aria-hidden", "true");
+    updateBodyScrollLock();
+}
+
+function getSummaryStatus(user) {
+    const rawStatus =
+        user?.summary_status_code ||
+        user?.summary_status ||
+        (user?.is_active === false ? "inactive" : "active");
+
+    const normalized = normalizeValue(rawStatus).replace(/\s+/g, "_");
+    const label = STATUS_LABELS[normalized] || humanizeToken(rawStatus);
+
+    let className = "users-status-progress";
+    if (normalized === "active") {
+        className = "users-status-active";
+    } else if (normalized === "inactive") {
+        className = "users-status-inactive";
+    } else if (normalized.includes("request") || normalized === "requested") {
+        className = "users-status-pending";
+    } else if (normalized.includes("warning") || normalized.includes("revocation")) {
+        className = "users-status-warning";
+    } else if (normalized.includes("progress") || normalized.includes("pending") || normalized.includes("temp") || normalized.includes("onboarding") || normalized.includes("offboarding")) {
+        className = "users-status-progress";
+    }
+
+    return { code: normalized, label, className };
+}
+
+function getAssignmentStatus(resourceOrRole) {
+    const rawStatus =
+        resourceOrRole?.assignment_status ||
+        resourceOrRole?.status ||
+        resourceOrRole?.lifecycle_status ||
+        "active";
+
+    const normalized = normalizeValue(rawStatus).replace(/\s+/g, "_");
+    return {
+        code: normalized,
+        label: ({
+            ...ASSIGNMENT_LABELS,
+            open: "Offen",
+            in_progress: "In Bearbeitung",
+            completed: "Erledigt",
+            inactive: "Inaktiv"
+        })[normalized] || humanizeToken(rawStatus),
+        className: {
+            requested: "user-assignment-requested",
+            open: "user-assignment-requested",
+            active: "user-assignment-active",
+            completed: "user-assignment-active",
+            in_progress: "users-status-progress",
+            revocation_requested: "user-assignment-revocation-requested",
+            revoked: "user-assignment-revoked",
+            inactive: "user-assignment-revoked"
+        }[normalized] || "users-status-progress"
+    };
+}
+
+function getSecondaryRoles(user) {
+    return Array.isArray(user?.secondary_roles) ? user.secondary_roles : [];
+}
+
+function getRolePreview(roles) {
+    const names = (roles || []).map(role => role?.name).filter(Boolean);
+    if (!names.length) {
+        return "Keine Nebenrollen";
+    }
+    if (names.length <= 2) {
+        return names.join(", ");
+    }
+    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+}
+
+function getResourceIdentifier(resource) {
+    return resource?.technical_identifier ||
+        resource?.resource_name ||
+        resource?.account_identifier ||
+        resource?.display_name ||
+        "-";
+}
+
+function getResourceDisplayName(resource) {
+    return resource?.display_name ||
+        resource?.resource_name ||
+        resource?.technical_identifier ||
+        resource?.account_identifier ||
+        "-";
+}
+
+function getSystemName(resource) {
+    const systemId = resource?.system_id;
+    if (systemId !== undefined && state.systemMap?.[systemId]?.name) {
+        return state.systemMap[systemId].name;
+    }
+    return resource?.system_name || resource?.system || "Ohne System";
+}
+
+function dedupeBy(items, keyBuilder) {
+    const seen = new Set();
+    return items.filter(item => {
+        const key = keyBuilder(item);
+        if (seen.has(key)) {
+            return false;
+        }
+        seen.add(key);
+        return true;
+    });
+}
+
+function getRoleAssignments(detail) {
+    const directAssignments = Array.isArray(detail?.role_assignments) ? detail.role_assignments : [];
+
+    if (directAssignments.length) {
+        return directAssignments.map(role => ({
+            role_id: role.role_id,
+            name: role.role_name || role.name || state.roleMap?.[role.role_id]?.name || `Rolle #${role.role_id}`,
+            role_type: role.role_type || role.type || state.roleMap?.[role.role_id]?.type || null,
+            assignment_status: role.assignment_status || role.status || "active",
+            is_primary: String(role.role_id) === String(detail?.primary_role?.role_id) || normalizeValue(role.role_type) === "primary",
+            resources: Array.isArray(role.resources) ? role.resources : []
+        }));
+    }
+
+    const combinedRoles = [
+        ...(detail?.primary_role ? [detail.primary_role] : []),
+        ...(Array.isArray(detail?.secondary_roles) ? detail.secondary_roles : []),
+        ...(Array.isArray(detail?.roles) ? detail.roles : [])
+    ].filter(Boolean);
+
+    const uniqueRoles = dedupeBy(combinedRoles, role => String(role.role_id));
+
+    return uniqueRoles.map(role => ({
+        role_id: role.role_id,
+        name: role.name || state.roleMap?.[role.role_id]?.name || `Rolle #${role.role_id}`,
+        role_type: role.role_type || role.type || state.roleMap?.[role.role_id]?.type || null,
+        assignment_status: role.assignment_status || role.status || "active",
+        is_primary: String(role.role_id) === String(detail?.primary_role?.role_id) || normalizeValue(role.role_type || role.type) === "primary",
+        resources: Array.isArray(detail?.role_resources_map?.[role.role_id]) ? detail.role_resources_map[role.role_id] : []
+    }));
+}
+
+function getSortedRoleAssignments(detail) {
+    return getRoleAssignments(detail).sort((left, right) => {
+        if (left.is_primary && !right.is_primary) {
+            return -1;
+        }
+        if (!left.is_primary && right.is_primary) {
+            return 1;
+        }
+        return String(left.name || "").localeCompare(String(right.name || ""), "de");
+    });
+}
+
+function getUserResources(detail) {
+    const roleResources = getRoleAssignments(detail).flatMap(role =>
+        (Array.isArray(role.resources) ? role.resources : []).map(resource => ({
+            ...resource,
+            source_role_name: role.name,
+            assignment_status: resource.assignment_status || resource.status || resource.lifecycle_status || role.assignment_status || "active"
+        }))
+    );
+
+    const accountResources = (Array.isArray(detail?.accounts) ? detail.accounts : []).map(account => ({
+        system_id: account.system_id,
+        system_name: getSystemName(account),
+        technical_identifier: account.account_identifier,
+        display_name: account.account_identifier,
+        assignment_status: account.assignment_status || "active"
+    }));
+
+    return dedupeBy([...roleResources, ...accountResources], resource => [
+        resource.system_id ?? resource.system_name ?? "system",
+        getResourceIdentifier(resource),
+        getResourceDisplayName(resource)
+    ].join("|"));
+}
+
+function groupResourcesBySystem(resources) {
+    const groups = new Map();
+
+    resources.forEach(resource => {
+        const systemName = getSystemName(resource);
+        if (!groups.has(systemName)) {
+            groups.set(systemName, []);
+        }
+        groups.get(systemName).push(resource);
+    });
+
+    return Array.from(groups.entries())
+        .sort(([left], [right]) => left.localeCompare(right, "de"))
+        .map(([systemName, items]) => ({
+            systemName,
+            items: items.sort((left, right) => getResourceIdentifier(left).localeCompare(getResourceIdentifier(right), "de"))
+        }));
+}
+
+function renderEmptyState(message) {
+    return `<div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>`;
 }
 
 const filterController = {
-
     async init() {
         this.bindEvents();
-
         try {
             await api.getRoleMap();
         } catch (err) {
             console.error("Role Map konnte nicht für Filter geladen werden", err);
         }
-
         this.renderActiveTags();
     },
 
     bindEvents() {
-        DOM.filterBtn?.addEventListener("click", (event) => {
+        DOM.filterBtn?.addEventListener("click", event => {
             event.stopPropagation();
-
             const shouldOpen = !DOM.filterDropdown.classList.contains("active");
             this.closeMenus();
-
             if (shouldOpen) {
                 DOM.filterDropdown.classList.add("active");
             }
         });
 
         DOM.filterDropdown?.querySelectorAll("[data-filter]").forEach(button => {
-            button.addEventListener("click", async (event) => {
+            button.addEventListener("click", async event => {
                 event.stopPropagation();
                 await this.openSubfilter(button.dataset.filter);
             });
         });
 
-        DOM.subfilterDropdown?.addEventListener("click", (event) => {
+        DOM.subfilterDropdown?.addEventListener("click", event => {
             event.stopPropagation();
         });
 
-        DOM.subfilterDropdown?.addEventListener("change", async (event) => {
+        DOM.subfilterDropdown?.addEventListener("change", async event => {
             const target = event.target;
-
-            if (!(target instanceof HTMLInputElement)) return;
+            if (!(target instanceof HTMLInputElement)) {
+                return;
+            }
 
             if (target.dataset.filterType === "status") {
                 state.filters.includeInactive = target.checked;
@@ -288,13 +619,14 @@ const filterController = {
             tableController.render();
         });
 
-        DOM.activeFilters?.addEventListener("click", async (event) => {
+        DOM.activeFilters?.addEventListener("click", async event => {
             const target = event.target;
+            if (!(target instanceof HTMLElement) || !target.matches("[data-filter-type]")) {
+                return;
+            }
 
-            if (!(target instanceof HTMLElement) || target.tagName !== "SPAN") return;
-
-            const { filterType, value } = target.dataset;
-            if (!filterType) return;
+            const filterType = target.dataset.filterType;
+            const value = target.dataset.value;
 
             if (filterType === "status") {
                 state.filters.includeInactive = false;
@@ -317,7 +649,7 @@ const filterController = {
             tableController.render();
         });
 
-        document.addEventListener("click", (event) => {
+        document.addEventListener("click", event => {
             if (!DOM.filterContainer?.contains(event.target)) {
                 this.closeMenus();
             }
@@ -326,7 +658,6 @@ const filterController = {
 
     async openSubfilter(category) {
         state.filters.openCategory = category;
-
         if (!state.roleMap && category !== "status") {
             await api.getRoleMap();
         }
@@ -343,12 +674,16 @@ const filterController = {
     },
 
     rerenderOpenSubfilter() {
-        if (!state.filters.openCategory || !DOM.subfilterDropdown?.classList.contains("active")) return;
+        if (!state.filters.openCategory || !DOM.subfilterDropdown?.classList.contains("active")) {
+            return;
+        }
         this.renderSubfilter(state.filters.openCategory);
     },
 
     renderSubfilter(category) {
-        if (!DOM.subfilterDropdown) return;
+        if (!DOM.subfilterDropdown) {
+            return;
+        }
 
         if (category === "status") {
             DOM.subfilterDropdown.innerHTML = `
@@ -365,9 +700,7 @@ const filterController = {
         }
 
         const roleType = category === "hauptrolle" ? "PRIMARY" : "SECONDARY";
-        const selectedIds = category === "hauptrolle"
-            ? state.filters.primaryRoleIds
-            : state.filters.secondaryRoleIds;
+        const selectedIds = category === "hauptrolle" ? state.filters.primaryRoleIds : state.filters.secondaryRoleIds;
         const filterType = category === "hauptrolle" ? "primary" : "secondary";
         const options = getRoleOptionsByType(roleType);
 
@@ -376,11 +709,11 @@ const filterController = {
                 <label>
                     <input
                         type="checkbox"
-                        value="${roleId}"
+                        value="${escapeHtml(roleId)}"
                         data-filter-type="${filterType}"
                         ${selectedIds.includes(String(roleId)) ? "checked" : ""}
                     >
-                    ${role.name}
+                    ${escapeHtml(role.name)}
                 </label>
             `).join("")
             : "<span>Keine Rollen gefunden</span>";
@@ -389,18 +722,18 @@ const filterController = {
     toggleRoleFilter(key, roleId, checked) {
         const normalizedRoleId = String(roleId);
         const values = new Set(state.filters[key].map(String));
-
         if (checked) {
             values.add(normalizedRoleId);
         } else {
             values.delete(normalizedRoleId);
         }
-
         state.filters[key] = Array.from(values);
     },
 
     renderActiveTags() {
-        if (!DOM.activeFilters) return;
+        if (!DOM.activeFilters) {
+            return;
+        }
 
         const tags = [
             ...state.filters.primaryRoleIds.map(roleId => ({
@@ -424,296 +757,484 @@ const filterController = {
         }
 
         DOM.activeFilters.innerHTML = tags.map(tag => `
-            <div class="filter-tag">
-                ${tag.label}
-                <span data-filter-type="${tag.filterType}" data-value="${tag.value}">&times;</span>
+            <div class="users-filter-tag">
+                <span>${escapeHtml(tag.label)}</span>
+                <button type="button" data-filter-type="${escapeHtml(tag.filterType)}" data-value="${escapeHtml(tag.value)}" aria-label="${escapeHtml(tag.label)} entfernen">&times;</button>
             </div>
         `).join("");
     }
 };
 
 const tableController = {
-
-    async init(){
-        await this.loadUsers();
+    async init() {
         this.bindSearch();
+        await this.loadUsers();
     },
 
-    async loadUsers(){
-        try{
+    async loadUsers() {
+        try {
             state.users = await api.getUsers();
             this.render();
-        }catch(err){
+        } catch (err) {
             console.error(err);
-            DOM.tableBody.innerHTML = `<tr><td colspan="8">Fehler beim Laden</td></tr>`;
+        DOM.tableBody.innerHTML = `
+                <tr class="users-empty-row">
+                    <td colspan="6">${renderEmptyState("Fehler beim Laden der User.")}</td>
+                </tr>
+            `;
+            showFlash("Fehler beim Laden der User", "failure");
         }
     },
 
-    render(){
-        const users = this.getFilteredUsers();
-
-        DOM.tableBody.innerHTML = users.length
-            ? users.map(u => `
-                <tr data-id="${u.user_id}">
-                    <td>${u.pnr || "-"}</td>
-                    <td>${u.first_name}</td>
-                    <td>${u.last_name}</td>
-                    <td>${u.email || ""}</td>
-                    <td>${u.primary_role?.name || ""}</td>
-                    <td><span title="${(u.secondary_roles || []).map(role => role.name).join("\n")}" style="cursor:help;"><strong>${(u.secondary_roles || []).length}</strong></span></td>
-                    <td>${u.is_active ? "Aktiv" : "Inaktiv"}</td>
-                </tr>
-            `).join("")
-            : `<tr><td colspan="8">Keine User gefunden</td></tr>`;
-
-        this.bindRows();
-    },
-
     getFilteredUsers() {
-        const searchValue = normalizeValue(DOM.searchInput?.value);
-
         return state.users
-            .filter(user => this.matchesSearch(user, searchValue))
+            .filter(user => this.matchesSearch(user))
             .filter(user => this.matchesPrimaryRoles(user))
-            .filter(user => this.matchesSecondaryRoles(user));
+            .filter(user => this.matchesSecondaryRoles(user))
+            .sort((left, right) => {
+                const leftKey = `${left.last_name || ""} ${left.first_name || ""}`.trim();
+                const rightKey = `${right.last_name || ""} ${right.first_name || ""}`.trim();
+                return leftKey.localeCompare(rightKey, "de");
+            });
     },
 
-    matchesSearch(user, searchValue) {
-        if (!searchValue) return true;
+    matchesSearch(user) {
+        const searchValue = normalizeValue(state.searchTerm);
+        if (!searchValue) {
+            return true;
+        }
 
-        return normalizeValue(user.first_name).includes(searchValue) ||
-            normalizeValue(user.last_name).includes(searchValue) ||
-            normalizeValue(user.pnr).includes(searchValue) ||
-            normalizeValue(user.racf).includes(searchValue);
+        const haystacks = [
+            user.pnr,
+            user.racf,
+            user.last_name,
+            user.first_name,
+            user.email,
+            user.primary_role?.name,
+            ...getSecondaryRoles(user).map(role => role?.name)
+        ];
+
+        return haystacks.some(value => normalizeValue(value).includes(searchValue));
     },
 
     matchesPrimaryRoles(user) {
-        if (!state.filters.primaryRoleIds.length) return true;
-
+        if (!state.filters.primaryRoleIds.length) {
+            return true;
+        }
         return state.filters.primaryRoleIds.includes(String(user.primary_role?.role_id || ""));
     },
 
     matchesSecondaryRoles(user) {
-        if (!state.filters.secondaryRoleIds.length) return true;
+        if (!state.filters.secondaryRoleIds.length) {
+            return true;
+        }
 
-        const secondaryRoleIds = (user.secondary_roles || []).map(role => String(role.role_id));
-        return state.filters.secondaryRoleIds.some(roleId => secondaryRoleIds.includes(String(roleId)));
+        const userRoleIds = getSecondaryRoles(user).map(role => String(role.role_id));
+        return state.filters.secondaryRoleIds.some(roleId => userRoleIds.includes(String(roleId)));
     },
 
-    bindRows(){
-        DOM.tableBody.querySelectorAll("tr").forEach(tr=>{
-            if (!tr.dataset.id) return;
-            tr.onclick = () =>
-                sidebarController.open(tr.dataset.id);
+    render() {
+        const users = this.getFilteredUsers();
+
+        DOM.tableBody.innerHTML = users.length
+            ? users.map(user => {
+                const secondaryRoles = getSecondaryRoles(user);
+                const status = getSummaryStatus(user);
+
+                return `
+                    <tr class="users-table-row ${user.is_active ? "" : "is-inactive"}" data-user-id="${escapeHtml(user.user_id)}">
+                        <td class="users-identity-cell">
+                            <div class="users-identity-block">
+                                <span class="users-identity-main">${escapeHtml(user.racf || "-")}</span>
+                                <span class="users-identity-meta">${escapeHtml(user.pnr || "-")}</span>
+                            </div>
+                        </td>
+                        <td class="users-name-cell">
+                            <div class="users-name-block">
+                                <span class="users-name-main">${escapeHtml(user.last_name || "-")}</span>
+                                <span class="users-name-meta">${escapeHtml(user.email || "")}</span>
+                            </div>
+                        </td>
+                        <td>${escapeHtml(user.first_name || "-")}</td>
+                        <td class="users-role-cell">${escapeHtml(user.primary_role?.name || "-")}</td>
+                        <td class="users-secondary-cell">
+                            <div class="users-secondary-block">
+                                <span class="users-secondary-count" title="${escapeHtml(secondaryRoles.map(role => role.name).join("\n") || "Keine Nebenrollen")}">${secondaryRoles.length}</span>
+                                <span class="users-secondary-preview ${secondaryRoles.length ? "" : "is-empty"}">${escapeHtml(getRolePreview(secondaryRoles))}</span>
+                            </div>
+                        </td>
+                        <td><span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span></td>
+                    </tr>
+                `;
+            }).join("")
+            : `
+                <tr class="users-empty-row">
+                    <td colspan="6">${renderEmptyState("Keine User gefunden.")}</td>
+                </tr>
+            `;
+
+        this.bindRows();
+    },
+
+    bindRows() {
+        DOM.tableBody.querySelectorAll("[data-user-id]").forEach(row => {
+            row.addEventListener("click", () => {
+                sidebarController.open(row.dataset.userId);
+            });
         });
     },
 
-    bindSearch(){
-        DOM.searchInput.addEventListener("input", () => this.render());
+    bindSearch() {
+        DOM.searchInput?.addEventListener("input", event => {
+            state.searchTerm = event.target.value || "";
+            this.render();
+        });
     }
 };
 
 const sidebarController = {
+    init() {
+        DOM.sidebarCloseBtn?.addEventListener("click", () => this.close());
+        DOM.sidebarOverlay?.addEventListener("click", event => {
+            if (event.target === DOM.sidebarOverlay) {
+                this.close();
+            }
+        });
+        DOM.userPanelTabs?.addEventListener("click", event => {
+            const button = event.target.closest("[data-tab]");
+            if (!button) {
+                return;
+            }
+            this.setActiveTab(button.dataset.tab);
+        });
+    },
 
-    async open(userId){
-        try{
-            const data = await api.getUserDetails(userId);
-            state.currentUserDetail = data;
-            await this.render(data);
-            DOM.sidebarOverlay.classList.add("active");
+    async open(userId) {
+        try {
+            const [detail, activity] = await Promise.all([
+                api.getUserDetails(userId),
+                api.getUserActivity(userId).catch(error => {
+                    console.error("User Activity Fehler", error);
+                    return {
+                        affected_processes: [],
+                        initiated_processes: [],
+                        recent_task_actions: []
+                    };
+                }),
+                api.getSystemMap().catch(() => state.systemMap || {})
+            ]);
 
-        }catch(err){
+            state.currentUserDetail = detail;
+            state.currentUserActivity = activity;
+            await this.render(detail, activity);
+            this.setActiveTab(state.activeUserTab);
+            openOverlay("sidebar-overlay");
+        } catch (err) {
             console.error("UserDetails Fehler", err);
+            showFlash("Userdetails konnten nicht geladen werden", "failure");
         }
     },
 
-    close(){
-        DOM.sidebarOverlay.classList.remove("active");
+    close() {
+        closeOverlay("sidebar-overlay");
         state.currentUserDetail = null;
-        tableController.loadUsers();
+        state.currentUserActivity = null;
+        state.activeUserTab = "details";
     },
 
     async refreshCurrentUser() {
-        if (!state.currentUserDetail?.user_id) return;
-
-        const data = await api.getUserDetails(state.currentUserDetail.user_id);
-        state.currentUserDetail = data;
-        await this.render(data);
+        if (!state.currentUserDetail?.user_id) {
+            return;
+        }
+        await this.open(state.currentUserDetail.user_id);
     },
 
-    async render(data){
+    setActiveTab(tabId) {
+        state.activeUserTab = tabId;
 
-        const user = data;
+        DOM.userPanelTabButtons.forEach(button => {
+            button.classList.toggle("is-active", button.dataset.tab === tabId);
+        });
 
-        DOM.sidebarUsername.textContent = `${user.first_name} ${user.last_name}`;
+        DOM.userPanelViews.forEach(view => {
+            view.classList.toggle("active", view.id === `tab-${tabId}`);
+        });
+    },
+
+    async render(user, activity) {
+        const status = getSummaryStatus(user);
+        DOM.sidebarUsername.textContent = `${user.first_name || "-"} ${user.last_name || "-"}`.trim();
+        DOM.sidebarSubtitle.textContent = user.email || user.racf || "Userdetails";
+        DOM.sidebarPnrChip.textContent = `PNR ${user.pnr || "-"}`;
+        DOM.sidebarRacfChip.textContent = `RACF ${user.racf || "-"}`;
+        DOM.sidebarStatusChip.className = `ui-status-badge ${status.className}`;
+        DOM.sidebarStatusChip.textContent = status.label;
+
         DOM.sidebarPNR.textContent = user.pnr || "-";
+        DOM.sidebarRacf.textContent = user.racf || "-";
         DOM.sidebarLastName.textContent = user.last_name || "-";
         DOM.sidebarFirstName.textContent = user.first_name || "-";
         DOM.sidebarFunktion.textContent = user.primary_role?.name || "-";
         DOM.sidebarEmail.textContent = user.email || "-";
         DOM.sidebarTelefon.textContent = user.telefon || "-";
         DOM.sidebarMobil.textContent = user.mobile || "-";
-        DOM.sidebarEintritt.textContent = user.eintritt || "-";
-        DOM.sidebarAustritt.textContent = user.austritt || "-";
+        DOM.sidebarEintritt.textContent = formatDate(user.eintritt);
+        DOM.sidebarAustritt.textContent = formatDate(user.austritt);
 
-        await this.renderAccounts(data.accounts);
-        await this.renderRoles(data);
+        if (DOM.userHelixLink) {
+            DOM.userHelixLink.href = user.helix_url || "#";
+            DOM.userHelixLink.toggleAttribute("aria-disabled", !user.helix_url);
+        }
+
+        await this.renderAccounts(user.accounts || []);
         this.renderSofaAccessActions(user);
+        this.renderRoles(user);
+        this.renderResources(user);
+        this.renderActivity(activity);
         this.bindActions(user);
     },
 
     renderSofaAccessActions(user) {
         const hasSofaAccess = Boolean(user.has_sofa_access);
-
         DOM.sofaAccessStatus.textContent = hasSofaAccess
-            ? "SOFA Zugriff ist eingerichtet."
-            : "Kein SOFA Zugriff eingerichtet.";
-        DOM.sofaAccessStatus.style.color = hasSofaAccess ? "#166534" : "#991b1b";
+            ? "SOFA Zugriff ist eingerichtet und kann hier direkt verwaltet werden."
+            : "Für diesen User ist aktuell kein SOFA Zugriff eingerichtet.";
 
         DOM.sofaAccessActions.innerHTML = hasSofaAccess
             ? `
-                <button class="btn btn-secondary" id="sofa-password-reset-btn">SOFA Passwort zurücksetzen</button>
-                <button class="btn btn-red" id="sofa-access-revoke-btn">SOFA Zugriff entziehen</button>
+                <button type="button" class="btn btn-secondary" id="sofa-password-reset-btn">SOFA Passwort zurücksetzen</button>
+                <button type="button" class="btn btn-red" id="sofa-access-revoke-btn">SOFA Zugriff entziehen</button>
             `
             : `
-                <button class="btn btn-primary" id="sofa-access-setup-btn">SOFA Zugriff einrichten</button>
+                <button type="button" class="btn btn-primary" id="sofa-access-setup-btn">SOFA Zugriff einrichten</button>
             `;
     },
 
-    async renderAccounts(accounts=[]){
+    async renderAccounts(accounts = []) {
+        const items = Array.isArray(accounts) ? accounts : [];
+        DOM.userAccountsCount.textContent = String(items.length);
 
-        if(!state.systemMap)
-            state.systemMap = await api.getSystemMap();
+        if (!items.length) {
+            DOM.sidebarAccounts.innerHTML = renderEmptyState("Keine Accounts vorhanden.");
+            return;
+        }
 
-        DOM.sidebarAccounts.innerHTML = accounts.map(acc=>{
-
-            const system =
-                state.systemMap[acc.system_id]?.name ||
-                `System #${acc.system_id}`;
-
+        DOM.sidebarAccounts.innerHTML = items.map(account => {
+            const system = state.systemMap?.[account.system_id]?.name || account.system_name || `System #${account.system_id}`;
             return `
-                <li>
-                    <span>${acc.account_identifier}</span>
-                    <span>${system}</span>
-                </li>
+                <div class="user-account-item">
+                    <div class="user-account-main">
+                        <span class="user-account-id">${escapeHtml(account.account_identifier || "-")}</span>
+                        <span class="user-account-system">${escapeHtml(system)}</span>
+                    </div>
+                    <span class="users-status-badge users-status-active">${escapeHtml(humanizeToken(account.assignment_status || "active"))}</span>
+                </div>
             `;
         }).join("");
     },
 
-    async renderRoles(data){
-        const roles = [
-            ...(data.primary_role ? [data.primary_role] : []),
-            ...(data.secondary_roles || []),
-            ...(data.roles || [])
-        ].filter((role, index, arr) =>
-            role?.role_id && arr.findIndex(entry => entry?.role_id === role.role_id) === index
-        );
-        const map = await api.getRoleMap();
+    renderRoles(detail) {
+        const roles = getSortedRoleAssignments(detail);
 
-        DOM.sidebarRoles.innerHTML="";
-
-        if(!roles.length){
-            DOM.sidebarRoles.innerHTML="<p>Keine Rollen</p>";
+        if (!roles.length) {
+            DOM.sidebarRoles.innerHTML = renderEmptyState("Keine Rollen vorhanden.");
             return;
         }
 
-        roles.forEach(role=>{
+        DOM.sidebarRoles.innerHTML = roles.map((role, index) => {
+            const assignmentStatus = getAssignmentStatus(role);
+            const roleTypeLabel = role.is_primary ? "Hauptrolle / Funktion" : (normalizeValue(role.role_type) === "secondary" ? "Nebenrolle" : humanizeToken(role.role_type || "Rolle"));
+            const resources = Array.isArray(role.resources) ? role.resources : [];
+            const bodyId = `role-body-${role.role_id}-${index}`;
 
-            const wrapper = document.createElement("div");
+            return `
+                <article class="user-role-card">
+                    <button type="button" class="user-role-toggle" data-role-toggle="${escapeHtml(bodyId)}" aria-expanded="${role.is_primary ? "true" : "false"}">
+                        <div class="user-role-main">
+                            <span class="user-role-title">${escapeHtml(role.name || `Rolle #${role.role_id}`)}</span>
+                            <div class="user-role-subline">
+                                <span class="ui-chip ${role.is_primary ? "ui-chip-primary" : "ui-chip-neutral"}">${escapeHtml(roleTypeLabel)}</span>
+                                <span class="users-status-badge ${escapeHtml(assignmentStatus.className)}">${escapeHtml(assignmentStatus.label)}</span>
+                                <span class="ui-chip ui-chip-neutral">${resources.length} Ressourcen</span>
+                            </div>
+                        </div>
+                        <span class="user-role-chevron">›</span>
+                    </button>
+                    <div class="user-role-body" id="${escapeHtml(bodyId)}" ${role.is_primary ? "" : "hidden"}>
+                        ${resources.length ? `
+                            <div class="user-resource-list">
+                                ${resources.map(resource => {
+                                    const resourceStatus = getAssignmentStatus(resource);
+                                    return `
+                                        <div class="user-resource-row">
+                                            <div class="user-resource-main">
+                                                <span class="user-resource-identifier" title="${escapeHtml(getResourceDisplayName(resource))}">${escapeHtml(getResourceIdentifier(resource))}</span>
+                                                <span class="user-resource-system">${escapeHtml(getSystemName(resource))}</span>
+                                            </div>
+                                            <span class="users-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
+                                        </div>
+                                    `;
+                                }).join("")}
+                            </div>
+                        ` : renderEmptyState("Für diese Rolle sind keine Ressourcen vorhanden.")}
+                    </div>
+                </article>
+            `;
+        }).join("");
 
-            const header = document.createElement("div");
-            header.classList.add("role-header");
-
-            header.textContent =
-                map?.[role.role_id]?.name ||
-                role.name;
-
-            const body = document.createElement("div");
-            body.classList.add("hidden");
-
-            const resources =
-                data.role_resources_map?.[role.role_id] || [];
-
-            body.innerHTML = resources.length
-                ? `<ul>
-                    ${resources.map(r=>
-                        `<li class="${r.lifecycle_status!=="ACTIVE"?"inactive-resource":""}">
-                            ${r.resource_name} - ${r.lifecycle_status}
-                        </li>`
-                    ).join("")}
-                </ul>`
-                : "Keine Ressourcen";
-
-            header.onclick = ()=>body.classList.toggle("hidden");
-
-            wrapper.append(header,body);
-            DOM.sidebarRoles.appendChild(wrapper);
+        DOM.sidebarRoles.querySelectorAll("[data-role-toggle]").forEach(button => {
+            button.addEventListener("click", () => {
+                const targetId = button.dataset.roleToggle;
+                const body = document.getElementById(targetId);
+                if (!body) {
+                    return;
+                }
+                const isOpen = !body.hidden;
+                body.hidden = isOpen;
+                button.setAttribute("aria-expanded", String(!isOpen));
+            });
         });
     },
-    bindActions(user){
+
+    renderResources(detail) {
+        const groups = groupResourcesBySystem(getUserResources(detail));
+
+        if (!groups.length) {
+            DOM.sidebarResources.innerHTML = renderEmptyState("Keine Ressourcen vorhanden.");
+            return;
+        }
+
+        DOM.sidebarResources.innerHTML = groups.map(group => `
+            <article class="ui-card user-resource-group">
+                <div class="user-resource-group-header">
+                    <h3>${escapeHtml(group.systemName)}</h3>
+                    <span class="ui-chip ui-chip-neutral">${group.items.length}</span>
+                </div>
+                <div class="user-resource-list">
+                    ${group.items.map(resource => {
+                        const resourceStatus = getAssignmentStatus(resource);
+                        return `
+                            <div class="user-resource-row">
+                                <div class="user-resource-main">
+                                    <span class="user-resource-identifier" title="${escapeHtml(getResourceDisplayName(resource))}">${escapeHtml(getResourceIdentifier(resource))}</span>
+                                    <span class="user-resource-system">${escapeHtml(getResourceDisplayName(resource))}</span>
+                                </div>
+                                <span class="users-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
+                            </div>
+                        `;
+                    }).join("")}
+                </div>
+            </article>
+        `).join("");
+    },
+
+    renderActivity(activity) {
+        const affected = Array.isArray(activity?.affected_processes) ? activity.affected_processes : [];
+        const initiated = Array.isArray(activity?.initiated_processes) ? activity.initiated_processes : [];
+        const recent = Array.isArray(activity?.recent_task_actions) ? activity.recent_task_actions : [];
+
+        DOM.affectedProcesses.innerHTML = this.renderProcessEntries(affected, "Keine Prozesse gefunden, die diesen User betreffen.");
+        DOM.initiatedProcesses.innerHTML = this.renderProcessEntries(initiated, "Keine vom User ausgelösten Prozesse gefunden.");
+        DOM.recentActions.innerHTML = this.renderTaskActions(recent, "Keine erledigten Task-Aktionen gefunden.");
+    },
+
+    renderProcessEntries(items, emptyMessage) {
+        if (!items.length) {
+            return renderEmptyState(emptyMessage);
+        }
+
+        return items.map(item => {
+            const status = getAssignmentStatus({ assignment_status: item.status || item.process_status || "active" });
+            const title = item.process_name || humanizeToken(item.process_type || "prozess");
+            return `
+                <div class="user-activity-entry">
+                    <div class="user-activity-top">
+                        <span class="user-activity-title">${escapeHtml(title)}${item.process_id ? ` · #${escapeHtml(item.process_id)}` : ""}</span>
+                        <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
+                    </div>
+                    <div class="user-activity-meta">
+                        <span><strong>Ziel:</strong> ${escapeHtml(item.target_name || item.target_user_name || "-")}</span>
+                        <span><strong>Initiator:</strong> ${escapeHtml(item.initiator_name || item.triggered_by_name || "-")}</span>
+                        <span><strong>Gestartet:</strong> ${escapeHtml(formatDateTime(item.started_at || item.created_at))}</span>
+                        <span><strong>Abgeschlossen:</strong> ${escapeHtml(formatDateTime(item.completed_at || item.finished_at))}</span>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    },
+
+    renderTaskActions(items, emptyMessage) {
+        if (!items.length) {
+            return renderEmptyState(emptyMessage);
+        }
+
+        return items.map(item => {
+            const status = getAssignmentStatus({ assignment_status: item.status || item.action || "active" });
+            const title = item.action_label || humanizeToken(item.action || "completed");
+            return `
+                <div class="user-activity-entry">
+                    <div class="user-activity-top">
+                        <span class="user-activity-title">${escapeHtml(title)}${item.task_id ? ` · Task #${escapeHtml(item.task_id)}` : ""}</span>
+                        <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
+                    </div>
+                    <div class="user-activity-meta">
+                        <span><strong>Typ:</strong> ${escapeHtml(humanizeToken(item.task_type || "-"))}</span>
+                        <span><strong>Ressource:</strong> ${escapeHtml(item.resource_name || "-")}</span>
+                        <span><strong>Zeit:</strong> ${escapeHtml(formatDateTime(item.completed_at || item.created_at || item.occurred_at))}</span>
+                    </div>
+                </div>
+            `;
+        }).join("");
+    },
+
+    bindActions(user) {
         document.getElementById("sofa-access-setup-btn")?.addEventListener("click", () => {
             sofaAccessModalController.open(user, "setup");
         });
-
         document.getElementById("sofa-password-reset-btn")?.addEventListener("click", () => {
             sofaAccessModalController.open(user, "reset");
         });
-
         document.getElementById("sofa-access-revoke-btn")?.addEventListener("click", () => {
             sofaAccessModalController.open(user, "revoke");
         });
-
-        document
-            .getElementById("tmp-rights-action-btn")
-            .onclick = () =>
-                tmpRightsModalController.open(user);
-
-        document
-            .getElementById("new-skill-action-btn")
-            .onclick = () =>
-                newSkillModalController.open(user);
-
-        document
-            .getElementById("skill-revoke-action-btn")
-            .onclick = () =>
-                skillRevokeModalController.open(user);
-
-        document
-            .getElementById("offboard-action-btn")
-            .onclick = () =>
-                offboardModalController.open(user);
-
-        DOM.sidebarOverlay.onclick = (e) => {
-            if (e.target === DOM.sidebarOverlay) {
-                this.close();
-            }
-        };
+        DOM.tmpRightsActionBtn.onclick = () => tmpRightsModalController.open(user);
+        DOM.newSkillActionBtn.onclick = () => newSkillModalController.open(user);
+        DOM.skillRevokeActionBtn.onclick = () => skillRevokeModalController.open(user);
+        DOM.offboardActionBtn.onclick = () => offboardModalController.open(user);
     }
+};
+
+function bindModalOverlayDismiss(overlayEl, closeFn) {
+    overlayEl?.addEventListener("click", event => {
+        if (event.target === overlayEl) {
+            closeFn();
+        }
+    });
+}
+
+function buildButtonRow(primaryLabel, primaryClass = "btn-primary") {
+    return `
+        <div class="btn-row">
+            <button type="button" class="btn ${primaryClass}" id="modal-submit-btn">${primaryLabel}</button>
+            <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Abbrechen</button>
+        </div>
+    `;
 }
 
 const sofaAccessModalController = {
     init() {
-        this.originalHTML = DOM.sofaAccessModal.innerHTML;
-
-        DOM.sofaAccessOverlay.addEventListener("click", (e) => {
-            if (e.target === DOM.sofaAccessOverlay) {
-                this.close();
-            }
-        });
-
+        bindModalOverlayDismiss(DOM.sofaAccessOverlay, () => this.close());
         DOM.sofaAccessCloseBtn?.addEventListener("click", () => this.close());
     },
 
     open(user, mode) {
         this.render(user, mode);
-        DOM.sofaAccessOverlay.classList.add("active");
+        openOverlay("sofa-access-overlay");
     },
 
     close() {
-        DOM.sofaAccessOverlay.classList.remove("active");
-        DOM.sofaAccessModal.innerHTML = this.originalHTML;
-        cacheDOM();
-        DOM.sofaAccessCloseBtn?.addEventListener("click", () => this.close());
+        closeOverlay("sofa-access-overlay");
+        DOM.sofaAccessModalBody.innerHTML = "";
     },
 
     render(user, mode) {
@@ -723,45 +1244,35 @@ const sofaAccessModalController = {
             revoke: `SOFA Zugriff für ${user.first_name} ${user.last_name} entziehen`
         };
 
+        DOM.sofaAccessModalTitle.textContent = titleMap[mode];
+
         if (mode === "revoke") {
-            DOM.sofaAccessModal.innerHTML = `
-                <h3>${titleMap[mode]}</h3>
-                <p style="margin:12px 0 20px;">Der Zugriff auf die SOFA Anwendung wird entzogen.</p>
-                <button id="sofa-access-submit-btn" class="btn btn-red" style="margin-right:16px;">Bestätigen</button>
-                <button id="sofa-access-close-btn" class="btn btn-secondary">Abbrechen</button>
+            DOM.sofaAccessModalBody.innerHTML = `
+                <p class="user-action-note">Der Zugriff auf die SOFA Anwendung wird für diesen User entzogen.</p>
+                ${buildButtonRow("Bestätigen", "btn-red")}
             `;
         } else {
-            DOM.sofaAccessModal.innerHTML = `
-                <h3>${titleMap[mode]}</h3>
-                <div class="onboard-form">
-                    <input
-                        id="sofa-access-password-input"
-                        type="password"
-                        placeholder="Passwort"
-                        style="width:100%;padding:8px;margin:12px 0;box-sizing:border-box;"
-                    />
-                    <input
-                        id="sofa-access-password-confirm-input"
-                        type="password"
-                        placeholder="Passwort bestätigen"
-                        style="width:100%;padding:8px;margin:12px 0;box-sizing:border-box;"
-                    />
-                    <button id="sofa-access-submit-btn" class="btn btn-primary" style="margin-right:16px;">
-                        Speichern
-                    </button>
-                    <button id="sofa-access-close-btn" class="btn btn-secondary">Abbrechen</button>
+            DOM.sofaAccessModalBody.innerHTML = `
+                <div class="user-action-form">
+                    <div class="ui-field-group">
+                        <label class="ui-field-label" for="sofa-access-password-input">Passwort</label>
+                        <input id="sofa-access-password-input" class="ui-input" type="password" placeholder="Passwort">
+                    </div>
+                    <div class="ui-field-group">
+                        <label class="ui-field-label" for="sofa-access-password-confirm-input">Passwort bestätigen</label>
+                        <input id="sofa-access-password-confirm-input" class="ui-input" type="password" placeholder="Passwort bestätigen">
+                    </div>
+                    ${buildButtonRow("Speichern")}
                 </div>
             `;
         }
 
-        cacheDOM();
-
-        DOM.sofaAccessCloseBtn?.addEventListener("click", () => this.close());
-        DOM.sofaAccessSubmitBtn?.addEventListener("click", async () => {
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
             try {
                 if (mode === "setup" || mode === "reset") {
-                    const password = DOM.sofaAccessPasswordInput?.value.trim() || "";
-                    const passwordConfirm = DOM.sofaAccessPasswordConfirmInput?.value.trim() || "";
+                    const password = document.getElementById("sofa-access-password-input")?.value.trim() || "";
+                    const passwordConfirm = document.getElementById("sofa-access-password-confirm-input")?.value.trim() || "";
 
                     if (!password || !passwordConfirm) {
                         showFlash("Bitte Passwort und Bestätigung ausfüllen", "failure");
@@ -780,15 +1291,13 @@ const sofaAccessModalController = {
                         await api.resetSofaPassword(user.user_id, password);
                         showFlash("SOFA Passwort zurückgesetzt", "success");
                     }
-                }
-
-                if (mode === "revoke") {
+                } else {
                     await api.revokeSofaAccess(user.user_id);
                     showFlash("SOFA Zugriff entzogen", "success");
                 }
 
-                await sidebarController.refreshCurrentUser();
                 await tableController.loadUsers();
+                await sidebarController.refreshCurrentUser();
                 this.close();
             } catch (err) {
                 console.error(err);
@@ -800,568 +1309,407 @@ const sofaAccessModalController = {
 
 const onboardModalController = {
     init() {
-        this.originalHTML = DOM.onboardModal.innerHTML;
-
-        DOM.onboardActionBtn.addEventListener("click", () => this.open());
-
-        DOM.onboardOverlay.addEventListener("click", (e) => {
-            if (e.target === DOM.onboardOverlay) {
-                this.close();
-            }
-        });
-
-        this.render();
+        DOM.onboardActionBtn?.addEventListener("click", () => this.open());
+        bindModalOverlayDismiss(DOM.onboardOverlay, () => this.close());
+        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
+        DOM.onboardInternBtn?.addEventListener("click", () => this.renderInternalForm());
+        DOM.onboardExternalBtn?.addEventListener("click", () => this.renderExternalForm());
     },
 
     open() {
-        DOM.onboardOverlay.classList.add("active");
-    },
-
-    render() {
-        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
-
-        DOM.onboardInternBtn?.addEventListener("click", () => this.internForm());
-
-        DOM.onboardExternalBtn?.addEventListener("click", () => this.externForm());
+        this.renderStart();
+        openOverlay("onboard-overlay");
     },
 
     close() {
-        DOM.onboardOverlay.classList.remove("active");
-        DOM.onboardModal.innerHTML = this.originalHTML;
-        cacheDOM();
-        this.render();
+        closeOverlay("onboard-overlay");
+        this.renderStart();
     },
 
-    internForm() {
-        DOM.onboardModal.innerHTML = `
-            <h3>Onboarding Mitarbeiter</h3>
+    renderStart() {
+        DOM.onboardModalTitle.textContent = "Onboarding";
+        DOM.onboardModalBody.innerHTML = `
+            <div class="user-action-choice-grid">
+                <button id="onboard-external-btn" class="btn btn-secondary">Extern</button>
+                <button id="onboard-employee-btn" class="btn btn-primary">Mitarbeiter</button>
+            </div>
+        `;
+        cacheDOM();
+        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
+        DOM.onboardInternBtn?.addEventListener("click", () => this.renderInternalForm());
+        DOM.onboardExternalBtn?.addEventListener("click", () => this.renderExternalForm());
+    },
 
-            <div class="onboard-form">
-                <input 
-                    id="personalnummer-input"
-                    placeholder="Personalnummer"
-                    title="Bitte stelle sicher, dass der Mitarbeiter in Helix angelegt ist."
-                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
-                />
-
-                <button id="onboard-intern-submit-btn"
-                    class="btn btn-primary"
-                    style="margin-right:16px;"    
-                >
-                    Weiter
-                </button>
-
-                <button id="onboard-close-btn"
-                    class="btn btn-secondary">
-                    Abbrechen
-                </button>
+    renderInternalForm() {
+        DOM.onboardModalTitle.textContent = "Onboarding Mitarbeiter";
+        DOM.onboardModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="personalnummer-input">Personalnummer</label>
+                    <input id="personalnummer-input" class="ui-input" placeholder="Personalnummer">
+                </div>
+                <p class="user-action-note">Bitte sicherstellen, dass der Mitarbeiter bereits in Helix angelegt ist.</p>
+                ${buildButtonRow("Weiter")}
             </div>
         `;
 
-        cacheDOM();
-
-        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
-
-        DOM.onboardInternSubmitBtn?.addEventListener("click", async () => {
-            const pn = DOM.onboardInternInput.value.trim();
-
-            if (!pn) {
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const pnr = document.getElementById("personalnummer-input")?.value.trim();
+            if (!pnr) {
                 showFlash("Bitte Personalnummer eingeben", "failure");
                 return;
             }
 
-            await api.startOnboarding(pn);
+            const success = await api.startOnboarding(pnr);
+            if (!success) {
+                return;
+            }
             await tableController.loadUsers();
             this.close();
         });
     },
 
-    externForm() {
-        DOM.onboardModal.innerHTML = `
-            <h3>Externes Onboarding</h3>
-
-            <div class="onboard-form">
-                <input 
-                    id="extern-vorname-input"
-                    placeholder="Vorname"
-                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
-                />
-
-                <input 
-                    id="extern-nachname-input"
-                    placeholder="Nachname"
-                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
-                />
-
-                <input 
-                    id="extern-email-input"
-                    type="email"
-                    placeholder="E-Mail"
-                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
-                />
-
-                <input 
-                    id="extern-telefon-input"
-                    type="tel"
-                    placeholder="Telefon"
-                    style="width:100%;padding:8px;margin:12px 0;box-sizing: border-box;"
-                />
-
-                <button id="onboard-extern-submit-btn"
-                    class="btn btn-primary"
-                    style="margin-right:16px;"    
-                >
-                    Weiter
-                </button>
-
-                <button id="onboard-close-btn"
-                    class="btn btn-secondary">
-                    Abbrechen
-                </button>
+    renderExternalForm() {
+        DOM.onboardModalTitle.textContent = "Externes Onboarding";
+        DOM.onboardModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="extern-vorname-input">Vorname</label>
+                    <input id="extern-vorname-input" class="ui-input" placeholder="Vorname">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="extern-nachname-input">Nachname</label>
+                    <input id="extern-nachname-input" class="ui-input" placeholder="Nachname">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="extern-email-input">E-Mail</label>
+                    <input id="extern-email-input" class="ui-input" type="email" placeholder="E-Mail">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="extern-telefon-input">Telefon</label>
+                    <input id="extern-telefon-input" class="ui-input" type="tel" placeholder="Telefon">
+                </div>
+                ${buildButtonRow("Weiter")}
             </div>
         `;
 
-        cacheDOM();
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const payload = {
+                vorname: document.getElementById("extern-vorname-input")?.value.trim(),
+                nachname: document.getElementById("extern-nachname-input")?.value.trim(),
+                email: document.getElementById("extern-email-input")?.value.trim(),
+                telefon: document.getElementById("extern-telefon-input")?.value.trim()
+            };
 
-        DOM.onboardCloseBtn?.addEventListener("click", () => this.close());
-
-        DOM.onboardExternSubmitBtn?.addEventListener("click", async () => {
-            const vorname = document.getElementById("extern-vorname-input")?.value.trim();
-            const nachname = document.getElementById("extern-nachname-input")?.value.trim();
-            const email = document.getElementById("extern-email-input")?.value.trim();
-            const telefon = document.getElementById("extern-telefon-input")?.value.trim();
-
-            if (!vorname || !nachname || !email || !telefon) {
+            if (!payload.vorname || !payload.nachname || !payload.email || !payload.telefon) {
                 showFlash("Bitte alle Felder ausfüllen", "failure");
                 return;
             }
 
-            console.log("Externes Onboarding:", {
-                vorname,
-                nachname,
-                email,
-                telefon
-            });
+            const success = await api.startExternalOnboarding(payload);
+            if (!success) {
+                return;
+            }
 
-            await api.startExternalOnboarding({ vorname, nachname, email, telefon });
             await tableController.loadUsers();
-
             this.close();
         });
     }
 };
 
 const tmpRightsModalController = {
+    init() {
+        bindModalOverlayDismiss(DOM.tmpRightsOverlay, () => this.close());
+        DOM.tmpRightsCloseBtn?.addEventListener("click", () => this.close());
+    },
 
-    open(user){
+    open(user) {
         this.render(user);
-        DOM.tmpRightsOverlay.classList.add("active");
+        openOverlay("tmp-rights-overlay");
     },
 
-    close(){
-        DOM.tmpRightsOverlay.classList.remove("active");
+    close() {
+        closeOverlay("tmp-rights-overlay");
+        DOM.tmpRightsModalBody.innerHTML = "";
     },
 
-    render(user){
-        DOM.tmpRightsModal.innerHTML = `
-            <h3>Temporäre Rolle für ${user.first_name} ${user.last_name}</h3>
-
-            <div class="form-group">
-                <div class="tmp-rights-form-field">
-                    <label>Rolle</label>
-                    <select id="tmp-role-select" required>
-                        <option value="" disabled selected>Rolle auswählen...</option>
+    async render(user) {
+        DOM.tmpRightsModalTitle.textContent = `Temporäre Rolle für ${user.first_name} ${user.last_name}`;
+        DOM.tmpRightsModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="tmp-role-select">Rolle</label>
+                    <select id="tmp-role-select" class="ui-input">
+                        <option value="" disabled selected>Rolle auswählen…</option>
                     </select>
-                </div>    
-            </div>
-
-            <div class="form-group">
-                <div class="tmp-rights-form-field">
-                    <label>Ab wann (optional)</label>
-                    <input 
-                        type="date"
-                        id="tmp-startdate"
-                        min="${new Date().toISOString().split("T")[0]}"
-                        disabled
-                    >
                 </div>
-            </div>
-
-            <div class="form-group">
-                <div class="tmp-rights-form-field">
-                    <label>Enddatum</label>
-                    <input 
-                        type="date"
-                        id="tmp-enddate"
-                        required
-                        min="${new Date().toISOString().split("T")[0]}"
-                    >
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="tmp-startdate">Ab wann (optional)</label>
+                    <input type="date" id="tmp-startdate" class="ui-input" disabled>
                 </div>
-            </div>
-
-            <div style="margin-top:20px;">
-                <button id="tmp-rights-submit" class="btn btn-primary">
-                    Beantragen
-                </button>
-
-                <button id="tmp-rights-close-btn" class="btn btn-secondary">
-                    Abbrechen
-                </button>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="tmp-enddate">Enddatum</label>
+                    <input type="date" id="tmp-enddate" class="ui-input" min="${new Date().toISOString().split("T")[0]}">
+                </div>
+                ${buildButtonRow("Beantragen")}
             </div>
         `;
 
-        cacheDOM(); // DOM.tmpRightsSelect etc. definieren
-        DOM.tmpRightsCloseBtn.onclick = () => this.close();
-        this.loadRoles();
-        this.bindSubmit(user);
-    },
-
-    async loadRoles() {
-        const select = DOM.tmpRightsSelect; // gecacht
-        select.innerHTML = '<option value="" disabled selected>Rolle auswählen...</option>';
-        roleList = await api.getRoleMap();
-        Object.entries(roleList)
-            .filter(([id, role]) => role.type === "SECONDARY")
+        const select = document.getElementById("tmp-role-select");
+        Object.entries(await api.getRoleMap())
+            .filter(([, role]) => role.type === "SECONDARY")
             .forEach(([id, role]) => {
-                const opt = document.createElement("option");
-                opt.value = id;
-                opt.textContent = role.name;
-                select.appendChild(opt);
+                const option = document.createElement("option");
+                option.value = id;
+                option.textContent = role.name;
+                select.appendChild(option);
             });
-    },
 
-    bindSubmit(user) {
-        DOM.tmpRightsSubmit.onclick = async () => {
-            const roleId = DOM.tmpRightsSelect.value;
-            const startdate = DOM.tmpRightsStartdate.value || null;
-            const enddate = DOM.tmpRightsEnddate.value;
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const roleId = document.getElementById("tmp-role-select")?.value;
+            const startdate = document.getElementById("tmp-startdate")?.value || null;
+            const enddate = document.getElementById("tmp-enddate")?.value;
 
             if (!roleId || !enddate) {
                 showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
                 return;
             }
 
-            await api.startTmpRoleAssignment({ user_id: user.user_id, role_id: roleId, startdate, enddate });
+            const success = await api.startTmpRoleAssignment({
+                user_id: user.user_id,
+                role_id: roleId,
+                startdate,
+                enddate
+            });
+
+            if (!success) {
+                return;
+            }
+
+            await sidebarController.refreshCurrentUser();
             this.close();
-        };
+        });
     }
 };
 
 const newSkillModalController = {
+    init() {
+        bindModalOverlayDismiss(DOM.newSkillOverlay, () => this.close());
+        DOM.newSkillCloseBtn?.addEventListener("click", () => this.close());
+    },
 
-    open(user){
+    open(user) {
         this.render(user);
-        DOM.newSkillOverlay.classList.add("active");
+        openOverlay("new-skill-overlay");
     },
 
-    close(){
-        DOM.newSkillOverlay.classList.remove("active");
+    close() {
+        closeOverlay("new-skill-overlay");
+        DOM.newSkillModalBody.innerHTML = "";
     },
 
-    render(user){
-        DOM.newSkillModal.innerHTML = `
-            <h3>Neuer Skill für ${user.first_name} ${user.last_name}</h3>
-
-            <div class="form-group">
-                <div class="new-skill-form-field">
-                    <label>Rolle</label>
-                    <select id="new-skill-select" required>
-                        <option value="" disabled selected>Rolle auswählen...</option>
+    async render(user) {
+        DOM.newSkillModalTitle.textContent = `Neue Rolle für ${user.first_name} ${user.last_name}`;
+        DOM.newSkillModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="new-skill-select">Rolle</label>
+                    <select id="new-skill-select" class="ui-input">
+                        <option value="" disabled selected>Rolle auswählen…</option>
                     </select>
-                </div>    
-            </div>
-
-            <div class="form-group">
-                <div class="new-skill-form-field">
-                    <label>Ab wann (optional)</label>
-                    <input 
-                        type="date"
-                        id="new-skill-startdate"
-                        min="${new Date().toISOString().split("T")[0]}"
-                        disabled
-                    >
                 </div>
-            </div>
-
-            <div style="margin-top:20px;">
-                <button id="new-skill-submit" class="btn btn-primary">
-                    Beantragen
-                </button>
-
-                <button id="new-skill-close-btn" class="btn btn-secondary">
-                    Abbrechen
-                </button>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="new-skill-startdate">Ab wann (optional)</label>
+                    <input type="date" id="new-skill-startdate" class="ui-input" disabled>
+                </div>
+                ${buildButtonRow("Beantragen")}
             </div>
         `;
 
-        cacheDOM(); // DOM.tmpRightsSelect etc. definieren
-        DOM.newSkillCloseBtn.onclick = () => this.close();
-        this.loadRoles();
-        this.bindSubmit(user);
-    },
-
-    async loadRoles() {
-        const select = DOM.newSkillSelect; // gecacht
-        select.innerHTML = '<option value="" disabled selected>Rolle auswählen...</option>';
-        roleList = await api.getRoleMap();
-        Object.entries(roleList)
-            .filter(([id, role]) => role.type === "SECONDARY")
+        const select = document.getElementById("new-skill-select");
+        Object.entries(await api.getRoleMap())
+            .filter(([, role]) => role.type === "SECONDARY")
             .forEach(([id, role]) => {
-                const opt = document.createElement("option");
-                opt.value = id;
-                opt.textContent = role.name;
-                select.appendChild(opt);
+                const option = document.createElement("option");
+                option.value = id;
+                option.textContent = role.name;
+                select.appendChild(option);
             });
-    },
 
-    bindSubmit(user) {
-        DOM.newSkillSubmit.onclick = async () => {
-            const roleId = DOM.newSkillSelect.value;
-            const startdate = DOM.newSkillStartDate.value || null;
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const roleId = document.getElementById("new-skill-select")?.value;
+            const startDate = document.getElementById("new-skill-startdate")?.value || null;
 
             if (!roleId) {
                 showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
                 return;
             }
 
-            await api.startNewSkillAssignment({ user_id: user.user_id, role_id: roleId, start_date: startdate });
+            const success = await api.startNewSkillAssignment({
+                user_id: user.user_id,
+                role_id: roleId,
+                start_date: startDate
+            });
+
+            if (!success) {
+                return;
+            }
+
+            await sidebarController.refreshCurrentUser();
             this.close();
-        };
+        });
     }
 };
 
 const skillRevokeModalController = {
+    init() {
+        bindModalOverlayDismiss(DOM.skillRevokeOverlay, () => this.close());
+        DOM.skillRevokeCloseBtn?.addEventListener("click", () => this.close());
+    },
 
-    open(user){
+    open(user) {
         this.render(user);
-        DOM.skillRevokeOverlay.classList.add("active");
+        openOverlay("skill-revoke-overlay");
     },
 
-    close(){
-        DOM.skillRevokeOverlay.classList.remove("active");
+    close() {
+        closeOverlay("skill-revoke-overlay");
+        DOM.skillRevokeModalBody.innerHTML = "";
     },
 
-    render(user){
-        DOM.skillRevokeModal.innerHTML = `
-            <h3>Skill entziehen für ${user.first_name} ${user.last_name}</h3>
-
-            <div class="form-group">
-                <div class="skill-revoke-form-field">
-                    <label>Rolle</label>
-                    <select id="skill-revoke-select" required>
-                        <option value="" disabled selected>Rolle auswählen...</option>
+    render(user) {
+        DOM.skillRevokeModalTitle.textContent = `Rolle entziehen für ${user.first_name} ${user.last_name}`;
+        DOM.skillRevokeModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="skill-revoke-select">Rolle</label>
+                    <select id="skill-revoke-select" class="ui-input">
+                        <option value="" disabled selected>Rolle auswählen…</option>
                     </select>
-                </div>    
-            </div>
-
-            <div class="form-group">
-                <div class="skill-revoke-form-field">
-                    <label>Ab wann (optional)</label>
-                    <input 
-                        type="date"
-                        id="skill-revoke-startdate"
-                        min="${new Date().toISOString().split("T")[0]}"
-                        disabled
-                    >
                 </div>
-            </div>
-
-            <div style="margin-top:20px;">
-                <button id="skill-revoke-submit" class="btn btn-primary">
-                    Beantragen
-                </button>
-
-                <button id="skill-revoke-close-btn" class="btn btn-secondary">
-                    Abbrechen
-                </button>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="skill-revoke-startdate">Ab wann (optional)</label>
+                    <input type="date" id="skill-revoke-startdate" class="ui-input" disabled>
+                </div>
+                ${buildButtonRow("Beantragen")}
             </div>
         `;
 
-        cacheDOM(); // DOM.skillRevokeSelect etc. definieren
-        DOM.skillRevokeCloseBtn.onclick = () => this.close();
-        this.loadRoles(user);
-        this.bindSubmit(user);
-    },
-
-    async loadRoles(user) {
-        const select = DOM.skillRevokeSelect;
-        select.innerHTML = '<option value="" disabled selected>Rolle auswählen...</option>';
-
-        const roleList = user.secondary_roles || [];
-
-        roleList
-            .filter(role => role.role_type === "SECONDARY")
+        const select = document.getElementById("skill-revoke-select");
+        getSecondaryRoles(user)
+            .sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .forEach(role => {
-                const opt = document.createElement("option");
-                opt.value = role.role_id;
-                opt.textContent = role.name;
-                select.appendChild(opt);
+                const option = document.createElement("option");
+                option.value = role.role_id;
+                option.textContent = role.name;
+                select.appendChild(option);
             });
-    },
 
-    bindSubmit(user) {
-        DOM.skillRevokeSubmit.onclick = async () => {
-            const roleId = DOM.skillRevokeSelect.value;
-            const startdate = DOM.skillRevokeStartDate.value || null;
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const roleId = document.getElementById("skill-revoke-select")?.value;
+            const startDate = document.getElementById("skill-revoke-startdate")?.value || null;
 
             if (!roleId) {
                 showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
                 return;
             }
 
-            await api.startSkillRevoke({
+            const success = await api.startSkillRevoke({
                 user_id: user.user_id,
                 role_id: roleId,
-                start_date: startdate
+                start_date: startDate
             });
 
+            if (!success) {
+                return;
+            }
+
+            await sidebarController.refreshCurrentUser();
             this.close();
-        };
+        });
     }
 };
 
 const offboardModalController = {
+    init() {
+        bindModalOverlayDismiss(DOM.offboardOverlay, () => this.close());
+        DOM.offboardCloseBtn?.addEventListener("click", () => this.close());
+    },
 
-    open(user){
+    open(user) {
         this.render(user);
-        DOM.offboardOverlay.classList.add("active");
+        openOverlay("offboard-overlay");
     },
 
-    close(){
-        DOM.offboardOverlay.classList.remove("active");
+    close() {
+        closeOverlay("offboard-overlay");
+        DOM.offboardModalBody.innerHTML = "";
     },
 
-    render(user){
-        DOM.offboardModal.innerHTML = `
-            <h3>Offboarding von ${user.first_name} ${user.last_name}</h3>
-
-            <div class="form-group">
-                <div class="offboard-form-field">
-                    <label>Austritt am</label>
-                    <input 
-                        type="date"
-                        id="offboard-exitdate"
-                        required
-                        min="${new Date().toISOString().split("T")[0]}"
-                    >
+    render(user) {
+        DOM.offboardModalTitle.textContent = `Offboarding von ${user.first_name} ${user.last_name}`;
+        DOM.offboardModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="offboard-exitdate">Austritt am</label>
+                    <input type="date" id="offboard-exitdate" class="ui-input" min="${new Date().toISOString().split("T")[0]}">
                 </div>
-            </div>
-
-            <div style="margin-top:20px;">
-                <button id="offboard-submit" class="btn btn-primary">
-                    Bestätigen
-                </button>
-
-                <button id="offboard-close-btn" class="btn btn-secondary">
-                    Abbrechen
-                </button>
+                ${buildButtonRow("Bestätigen")}
             </div>
         `;
 
-        cacheDOM(); // DOM.offboardExitdate etc. definieren
-        DOM.offboardCloseBtn.onclick = () => this.close();
-        this.bindSubmit(user);
-    },
-
-    bindSubmit(user) {
-        DOM.offboardSubmit.onclick = async () => {
-            const exitdate = DOM.offboardExitdate.value;
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const exitdate = document.getElementById("offboard-exitdate")?.value;
 
             if (!exitdate) {
                 showFlash("Bitte das Austrittsdatum angeben", "failure");
                 return;
             }
 
-            await api.startOffboarding({
+            const success = await api.startOffboarding({
                 user_id: user.user_id,
                 exitdate
             });
+
+            if (!success) {
+                return;
+            }
+
+            await sidebarController.refreshCurrentUser();
             this.close();
-        };
+        });
     }
 };
 
-document.addEventListener("DOMContentLoaded", () => {
-    
-    cacheDOM();
-    filterController.init();
-    tableController.init();
-    onboardModalController.init();
-    sofaAccessModalController.init();
-
-});
-
 function cacheDOM() {
-    DOM.userTable = document.getElementById("user-table");
-    DOM.tableBody = DOM.userTable.querySelector("tbody");
-    DOM.searchInput = document.getElementById("search-input");
-    DOM.filterContainer = document.querySelector(".filter-container");
+    DOM.filterContainer = document.getElementById("users-filter-container");
     DOM.filterBtn = document.getElementById("filter-btn");
     DOM.filterDropdown = document.getElementById("filter-dropdown");
     DOM.subfilterDropdown = document.getElementById("subfilter-dropdown");
     DOM.activeFilters = document.getElementById("active-filters");
+    DOM.searchInput = document.getElementById("search-input");
+    DOM.userTable = document.getElementById("user-table");
+    DOM.tableBody = document.getElementById("user-table-body");
 
     DOM.sidebarOverlay = document.getElementById("sidebar-overlay");
-    DOM.tabs = document.querySelectorAll(".sidebar-tabs .tab");
-    DOM.tabContents = document.querySelectorAll(".tab-content");
-
-    DOM.onboardOverlay = document.getElementById("onboard-overlay");
-    DOM.onboardModal = document.querySelector(".onboard-modal");
-    DOM.onboardCloseBtn = document.getElementById("onboard-close-btn");
-    DOM.onboardInternBtn = document.getElementById("onboard-employee-btn");
-    DOM.onboardInternInput = document.getElementById("personalnummer-input");
-    DOM.onboardInternSubmitBtn = document.getElementById("onboard-intern-submit-btn")
-    DOM.onboardExternalBtn = document.getElementById("onboard-external-btn");
-    DOM.onboardActionBtn = document.getElementById("onboard-action-btn");
-    DOM.onboardExternSubmitBtn = document.getElementById("onboard-extern-submit-btn");
-    DOM.onboardExternVornameInput = document.getElementById("extern-vorname-input");
-    DOM.onboardExternNachnameInput = document.getElementById("extern-nachname-input");
-    DOM.onboardExternEmailInput = document.getElementById("extern-email-input");
-    DOM.onboardExternTelefonInput = document.getElementById("extern-telefon-input");
-
-    DOM.newSkillOverlay = document.getElementById("new-skill-overlay");
-    DOM.newSkillModal = document.querySelector(".new-skill-modal");
-    DOM.newSkillCloseBtn = document.getElementById("new-skill-close-btn");
-    DOM.newSkillActionBtn = document.getElementById("new-skill-action-btn");
-    DOM.newSkillSubmit = document.getElementById("new-skill-submit");
-    DOM.newSkillSelect = document.getElementById("new-skill-select");
-    DOM.newSkillStartDate = document.getElementById("new-skill-startdate");
-
-    DOM.tmpRightsOverlay = document.getElementById("tmp-rights-overlay");
-    DOM.tmpRightsModal = document.querySelector(".tmp-rights-modal");
-    DOM.tmpRightsCloseBtn = document.getElementById("tmp-rights-close-btn");
-    DOM.tmpRightsActionBtn = document.getElementById("tmp-rights-action-btn");
-    DOM.tmpRightsSubmit = document.getElementById("tmp-rights-submit");
-    DOM.tmpRightsSelect = document.getElementById("tmp-role-select");
-    DOM.tmpRightsStartdate = document.getElementById("tmp-startdate");
-    DOM.tmpRightsEnddate = document.getElementById("tmp-enddate");
-
-    DOM.skillRevokeOverlay = document.getElementById("skill-revoke-overlay");
-    DOM.skillRevokeModal = document.querySelector(".skill-revoke-modal");
-    DOM.skillRevokeCloseBtn = document.getElementById("skill-revoke-close-btn");
-    DOM.skillRevokeActionBtn = document.getElementById("skill-revoke-action-btn");
-    DOM.skillRevokeSubmit = document.getElementById("skill-revoke-submit");
-    DOM.skillRevokeSelect = document.getElementById("skill-revoke-select");
-    DOM.skillRevokeStartDate = document.getElementById("skill-revoke-startdate");
-
-    DOM.offboardOverlay = document.getElementById("offboard-overlay");
-    DOM.offboardModal = document.querySelector(".offboard-modal");
-    DOM.offboardExitdate = document.getElementById("offboard-exitdate");
-    DOM.offboardSubmit = document.getElementById("offboard-submit");
-    DOM.offboardCloseBtn = document.getElementById("offboard-close-btn");
-    DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
-
-    DOM.sofaAccessStatus = document.getElementById("sofa-access-status");
-    DOM.sofaAccessActions = document.getElementById("sofa-access-actions");
-    DOM.sofaAccessOverlay = document.getElementById("sofa-access-overlay");
-    DOM.sofaAccessModal = document.getElementById("sofa-access-modal");
-    DOM.sofaAccessCloseBtn = document.getElementById("sofa-access-close-btn");
-    DOM.sofaAccessSubmitBtn = document.getElementById("sofa-access-submit-btn");
-    DOM.sofaAccessPasswordInput = document.getElementById("sofa-access-password-input");
-    DOM.sofaAccessPasswordConfirmInput = document.getElementById("sofa-access-password-confirm-input");
-    // Sidebar fields
+    DOM.sidebarCloseBtn = document.getElementById("sidebar-close-btn");
+    DOM.userPanelTabs = document.getElementById("user-panel-tabs");
+    DOM.userPanelTabButtons = document.querySelectorAll(".user-panel-tab");
+    DOM.userPanelViews = document.querySelectorAll(".user-panel-view");
     DOM.sidebarUsername = document.getElementById("sidebar-username");
+    DOM.sidebarSubtitle = document.getElementById("sidebar-subtitle");
+    DOM.sidebarPnrChip = document.getElementById("sidebar-pnr-chip");
+    DOM.sidebarRacfChip = document.getElementById("sidebar-racf-chip");
+    DOM.sidebarStatusChip = document.getElementById("sidebar-status-chip");
+
     DOM.sidebarPNR = document.getElementById("user-pnr");
+    DOM.sidebarRacf = document.getElementById("user-racf");
     DOM.sidebarLastName = document.getElementById("user-nachname");
     DOM.sidebarFirstName = document.getElementById("user-vorname");
     DOM.sidebarFunktion = document.getElementById("user-funktion");
@@ -1370,6 +1718,70 @@ function cacheDOM() {
     DOM.sidebarMobil = document.getElementById("user-mobil");
     DOM.sidebarEintritt = document.getElementById("user-eintritt");
     DOM.sidebarAustritt = document.getElementById("user-austritt");
-    DOM.sidebarAccounts = document.querySelector(".account-list");
-    DOM.sidebarRoles = document.getElementById("tab-rollen");
+    DOM.userHelixLink = document.getElementById("user-helix-link");
+    DOM.sidebarAccounts = document.getElementById("user-accounts-list");
+    DOM.userAccountsCount = document.getElementById("user-accounts-count");
+    DOM.sofaAccessStatus = document.getElementById("sofa-access-status");
+    DOM.sofaAccessActions = document.getElementById("sofa-access-actions");
+    DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
+    DOM.newSkillActionBtn = document.getElementById("new-skill-action-btn");
+    DOM.tmpRightsActionBtn = document.getElementById("tmp-rights-action-btn");
+    DOM.skillRevokeActionBtn = document.getElementById("skill-revoke-action-btn");
+    DOM.sidebarRoles = document.getElementById("user-roles-list");
+    DOM.sidebarResources = document.getElementById("user-resources-list");
+    DOM.affectedProcesses = document.getElementById("user-affected-processes");
+    DOM.initiatedProcesses = document.getElementById("user-initiated-processes");
+    DOM.recentActions = document.getElementById("user-recent-actions");
+
+    DOM.onboardActionBtn = document.getElementById("onboard-action-btn");
+    DOM.onboardOverlay = document.getElementById("onboard-overlay");
+    DOM.onboardModal = document.getElementById("onboard-modal");
+    DOM.onboardModalTitle = DOM.onboardModal?.querySelector(".ui-section-title");
+    DOM.onboardModalBody = DOM.onboardModal?.querySelector(".ui-modal-body");
+    DOM.onboardCloseBtn = document.getElementById("onboard-close-btn");
+    DOM.onboardInternBtn = document.getElementById("onboard-employee-btn");
+    DOM.onboardExternalBtn = document.getElementById("onboard-external-btn");
+
+    DOM.tmpRightsOverlay = document.getElementById("tmp-rights-overlay");
+    DOM.tmpRightsModal = document.getElementById("tmp-rights-modal");
+    DOM.tmpRightsModalTitle = DOM.tmpRightsModal?.querySelector(".ui-section-title");
+    DOM.tmpRightsModalBody = DOM.tmpRightsModal?.querySelector(".ui-modal-body");
+    DOM.tmpRightsCloseBtn = document.getElementById("tmp-rights-close-btn");
+
+    DOM.newSkillOverlay = document.getElementById("new-skill-overlay");
+    DOM.newSkillModal = document.getElementById("new-skill-modal");
+    DOM.newSkillModalTitle = DOM.newSkillModal?.querySelector(".ui-section-title");
+    DOM.newSkillModalBody = DOM.newSkillModal?.querySelector(".ui-modal-body");
+    DOM.newSkillCloseBtn = document.getElementById("new-skill-close-btn");
+
+    DOM.skillRevokeOverlay = document.getElementById("skill-revoke-overlay");
+    DOM.skillRevokeModal = document.getElementById("skill-revoke-modal");
+    DOM.skillRevokeModalTitle = DOM.skillRevokeModal?.querySelector(".ui-section-title");
+    DOM.skillRevokeModalBody = DOM.skillRevokeModal?.querySelector(".ui-modal-body");
+    DOM.skillRevokeCloseBtn = document.getElementById("skill-revoke-close-btn");
+
+    DOM.offboardOverlay = document.getElementById("offboard-overlay");
+    DOM.offboardModal = document.getElementById("offboard-modal");
+    DOM.offboardModalTitle = DOM.offboardModal?.querySelector(".ui-section-title");
+    DOM.offboardModalBody = DOM.offboardModal?.querySelector(".ui-modal-body");
+    DOM.offboardCloseBtn = document.getElementById("offboard-close-btn");
+
+    DOM.sofaAccessOverlay = document.getElementById("sofa-access-overlay");
+    DOM.sofaAccessModal = document.getElementById("sofa-access-modal");
+    DOM.sofaAccessModalTitle = DOM.sofaAccessModal?.querySelector(".ui-section-title");
+    DOM.sofaAccessModalBody = DOM.sofaAccessModal?.querySelector(".ui-modal-body");
+    DOM.sofaAccessCloseBtn = document.getElementById("sofa-access-close-btn");
 }
+
+document.addEventListener("DOMContentLoaded", async () => {
+    cacheDOM();
+    sidebarController.init();
+    await filterController.init();
+    await tableController.init();
+    onboardModalController.init();
+    sofaAccessModalController.init();
+    tmpRightsModalController.init();
+    newSkillModalController.init();
+    skillRevokeModalController.init();
+    offboardModalController.init();
+});

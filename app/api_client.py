@@ -53,6 +53,12 @@ class APIClient:
     async def get_user_details(self, user_id: int) -> dict:
         return await self.get(f"/users/{user_id}/details")
 
+    async def get_user_activity(self, user_id: int) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+            resp = await client.get(f"/users/{user_id}/activity")
+            resp.raise_for_status()
+            return resp.json()
+
     async def setup_user_sofa_access(self, user_id: int, payload: dict) -> dict:
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.post(f"/users/{user_id}/sofa-access/setup", json=payload)

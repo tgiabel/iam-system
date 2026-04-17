@@ -1,193 +1,323 @@
 {% extends "base.html" %}
 {% block css %}
-<link rel="stylesheet" href="/static/css/page_w_table.css">
+<link rel="stylesheet" href="/static/css/ui.css">
+<link rel="stylesheet" href="/static/css/userverwaltung.css">
 {% endblock %}
 {% block scripts %}
 <script src="/static/js/userverwaltung.js"></script>
 {% endblock %}
 {% set page_title = "Userverwaltung" %}
 {% block content %}
-<div class="page-container">
-
-    <!-- Top Bar -->
-    <div class="top-bar">
-        <div class="top-bar-main">
-            <div class="filter-container">
-                <button id="filter-btn">Filter</button>
-                <div id="filter-dropdown" class="filter-dropdown">
-                    <button data-filter="hauptrolle">Hauptrolle</button>
-                    <button data-filter="nebenrolle">Nebenrolle</button>
-                    <button data-filter="status">Status</button>
-                </div>
-
-                <!-- Subfilter-Dropdown -->
-                <div id="subfilter-dropdown" class="subfilter-dropdown">
-                    <!-- Wird dynamisch gefüllt -->
-                </div>
-            </div>
-
-            <h2 class="top-bar-title">Userverwaltung</h2>
-
-            <div>
-                <button id="onboard-action-btn">Onboarding</button>
-            </div>
-        </div>
-
-        <!-- Aktive Filter Tags -->
-        <div class="filter-tags" id="active-filters"></div>
-
-        <!-- Suchfeld -->
-        <div class="search-field" style="margin-top:8px; width: 60%;">
-            <input type="text" id="search-input" placeholder="Suche nach Name, Personalnummer oder RACF...">
-        </div>
-    </div>
-
-    <!-- Table -->
-    <div class="table-wrapper">
-        <table id="user-table">
-            <thead>
-                <tr>
-                    <th class="select-col">
-                        <input type="checkbox" id="select-all">
-                    </th>
-                    <th>PNR</th>
-                    <th>Vorname</th>
-                    <th>Nachname</th>
-                    <th>E-Mail</th>
-                    <th>Funktion</th>
-                    <th>Nebenrollen</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Wird dynamisch gefüllt -->
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<!-- Overlay Sidebar -->
-<div class="overlay" id="sidebar-overlay">
-    <div class="sidebar">
-
-        <!-- Fester Header -->
-        <div class="sidebar-header" id="sidebar-username">Max Mustermann</div>
-
-        <!-- Tabs -->
-        <div class="sidebar-tabs">
-            <button class="tab active" data-tab="details">Details</button>
-            <button class="tab" data-tab="rollen">Rollen</button>
-            <button class="tab" data-tab="berechtigungen">Berechtigungen</button>
-        </div>
-
-        <!-- Inhalt -->
-        <div class="tab-content" id="tab-details">
-            <!-- Persönliche Infos -->
-            <section class="info-section">
-                <h3>Persönliche Infos</h3>
-                <div class="info-grid">
-                    <p><strong>Personalnummer:</strong> <span id="user-pnr">10234</span></p>
-                    <p><strong>Nachname:</strong> <span id="user-nachname">Mustermann</span></p>
-                    <p><strong>Vorname:</strong> <span id="user-vorname">Max</span></p>
-                    <p><strong>Funktion:</strong> <span id="user-funktion"></span></p>
-                    <p><strong>E-Mail:</strong> <span id="user-email">max.mustermann@servodata.de</span></p>
-                    <p><strong>Telefon:</strong> <span id="user-telefon"></span></p>
-                    <p><strong>Mobil:</strong> <span id="user-mobil"></span></p>
-                    <p><strong>Eintritt:</strong> <span id="user-eintritt">2015-04-01</span></p>
-                    <p><strong>Austritt:</strong> <span id="user-austritt">-</span></p>
-                    <p>
-                    <strong></strong>
-                        <a
-                            id="user-helix-link"
-                            href="#"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            ↗︎ In Helix aufrufen
-                        </a>
+<div class="users-page">
+    <div class="users-shell">
+        <section class="ui-card users-header">
+            <div class="users-header-main">
+                <div class="ui-section-heading">
+                    <span class="ui-section-kicker">Identity Hub</span>
+                    <h1 class="ui-section-title">Userverwaltung</h1>
+                    <p class="ui-section-copy">
+                        Nutzer suchen, filtern und direkt in einem strukturierten Detail-Overlay verwalten.
                     </p>
                 </div>
-            </section>
+                <button type="button" class="btn btn-primary users-onboard-btn" id="onboard-action-btn">Onboarding</button>
+            </div>
 
-            <!-- Accounts -->
-            <section class="info-section">
-                <h3>Accounts</h3>
-                <ul class="account-list">
-                    <li title="Active Directory"><span class="account-name">mmustermann</span> <button class="account-cta">🔁</button></li>
-                    <li title="Exchange Mail"><span class="account-name">m.mustermann</span> <button class="account-cta">🔁</button></li>
-                    <li title="SAP HR"><span class="account-name">MMU123</span> <button class="account-cta">🔁</button></li>
-                </ul>
-            </section>
-            <section class="info-section">
-                <h3>Aktionen</h3>
-                <div id="sofa-access-status" style="margin-bottom:12px; color:#475569;"></div>
-                <div id="sofa-access-actions" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px;"></div>
-                <button class="btn-primary btn" id="new-skill-action-btn">Neuer Rolle</button>
-                <button class="btn-secondary btn" id="tmp-rights-action-btn">Temporäre Rolle</button>
-                <button class="btn-red btn" id="skill-revoke-action-btn">Rolle entziehen</button>
-                <button class="btn-red btn" id="offboard-action-btn">Offboarding</button>
-            </section>
+            <div class="users-toolbar">
+                <div class="users-filter-container" id="users-filter-container">
+                    <button type="button" class="btn btn-secondary users-filter-trigger" id="filter-btn">Filter</button>
+                    <div class="users-filter-dropdown" id="filter-dropdown">
+                        <button type="button" data-filter="hauptrolle">Hauptrolle</button>
+                        <button type="button" data-filter="nebenrolle">Nebenrolle</button>
+                        <button type="button" data-filter="status">Status</button>
+                    </div>
+                    <div class="users-subfilter-dropdown" id="subfilter-dropdown"></div>
+                </div>
 
+                <div class="users-search-row">
+                    <label class="users-search-label ui-section-kicker" for="search-input">Suche</label>
+                    <input
+                        type="search"
+                        id="search-input"
+                        class="ui-input users-search-field"
+                        placeholder="Suche nach PNR, RACF, Name, Vorname, Funktion oder Nebenrolle"
+                    >
+                </div>
+            </div>
+
+            <div class="users-filter-tags" id="active-filters"></div>
+        </section>
+
+        <section class="ui-card users-table-card">
+            <div class="table-wrapper">
+                <table id="user-table">
+                    <thead>
+                        <tr>
+                            <th>Kennung</th>
+                            <th>Name</th>
+                            <th>Vorname</th>
+                            <th>Funktion</th>
+                            <th>Nebenrollen</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="user-table-body">
+                        <tr class="users-empty-row">
+                            <td colspan="6">
+                                <div class="ui-empty-state ui-empty-inline">User werden geladen…</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="ui-modal-overlay user-panel-overlay" id="sidebar-overlay" aria-hidden="true">
+    <div class="ui-modal user-panel" role="dialog" aria-modal="true" aria-labelledby="sidebar-username">
+        <div class="ui-modal-header user-panel-header">
+            <div class="user-panel-header-main">
+                <div class="user-panel-heading">
+                    <span class="user-panel-kicker" id="sidebar-subtitle">Userdetails</span>
+                    <h2 id="sidebar-username">-</h2>
+                </div>
+                <div class="user-panel-meta">
+                    <span class="ui-chip ui-chip-neutral" id="sidebar-pnr-chip">PNR -</span>
+                    <span class="ui-chip ui-chip-neutral" id="sidebar-racf-chip">RACF -</span>
+                    <span class="ui-status-badge ui-status-neutral" id="sidebar-status-chip">-</span>
+                </div>
+            </div>
+            <button type="button" class="ui-icon-button" id="sidebar-close-btn" aria-label="Details schließen">&times;</button>
         </div>
 
-        <div class="tab-content hidden" id="tab-rollen"></div>
-        <div class="tab-content hidden" id="tab-berechtigungen"></div>
-    </div>
-</div>
-
-<!-- Onboarding Overlay -->
-<div class="overlay" id="onboard-overlay">
-    <div class="onboard-modal">
-        <h3>Onboarding</h3>
-        <div class="onboard-actions">
-            <button id="onboard-external-btn" class="btn btn-secondary">Extern</button>
-            <button id="onboard-employee-btn" class="btn btn-primary">Mitarbeiter</button>
+        <div class="user-panel-tabs" id="user-panel-tabs">
+            <button type="button" class="user-panel-tab is-active" data-tab="details">Details</button>
+            <button type="button" class="user-panel-tab" data-tab="rollen">Rollen</button>
+            <button type="button" class="user-panel-tab" data-tab="ressourcen">Ressourcen</button>
+            <button type="button" class="user-panel-tab" data-tab="activity">Aktivität</button>
         </div>
-        <button id="onboard-close-btn" class="btn btn-secondary">Abbrechen</button>
+
+        <div class="ui-modal-body user-panel-body">
+            <section class="user-panel-view active" id="tab-details">
+                <div class="user-panel-grid">
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
+                            <h3>Stammdaten</h3>
+                        </div>
+                        <div class="user-info-grid">
+                            <div class="user-info-item">
+                                <span class="user-info-label">Personalnummer</span>
+                                <span id="user-pnr">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">RACF</span>
+                                <span id="user-racf">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">Name</span>
+                                <span id="user-nachname">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">Vorname</span>
+                                <span id="user-vorname">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">Funktion</span>
+                                <span id="user-funktion">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">E-Mail</span>
+                                <span id="user-email">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">Telefon</span>
+                                <span id="user-telefon">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">Mobil</span>
+                                <span id="user-mobil">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">Eintritt</span>
+                                <span id="user-eintritt">-</span>
+                            </div>
+                            <div class="user-info-item">
+                                <span class="user-info-label">Austritt</span>
+                                <span id="user-austritt">-</span>
+                            </div>
+                        </div>
+                        <a id="user-helix-link" class="user-inline-link" href="#" target="_blank" rel="noopener noreferrer">In Helix aufrufen</a>
+                    </article>
+
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
+                            <h3>Accounts</h3>
+                            <span class="ui-chip ui-chip-neutral" id="user-accounts-count">0</span>
+                        </div>
+                        <div id="user-accounts-list" class="user-account-list">
+                            <div class="ui-empty-state ui-empty-inline">Keine Accounts vorhanden.</div>
+                        </div>
+                    </article>
+                </div>
+
+                <div class="user-action-panels">
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
+                            <h3>SOFA-Aktionen</h3>
+                        </div>
+                        <p id="sofa-access-status" class="user-action-copy">Status wird geladen…</p>
+                        <div id="sofa-access-actions" class="user-action-group"></div>
+                    </article>
+
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
+                            <h3>Offboarding</h3>
+                        </div>
+                        <p class="user-action-copy">Austrittstermine sauber anstoßen und den Prozess direkt aus dem User-Kontext starten.</p>
+                        <div class="user-action-group">
+                            <button type="button" class="btn btn-red" id="offboard-action-btn">Offboarding starten</button>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="user-panel-view" id="tab-rollen">
+                <div id="user-roles-list" class="user-role-list">
+                    <div class="ui-empty-state ui-empty-inline">Keine Rollen vorhanden.</div>
+                </div>
+                <article class="ui-card user-detail-card user-role-actions-card">
+                    <div class="user-detail-card-header">
+                        <h3>Aktionen</h3>
+                    </div>
+                    <p class="user-action-copy">Rollenbezogene Aktionen direkt im Kontext der aktuellen Zuweisungen starten.</p>
+                    <div class="user-action-group">
+                        <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
+                        <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
+                        <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>
+                    </div>
+                </article>
+            </section>
+
+            <section class="user-panel-view" id="tab-ressourcen">
+                <div id="user-resources-list" class="user-resource-groups">
+                    <div class="ui-empty-state ui-empty-inline">Keine Ressourcen vorhanden.</div>
+                </div>
+            </section>
+
+            <section class="user-panel-view" id="tab-activity">
+                <div class="user-activity-layout">
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
+                            <h3>Prozesse für den User</h3>
+                        </div>
+                        <div id="user-affected-processes" class="user-activity-list">
+                            <div class="ui-empty-state ui-empty-inline">Keine Prozesse gefunden.</div>
+                        </div>
+                    </article>
+
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
+                            <h3>Vom User ausgelöst</h3>
+                        </div>
+                        <div id="user-initiated-processes" class="user-activity-list">
+                            <div class="ui-empty-state ui-empty-inline">Keine Prozesse gefunden.</div>
+                        </div>
+                    </article>
+
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
+                            <h3>Zuletzt erledigte Task-Aktionen</h3>
+                        </div>
+                        <div id="user-recent-actions" class="user-activity-list">
+                            <div class="ui-empty-state ui-empty-inline">Keine Task-Aktionen gefunden.</div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+        </div>
     </div>
 </div>
 
-<!-- Temporäre Rechte Overlay-->
-<div class="overlay" id="tmp-rights-overlay">
-    <div class="tmp-rights-modal">
-        <h3>Temporärer Rollenantrag</h3>
-
-        <button id="tmp-rights-close-btn" class="btn btn-secondary">Abbrechen</button>
+<div class="ui-modal-overlay" id="onboard-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="onboard-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title">Onboarding</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="onboard-close-btn" aria-label="Onboarding schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body">
+            <div class="user-action-choice-grid">
+                <button id="onboard-external-btn" class="btn btn-secondary">Extern</button>
+                <button id="onboard-employee-btn" class="btn btn-primary">Mitarbeiter</button>
+            </div>
+        </div>
     </div>
 </div>
 
-<!-- Neuer Skill Overlay-->
-<div class="overlay" id="new-skill-overlay">
-    <div class="new-skill-modal">
-        <h3>Neuer Skill/ Neue Rolle</h3>
-
-        <button id="new-skill-close-btn" class="btn btn-secondary">Abbrechen</button>
+<div class="ui-modal-overlay" id="tmp-rights-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="tmp-rights-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title">Temporäre Rolle</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="tmp-rights-close-btn" aria-label="Temporäre Rolle schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body"></div>
     </div>
 </div>
 
-<!-- Skill Entzug Overlay-->
-<div class="overlay" id="skill-revoke-overlay">
-    <div class="skill-revoke-modal">
-        <h3>Neuer Skill/ Neue Rolle</h3>
-
-        <button id="skill-revoke-close-btn" class="btn btn-secondary">Abbrechen</button>
+<div class="ui-modal-overlay" id="new-skill-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="new-skill-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title">Neue Rolle</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="new-skill-close-btn" aria-label="Neue Rolle schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body"></div>
     </div>
 </div>
 
-<!-- Offboarding Overlay -->
-<div class="overlay" id="offboard-overlay">
-    <div class="offboard-modal">
-        <h3>Temporärer Rollenantrag</h3>
-
-        <button id="offboard-close-btn" class="btn btn-secondary">Abbrechen</button>
+<div class="ui-modal-overlay" id="skill-revoke-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="skill-revoke-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title">Rolle entziehen</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="skill-revoke-close-btn" aria-label="Rollenentzug schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body"></div>
     </div>
 </div>
 
-<!-- SOFA Access Overlay -->
-<div class="overlay" id="sofa-access-overlay">
-    <div class="onboard-modal" id="sofa-access-modal">
-        <h3>SOFA Zugriff</h3>
-        <button id="sofa-access-close-btn" class="btn btn-secondary">Abbrechen</button>
+<div class="ui-modal-overlay" id="offboard-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="offboard-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title">Offboarding</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="offboard-close-btn" aria-label="Offboarding schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body"></div>
+    </div>
+</div>
+
+<div class="ui-modal-overlay" id="sofa-access-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="sofa-access-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">SOFA</span>
+                <h3 class="ui-section-title">SOFA Zugriff</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="sofa-access-close-btn" aria-label="SOFA Dialog schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body"></div>
     </div>
 </div>
 {% endblock %}

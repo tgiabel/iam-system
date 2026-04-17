@@ -13,6 +13,95 @@ import json
 base_dir = os.path.dirname(os.path.abspath(__file__))
 static_path = os.path.join(base_dir, "static")
 
+
+def _first_defined_value(record: dict, keys: list[str], fallback=None):
+    for key in keys:
+        value = record.get(key)
+        if value not in (None, ""):
+            return value
+    return fallback
+
+
+def _normalize_text(value) -> str:
+    return str(value or "").strip().lower()
+
+
+def _task_matches_target_user(task: dict, user_id: int, user_detail: dict) -> bool:
+    full_name = _normalize_text(f"{user_detail.get('first_name', '')} {user_detail.get('last_name', '')}")
+    user_pnr = _normalize_text(user_detail.get("pnr"))
+
+    target_user_id = _first_defined_value(task, ["target_user_id", "user_id", "for_user_id"])
+    if str(target_user_id or "") == str(user_id):
+        return True
+
+    target_pnr = _first_defined_value(task, ["target_user_pnr", "user_pnr", "pnr"])
+    if user_pnr and _normalize_text(target_pnr) == user_pnr:
+        return True
+
+    target_name = _first_defined_value(task, ["target_user_name", "user_name", "target_name"])
+    if full_name and _normalize_text(target_name) == full_name:
+        return True
+
+    return False
+
+
+def _task_matches_initiator(task: dict, user_id: int, user_detail: dict) -> bool:
+    full_name = _normalize_text(f"{user_detail.get('first_name', '')} {user_detail.get('last_name', '')}")
+
+    initiator_user_id = _first_defined_value(task, ["initiator_user_id", "created_by_user_id", "triggered_by_user_id"])
+    if str(initiator_user_id or "") == str(user_id):
+        return True
+
+    initiator_name = _first_defined_value(task, ["initiator_name", "triggered_by_name", "created_by_name", "initiator_user_name"])
+    if full_name and _normalize_text(initiator_name) == full_name:
+        return True
+
+    return False
+
+
+def _summarize_process(process_id: str, tasks: list[dict]) -> dict:
+    sorted_tasks = sorted(
+        tasks,
+        key=lambda task: str(_first_defined_value(task, ["created_at", "started_at", "completed_at"], "")),
+        reverse=True
+    )
+    head = sorted_tasks[0] if sorted_tasks else {}
+    statuses = {_normalize_text(task.get("status")) for task in tasks}
+
+    if "in_progress" in statuses:
+        process_status = "in_progress"
+    elif "open" in statuses:
+        process_status = "requested"
+    elif statuses:
+        process_status = sorted(statuses)[0]
+    else:
+        process_status = "active"
+
+    return {
+        "process_id": process_id,
+        "process_name": _first_defined_value(head, ["process_name", "name", "process_type", "type"], "Prozess"),
+        "process_type": _first_defined_value(head, ["process_type", "type"], "process"),
+        "status": process_status,
+        "target_name": _first_defined_value(head, ["target_user_name", "user_name", "target_name"], "-"),
+        "initiator_name": _first_defined_value(head, ["initiator_name", "triggered_by_name", "created_by_name", "initiator_user_name"], "-"),
+        "started_at": _first_defined_value(head, ["started_at", "created_at"], None),
+        "completed_at": _first_defined_value(head, ["completed_at", "finished_at"], None),
+        "task_count": len(tasks)
+    }
+
+
+def _summarize_task_action(task: dict) -> dict:
+    return {
+        "task_id": task.get("task_id"),
+        "action": "completed",
+        "action_label": "Erledigt",
+        "task_type": task.get("task_type"),
+        "status": _normalize_text(task.get("status")) or "completed",
+        "process_id": task.get("process_id"),
+        "resource_name": task.get("resource_name"),
+        "completed_at": _first_defined_value(task, ["completed_at", "updated_at", "created_at"], None)
+    }
+
 # ------------------------------
 # Templates
 # ------------------------------
@@ -259,6 +348,68 @@ async def api_user_details(user_id: int):
     try:
         user_detail = await api_client.get_user_details(user_id)
         return JSONResponse(content=user_detail)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@app.get("/api/users/{user_id}/activity")
+async def api_user_activity(user_id: int, current_user=Depends(get_current_user_dep)):
+    try:
+        activity = await api_client.get_user_activity(user_id)
+        return JSONResponse(content=activity)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code != 404:
+            return JSONResponse(
+                content=e.response.json(),
+                status_code=e.response.status_code
+            )
+    except Exception:
+        pass
+
+    try:
+        user_detail = await api_client.get_user_details(user_id)
+        all_tasks = await api_client.list_tasks()
+        completed_tasks = await api_client.list_tasks(status="COMPLETED", assigned_to_user_id=user_id)
+
+        affected_buckets: dict[str, list[dict]] = {}
+        initiated_buckets: dict[str, list[dict]] = {}
+
+        for task in all_tasks:
+            process_id = str(_first_defined_value(task, ["process_id", "id", "task_id"], "unknown"))
+
+            if _task_matches_target_user(task, user_id, user_detail):
+                affected_buckets.setdefault(process_id, []).append(task)
+
+            if _task_matches_initiator(task, user_id, user_detail):
+                initiated_buckets.setdefault(process_id, []).append(task)
+
+        affected_processes = [
+            _summarize_process(process_id, tasks)
+            for process_id, tasks in affected_buckets.items()
+        ]
+        initiated_processes = [
+            _summarize_process(process_id, tasks)
+            for process_id, tasks in initiated_buckets.items()
+        ]
+        recent_task_actions = [
+            _summarize_task_action(task)
+            for task in sorted(
+                completed_tasks,
+                key=lambda item: str(_first_defined_value(item, ["completed_at", "updated_at", "created_at"], "")),
+                reverse=True
+            )[:5]
+        ]
+
+        return JSONResponse(content={
+            "affected_processes": affected_processes,
+            "initiated_processes": initiated_processes,
+            "recent_task_actions": recent_task_actions
+        })
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
