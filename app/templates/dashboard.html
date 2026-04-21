@@ -1,7 +1,224 @@
 {% extends "base.html" %}
 
 {% set page_title = "Dashboard" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/dashboard.css">
+{% endblock %}
+
 {% block content %}
-<h2>Willkommen {{ user.first_name }}</h2>
-<p>Hier ist dein Dashboard.</p>
+<div class="page-container dashboard-page">
+    {% if user %}
+        <section class="dashboard-private" data-dashboard-private>
+            <div class="ui-section-header dashboard-section-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Mein Bereich</p>
+                    <h2 class="ui-section-title">Persönliche Übersicht für {{ user.first_name or user.pnr or "dein Profil" }}</h2>
+                    <p class="ui-section-copy">Angepinnte Arbeitsbereiche, aktuelle Task-Zahlen und persönliche Hinweise.</p>
+                </div>
+                <div class="dashboard-private-badges">
+                    <span class="ui-chip ui-chip-primary">{{ user.primary_role.name if user.primary_role else "SOFA User" }}</span>
+                    <span class="ui-chip ui-chip-neutral">PNR {{ user.pnr or "-" }}</span>
+                </div>
+            </div>
+
+            <div class="dashboard-private-grid">
+                <article class="ui-card dashboard-card dashboard-pinned-card">
+                    <div class="dashboard-card-head">
+                        <div>
+                            <p class="ui-section-kicker">Schnellzugriff</p>
+                            <h3 class="ui-section-title">Angepinnte Tools & Reports</h3>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-pin-grid">
+                        <a href="/tools/datex" class="dashboard-pin-card">
+                            <span class="ui-chip ui-chip-primary">Tool</span>
+                            <strong>DAT-Export Check</strong>
+                            <span>Dateien prüfen und in Excel umwandeln.</span>
+                        </a>
+                        <a href="/tools/iks" class="dashboard-pin-card">
+                            <span class="ui-chip ui-chip-accent">Tool</span>
+                            <strong>IKS-Bericht Generator</strong>
+                            <span>Kontrollen und Berichte direkt anstoßen.</span>
+                        </a>
+                        <article class="dashboard-pin-card is-disabled" aria-disabled="true">
+                            <span class="ui-chip ui-chip-warning">Coming Soon</span>
+                            <strong>Report Slot</strong>
+                            <span>Platz für einen späteren Favoriten oder Standardreport.</span>
+                        </article>
+                        <article class="dashboard-pin-card dashboard-pin-card-add is-disabled" aria-disabled="true">
+                            <span class="ui-chip ui-chip-neutral">Hinzufügen</span>
+                            <strong>Neues Tool oder Report anpinnen</strong>
+                            <span>Platzhalter für einen späteren Favoriten-Dialog.</span>
+                        </article>
+                    </div>
+                </article>
+
+                <article class="ui-card dashboard-card dashboard-metrics-card">
+                    <div class="dashboard-card-head">
+                        <div>
+                            <p class="ui-section-kicker">Kennzahlen</p>
+                            <h3 class="ui-section-title">Tasks</h3>
+                        </div>
+                        <span class="ui-chip ui-chip-accent">Live</span>
+                    </div>
+
+                    <div class="dashboard-metrics-grid">
+                        <div class="dashboard-metric">
+                            <span class="dashboard-metric-label">Offene Aufgaben</span>
+                            <strong id="dashboard-open-count">-</strong>
+                        </div>
+                        <div class="dashboard-metric">
+                            <span class="dashboard-metric-label">Meine Aufgaben</span>
+                            <strong id="dashboard-my-count">-</strong>
+                        </div>
+                        <div class="dashboard-metric">
+                            <span class="dashboard-metric-label">Diesen Monat erledigt</span>
+                            <strong id="dashboard-completed-count">-</strong>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-inline-note" id="dashboard-last-completed">
+                        Persönliche Kennzahlen werden geladen.
+                    </div>
+
+                    <div class="dashboard-link-row">
+                        <a href="/tasks" class="dashboard-inline-link">Zu meinen To-Dos</a>
+                        <a href="/tools" class="dashboard-inline-link">Zu Tools & Reports</a>
+                    </div>
+                </article>
+
+                <article class="ui-card dashboard-card">
+                    <div class="dashboard-card-head">
+                        <div>
+                            <p class="ui-section-kicker">Hinweise</p>
+                            <h3 class="ui-section-title">Benachrichtigungen</h3>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-feed">
+                        <div class="dashboard-feed-item" id="dashboard-notification-open">
+                            <strong>Persönlicher Fokus</strong>
+                            <span>Deine heutige Übersicht wird geladen.</span>
+                        </div>
+                        <div class="dashboard-feed-item">
+                            <strong>Favoriten</strong>
+                            <span>Tools und Reports können hier später individuell angepinnt werden.</span>
+                        </div>
+                        <div class="dashboard-feed-item">
+                            <strong>Release Info</strong>
+                            <span>Neue öffentliche Hinweise erscheinen immer unterhalb deines privaten Bereichs.</span>
+                        </div>
+                    </div>
+                </article>
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="dashboard-public">
+        <div class="ui-section-header dashboard-section-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Öffentlich</p>
+                <h2 class="ui-section-title">Rundmeldungen, Status und Hilfe</h2>
+                <p class="ui-section-copy">Dieser Bereich bleibt ohne Login verfügbar und dient als gemeinsame Startfläche.</p>
+            </div>
+        </div>
+
+        <div class="dashboard-public-grid">
+            <article class="ui-card dashboard-card dashboard-shoutbox-card">
+                <div class="dashboard-card-head">
+                    <div>
+                        <p class="ui-section-kicker">Shoutbox</p>
+                        <h3 class="ui-section-title">Rundmeldungen</h3>
+                    </div>
+                    <span class="ui-chip ui-chip-primary">Öffentlich</span>
+                </div>
+
+                <div class="dashboard-feed">
+                    <div class="dashboard-feed-item">
+                        <strong>Willkommen im neuen Dashboard</strong>
+                        <span>Öffentliche Hinweise und persönliche Arbeit bleiben jetzt sauber auf einer Seite getrennt.</span>
+                    </div>
+                    <div class="dashboard-feed-item">
+                        <strong>Profilmenü erweitert</strong>
+                        <span>Passwort ändern und Problem melden öffnen nun Modals direkt in der Navbar.</span>
+                    </div>
+                    <div class="dashboard-feed-item">
+                        <strong>Admin-Konsole vorbereitet</strong>
+                        <span>Unter Admin steht jetzt eine zentrale Startseite für spätere Verwaltungs- und Monitoring-Themen bereit.</span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="ui-card dashboard-card">
+                <div class="dashboard-card-head">
+                    <div>
+                        <p class="ui-section-kicker">Betrieb</p>
+                        <h3 class="ui-section-title">Störungen & Wartung</h3>
+                    </div>
+                </div>
+
+                <div class="dashboard-status-stack">
+                    <div class="dashboard-status-item is-ok">
+                        <strong>SOFA Frontend</strong>
+                        <span>Keine bekannten Einschränkungen gemeldet.</span>
+                    </div>
+                    <div class="dashboard-status-item is-watch">
+                        <strong>Geplante Wartung</strong>
+                        <span>Platzhalter für angekündigte Maintenance-Fenster und betroffene Bereiche.</span>
+                    </div>
+                    <div class="dashboard-status-item is-info">
+                        <strong>Prozesskommunikation</strong>
+                        <span>Hier können später Störungen, Workarounds und Entwarnungen gebündelt publiziert werden.</span>
+                    </div>
+                </div>
+            </article>
+
+            <article class="ui-card dashboard-card dashboard-release-card">
+                <div class="dashboard-card-head">
+                    <div>
+                        <p class="ui-section-kicker">Aktuelle Version</p>
+                        <h3 class="ui-section-title">Release Notes</h3>
+                    </div>
+                    <span class="ui-chip ui-chip-neutral">April 2026</span>
+                </div>
+
+                <ul class="dashboard-list">
+                    <li>Gemischtes Dashboard mit öffentlichem und persönlichem Bereich.</li>
+                    <li>Profilaktionen in der Navbar öffnen jetzt direkte Modals.</li>
+                    <li>Neue Admin-Konsole als Startpunkt für Verwaltungs- und Monitoring-Themen.</li>
+                </ul>
+            </article>
+
+            <article class="ui-card dashboard-card dashboard-release-card">
+                <div class="dashboard-card-head">
+                    <div>
+                        <p class="ui-section-kicker">Hilfe</p>
+                        <h3 class="ui-section-title">Handbücher</h3>
+                    </div>
+                </div>
+
+                <div class="dashboard-feed">
+                    <div class="dashboard-feed-item">
+                        <strong>SOFA Kurzeinstieg</strong>
+                        <span>Der kompakte Einstieg für Navigation, To-Dos und Rollenarbeit.</span>
+                    </div>
+                    <div class="dashboard-feed-item">
+                        <strong>FAQ & Support</strong>
+                        <span>Platzhalter für typische Fragen, bekannte Stolpersteine und Rückmeldewege.</span>
+                    </div>
+                    <div class="dashboard-feed-item">
+                        <strong>Prozessleitfäden</strong>
+                        <span>Späterer Einstieg für Onboarding, Rechtebeantragung und Offboarding.</span>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/dashboard.js"></script>
 {% endblock %}

@@ -327,6 +327,11 @@ p, span, a, label {
     background: transparent;
     position: relative;
     text-align: center;
+    border: none;
+    width: 100%;
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
     transition: color 0.18s ease;
 }
 
@@ -357,6 +362,55 @@ p, span, a, label {
 .subnav-item:focus-visible::after, .subnav a:focus-visible::after,
 .subnav-item.is-active::after {
     transform: scaleX(1);
+}
+
+.subnav-item.is-disabled {
+    color: #7a86b0;
+    cursor: default;
+}
+
+.subnav-item.is-disabled::after,
+.subnav-item.is-disabled:hover::after,
+.subnav-item.is-disabled:focus-visible::after {
+    transform: scaleX(0);
+}
+
+.subnav-item.is-disabled:hover,
+.subnav-item.is-disabled:focus-visible {
+    color: #7a86b0;
+}
+
+.subnav-item.is-danger,
+.subnav a.is-danger {
+    color: #b42318;
+}
+
+.subnav-item.is-danger:hover, .subnav a.is-danger:hover,
+.subnav-item.is-danger:focus-visible, .subnav a.is-danger:focus-visible {
+    color: #8f1d14;
+}
+
+.profile-modal {
+    width: min(680px, 100%);
+}
+
+.profile-modal-form {
+    display: contents;
+}
+
+.profile-modal-userline {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.profile-modal-note {
+    padding: 0.95rem 1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(65, 105, 225, 0.14);
+    background: linear-gradient(135deg, rgba(65, 105, 225, 0.08), rgba(255, 255, 255, 0.8));
+    color: #42506a;
+    line-height: 1.5;
 }
 
 /* profile icon styles */
@@ -447,6 +501,11 @@ p, span, a, label {
 
     .site-title {
         font-size: 1.7rem;
+    }
+
+    .profile-modal-userline {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }
 

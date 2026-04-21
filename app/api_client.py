@@ -71,6 +71,50 @@ class APIClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def change_own_sofa_password(self, user_id: int, pnr: str, current_password: str, new_password: str) -> dict:
+        """
+        Temporary self-service workaround for password changes.
+
+        Current flow:
+        1. Verify the current password against /users/login
+        2. Reuse /users/{user_id}/sofa-access/reset-password for the actual update
+
+        Backend route still needed for a proper self-service flow:
+        POST /users/{user_id}/sofa-access/change-password
+        Body: {
+            "current_password": str,
+            "new_password": str,
+            "initiator_user_id": int
+        }
+        """
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+            verify_resp = await client.post(
+                "/users/login",
+                json={"pnr": pnr, "password": current_password}
+            )
+            if verify_resp.is_error:
+                raise httpx.HTTPStatusError(
+                    message="Current password verification failed",
+                    request=verify_resp.request,
+                    response=verify_resp
+                )
+
+            reset_resp = await client.post(
+                f"/users/{user_id}/sofa-access/reset-password",
+                json={
+                    "password": new_password,
+                    "initiator_user_id": user_id
+                }
+            )
+            if reset_resp.is_error:
+                raise httpx.HTTPStatusError(
+                    message="Password reset flow failed",
+                    request=reset_resp.request,
+                    response=reset_resp
+                )
+
+            return reset_resp.json()
+
     async def revoke_user_sofa_access(self, user_id: int, payload: dict) -> dict:
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.post(f"/users/{user_id}/sofa-access/revoke", json=payload)

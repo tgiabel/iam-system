@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% set page_title = "Konsole" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/console.css">
+{% endblock %}
+
+{% block content %}
+<div class="page-container console-page">
+    <section class="console-hero ui-card">
+        <div class="ui-section-heading">
+            <p class="ui-section-kicker">Admin</p>
+            <h2 class="console-hero-title">Konsole</h2>
+            <p class="ui-section-copy">
+                Zentrale Startseite für Verwaltungszugriffe, Betriebsnotizen und spätere Monitoring-Funktionen.
+            </p>
+        </div>
+        <div class="console-hero-badges">
+            <span class="ui-chip ui-chip-primary">{{ user.first_name or user.pnr or "User" }}</span>
+            <span class="ui-chip ui-chip-neutral">{{ user.primary_role.name if user.primary_role else "SOFA" }}</span>
+        </div>
+    </section>
+
+    <section class="console-section">
+        <div class="ui-section-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Schnellzugriffe</p>
+                <h3 class="ui-section-title">Verwaltungsbereiche</h3>
+            </div>
+        </div>
+
+        <div class="console-link-grid">
+            <a href="/users" class="console-link-card ui-card">
+                <strong>Userverwaltung</strong>
+                <span>Profile, Rollenbezug, SOFA Zugriff und Aktivitäten prüfen.</span>
+            </a>
+            <a href="/systems" class="console-link-card ui-card">
+                <strong>Systemverwaltung</strong>
+                <span>Systeme, Ressourcen und Zuordnungen zentral verwalten.</span>
+            </a>
+            <a href="/roles" class="console-link-card ui-card">
+                <strong>Rollenmanagement</strong>
+                <span>Rollenstrukturen, Vererbungen und Zuweisungen bearbeiten.</span>
+            </a>
+            <a href="/iks" class="console-link-card ui-card">
+                <strong>Kontrollsystem</strong>
+                <span>Kontrollen, Audits und Folgeschritte in einem Bereich bündeln.</span>
+            </a>
+        </div>
+    </section>
+
+    <section class="console-grid">
+        <article class="ui-card console-panel">
+            <div class="console-panel-head">
+                <p class="ui-section-kicker">Betrieb</p>
+                <h3 class="ui-section-title">Status & Hinweise</h3>
+            </div>
+
+            <div class="console-status-list">
+                <div class="console-status-item">
+                    <strong>Monitoring vorbereitet</strong>
+                    <span>Dieser Bereich ist der vorgesehene Einstiegspunkt für künftige Jobs, Fehlerbilder und Systemzustände.</span>
+                </div>
+                <div class="console-status-item">
+                    <strong>Admin-Routing aktiv</strong>
+                    <span>Die Konsole ist jetzt als fester Reiter im Admin-Menü integriert.</span>
+                </div>
+            </div>
+        </article>
+
+        <article class="ui-card console-panel">
+            <div class="console-panel-head">
+                <p class="ui-section-kicker">Roadmap</p>
+                <h3 class="ui-section-title">Geplante Ausbaustufen</h3>
+            </div>
+
+            <ul class="console-list">
+                <li>Systemzustände und Wartungsmeldungen aus Backend-Quellen einblenden.</li>
+                <li>Job- und Prozessübersichten für Admins zusammenführen.</li>
+                <li>Spätere Log- und Fehleransichten als eigene Konsole-Blöcke ergänzen.</li>
+            </ul>
+        </article>
+
+        <article class="ui-card console-panel console-placeholder-panel">
+            <div class="console-panel-head">
+                <p class="ui-section-kicker">Platzhalter</p>
+                <h3 class="ui-section-title">Logs / Jobs / Systemzustände</h3>
+            </div>
+
+            <div class="console-placeholder-box">
+                Dieser Bereich bleibt bewusst frei für spätere Monitoring-Kacheln, Queue-Informationen oder Health-Checks.
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}

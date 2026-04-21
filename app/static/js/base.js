@@ -6,6 +6,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const profileBtn = document.getElementById("profile-button");
     const navProfile = document.getElementById("nav-profile");
     const profileMenu = document.getElementById("profile-subnav");
+    const profileModalTriggers = document.querySelectorAll("[data-profile-modal-trigger]");
+    const modalCloseButtons = document.querySelectorAll("[data-modal-close]");
+    const modalOverlays = document.querySelectorAll(".ui-modal-overlay[data-base-modal]");
+    const passwordChangeModal = document.getElementById("password-change-modal");
+    const passwordChangeForm = document.getElementById("password-change-form");
+    const passwordChangeSubmit = document.getElementById("password-change-submit");
+    const reportProblemModal = document.getElementById("report-problem-modal");
+    const reportProblemForm = document.getElementById("report-problem-form");
     const themeToggleButton = document.getElementById("theme-toggle-button");
     const themeToggleIcon = document.getElementById("theme-toggle-icon");
     const themeIcons = [
@@ -24,6 +32,32 @@ document.addEventListener("DOMContentLoaded", () => {
             const menu = parent.querySelector(".subnav");
             if (menu) menu.setAttribute("aria-hidden", "true");
         });
+    }
+
+    function updateBodyScrollLock() {
+        const hasOpenModal = document.querySelector(".ui-modal-overlay.active");
+        document.body.classList.toggle("modal-open", Boolean(hasOpenModal));
+    }
+
+    function openModal(overlay) {
+        if (!overlay) return;
+        closeAll();
+        overlay.classList.add("active");
+        overlay.setAttribute("aria-hidden", "false");
+        updateBodyScrollLock();
+    }
+
+    function closeModal(overlay) {
+        if (!overlay) return;
+        overlay.classList.remove("active");
+        overlay.setAttribute("aria-hidden", "true");
+        if (overlay.id === "password-change-modal") {
+            passwordChangeForm?.reset();
+        }
+        if (overlay.id === "report-problem-modal") {
+            reportProblemForm?.reset();
+        }
+        updateBodyScrollLock();
     }
 
     function normalizePath(path) {
@@ -63,6 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         const adminTargets = [
+            { selector: '[data-nav-target="console"]', path: "/console" },
             { selector: '[data-nav-target="users"]', path: "/users" },
             { selector: '[data-nav-target="systems"]', path: "/systems" },
             { selector: '[data-nav-target="roles"]', path: "/roles" },
@@ -168,6 +203,101 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    profileModalTriggers.forEach(trigger => {
+        trigger.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const targetId = trigger.getAttribute("data-profile-modal-trigger");
+            if (!targetId) return;
+            openModal(document.getElementById(targetId));
+        });
+    });
+
+    modalCloseButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            const targetId = button.getAttribute("data-modal-close");
+            if (!targetId) return;
+            closeModal(document.getElementById(targetId));
+        });
+    });
+
+    modalOverlays.forEach(overlay => {
+        overlay.addEventListener("click", event => {
+            if (event.target === overlay) {
+                closeModal(overlay);
+            }
+        });
+    });
+
+    passwordChangeForm?.addEventListener("submit", async event => {
+        event.preventDefault();
+
+        const currentPassword = document.getElementById("current-password-input")?.value?.trim() || "";
+        const newPassword = document.getElementById("new-password-input")?.value?.trim() || "";
+        const confirmPassword = document.getElementById("confirm-password-input")?.value?.trim() || "";
+
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            showFlash("Bitte alle Passwortfelder ausfüllen.", "failure");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            showFlash("Die neuen Passwörter stimmen nicht überein.", "failure");
+            return;
+        }
+
+        if (currentPassword === newPassword) {
+            showFlash("Das neue Passwort muss sich vom aktuellen unterscheiden.", "failure");
+            return;
+        }
+
+        if (passwordChangeSubmit) {
+            passwordChangeSubmit.disabled = true;
+            passwordChangeSubmit.textContent = "Speichert...";
+        }
+
+        try {
+            const response = await fetch("/api/account/change-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    current_password: currentPassword,
+                    new_password: newPassword
+                })
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                showFlash(data.detail || data.error || "Passwort konnte nicht geändert werden.", "failure");
+                return;
+            }
+            closeModal(passwordChangeModal);
+            showFlash("Passwort erfolgreich geändert.", "success");
+        } catch (error) {
+            console.error(error);
+            showFlash("Netzwerkfehler beim Ändern des Passworts.", "failure");
+        } finally {
+            if (passwordChangeSubmit) {
+                passwordChangeSubmit.disabled = false;
+                passwordChangeSubmit.textContent = "Passwort speichern";
+            }
+        }
+    });
+
+    reportProblemForm?.addEventListener("submit", event => {
+        event.preventDefault();
+
+        const subject = document.getElementById("problem-subject-input")?.value?.trim() || "";
+        const description = document.getElementById("problem-description-input")?.value?.trim() || "";
+
+        if (!subject || !description) {
+            showFlash("Bitte Betreff und Beschreibung ausfüllen.", "failure");
+            return;
+        }
+        closeModal(reportProblemModal);
+        showFlash("Problemhinweis vorgemerkt. Versand folgt in einem späteren Schritt.", "success");
+    });
+
     markActiveNavigation();
 
     // click outside closes menus
@@ -177,7 +307,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Escape closes menus
     window.addEventListener("keydown", (ev) => {
-        if (ev.key === "Escape") closeAll();
+        if (ev.key !== "Escape") return;
+
+        const openModalOverlay = document.querySelector(".ui-modal-overlay.active");
+        if (openModalOverlay) {
+            closeModal(openModalOverlay);
+            return;
+        }
+
+        closeAll();
     });
 
     // existing alerts logic

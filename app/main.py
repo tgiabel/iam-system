@@ -26,6 +26,16 @@ def _normalize_text(value) -> str:
     return str(value or "").strip().lower()
 
 
+def _error_content_from_response(response: httpx.Response) -> dict:
+    try:
+        payload = response.json()
+        if isinstance(payload, dict):
+            return payload
+        return {"detail": payload}
+    except Exception:
+        return {"detail": response.text or "Unbekannter Fehler"}
+
+
 def _task_matches_target_user(task: dict, user_id: int, user_detail: dict) -> bool:
     full_name = _normalize_text(f"{user_detail.get('first_name', '')} {user_detail.get('last_name', '')}")
     user_pnr = _normalize_text(user_detail.get("pnr"))
@@ -197,6 +207,10 @@ def tasks(request: Request, user=Depends(get_current_user_dep)):
 @app.get("/tools", response_class=HTMLResponse)
 def tools(request: Request, user=Depends(get_current_user_dep)):
     return templates.TemplateResponse("tools.html", {"request": request, "user": user})
+
+@app.get("/console", response_class=HTMLResponse)
+def console(request: Request, user=Depends(get_current_user_dep)):
+    return templates.TemplateResponse("console.html", {"request": request, "user": user})
 
 # ------------------------------
 # Userverwaltung-Seite
@@ -585,6 +599,69 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(get_current_user_
             content={"error": str(e)},
             status_code=500
         )
+
+@app.post("/api/account/change-password")
+async def api_change_own_password(payload: dict, current_user=Depends(get_current_user_dep)):
+    """
+    Temporary BFF self-service password change.
+
+    Current implementation validates the current password via /users/login and
+    then reuses the existing reset-password backend flow.
+
+    Backend route still needed for a dedicated self-service path:
+    POST /users/{user_id}/sofa-access/change-password
+    Body: {
+        "current_password": str,
+        "new_password": str,
+        "initiator_user_id": int
+    }
+    """
+    current_password = str(payload.get("current_password") or "").strip()
+    new_password = str(payload.get("new_password") or "").strip()
+
+    if not current_password or not new_password:
+        return JSONResponse(
+            content={"detail": "Aktuelles Passwort und neues Passwort sind erforderlich."},
+            status_code=400
+        )
+
+    if current_password == new_password:
+        return JSONResponse(
+            content={"detail": "Das neue Passwort muss sich vom aktuellen Passwort unterscheiden."},
+            status_code=400
+        )
+
+    user_id = current_user["user_id"]
+    pnr = str(current_user.get("pnr") or "").strip()
+
+    if not pnr:
+        return JSONResponse(
+            content={"detail": "Die Personalnummer des aktuellen Users konnte nicht ermittelt werden."},
+            status_code=400
+        )
+
+    try:
+        result = await api_client.change_own_sofa_password(
+            user_id=user_id,
+            pnr=pnr,
+            current_password=current_password,
+            new_password=new_password
+        )
+        return JSONResponse(content=result or {"status": "success"})
+    except httpx.HTTPStatusError as e:
+        request_path = e.request.url.path if e.request else ""
+        if request_path.endswith("/users/login") and e.response.status_code in (400, 401, 403, 404):
+            return JSONResponse(
+                content={"detail": "Das aktuelle Passwort ist nicht korrekt."},
+                status_code=400
+            )
+
+        return JSONResponse(
+            content=_error_content_from_response(e.response),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
     
 @app.post("/api/processes/onboarding")
 async def api_start_onboarding_process(

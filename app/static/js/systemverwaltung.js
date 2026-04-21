@@ -102,6 +102,7 @@ function getFilteredSystems() {
 
 function getProtectionClass(system) {
     const rawValue =
+        system?.protection_need?.overall ||
         system?.schutzbedarfklasse ||
         system?.schutzbedarf ||
         system?.protection_class ||
@@ -115,7 +116,7 @@ function getProtectionClass(system) {
         return { label: "Gering", className: "systems-protection-low" };
     }
 
-    if (["erhoeht", "erhöht", "mittel", "medium"].includes(normalized)) {
+    if (["erhoeht", "erhöht", "mittel", "medium", "elevated"].includes(normalized)) {
         return { label: "Erhöht", className: "systems-protection-medium" };
     }
 

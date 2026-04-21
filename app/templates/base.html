@@ -5,6 +5,7 @@
     <title>{{ page_title }} | SOFA</title>
     <link rel="icon" type="image/x-icon" href="/static/img/logo.png">
     <link rel="stylesheet" href="/static/css/_.css">
+    <link rel="stylesheet" href="/static/css/ui.css">
     {% block css %}{% endblock %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -54,6 +55,7 @@
                             <span class="nav-caret" aria-hidden="true">▾</span>
                         </button>
                         <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
+                            <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console">Konsole</a>
                             <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users">Userverwaltung</a>
                             <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems">Systemverwaltung</a>
                             <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
@@ -73,8 +75,10 @@
                         <img src="/static/img/account_icon.png" alt="Profil" class="profile-icon" />
                     </button>
                     <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
-                        <a href="/account" role="menuitem" class="subnav-item" data-nav-target="account">Account</a>
-                        <a href="/logout" role="menuitem" class="subnav-item">Abmelden</a>
+                        <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1">Account</button>
+                        <button type="button" role="menuitem" class="subnav-item" data-profile-modal-trigger="password-change-modal">Passwort ändern</button>
+                        <button type="button" role="menuitem" class="subnav-item is-danger" data-profile-modal-trigger="report-problem-modal">Problem melden</button>
+                        <a href="/logout" role="menuitem" class="subnav-item is-danger">Logout</a>
                     </div>
                 </div>
             {% else %}
@@ -107,5 +111,112 @@
     <footer>
         <p class="footer-txt">SERVODATA ONE FOR ALL - &copy; 2026 Servodata</p>
     </footer>
+
+    {% if user %}
+        <div
+            id="password-change-modal"
+            class="ui-modal-overlay profile-modal-overlay"
+            data-base-modal="password-change"
+            aria-hidden="true">
+            <div class="ui-modal ui-modal-compact profile-modal" role="dialog" aria-modal="true" aria-labelledby="password-change-title">
+                <div class="ui-modal-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Profil</p>
+                        <h3 id="password-change-title">Passwort ändern</h3>
+                        <p class="ui-section-copy">Ändere dein persönliches SOFA Passwort direkt aus dem Profilmenü.</p>
+                    </div>
+                    <button type="button" class="ui-icon-button" data-modal-close="password-change-modal" aria-label="Passwort-Dialog schließen">&times;</button>
+                </div>
+
+                <form id="password-change-form" class="profile-modal-form">
+                    <div class="ui-modal-body">
+                        <div class="profile-modal-userline">
+                            <span class="ui-chip ui-chip-primary">{{ user.first_name }} {{ user.last_name }}</span>
+                            <span class="ui-chip ui-chip-neutral">PNR {{ user.pnr or "-" }}</span>
+                        </div>
+
+                        <div class="ui-field-group">
+                            <label for="current-password-input" class="ui-field-label">Aktuelles Passwort</label>
+                            <input id="current-password-input" name="current_password" class="ui-input" type="password" autocomplete="current-password" required>
+                        </div>
+
+                        <div class="ui-field-group">
+                            <label for="new-password-input" class="ui-field-label">Neues Passwort</label>
+                            <input id="new-password-input" name="new_password" class="ui-input" type="password" autocomplete="new-password" required>
+                        </div>
+
+                        <div class="ui-field-group">
+                            <label for="confirm-password-input" class="ui-field-label">Neues Passwort bestätigen</label>
+                            <input id="confirm-password-input" name="confirm_password" class="ui-input" type="password" autocomplete="new-password" required>
+                        </div>
+
+                        <p class="profile-modal-note">
+                            Der Self-Service läuft aktuell über einen temporären BFF-Flow. Im Backend wird noch eine dedizierte Change-Password-Route benötigt.
+                        </p>
+                    </div>
+
+                    <div class="ui-modal-footer">
+                        <button type="button" class="btn btn-secondary" data-modal-close="password-change-modal">Abbrechen</button>
+                        <button type="submit" id="password-change-submit" class="btn btn-primary">Passwort speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div
+            id="report-problem-modal"
+            class="ui-modal-overlay profile-modal-overlay"
+            data-base-modal="report-problem"
+            aria-hidden="true">
+            <div class="ui-modal ui-modal-compact profile-modal" role="dialog" aria-modal="true" aria-labelledby="report-problem-title">
+                <div class="ui-modal-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Profil</p>
+                        <h3 id="report-problem-title">Problem melden</h3>
+                        <p class="ui-section-copy">Frontend-Sammelmaske für Rückmeldungen. Versand und Persistenz folgen in einem späteren Schritt.</p>
+                    </div>
+                    <button type="button" class="ui-icon-button" data-modal-close="report-problem-modal" aria-label="Problem-Dialog schließen">&times;</button>
+                </div>
+
+                <form id="report-problem-form" class="profile-modal-form">
+                    <div class="ui-modal-body">
+                        <div class="ui-field-group">
+                            <label for="problem-subject-input" class="ui-field-label">Betreff</label>
+                            <input id="problem-subject-input" name="subject" class="ui-input" type="text" placeholder="Kurze Zusammenfassung" required>
+                        </div>
+
+                        <div class="ui-field-group">
+                            <label for="problem-category-input" class="ui-field-label">Kategorie</label>
+                            <select id="problem-category-input" name="category" class="ui-input">
+                                <option value="ui">UI / Oberfläche</option>
+                                <option value="prozess">Prozess / Ablauf</option>
+                                <option value="daten">Daten / Inhalte</option>
+                                <option value="sonstiges">Sonstiges</option>
+                            </select>
+                        </div>
+
+                        <div class="ui-field-group">
+                            <label for="problem-description-input" class="ui-field-label">Beschreibung</label>
+                            <textarea id="problem-description-input" name="description" class="ui-textarea" rows="7" placeholder="Was ist passiert, was wurde erwartet, und auf welcher Seite trat es auf?" required></textarea>
+                        </div>
+
+                        <div class="ui-field-group">
+                            <label for="problem-contact-input" class="ui-field-label">Kontakt für Rückfragen</label>
+                            <input id="problem-contact-input" name="contact" class="ui-input" type="text" value="{{ user.email or user.pnr or '' }}" placeholder="E-Mail, PNR oder Name">
+                        </div>
+
+                        <p class="profile-modal-note">
+                            Dieses Modal ist vorerst rein frontendseitig. Die Eingaben werden noch nicht gespeichert oder versendet.
+                        </p>
+                    </div>
+
+                    <div class="ui-modal-footer">
+                        <button type="button" class="btn btn-secondary" data-modal-close="report-problem-modal">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Meldung vormerken</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
 </body>
 </html>
