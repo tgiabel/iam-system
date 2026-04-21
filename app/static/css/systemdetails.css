@@ -70,6 +70,8 @@
     width: 400px;
     max-width: 90%;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    max-height: 90%;
+    overflow: auto;
 }
 
 .resource-header {
@@ -92,6 +94,19 @@
     padding: 8px;
     border-radius: 4px;
     border: 1px solid #ccc;
+}
+
+#resource-parent-field {
+    gap: 8px;
+}
+
+#res-parent-id {
+    min-height: 168px;
+}
+
+.form-help {
+    font-size: 0.9em;
+    color: #666;
 }
 
 .resource-actions {

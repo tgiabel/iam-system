@@ -8,21 +8,26 @@ const DOM = {};
 const STATE = {
     overlayMode: "view",
     currentResource: null,
+    parentResourceCandidates: [],
+    parentResourceQuery: "",
+    selectedParentResourceId: null,
     users: [],
     isEditing: false
 };
 
 const TASK_TYPES = ["ASSIGNMENT", "REVOCATION"];
+const PARENT_RESOURCE_TYPE_ID = 1;
 
 const api = {
-    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, meta = null) {
+    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, meta = null) {
         try {    
             const body = { 
                 system_id: sysId,
                 type_id: typeId,
                 display_name: displayName,
                 technical_identifier: technicalIdentifier,
-                override_handling_type: handlingType
+                override_handling_type: handlingType,
+                parent_resource_id: parentResourceId
             };
             if (Array.isArray(meta) && meta.length > 0) {
                 body.meta = meta;
@@ -46,7 +51,7 @@ const api = {
             return false;
         }
     },
-    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, meta = null) {
+    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, meta = null) {
         try{
             const body = {
                 resource_id: resId,
@@ -54,7 +59,8 @@ const api = {
                 type_id: typeId,
                 display_name: displayName,
                 technical_identifier: technicalIdentifier,
-                override_handling_type: handlingType
+                override_handling_type: handlingType,
+                parent_resource_id: parentResourceId
             };
             if (Array.isArray(meta) && meta.length > 0) {
                 body.meta = meta;
@@ -118,6 +124,7 @@ async function init(){
     cacheDOM();
     bindBaseEvents();
     await loadUsers();
+    await loadParentResourceCandidates();
     await loadSystemDetail();
 }
 
@@ -156,6 +163,9 @@ function cacheDOM(){
     DOM.techId = document.getElementById("res-technical-id");
     DOM.type = document.getElementById("res-type");
     DOM.handling = document.getElementById("res-handling");
+    DOM.parentSearch = document.getElementById("res-parent-search");
+    DOM.parentSelect = document.getElementById("res-parent-id");
+    DOM.parentSelectionLabel = document.getElementById("res-parent-selection-label");
     DOM.handlingMetaContainer = document.getElementById("resource-meta-container");
     DOM.metaFields = {
         EXTERNAL: {
@@ -224,6 +234,23 @@ async function loadUsers() {
         STATE.users = [];
     }
     fillRecipientOptions();
+}
+
+async function loadParentResourceCandidates() {
+    try {
+        const res = await fetch(`/api/resources?type_id=${PARENT_RESOURCE_TYPE_ID}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "Parent-Ressourcen konnten nicht geladen werden");
+        }
+
+        STATE.parentResourceCandidates = Array.isArray(data) ? data : [];
+    } catch (e) {
+        console.error("Fehler beim Laden der Parent-Ressourcen:", e);
+        STATE.parentResourceCandidates = [];
+        showFlash("Parent-Ressourcen konnten nicht geladen werden", "failure");
+    }
 }
 
 //------------------------------------------------
@@ -346,6 +373,8 @@ function bindBaseEvents(){
     DOM.editResBtn.addEventListener("click", ()=> openOverlay("edit"));
     DOM.selectRes.addEventListener("change", onSelectResource);
     DOM.handling.addEventListener("change", toggleHandlingMetaField);
+    DOM.parentSearch.addEventListener("input", onParentSearchInput);
+    DOM.parentSelect.addEventListener("change", onParentSelectionChange);
 
     [DOM.closeBtn, DOM.cancelBtn].forEach(btn=>{
         btn.addEventListener("click", closeOverlay);
@@ -514,6 +543,7 @@ function openOverlay(mode, resource=null){
             display_name:"",
             technical_identifier:"",
             type_id:1,
+            parent_resource_id:null,
             override_handling_type:"INTERNAL"
         });
 
@@ -525,6 +555,9 @@ function closeOverlay(){
     DOM.overlay.classList.remove("active");
     DOM.selectRes.value = "";
     DOM.form.style.display = "none";
+    DOM.parentSearch.value = "";
+    STATE.parentResourceQuery = "";
+    STATE.selectedParentResourceId = null;
 }
 
 //------------------------------------------------
@@ -537,6 +570,11 @@ function fillResourceForm(res){
     DOM.techId.value = res.technical_identifier || "";
     DOM.type.value = res.type_id || 1;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
+    STATE.selectedParentResourceId = normalizeParentResourceId(res.parent_resource_id);
+    DOM.parentSearch.value = "";
+    STATE.parentResourceQuery = "";
+    renderParentResourceOptions();
+    updateParentSelectionLabel();
 
     resetMetaFields();
     toggleHandlingMetaField();
@@ -565,6 +603,7 @@ function onSelectResource(){
 async function saveResource(){
     const handlingType = DOM.handling.value;
     const typeId = parseInt(DOM.type.value, 10);
+    const parentResourceId = getSelectedParentResourceId();
     const meta = buildMetaPayload(handlingType);
     let success = false;
 
@@ -576,6 +615,7 @@ async function saveResource(){
             DOM.displayName.value,
             DOM.techId.value,
             handlingType,
+            parentResourceId,
             meta
         );
     }else{
@@ -585,6 +625,7 @@ async function saveResource(){
             DOM.displayName.value,
             DOM.techId.value,
             handlingType,
+            parentResourceId,
             meta
         );
     }
@@ -786,4 +827,106 @@ function normalizeRecipientValue(value) {
 
     const normalized = value.trim();
     return /^\d+$/.test(normalized) ? parseInt(normalized, 10) : normalized;
+}
+
+function onParentSearchInput() {
+    STATE.parentResourceQuery = DOM.parentSearch.value.trim();
+    renderParentResourceOptions();
+}
+
+function onParentSelectionChange() {
+    STATE.selectedParentResourceId = normalizeParentResourceId(DOM.parentSelect.value);
+    updateParentSelectionLabel();
+}
+
+function renderParentResourceOptions() {
+    const currentResourceId = normalizeParentResourceId(STATE.currentResource?.resource_id);
+    const query = STATE.parentResourceQuery.toLowerCase();
+    const candidates = STATE.parentResourceCandidates.filter(candidate => {
+        const candidateId = normalizeParentResourceId(candidate.resource_id);
+
+        if (currentResourceId != null && candidateId === currentResourceId) {
+            return false;
+        }
+
+        if (STATE.selectedParentResourceId != null && candidateId === STATE.selectedParentResourceId) {
+            return true;
+        }
+
+        if (!query) {
+            return true;
+        }
+
+        const haystack = [
+            candidate.display_name,
+            candidate.technical_identifier,
+            candidate.system_name
+        ]
+            .map(value => String(value || "").toLowerCase())
+            .join(" ");
+
+        return haystack.includes(query);
+    });
+
+    DOM.parentSelect.innerHTML = "";
+
+    const emptyOption = document.createElement("option");
+    emptyOption.value = "";
+    emptyOption.textContent = "Keine uebergeordnete Ressource";
+    DOM.parentSelect.appendChild(emptyOption);
+
+    candidates.forEach(candidate => {
+        const option = document.createElement("option");
+        option.value = String(candidate.resource_id);
+        option.textContent = formatParentCandidateLabel(candidate);
+        DOM.parentSelect.appendChild(option);
+    });
+
+    DOM.parentSelect.value = STATE.selectedParentResourceId == null
+        ? ""
+        : String(STATE.selectedParentResourceId);
+
+    if (DOM.parentSelect.value !== "" && DOM.parentSelect.value !== String(STATE.selectedParentResourceId)) {
+        DOM.parentSelect.value = "";
+    }
+}
+
+function formatParentCandidateLabel(candidate) {
+    const parts = [candidate.display_name || `Ressource ${candidate.resource_id}`];
+
+    if (candidate.technical_identifier) {
+        parts.push(candidate.technical_identifier);
+    }
+
+    if (candidate.system_name) {
+        parts.push(candidate.system_name);
+    }
+
+    return parts.join(" | ");
+}
+
+function normalizeParentResourceId(value) {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getSelectedParentResourceId() {
+    return normalizeParentResourceId(DOM.parentSelect.value);
+}
+
+function updateParentSelectionLabel() {
+    const selectedResource = STATE.parentResourceCandidates.find(candidate =>
+        normalizeParentResourceId(candidate.resource_id) === STATE.selectedParentResourceId
+    );
+
+    if (!selectedResource) {
+        DOM.parentSelectionLabel.textContent = "Keine uebergeordnete Ressource ausgewaehlt.";
+        return;
+    }
+
+    DOM.parentSelectionLabel.textContent = `Ausgewaehlt: ${formatParentCandidateLabel(selectedResource)}`;
 }

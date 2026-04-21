@@ -602,20 +602,6 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(get_current_user_
 
 @app.post("/api/account/change-password")
 async def api_change_own_password(payload: dict, current_user=Depends(get_current_user_dep)):
-    """
-    Temporary BFF self-service password change.
-
-    Current implementation validates the current password via /users/login and
-    then reuses the existing reset-password backend flow.
-
-    Backend route still needed for a dedicated self-service path:
-    POST /users/{user_id}/sofa-access/change-password
-    Body: {
-        "current_password": str,
-        "new_password": str,
-        "initiator_user_id": int
-    }
-    """
     current_password = str(payload.get("current_password") or "").strip()
     new_password = str(payload.get("new_password") or "").strip()
 
@@ -643,18 +629,11 @@ async def api_change_own_password(payload: dict, current_user=Depends(get_curren
     try:
         result = await api_client.change_own_sofa_password(
             user_id=user_id,
-            pnr=pnr,
             current_password=current_password,
             new_password=new_password
         )
         return JSONResponse(content=result or {"status": "success"})
     except httpx.HTTPStatusError as e:
-        request_path = e.request.url.path if e.request else ""
-        if request_path.endswith("/users/login") and e.response.status_code in (400, 401, 403, 404):
-            return JSONResponse(
-                content={"detail": "Das aktuelle Passwort ist nicht korrekt."},
-                status_code=400
-            )
 
         return JSONResponse(
             content=_error_content_from_response(e.response),
@@ -880,6 +859,35 @@ async def api_get_system_resources(system_id: int, current_user=Depends(get_curr
             content={"error": str(e)},
             status_code=500
         )
+
+@app.get("/api/resources")
+async def api_list_resources(
+    type_id: int | None = None,
+    search: str | None = None,
+    limit: int | None = None,
+    current_user=Depends(get_current_user_dep)
+):
+    try:
+        params = {}
+        if type_id is not None:
+            params["type_id"] = type_id
+        if search:
+            params["search"] = search
+        if limit is not None:
+            params["limit"] = limit
+
+        resources = await api_client.list_resources(params=params or None)
+        return JSONResponse(content=resources)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=_error_content_from_response(e.response),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
     
 @app.post("/api/resources")
 async def api_create_system_resource(payload: dict, current_user=Depends(get_current_user_dep)):
@@ -1016,6 +1024,24 @@ async def api_start_skill_assignment_process(payload: dict, current_user=Depends
     try:
         payload["initiator_user_id"] = current_user["user_id"]
         result = await api_client.trigger_skill_assignment(payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        print(e)
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.post("/api/processes/change")
+async def api_start_primary_role_change_process(payload: dict, current_user=Depends(get_current_user_dep)):
+    try:
+        payload["initiator_user_id"] = current_user["user_id"]
+        result = await api_client.trigger_primary_role_change(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
         return JSONResponse(

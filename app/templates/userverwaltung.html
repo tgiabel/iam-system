@@ -191,6 +191,7 @@
                     </div>
                     <p class="user-action-copy">Rollenbezogene Aktionen direkt im Kontext der aktuellen Zuweisungen starten.</p>
                     <div class="user-action-group">
+                        <button type="button" class="btn btn-primary" id="primary-role-change-action-btn">Funktion wechseln</button>
                         <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
                         <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
                         <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>
@@ -277,6 +278,19 @@
                 <h3 class="ui-section-title">Neue Rolle</h3>
             </div>
             <button type="button" class="ui-icon-button" id="new-skill-close-btn" aria-label="Neue Rolle schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body"></div>
+    </div>
+</div>
+
+<div class="ui-modal-overlay" id="primary-role-change-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="primary-role-change-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title">Funktion wechseln</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="primary-role-change-close-btn" aria-label="Funktion wechseln schließen">&times;</button>
         </div>
         <div class="ui-modal-body"></div>
     </div>

@@ -73,6 +73,7 @@
                     <button id="profile-button" class="profile-button" type="button"
                             aria-haspopup="true" aria-expanded="false" aria-controls="profile-subnav" title="Profil">
                         <img src="/static/img/account_icon.png" alt="Profil" class="profile-icon" />
+                        <span style="color: white;">{{user.first_name}}</span>
                     </button>
                     <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
                         <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1">Account</button>
@@ -150,9 +151,6 @@
                             <input id="confirm-password-input" name="confirm_password" class="ui-input" type="password" autocomplete="new-password" required>
                         </div>
 
-                        <p class="profile-modal-note">
-                            Der Self-Service läuft aktuell über einen temporären BFF-Flow. Im Backend wird noch eine dedizierte Change-Password-Route benötigt.
-                        </p>
                     </div>
 
                     <div class="ui-modal-footer">

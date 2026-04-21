@@ -246,6 +246,30 @@ const api = {
         }
     },
 
+    async startPrimaryRoleChange(payload) {
+        try {
+            const res = await fetch("/api/processes/change", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                showFlash(data.detail || data.error || "Unbekannter Fehler", "failure");
+                return false;
+            }
+
+            const roleName = state.roleMap?.[payload.role_id]?.name || payload.role_id;
+            showFlash(`Funktion erfolgreich auf ${roleName} gewechselt`, "success");
+            return true;
+        } catch (err) {
+            console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
+        }
+    },
+
     async startSkillRevoke(payload) {
         try {
             const res = await fetch("/api/processes/skill_revocation", {
@@ -421,6 +445,18 @@ function getAssignmentStatus(resourceOrRole) {
 
 function getSecondaryRoles(user) {
     return Array.isArray(user?.secondary_roles) ? user.secondary_roles : [];
+}
+
+function getAssignedRoleIds(user) {
+    const sourceUser = state.currentUserDetail?.user_id === user?.user_id
+        ? state.currentUserDetail
+        : user;
+
+    return new Set(
+        getRoleAssignments(sourceUser)
+            .map(role => String(role?.role_id || "").trim())
+            .filter(Boolean)
+    );
 }
 
 function getRolePreview(roles) {
@@ -1197,6 +1233,7 @@ const sidebarController = {
         document.getElementById("sofa-access-revoke-btn")?.addEventListener("click", () => {
             sofaAccessModalController.open(user, "revoke");
         });
+        DOM.primaryRoleChangeActionBtn.onclick = () => primaryRoleChangeModalController.open(user);
         DOM.tmpRightsActionBtn.onclick = () => tmpRightsModalController.open(user);
         DOM.newSkillActionBtn.onclick = () => newSkillModalController.open(user);
         DOM.skillRevokeActionBtn.onclick = () => skillRevokeModalController.open(user);
@@ -1565,6 +1602,108 @@ const newSkillModalController = {
     }
 };
 
+const primaryRoleChangeModalController = {
+    init() {
+        bindModalOverlayDismiss(DOM.primaryRoleChangeOverlay, () => this.close());
+        DOM.primaryRoleChangeCloseBtn?.addEventListener("click", () => this.close());
+    },
+
+    open(user) {
+        this.renderSelection(user);
+        openOverlay("primary-role-change-overlay");
+    },
+
+    close() {
+        closeOverlay("primary-role-change-overlay");
+        DOM.primaryRoleChangeModalBody.innerHTML = "";
+    },
+
+    async renderSelection(user) {
+        DOM.primaryRoleChangeModalTitle.textContent = `Funktion wechseln für ${user.first_name} ${user.last_name}`;
+        DOM.primaryRoleChangeModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="primary-role-change-select">Neue Hauptrolle</label>
+                    <select id="primary-role-change-select" class="ui-input">
+                        <option value="" disabled selected>Hauptrolle auswählen…</option>
+                    </select>
+                </div>
+                ${buildButtonRow("Weiter")}
+            </div>
+        `;
+
+        const select = document.getElementById("primary-role-change-select");
+        const assignedRoleIds = getAssignedRoleIds(user);
+
+        Object.entries(await api.getRoleMap())
+            .filter(([, role]) => role.type === "PRIMARY")
+            .filter(([roleId]) => !assignedRoleIds.has(String(roleId)))
+            .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
+            .forEach(([id, role]) => {
+                const option = document.createElement("option");
+                option.value = id;
+                option.textContent = role.name;
+                select.appendChild(option);
+            });
+
+        if (select.options.length <= 1) {
+            DOM.primaryRoleChangeModalBody.innerHTML = `
+                <div class="user-action-form">
+                    <p class="user-action-note">Es sind keine nicht zugewiesenen Hauptrollen verfügbar.</p>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Schließen</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+            return;
+        }
+
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", () => {
+            const roleId = document.getElementById("primary-role-change-select")?.value;
+
+            if (!roleId) {
+                showFlash("Bitte eine Hauptrolle auswählen", "failure");
+                return;
+            }
+
+            const roleName = state.roleMap?.[roleId]?.name || `Rolle #${roleId}`;
+            this.renderConfirmation(user, roleId, roleName);
+        });
+    },
+
+    renderConfirmation(user, roleId, roleName) {
+        const currentRoleName = user.primary_role?.name || "die aktuelle Funktion";
+        DOM.primaryRoleChangeModalTitle.textContent = `Funktion wechseln für ${user.first_name} ${user.last_name}`;
+        DOM.primaryRoleChangeModalBody.innerHTML = `
+            <div class="user-action-form">
+                <p class="user-action-note">
+                    Die bestehende Funktion <strong>${escapeHtml(currentRoleName)}</strong> wird entzogen und durch
+                    <strong>${escapeHtml(roleName)}</strong> ersetzt.
+                </p>
+                <p class="user-action-note">Bitte den Wechsel der Hauptrolle noch einmal ausdrücklich bestätigen.</p>
+                ${buildButtonRow("Bestätigen", "btn-red")}
+            </div>
+        `;
+
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.renderSelection(user));
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const success = await api.startPrimaryRoleChange({
+                user_id: user.user_id,
+                role_id: roleId
+            });
+
+            if (!success) {
+                return;
+            }
+
+            await sidebarController.refreshCurrentUser();
+            this.close();
+        });
+    }
+};
+
 const skillRevokeModalController = {
     init() {
         bindModalOverlayDismiss(DOM.skillRevokeOverlay, () => this.close());
@@ -1724,6 +1863,7 @@ function cacheDOM() {
     DOM.sofaAccessStatus = document.getElementById("sofa-access-status");
     DOM.sofaAccessActions = document.getElementById("sofa-access-actions");
     DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
+    DOM.primaryRoleChangeActionBtn = document.getElementById("primary-role-change-action-btn");
     DOM.newSkillActionBtn = document.getElementById("new-skill-action-btn");
     DOM.tmpRightsActionBtn = document.getElementById("tmp-rights-action-btn");
     DOM.skillRevokeActionBtn = document.getElementById("skill-revoke-action-btn");
@@ -1754,6 +1894,12 @@ function cacheDOM() {
     DOM.newSkillModalBody = DOM.newSkillModal?.querySelector(".ui-modal-body");
     DOM.newSkillCloseBtn = document.getElementById("new-skill-close-btn");
 
+    DOM.primaryRoleChangeOverlay = document.getElementById("primary-role-change-overlay");
+    DOM.primaryRoleChangeModal = document.getElementById("primary-role-change-modal");
+    DOM.primaryRoleChangeModalTitle = DOM.primaryRoleChangeModal?.querySelector(".ui-section-title");
+    DOM.primaryRoleChangeModalBody = DOM.primaryRoleChangeModal?.querySelector(".ui-modal-body");
+    DOM.primaryRoleChangeCloseBtn = document.getElementById("primary-role-change-close-btn");
+
     DOM.skillRevokeOverlay = document.getElementById("skill-revoke-overlay");
     DOM.skillRevokeModal = document.getElementById("skill-revoke-modal");
     DOM.skillRevokeModalTitle = DOM.skillRevokeModal?.querySelector(".ui-section-title");
@@ -1782,6 +1928,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     sofaAccessModalController.init();
     tmpRightsModalController.init();
     newSkillModalController.init();
+    primaryRoleChangeModalController.init();
     skillRevokeModalController.init();
     offboardModalController.init();
 });
