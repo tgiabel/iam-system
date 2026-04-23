@@ -11,6 +11,7 @@ const STATE = {
     parentResourceCandidates: [],
     parentResourceQuery: "",
     selectedParentResourceId: null,
+    activeMetaTaskType: "ASSIGNMENT",
     users: [],
     isEditing: false
 };
@@ -146,7 +147,9 @@ function cacheDOM(){
     DOM.selectRes = document.getElementById("resource-select");
 
     DOM.title = document.getElementById("resource-modal-title");
+    DOM.subtitle = document.getElementById("resource-modal-subtitle");
     DOM.saveResBtn = document.getElementById("resource-save-btn");
+    DOM.handlingBadge = document.getElementById("resource-handling-badge");
 
     DOM.tableBody = document.querySelector("#resources-table tbody");
 
@@ -167,6 +170,8 @@ function cacheDOM(){
     DOM.parentSelect = document.getElementById("res-parent-id");
     DOM.parentSelectionLabel = document.getElementById("res-parent-selection-label");
     DOM.handlingMetaContainer = document.getElementById("resource-meta-container");
+    DOM.metaTabs = document.querySelectorAll(".resource-meta-tab");
+    DOM.metaGroups = document.querySelectorAll(".resource-meta-group");
     DOM.metaFields = {
         EXTERNAL: {
             ASSIGNMENT: {
@@ -280,15 +285,17 @@ function renderResourceTable(){
     system.resources.forEach(res=>{
 
         const tr = document.createElement("tr");
+        const parentLabel = getResourceParentDisplayLabel(res);
 
         tr.dataset.type = resourceTypes[res.type_id] || "other";
         tr.dataset.res_id = res.resource_id;
 
         tr.innerHTML = `
-            <td>${res.technical_identifier || ""}</td>
-            <td>${res.display_name}</td>
-            <td>${res.type_name}</td>
-            <td>${res.override_handling_type || ""}</td>
+            <td>${escapeHtml(res.technical_identifier || "")}</td>
+            <td>${escapeHtml(res.display_name || "-")}</td>
+            <td>${escapeHtml(res.type_name || "-")}</td>
+            <td class="resource-parent-cell ${parentLabel === "-" ? "is-empty" : ""}">${escapeHtml(parentLabel)}</td>
+            <td>${escapeHtml(res.override_handling_type || "")}</td>
         `;
 
         DOM.tableBody.appendChild(tr);
@@ -375,6 +382,7 @@ function bindBaseEvents(){
     DOM.handling.addEventListener("change", toggleHandlingMetaField);
     DOM.parentSearch.addEventListener("input", onParentSearchInput);
     DOM.parentSelect.addEventListener("change", onParentSelectionChange);
+    DOM.metaTabs.forEach(tab => tab.addEventListener("click", onMetaTabClick));
 
     [DOM.closeBtn, DOM.cancelBtn].forEach(btn=>{
         btn.addEventListener("click", closeOverlay);
@@ -387,16 +395,9 @@ function toggleHandlingMetaField(){
     const selectedHandlingType = DOM.handling.value;
     const showMeta = ["EXTERNAL","BOT"].includes(selectedHandlingType);
     DOM.handlingMetaContainer.style.display = showMeta ? "block" : "none";
-    const readOnly = !showMeta || STATE.overlayMode === "view";
-
-    DOM.metaSections.forEach(section => {
-        const isActive = showMeta && section.dataset.handlingType === selectedHandlingType;
-        section.style.display = isActive ? "block" : "none";
-
-        section.querySelectorAll("input, select, textarea").forEach(field => {
-            field.disabled = !isActive || readOnly;
-        });
-    });
+    updateHandlingBadge(selectedHandlingType);
+    updateMetaTabState();
+    syncMetaSectionVisibility();
 
     if (showMeta) {
         fillMetaFieldsForHandling(selectedHandlingType, STATE.currentResource);
@@ -482,11 +483,13 @@ function openOverlay(mode, resource=null){
 
     STATE.overlayMode = mode;
     STATE.currentResource = resource;
+    STATE.activeMetaTaskType = "ASSIGNMENT";
 
     DOM.overlay.classList.add("active");
 
     DOM.selectContainer.style.display = "none";
     DOM.form.style.display = "block";
+    DOM.selectRes.disabled = false;
 
     DOM.form.querySelectorAll("input,select,textarea")
         .forEach(el=> el.disabled=false);
@@ -500,6 +503,7 @@ function openOverlay(mode, resource=null){
     if(mode==="view"){
 
         DOM.title.textContent = "Ressource Details";
+        DOM.subtitle.textContent = "Alle Stammdaten und Bearbeitungsinfos im Read-only-Modus.";
 
         DOM.form.querySelectorAll("input,select,textarea")
             .forEach(el=> el.disabled=true);
@@ -516,6 +520,7 @@ function openOverlay(mode, resource=null){
     if(mode==="edit"){
 
         DOM.title.textContent = "Ressource bearbeiten";
+        DOM.subtitle.textContent = "Vorhandene Ressource auswählen und Details gezielt anpassen.";
 
         DOM.form.style.display = "none";
         DOM.selectContainer.style.display = "block";
@@ -538,6 +543,7 @@ function openOverlay(mode, resource=null){
     if(mode==="add"){
 
         DOM.title.textContent = "Neue Ressource";
+        DOM.subtitle.textContent = "Neue Ressource anlegen und optional mit einer Parent-Ressource verknüpfen.";
 
         fillResourceForm({
             display_name:"",
@@ -555,9 +561,12 @@ function closeOverlay(){
     DOM.overlay.classList.remove("active");
     DOM.selectRes.value = "";
     DOM.form.style.display = "none";
+    DOM.selectContainer.style.display = "none";
     DOM.parentSearch.value = "";
     STATE.parentResourceQuery = "";
     STATE.selectedParentResourceId = null;
+    STATE.currentResource = null;
+    STATE.activeMetaTaskType = "ASSIGNMENT";
 }
 
 //------------------------------------------------
@@ -565,16 +574,23 @@ function closeOverlay(){
 //------------------------------------------------
 
 function fillResourceForm(res){
+    const parentResourceId = getResourceParentId(res);
+    const fallbackParentLabel = getResourceParentFallbackLabel(res);
 
     DOM.displayName.value = res.display_name || "";
     DOM.techId.value = res.technical_identifier || "";
     DOM.type.value = res.type_id || 1;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
-    STATE.selectedParentResourceId = normalizeParentResourceId(res.parent_resource_id);
+    STATE.selectedParentResourceId = parentResourceId;
     DOM.parentSearch.value = "";
     STATE.parentResourceQuery = "";
+    updateMetaTabState();
     renderParentResourceOptions();
     updateParentSelectionLabel();
+
+    if (parentResourceId == null && fallbackParentLabel) {
+        console.warn("Parent-Ressource ist im Payload benannt, aber parent_resource_id fehlt. Vorauswahl im Modal ist dadurch nicht möglich.", res);
+    }
 
     resetMetaFields();
     toggleHandlingMetaField();
@@ -594,6 +610,17 @@ function onSelectResource(){
     DOM.form.style.display = "block";
 
     fillResourceForm(res);
+}
+
+function onMetaTabClick(event) {
+    const tab = event.currentTarget;
+    if (!tab?.dataset?.taskType) {
+        return;
+    }
+
+    STATE.activeMetaTaskType = tab.dataset.taskType;
+    updateMetaTabState();
+    syncMetaSectionVisibility();
 }
 
 //------------------------------------------------
@@ -872,7 +899,7 @@ function renderParentResourceOptions() {
 
     const emptyOption = document.createElement("option");
     emptyOption.value = "";
-    emptyOption.textContent = "Keine uebergeordnete Ressource";
+    emptyOption.textContent = "Keine übergeordnete Ressource";
     DOM.parentSelect.appendChild(emptyOption);
 
     candidates.forEach(candidate => {
@@ -919,14 +946,128 @@ function getSelectedParentResourceId() {
 }
 
 function updateParentSelectionLabel() {
-    const selectedResource = STATE.parentResourceCandidates.find(candidate =>
-        normalizeParentResourceId(candidate.resource_id) === STATE.selectedParentResourceId
-    );
+    const selectedResource = getParentCandidateById(STATE.selectedParentResourceId);
 
     if (!selectedResource) {
-        DOM.parentSelectionLabel.textContent = "Keine uebergeordnete Ressource ausgewaehlt.";
+        const fallbackLabel = getResourceParentFallbackLabel(STATE.currentResource);
+        DOM.parentSelectionLabel.textContent = fallbackLabel
+            ? `Aktuell gesetzt: ${fallbackLabel}`
+            : "Keine übergeordnete Ressource ausgewählt.";
         return;
     }
 
-    DOM.parentSelectionLabel.textContent = `Ausgewaehlt: ${formatParentCandidateLabel(selectedResource)}`;
+    DOM.parentSelectionLabel.textContent = `Ausgewählt: ${formatParentCandidateLabel(selectedResource)}`;
+}
+
+function updateMetaTabState() {
+    DOM.metaTabs.forEach(tab => {
+        const isActive = tab.dataset.taskType === STATE.activeMetaTaskType;
+        tab.classList.toggle("active", isActive);
+        tab.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+
+    DOM.metaGroups.forEach(group => {
+        group.classList.toggle("active", group.dataset.taskType === STATE.activeMetaTaskType);
+    });
+}
+
+function syncMetaSectionVisibility() {
+    const selectedHandlingType = DOM.handling.value;
+    const showMeta = ["EXTERNAL", "BOT"].includes(selectedHandlingType);
+    const readOnly = !showMeta || STATE.overlayMode === "view";
+
+    DOM.metaSections.forEach(section => {
+        const parentGroup = section.closest(".resource-meta-group");
+        const isActive = showMeta
+            && section.dataset.handlingType === selectedHandlingType
+            && parentGroup?.dataset?.taskType === STATE.activeMetaTaskType;
+
+        section.classList.toggle("active", isActive);
+
+        section.querySelectorAll("input, select, textarea").forEach(field => {
+            field.disabled = !isActive || readOnly;
+        });
+    });
+}
+
+function updateHandlingBadge(handlingType) {
+    if (!DOM.handlingBadge) {
+        return;
+    }
+
+    DOM.handlingBadge.textContent = formatHandlingType(handlingType);
+}
+
+function formatHandlingType(value) {
+    if (value === "EXTERNAL") return "External";
+    if (value === "BOT") return "Bot";
+    if (value === "INTERNAL") return "Internal";
+    return value || "-";
+}
+
+function getResourceParentId(resource) {
+    if (!resource) {
+        return null;
+    }
+
+    return normalizeParentResourceId(
+        resource.parent_resource_id
+        ?? resource.parentResourceId
+        ?? resource.parent_resource?.resource_id
+        ?? resource.parent_resource?.id
+    );
+}
+
+function getParentCandidateById(parentResourceId) {
+    return STATE.parentResourceCandidates.find(candidate =>
+        normalizeParentResourceId(candidate.resource_id) === parentResourceId
+    ) || null;
+}
+
+function getResourceParentDisplayLabel(resource) {
+    const parentId = getResourceParentId(resource);
+    if (parentId != null) {
+        const candidate = getParentCandidateById(parentId);
+        if (candidate) {
+            return formatParentCandidateLabel(candidate);
+        }
+    }
+
+    return getResourceParentFallbackLabel(resource) || "-";
+}
+
+function getResourceParentFallbackLabel(resource) {
+    if (!resource) {
+        return "";
+    }
+
+    if (typeof resource.parent_resource_name === "string" && resource.parent_resource_name.trim()) {
+        return resource.parent_resource_name.trim();
+    }
+
+    const parentResource = resource.parent_resource;
+    if (parentResource && typeof parentResource === "object") {
+        const parts = [];
+        if (parentResource.display_name) {
+            parts.push(parentResource.display_name);
+        }
+        if (parentResource.technical_identifier) {
+            parts.push(parentResource.technical_identifier);
+        }
+
+        if (parts.length > 0) {
+            return parts.join(" | ");
+        }
+    }
+
+    return "";
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }

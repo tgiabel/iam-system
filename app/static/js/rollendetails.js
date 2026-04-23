@@ -119,8 +119,10 @@ function cacheDOM() {
     DOM.selectContainer = document.getElementById("resource-select-container");
     DOM.selectSys = document.getElementById("sys-select");
     DOM.tableContainer = document.getElementById("resource-table-container");
+    DOM.availableResContainer = document.getElementById("available-res-container");
 
     DOM.title = document.getElementById("resource-modal-title");
+    DOM.subtitle = document.getElementById("resource-modal-subtitle");
     DOM.saveResBtn = document.getElementById("resource-save-btn");
 
     DOM.tableBody = document.querySelector("#resources-table tbody");
@@ -441,6 +443,7 @@ async function openOverlay(mode, resource = null) {
     DOM.overlay.classList.add("active");
 
     DOM.selectContainer.style.display = "none";
+    DOM.tableContainer.style.display = "none";
     DOM.form.style.display = "block";
 
     DOM.form.querySelectorAll("input,select")
@@ -450,6 +453,7 @@ async function openOverlay(mode, resource = null) {
 
     if (mode === "view") {
         DOM.title.textContent = "Ressourcen Details";
+        DOM.subtitle.textContent = "Ressourcen, die über diese Rolle verfügbar sind, im kompakten Read-only-Modus.";
         DOM.form.style.display = "block";
         DOM.selectContainer.style.display = "none";
         DOM.tableContainer.style.display = "none";
@@ -464,6 +468,7 @@ async function openOverlay(mode, resource = null) {
 
     if (mode === "rm") {
         DOM.title.textContent = "Ressourcen entfernen";
+        DOM.subtitle.textContent = "Eigene Ressourcen aus dem Rollenpaket entfernen und die Auswahl vor dem Speichern prüfen.";
         DOM.form.style.display = "none";
         DOM.selectContainer.style.display = "none";
         DOM.tableContainer.style.display = "block";
@@ -478,7 +483,7 @@ async function openOverlay(mode, resource = null) {
             const tr = document.createElement("tr");
             tr.dataset.id = res.resource_id;
             tr.innerHTML = `
-                <td>${res.display_name}</td>
+                <td>${escapeHtml(res.display_name || "-")}</td>
                 <td>
                     <button type="button" class="action-btn ${isRemoving ? "btn-transparent" : "btn-red btn-transparent"}">
                         ${isRemoving ? "↑" : "✖"}
@@ -488,11 +493,15 @@ async function openOverlay(mode, resource = null) {
 
             tr.querySelector(".action-btn").onclick = () => {
                 if (!isRemoving) {
+                    clearEmptyState(removeList);
                     removeList.appendChild(createRow(res, true));
                 } else {
+                    clearEmptyState(currentList);
                     currentList.appendChild(createRow(res, false));
                 }
                 tr.remove();
+                ensureEmptyState(currentList, "Keine eigenen Ressourcen vorhanden.");
+                ensureEmptyState(removeList, "Noch keine Ressourcen zum Entfernen markiert.");
             };
 
             return tr;
@@ -501,17 +510,26 @@ async function openOverlay(mode, resource = null) {
         getOwnResources().forEach(r => {
             currentList.appendChild(createRow(r, false));
         });
+
+        if (currentList.innerHTML === "") {
+            currentList.innerHTML = "<tr class='empty-row'><td colspan='2'>Keine eigenen Ressourcen vorhanden.</td></tr>";
+        }
+
+        if (removeList.innerHTML === "") {
+            removeList.innerHTML = "<tr class='empty-row'><td colspan='2'>Noch keine Ressourcen zum Entfernen markiert.</td></tr>";
+        }
     }
 
     if (mode === "add") {
         DOM.title.textContent = "Ressourcen hinzufügen";
+        DOM.subtitle.textContent = "System auswählen, passende Ressourcen markieren und gesammelt zur Rolle hinzufügen.";
         const systems = await api.getSystemMap();
 
         DOM.form.style.display = "none";
         DOM.tableContainer.style.display = "none";
         DOM.selectContainer.style.display = "block";
 
-        const availContainer = document.getElementById("available-res-container");
+        const availContainer = DOM.availableResContainer;
         const availList = document.getElementById("res-list-available");
         const addList = document.getElementById("res-list-to-add");
 
@@ -529,7 +547,7 @@ async function openOverlay(mode, resource = null) {
             const tr = document.createElement("tr");
             tr.dataset.id = res.resource_id;
             tr.innerHTML = `
-                <td>${res.display_name}</td>
+                <td>${escapeHtml(res.display_name || "-")}</td>
                 <td>
                     <button type="button" class="action-btn ${isStaged ? "btn-red btn-transparent" : "btn-green btn-transparent"}">
                         ${isStaged ? "✖" : "✚"}
@@ -539,14 +557,19 @@ async function openOverlay(mode, resource = null) {
 
             tr.querySelector(".action-btn").onclick = () => {
                 if (!isStaged) {
+                    clearEmptyState(addList);
                     addList.appendChild(createAddRow(res, true));
                 } else {
+                    clearEmptyState(availList);
                     availList.appendChild(createAddRow(res, false));
                 }
                 tr.remove();
+                ensureEmptyState(addList, "Noch keine Ressourcen zum Hinzufügen ausgewählt.");
             };
             return tr;
         };
+
+        addList.innerHTML = "<tr class='empty-row'><td colspan='2'>Noch keine Ressourcen zum Hinzufügen ausgewählt.</td></tr>";
 
         DOM.selectSys.onchange = async e => {
             const sysId = e.target.value;
@@ -572,10 +595,10 @@ async function openOverlay(mode, resource = null) {
                 });
 
                 if (availList.innerHTML === "") {
-                    availList.innerHTML = "<tr><td colspan='2' style='font-style: italic; color: gray;'>Alle Ressourcen dieses Systems sind bereits zugewiesen.</td></tr>";
+                    availList.innerHTML = "<tr class='empty-row'><td colspan='2'>Alle Ressourcen dieses Systems sind bereits zugewiesen.</td></tr>";
                 }
             } else {
-                availList.innerHTML = "<tr><td colspan='2'>Keine Ressourcen für dieses System gefunden</td></tr>";
+                availList.innerHTML = "<tr class='empty-row'><td colspan='2'>Keine Ressourcen für dieses System gefunden.</td></tr>";
             }
         };
     }
@@ -584,6 +607,11 @@ async function openOverlay(mode, resource = null) {
 function closeOverlay() {
     DOM.overlay.classList.remove("active");
     DOM.form.style.display = "none";
+    DOM.selectContainer.style.display = "none";
+    DOM.tableContainer.style.display = "none";
+    if (DOM.availableResContainer) {
+        DOM.availableResContainer.style.display = "none";
+    }
     STATE.overlayMode = "";
 }
 
@@ -596,6 +624,27 @@ function fillResourceForm(res) {
     DOM.techId.value = res.technical_identifier || "";
     DOM.type.value = res.type_id || 1;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
+}
+
+function clearEmptyState(container) {
+    container.querySelectorAll(".empty-row").forEach(row => row.remove());
+}
+
+function ensureEmptyState(container, message) {
+    if (container.children.length > 0) {
+        return;
+    }
+
+    container.innerHTML = `<tr class="empty-row"><td colspan="2">${escapeHtml(message)}</td></tr>`;
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
 //------------------------------------------------

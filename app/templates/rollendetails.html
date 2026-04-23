@@ -149,81 +149,136 @@
     <!-- ========================= -->
     <!-- RESOURCE OVERLAY (gleich wie bei Systemen) -->
     <!-- ========================= -->
-    <div id="resource-overlay" class="resource-overlay">
-        <div class="resource-modal">
-            <div class="resource-header">
-                <h3 id="resource-modal-title">Ressource bearbeiten</h3>
-                <button class="btn btn-secondary btn-sm" id="resource-close-btn">&times;</button>
+    <div id="resource-overlay" class="resource-overlay ui-modal-overlay">
+        <div class="resource-modal ui-modal ui-modal-compact">
+            <div class="resource-header ui-modal-header">
+                <div class="resource-header-copy">
+                    <span class="ui-section-kicker">Rollenpaket</span>
+                    <h3 id="resource-modal-title" class="ui-section-title">Ressource bearbeiten</h3>
+                    <p id="resource-modal-subtitle" class="resource-modal-subtitle">
+                        Ressourcen einer Rolle ansehen, hinzufügen oder gezielt entfernen.
+                    </p>
+                </div>
+                <button class="ui-icon-button" id="resource-close-btn" type="button" aria-label="Modal schließen">&times;</button>
             </div>
 
-            <div class="resource-body">
-                <div id="resource-table-container" style="display: block;">
-                    <h4>Aktuelle Ressourcen</h4>
-                    <table id="table-current">
-                        
-                        <tbody id="res-list-current"></tbody>
-                    </table>
+            <div class="resource-body ui-modal-body">
+                <div id="resource-table-container" class="resource-stack-panel" style="display: block;">
+                    <section class="resource-panel">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Entfernen</span>
+                                <h4 class="resource-panel-title">Aktuelle Ressourcen</h4>
+                            </div>
+                        </div>
+                        <div class="resource-list-table-wrap">
+                            <table id="table-current" class="resource-list-table">
+                                <tbody id="res-list-current"></tbody>
+                            </table>
+                        </div>
+                    </section>
 
-                    <hr>
-                    <br>
-                    <h4 style="color: red;">Zum Entfernen markiert</h4>
-                    <table id="table-remove">
-                        <tbody id="res-list-to-remove"></tbody>
-                    </table>
+                    <section class="resource-panel resource-panel-danger">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Vormerkung</span>
+                                <h4 class="resource-panel-title">Zum Entfernen markiert</h4>
+                            </div>
+                        </div>
+                        <div class="resource-list-table-wrap">
+                            <table id="table-remove" class="resource-list-table">
+                                <tbody id="res-list-to-remove"></tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
 
-                <div id="resource-select-container">
-                    <label for="sys-select">System auswählen:</label>
-                    <select id="sys-select">
-                        <option value="">-- Bitte wählen --</option>
-                    </select>
-                    <br />
-                    <div id="available-res-container" style="display: none; margin-top: 20px; max-height: 350px; overflow: auto;">
-                        <h4>Verfügbare Ressourcen</h4>
-                        <table id="table-available">
-                            <tbody id="res-list-available"></tbody>
-                        </table>
-                    </div>
-                    <br />
-                    <hr>
-                    <h4>Zum Hinzufügen ausgewählt</h4>
-                    <table id="table-add">
-                        <tbody id="res-list-to-add"></tbody>
-                    </table>
+                <div id="resource-select-container" class="resource-stack-panel">
+                    <section class="resource-panel">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Hinzufügen</span>
+                                <h4 class="resource-panel-title">System auswählen</h4>
+                                <p class="resource-panel-copy">Wähle ein System und markiere die Ressourcen, die dem Rollenpaket hinzugefügt werden sollen.</p>
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label for="sys-select">System</label>
+                            <select id="sys-select" class="form-input">
+                                <option value="">-- Bitte wählen --</option>
+                            </select>
+                        </div>
+                    </section>
+
+                    <section id="available-res-container" class="resource-panel" style="display: none;">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Auswahl</span>
+                                <h4 class="resource-panel-title">Verfügbare Ressourcen</h4>
+                            </div>
+                        </div>
+                        <div class="resource-list-table-wrap resource-list-table-scroll">
+                            <table id="table-available" class="resource-list-table">
+                                <tbody id="res-list-available"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="resource-panel resource-panel-accent">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Vormerkung</span>
+                                <h4 class="resource-panel-title">Zum Hinzufügen ausgewählt</h4>
+                            </div>
+                        </div>
+                        <div class="resource-list-table-wrap">
+                            <table id="table-add" class="resource-list-table">
+                                <tbody id="res-list-to-add"></tbody>
+                            </table>
+                        </div>
+                    </section>
                 </div>
 
-                <div id="resource-form-container" style="display:none; margin-top:12px;">
-                    <div class="form-field">
-                        <label for="res-display-name">Name</label>
-                        <input type="text" id="res-display-name" class="form-input">
-                    </div>
-                    <div class="form-field">
-                        <label for="res-technical-id">Technischer Identifier</label>
-                        <input type="text" id="res-technical-id" class="form-input">
-                    </div>
-                    <div class="form-field">
-                        <label for="res-type">Typ</label>
-                        <select id="res-type" class="form-input">
-                            <option value="1">Konto</option>
-                            <option value="2">Gruppe</option>
-                            <option value="3">Lizenz</option>
-                            <option value="4">Sonstige</option>
-                        </select>
-                    </div>
-                    <div class="form-field">
-                        <label for="res-handling">Bearbeitungstyp</label>
-                        <select id="res-handling" class="form-input">
-                            <option value="INTERNAL">Internal</option>
-                            <option value="BOT">Bot</option>
-                            <option value="EXTERNAL">External</option>
-                        </select>
-                    </div>
+                <div id="resource-form-container" class="resource-form-layout" style="display:none;">
+                    <section class="resource-panel">
+                        <div class="resource-panel-heading">
+                            <span class="ui-section-kicker">Ressource</span>
+                            <h4 class="resource-panel-title">Stammdaten</h4>
+                        </div>
+                        <div class="resource-form-grid">
+                            <div class="form-field">
+                                <label for="res-display-name">Name</label>
+                                <input type="text" id="res-display-name" class="form-input">
+                            </div>
+                            <div class="form-field">
+                                <label for="res-technical-id">Technischer Identifier</label>
+                                <input type="text" id="res-technical-id" class="form-input">
+                            </div>
+                            <div class="form-field">
+                                <label for="res-type">Typ</label>
+                                <select id="res-type" class="form-input">
+                                    <option value="1">Konto</option>
+                                    <option value="2">Gruppe</option>
+                                    <option value="3">Lizenz</option>
+                                    <option value="4">Sonstige</option>
+                                </select>
+                            </div>
+                            <div class="form-field">
+                                <label for="res-handling">Bearbeitungstyp</label>
+                                <select id="res-handling" class="form-input">
+                                    <option value="INTERNAL">Internal</option>
+                                    <option value="BOT">Bot</option>
+                                    <option value="EXTERNAL">External</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
 
-            <div class="resource-actions">
-                <button class="btn btn-secondary" id="resource-cancel-btn">Abbrechen</button>
-                <button class="btn btn-primary" id="resource-save-btn">Speichern</button>
+            <div class="resource-actions ui-modal-footer">
+                <button class="btn btn-secondary" id="resource-cancel-btn" type="button">Abbrechen</button>
+                <button class="btn btn-primary" id="resource-save-btn" type="button">Speichern</button>
             </div>
         </div>
     </div>

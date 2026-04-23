@@ -1862,7 +1862,7 @@ const primaryRoleChangeModalController = {
     },
 
     async renderSelection(user) {
-        DOM.primaryRoleChangeModalTitle.textContent = `Funktion wechseln für ${user.first_name} ${user.last_name}`;
+        DOM.primaryRoleChangeModalTitle.textContent = `Wechsel der Hauptrolle für ${user.first_name} ${user.last_name}`;
         DOM.primaryRoleChangeModalBody.innerHTML = `
             <div class="user-action-form">
                 <div class="ui-field-group">
@@ -1918,7 +1918,7 @@ const primaryRoleChangeModalController = {
 
     renderConfirmation(user, roleId, roleName) {
         const currentRoleName = user.primary_role?.name || "die aktuelle Funktion";
-        DOM.primaryRoleChangeModalTitle.textContent = `Funktion wechseln für ${user.first_name} ${user.last_name}`;
+        DOM.primaryRoleChangeModalTitle.textContent = `Wechsel der Hauptrolle für ${user.first_name} ${user.last_name}`;
         DOM.primaryRoleChangeModalBody.innerHTML = `
             <div class="user-action-form">
                 <p class="user-action-note">

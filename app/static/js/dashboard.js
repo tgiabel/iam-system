@@ -94,8 +94,8 @@ async function loadDashboardMetrics() {
         const notificationOpen = document.getElementById("dashboard-notification-open");
         if (notificationOpen) {
             notificationOpen.innerHTML = `
-                <strong>Persönlicher Fokus</strong>
-                <span>Du hast aktuell ${openTasks.length + blockedTasks.length} offene Aufgaben, ${myTasks.length} Aufgaben in Bearbeitung und ${monthlyCompletedTasks.length} erledigte Aufgaben in diesem Monat.</span>
+                <strong>Aktuelles</strong>
+                <span>;USTER</span>
             `;
         }
     } catch (error) {
