@@ -46,6 +46,12 @@ class APIClient:
     async def login_user(self, pnr: str, password: str) -> dict:
         return await self.post("/users/login", data={"pnr": pnr, "password": password})
 
+    async def get_current_user(self, user_id: int) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+            resp = await client.get("/users/me", headers={"X-User-Id": str(user_id)})
+            resp.raise_for_status()
+            return resp.json()
+
     async def list_users(self, is_active: bool | None = None) -> list[dict]:
         params = {"is_active": is_active} if is_active is not None else None
         return await self.get("/users/", params=params)
@@ -58,6 +64,9 @@ class APIClient:
             resp = await client.get(f"/users/{user_id}/activity")
             resp.raise_for_status()
             return resp.json()
+
+    async def get_events(self) -> list[dict]:
+        return await self.get("/events")
 
     async def setup_user_sofa_access(self, user_id: int, payload: dict) -> dict:
         async with httpx.AsyncClient(base_url=self.base_url) as client:

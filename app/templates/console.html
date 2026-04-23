@@ -6,6 +6,10 @@
 <link rel="stylesheet" href="/static/css/console.css">
 {% endblock %}
 
+{% block scripts %}
+<script src="/static/js/console.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="page-container console-page">
     <section class="console-hero ui-card">
@@ -20,6 +24,32 @@
             <span class="ui-chip ui-chip-primary">{{ user.first_name or user.pnr or "User" }}</span>
             <span class="ui-chip ui-chip-neutral">{{ user.primary_role.name if user.primary_role else "SOFA" }}</span>
         </div>
+    </section>
+
+    <section class="console-calendar ui-card" aria-labelledby="console-calendar-title">
+        <div class="console-calendar-head">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Events</p>
+                <h2 class="ui-section-title" id="console-calendar-title">Kalenderwoche</h2>
+                <p class="ui-section-copy" id="console-calendar-copy">
+                    Prozess-Events der sichtbaren Woche werden hier gesammelt dargestellt.
+                </p>
+            </div>
+            <div class="console-calendar-nav" aria-label="Kalenderwochen-Navigation">
+                <button type="button" class="btn btn-secondary" id="console-week-prev" aria-label="Vorherige Kalenderwoche">←</button>
+                <div class="console-week-labels">
+                    <strong id="console-week-label">KW -</strong>
+                    <span id="console-week-range">-</span>
+                </div>
+                <button type="button" class="btn btn-secondary" id="console-week-next" aria-label="Nächste Kalenderwoche">→</button>
+                <button type="button" class="btn btn-secondary" id="console-week-current">Heute</button>
+            </div>
+        </div>
+
+        <div class="console-calendar-feedback" id="console-calendar-feedback" role="status">
+            Events werden geladen…
+        </div>
+        <div class="console-calendar-grid" id="console-calendar-grid" aria-live="polite"></div>
     </section>
 
     <section class="console-section">

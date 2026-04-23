@@ -6,6 +6,16 @@ from fastapi.staticfiles import StaticFiles                     # type: ignore
 from fastapi.exceptions import HTTPException                    # type: ignore
 import httpx # type: ignore
 from app.api_client import api_client
+from app.authz import (
+    AuthorizationContext,
+    build_authorization_context_from_user,
+    get_authz_payload_for_template,
+    get_current_user,
+    require_any_page_access,
+    require_capability,
+    require_login,
+    require_page_access,
+)
 from app.helpers.datex import build_datex_export
 import os
 import json
@@ -34,6 +44,92 @@ def _error_content_from_response(response: httpx.Response) -> dict:
         return {"detail": payload}
     except Exception:
         return {"detail": response.text or "Unbekannter Fehler"}
+
+
+def _coerce_int(value):
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def _coerce_bool(value, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    normalized = _normalize_text(value)
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
+def _normalize_session_role(role: dict | None, *, default_type: str | None = None) -> dict | None:
+    if not isinstance(role, dict):
+        return None
+
+    role_id = _coerce_int(role.get("role_id", role.get("id")))
+    if role_id is None:
+        return None
+
+    assignment_status = str(role.get("assignment_status") or role.get("status") or "").strip().upper()
+    is_assignment_active = assignment_status in {"", "ACTIVE"}
+
+    return {
+        "role_id": role_id,
+        "name": str(role.get("name") or role.get("role_name") or "").strip(),
+        "role_type": str(role.get("role_type") or role.get("type") or default_type or "").strip().upper(),
+        "assignment_status": assignment_status,
+        "process_id": _coerce_int(role.get("process_id")),
+        "is_active": bool(role.get("is_active", role.get("active", True))) and is_assignment_active,
+    }
+
+
+def _normalize_session_user(user_data: dict | None) -> dict:
+    payload = dict(user_data or {})
+    primary_role = _normalize_session_role(payload.get("primary_role"), default_type="PRIMARY")
+
+    secondary_roles = []
+    for role in payload.get("secondary_roles") or []:
+        normalized_role = _normalize_session_role(role, default_type="SECONDARY")
+        if normalized_role and normalized_role["is_active"]:
+            secondary_roles.append(normalized_role)
+
+    payload["user_id"] = _coerce_int(payload.get("user_id"))
+    payload["pnr"] = str(payload.get("pnr") or "").strip()
+    payload["first_name"] = str(payload.get("first_name") or "").strip()
+    payload["last_name"] = str(payload.get("last_name") or "").strip()
+    payload["racf"] = str(payload.get("racf") or "").strip()
+    payload["is_active"] = bool(payload.get("is_active", True))
+    payload["primary_role"] = primary_role if primary_role and primary_role["is_active"] else None
+    payload["secondary_roles"] = secondary_roles
+    return payload
+
+
+def _is_canonical_session_user(user_data: dict | None) -> bool:
+    if not isinstance(user_data, dict):
+        return False
+    return (
+        _coerce_int(user_data.get("user_id")) is not None
+        and isinstance(user_data.get("primary_role"), dict)
+        and isinstance(user_data.get("secondary_roles"), list)
+    )
+
+
+async def _build_session_user_from_login(login_payload: dict) -> dict:
+    if _is_canonical_session_user(login_payload):
+        return _normalize_session_user(login_payload)
+
+    user_id = _coerce_int(login_payload.get("user_id"))
+    if user_id is None:
+        return _normalize_session_user(login_payload)
+
+    try:
+        current_user = await api_client.get_current_user(user_id)
+    except Exception:
+        return _normalize_session_user(login_payload)
+
+    return _normalize_session_user(current_user)
 
 
 def _task_matches_target_user(task: dict, user_id: int, user_detail: dict) -> bool:
@@ -112,6 +208,132 @@ def _summarize_task_action(task: dict) -> dict:
         "completed_at": _first_defined_value(task, ["completed_at", "updated_at", "created_at"], None)
     }
 
+
+def _extract_event_records(payload) -> list[dict]:
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+
+    if isinstance(payload, dict):
+        for key in ("events", "items", "results", "data"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                return [item for item in value if isinstance(item, dict)]
+
+    return []
+
+
+def _normalize_event_record(event: dict) -> dict:
+    scheduled_at = _first_defined_value(event, ["scheduled_at", "scheduled_for", "planned_at"], None)
+    executed_at = _first_defined_value(event, ["executed_at", "processed_at", "last_processed_at"], None)
+    display_at = scheduled_at or executed_at
+
+    return {
+        "title": str(_first_defined_value(event, ["title", "event_title", "name"], "") or "").strip(),
+        "description": str(_first_defined_value(event, ["description", "detail", "message"], "") or "").strip(),
+        "event_type": str(_first_defined_value(event, ["event_type", "type"], "") or "").strip().upper(),
+        "event_status": str(_first_defined_value(event, ["event_status", "status"], "") or "").strip().upper(),
+        "blocks_process_completion": _coerce_bool(event.get("blocks_process_completion")),
+        "scheduled_at": scheduled_at,
+        "executed_at": executed_at,
+        "display_at": display_at,
+        "user_id": _coerce_int(_first_defined_value(event, ["user_id", "target_user_id"])),
+        "process_id": _coerce_int(event.get("process_id")),
+        "role_id": _coerce_int(event.get("role_id")),
+    }
+
+
+def _normalize_events_payload(payload) -> list[dict]:
+    return [_normalize_event_record(event) for event in _extract_event_records(payload)]
+
+
+def _build_template_context(
+    request: Request,
+    user: dict | None = None,
+    authz: AuthorizationContext | None = None,
+    **extra,
+) -> dict:
+    resolved_authz = authz or (build_authorization_context_from_user(user) if user else None)
+    context = {
+        "request": request,
+        "user": user,
+        "authz": get_authz_payload_for_template(resolved_authz),
+    }
+    context.update(extra)
+    return context
+
+
+def _task_is_relevant_to_user(task: dict, authz: AuthorizationContext) -> bool:
+    user_id = authz.user_id
+    user_detail = authz.raw_user
+
+    assigned_user_id = _first_defined_value(task, ["assigned_to_user_id", "assigned_user_id"])
+    if str(assigned_user_id or "") == str(user_id):
+        return True
+
+    if _task_matches_target_user(task, user_id, user_detail):
+        return True
+
+    if _task_matches_initiator(task, user_id, user_detail):
+        return True
+
+    return False
+
+
+def _filter_tasks_for_scope(tasks: list[dict], authz: AuthorizationContext) -> list[dict]:
+    if authz.get_scope("tasks") != "relevant_only":
+        return tasks
+    return [task for task in tasks if _task_is_relevant_to_user(task, authz)]
+
+
+def _process_is_relevant_to_user(process: dict, authz: AuthorizationContext) -> bool:
+    user_id = authz.user_id
+    user_detail = authz.raw_user
+    full_name = _normalize_text(f"{user_detail.get('first_name', '')} {user_detail.get('last_name', '')}")
+    user_pnr = _normalize_text(user_detail.get("pnr"))
+
+    target_user_id = _first_defined_value(process, ["target_user_id", "user_id", "for_user_id"])
+    if str(target_user_id or "") == str(user_id):
+        return True
+
+    initiator_user_id = _first_defined_value(process, ["initiator_user_id", "created_by_user_id", "triggered_by_user_id"])
+    if str(initiator_user_id or "") == str(user_id):
+        return True
+
+    target_name = _normalize_text(_first_defined_value(process, ["target_name", "target_user_name", "user_name"], ""))
+    if full_name and target_name == full_name:
+        return True
+
+    initiator_name = _normalize_text(_first_defined_value(process, ["initiator_name", "triggered_by_name", "created_by_name"], ""))
+    if full_name and initiator_name == full_name:
+        return True
+
+    target_pnr = _normalize_text(_first_defined_value(process, ["target_user_pnr", "user_pnr", "pnr"], ""))
+    if user_pnr and target_pnr == user_pnr:
+        return True
+
+    return False
+
+
+def _filter_processes_for_scope(processes: list[dict], authz: AuthorizationContext) -> list[dict]:
+    if authz.get_scope("tasks") != "relevant_only":
+        return processes
+    return [process for process in processes if _process_is_relevant_to_user(process, authz)]
+
+
+async def _get_relevant_task_or_raise(task_id: int, authz: AuthorizationContext) -> dict:
+    task_scope = authz.get_scope("tasks")
+    tasks = await api_client.list_tasks()
+    for task in tasks:
+        if str(task.get("task_id")) != str(task_id):
+            continue
+        if task_scope != "relevant_only" or _task_is_relevant_to_user(task, authz):
+            return task
+
+    raise HTTPException(
+        status_code=403,
+        detail={"code": "task_scope_denied", "message": "Kein Zugriff auf diesen Task."},
+    )
+
 # ------------------------------
 # Templates
 # ------------------------------
@@ -122,22 +344,6 @@ templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
 # ------------------------------
 app = FastAPI(title="SOFA Frontend")
 app.mount("/static", StaticFiles(directory=static_path), name="static")
-
-# ------------------------------
-# Hilfsfunktion zum Auslesen des Users aus Cookie
-# ------------------------------
-def get_current_user(sofa_user: str | None):
-    if sofa_user:
-        return json.loads(sofa_user)
-    return None
-
-async def get_current_user_dep(
-    sofa_user: str | None = Cookie(default=None),
-):
-    user = get_current_user(sofa_user)
-    if not user:
-        raise HTTPException(status_code=303, headers={"Location": "/login"})
-    return user
 
 # ------------------------------
 # Decorator für geschützte Routen
@@ -157,35 +363,32 @@ def login_required(func):
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request, sofa_user: str | None = Cookie(default=None)):
     user = get_current_user(sofa_user)
-    return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
+    return templates.TemplateResponse("dashboard.html", _build_template_context(request, user=user))
 
 # ------------------------------
 # Login / Logout (Overlay möglich)
 # ------------------------------
 @app.get("/login", name="login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("login.html", _build_template_context(request))
 
 @app.post("/login")
 async def login(request: Request, pnr: str = Form(...), password: str = Form(...)):
     try:
         user_data = await api_client.login_user(pnr, password)
+        session_user = await _build_session_user_from_login(user_data)
     except Exception as e:
         flash_messages = [("failure", str(e))]
         return templates.TemplateResponse(
             "login.html",
-            {
-                "request": request,
-                "flash_messages": flash_messages,
-                "pnr": pnr
-            }
+            _build_template_context(request, flash_messages=flash_messages, pnr=pnr)
         )
 
     # Erfolgreiches Login → Cookie setzen
     response = RedirectResponse(url="/", status_code=303)
     response.set_cookie(
         key="sofa_user",
-        value=json.dumps(user_data),
+        value=json.dumps(session_user),
         httponly=True,
         max_age=3600*8
     )
@@ -201,110 +404,84 @@ def logout():
 # Beispiel geschützte Route
 # ------------------------------
 @app.get("/tasks", response_class=HTMLResponse)
-def tasks(request: Request, user=Depends(get_current_user_dep)):
-    return templates.TemplateResponse("tasks.html", {"request": request, "user": user})
+def tasks(request: Request, authz=Depends(require_login)):
+    return templates.TemplateResponse("tasks.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 @app.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, user=Depends(get_current_user_dep)):
-    return templates.TemplateResponse("tools.html", {"request": request, "user": user})
+def tools(request: Request, authz=Depends(require_login)):
+    return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 @app.get("/console", response_class=HTMLResponse)
-def console(request: Request, user=Depends(get_current_user_dep)):
-    return templates.TemplateResponse("console.html", {"request": request, "user": user})
+def console(request: Request, authz=Depends(require_page_access("console", redirect_to="/"))):
+    return templates.TemplateResponse("console.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 # ------------------------------
 # Userverwaltung-Seite
 # ------------------------------
 @app.get("/users", response_class=HTMLResponse)
-async def users(request: Request, user=Depends(get_current_user_dep)):
+async def users(request: Request, authz=Depends(require_page_access("users", redirect_to="/"))):
     return templates.TemplateResponse(
         "userverwaltung.html",
-        {
-            "request": request,
-            "user": user,
-        },
+        _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 # ------------------------------
 # Systemverwaltung-Seite
 # ------------------------------
 @app.get("/systems", response_class=HTMLResponse)
-async def systems(request: Request, user=Depends(get_current_user_dep)):
+async def systems(request: Request, authz=Depends(require_page_access("systems", redirect_to="/"))):
     return templates.TemplateResponse(
         "systemverwaltung.html",
-        {
-            "request": request,
-            "user": user,
-        },
+        _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 # ------------------------------
 # System-Detail-Seite
 # ------------------------------
 @app.get("/systems/{system_id}", response_class=HTMLResponse)
-async def system_details(request: Request, system_id: str, user=Depends(get_current_user_dep)):
+async def system_details(request: Request, system_id: str, authz=Depends(require_page_access("systems", redirect_to="/"))):
     return templates.TemplateResponse(
         "systemdetails.html",
-        {
-            "request": request,
-            "user": user,
-            "system_id": system_id
-        },
+        _build_template_context(request, user=authz.raw_user, authz=authz, system_id=system_id),
     )
 
 # ------------------------------
 # Rollenmanagement-Seite
 # ------------------------------
 @app.get("/roles", response_class=HTMLResponse)
-async def roles(request: Request, user=Depends(get_current_user_dep)):
+async def roles(request: Request, authz=Depends(require_page_access("roles", redirect_to="/"))):
     return templates.TemplateResponse(
         "rollenmanagement.html",
-        {
-            "request": request,
-            "user": user
-        },
+        _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 @app.get("/roles/{role_id}", response_class=HTMLResponse)
-async def role_details(request: Request, role_id: str, user=Depends(get_current_user_dep)):
+async def role_details(request: Request, role_id: str, authz=Depends(require_page_access("roles", redirect_to="/"))):
     return templates.TemplateResponse(
         "rollendetails.html",
-        {
-            "request": request,
-            "user": user,
-            "role_id": role_id
-        },
+        _build_template_context(request, user=authz.raw_user, authz=authz, role_id=role_id),
     )
 
 @app.get("/iks", response_class=HTMLResponse)
-async def iks(request: Request, user=Depends(get_current_user_dep)):
+async def iks(request: Request, authz=Depends(require_page_access("iks", redirect_to="/"))):
     return templates.TemplateResponse(
         "iks.html",
-        {
-            "request": request,
-            "user": user
-        }
+        _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 @app.get("/tools/iks", response_class=HTMLResponse)
-async def iks_tool(request: Request, user=Depends(get_current_user_dep)):
+async def iks_tool(request: Request, authz=Depends(require_page_access("iks", redirect_to="/"))):
     return templates.TemplateResponse(
         "tools/iks_tool.html",
-        {
-            "request": request,
-            "user": user
-        }
+        _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 
 @app.get("/tools/datex", response_class=HTMLResponse)
-async def datex_tool(request: Request, user=Depends(get_current_user_dep)):
+async def datex_tool(request: Request, authz=Depends(require_login)):
     return templates.TemplateResponse(
         "tools/datex_tool.html",
-        {
-            "request": request,
-            "user": user,
-        }
+        _build_template_context(request, user=authz.raw_user, authz=authz)
     )
 
 
@@ -312,17 +489,18 @@ async def datex_tool(request: Request, user=Depends(get_current_user_dep)):
 async def convert_datex_file(
     request: Request,
     datfile: UploadFile = File(...),
-    user=Depends(get_current_user_dep),
+    authz=Depends(require_login),
 ):
     try:
         if not datfile.filename:
             return templates.TemplateResponse(
                 "tools/datex_tool.html",
-                {
-                    "request": request,
-                    "user": user,
-                    "flash_messages": [("failure", "Bitte waehlen Sie eine DAT-Datei aus.")],
-                },
+                _build_template_context(
+                    request,
+                    user=authz.raw_user,
+                    authz=authz,
+                    flash_messages=[("failure", "Bitte waehlen Sie eine DAT-Datei aus.")],
+                ),
                 status_code=400,
             )
 
@@ -330,11 +508,12 @@ async def convert_datex_file(
     except ValueError as exc:
         return templates.TemplateResponse(
             "tools/datex_tool.html",
-            {
-                "request": request,
-                "user": user,
-                "flash_messages": [("failure", str(exc))],
-            },
+            _build_template_context(
+                request,
+                user=authz.raw_user,
+                authz=authz,
+                flash_messages=[("failure", str(exc))],
+            ),
             status_code=400,
         )
     finally:
@@ -350,15 +529,20 @@ async def convert_datex_file(
 # API Routen
 # ------------------------------
 @app.get("/api/users")
-async def api_users(is_active: bool = True):
+async def api_users(
+    is_active: bool = True,
+    current_user=Depends(require_page_access("users")),
+):
     try:
         users = await api_client.list_users(is_active=is_active)
+        if current_user.get_scope("users") == "none":
+            return JSONResponse(content=[])
         return JSONResponse(content=users)
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @app.get("/api/users/{user_id}/details")
-async def api_user_details(user_id: int):
+async def api_user_details(user_id: int, current_user=Depends(require_page_access("users"))):
     try:
         user_detail = await api_client.get_user_details(user_id)
         return JSONResponse(content=user_detail)
@@ -367,7 +551,7 @@ async def api_user_details(user_id: int):
 
 
 @app.get("/api/users/{user_id}/activity")
-async def api_user_activity(user_id: int, current_user=Depends(get_current_user_dep)):
+async def api_user_activity(user_id: int, current_user=Depends(require_page_access("users"))):
     try:
         activity = await api_client.get_user_activity(user_id)
         return JSONResponse(content=activity)
@@ -427,12 +611,21 @@ async def api_user_activity(user_id: int, current_user=Depends(get_current_user_
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
+
+@app.get("/api/events")
+async def api_events(current_user=Depends(require_page_access("console"))):
+    try:
+        events = await api_client.get_events()
+        return JSONResponse(content=_normalize_events_payload(events))
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 @app.post("/api/users/{user_id}/sofa-access/setup")
-async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(require_capability("sofa_access.setup"))):
     try:
         request_payload = {
             "password": payload.get("password"),
-            "initiator_user_id": current_user["user_id"]
+            "initiator_user_id": current_user.user_id
         }
         result = await api_client.setup_user_sofa_access(user_id, request_payload)
         return JSONResponse(content=result)
@@ -445,11 +638,11 @@ async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=D
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @app.post("/api/users/{user_id}/sofa-access/reset-password")
-async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user=Depends(require_capability("sofa_access.reset"))):
     try:
         request_payload = {
             "password": payload.get("password"),
-            "initiator_user_id": current_user["user_id"]
+            "initiator_user_id": current_user.user_id
         }
         result = await api_client.reset_user_sofa_password(user_id, request_payload)
         return JSONResponse(content=result)
@@ -462,10 +655,10 @@ async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @app.post("/api/users/{user_id}/sofa-access/revoke")
-async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(get_current_user_dep)):
+async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require_capability("sofa_access.revoke"))):
     try:
         request_payload = {
-            "initiator_user_id": current_user["user_id"]
+            "initiator_user_id": current_user.user_id
         }
         result = await api_client.revoke_user_sofa_access(user_id, request_payload)
         return JSONResponse(content=result)
@@ -478,7 +671,7 @@ async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(get_cur
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @app.get("/api/roles/{role_id}/resources")
-async def api_role_resources(role_id: int):
+async def api_role_resources(role_id: int, current_user=Depends(require_page_access("roles"))):
     try:
         resources = await api_client.get_role_resources(role_id)
         return JSONResponse(content=resources)
@@ -492,6 +685,7 @@ async def api_list_tasks(
     handling_type: str | None = None,
     assigned_to_user_id: int | None = None,
     process_id: int | None = None,
+    current_user=Depends(require_login),
 ):
     """
     Liefert Tasks gefiltert nach Status / Typ / Handling / Assigned User.
@@ -505,15 +699,21 @@ async def api_list_tasks(
             assigned_to_user_id=assigned_to_user_id,
             process_id=process_id,
         )
-        return JSONResponse(content=tasks)
+        return JSONResponse(content=_filter_tasks_for_scope(tasks, current_user))
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 @app.patch("/api/tasks/{task_id}/assign")
-async def api_assign_task(task_id: int, user_id: int):
+async def api_assign_task(task_id: int, user_id: int, current_user=Depends(require_login)):
 
     try:
-        return await api_client.assign_task(task_id, user_id)
+        await _get_relevant_task_or_raise(task_id, current_user)
+        if int(user_id) != int(current_user.user_id):
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "assignment_denied", "message": "Tasks koennen nur an den aktuellen User uebernommen werden."},
+            )
+        return await api_client.assign_task(task_id, current_user.user_id)
 
     except httpx.HTTPStatusError as e:
 
@@ -523,6 +723,9 @@ async def api_assign_task(task_id: int, user_id: int):
             detail=e.response.json().get("detail", "Backend error")
         )
 
+    except HTTPException as e:
+        raise e
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -530,9 +733,10 @@ async def api_assign_task(task_id: int, user_id: int):
         )
 
 @app.delete("/api/tasks/{task_id}/assign")
-async def api_unassign_task(task_id: int, current_user=Depends(get_current_user_dep)):
+async def api_unassign_task(task_id: int, current_user=Depends(require_login)):
     try:
-        task = await api_client.unassign_task(task_id, current_user['user_id'])
+        await _get_relevant_task_or_raise(task_id, current_user)
+        task = await api_client.unassign_task(task_id, current_user.user_id)
         return JSONResponse(content=task)
 
     except httpx.HTTPStatusError as e:
@@ -542,6 +746,9 @@ async def api_unassign_task(task_id: int, current_user=Depends(get_current_user_
             status_code=e.response.status_code
         )
 
+    except HTTPException as e:
+        raise e
+
     except Exception as e:
         return JSONResponse(
             content={"error": str(e)},
@@ -549,15 +756,16 @@ async def api_unassign_task(task_id: int, current_user=Depends(get_current_user_
         )
     
 @app.post("/api/tasks/{task_id}/complete")
-async def api_complete_task(task_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_complete_task(task_id: int, payload: dict, current_user=Depends(require_login)):
     """
     Setzt einen Task auf COMPLETED.
     Prüft für resource_type_id = 1, dass account_identifier geliefert wird
     und legt ggf. einen UserAccount an.
     """
     try:
+        await _get_relevant_task_or_raise(task_id, current_user)
         # user_id für Log/Tracking
-        user_id = current_user["user_id"] if isinstance(current_user, dict) else current_user.user_id
+        user_id = current_user.user_id
 
         # Extrahiere account_identifier falls vorhanden
         account_identifier = payload.get("account_identifier")
@@ -574,6 +782,8 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(ge
             content=e.response.json(),
             status_code=e.response.status_code
         )
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return JSONResponse(
             content={"error": str(e)},
@@ -581,9 +791,10 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(ge
         )
 
 @app.post("/api/tasks/dispatch_bot")
-async def api_dispatch_bot(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_dispatch_bot(payload: dict, current_user=Depends(require_login)):
     try:
         task_id = payload.get("task_id")
+        await _get_relevant_task_or_raise(task_id, current_user)
         result = await api_client.dispatch_bot(task_id)
 
         return JSONResponse(content=result)
@@ -594,6 +805,8 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(get_current_user_
             content=e.response.json(),
             status_code=e.response.status_code
         )
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return JSONResponse(
             content={"error": str(e)},
@@ -601,7 +814,7 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(get_current_user_
         )
 
 @app.post("/api/account/change-password")
-async def api_change_own_password(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_change_own_password(payload: dict, current_user=Depends(require_login)):
     current_password = str(payload.get("current_password") or "").strip()
     new_password = str(payload.get("new_password") or "").strip()
 
@@ -617,8 +830,8 @@ async def api_change_own_password(payload: dict, current_user=Depends(get_curren
             status_code=400
         )
 
-    user_id = current_user["user_id"]
-    pnr = str(current_user.get("pnr") or "").strip()
+    user_id = current_user.user_id
+    pnr = current_user.pnr
 
     if not pnr:
         return JSONResponse(
@@ -645,13 +858,13 @@ async def api_change_own_password(payload: dict, current_user=Depends(get_curren
 @app.post("/api/processes/onboarding")
 async def api_start_onboarding_process(
     payload: dict,
-    current_user=Depends(get_current_user_dep)):
+    current_user=Depends(require_capability("onboarding.start"))):
     """
     Trigger den Onboarding-Prozess für einen Mitarbeiter.
     """
     try:
         pnr = payload.get("pnr")
-        user_id = current_user["user_id"] if isinstance(current_user, dict) else current_user.user_id
+        user_id = current_user.user_id
 
         payload = {
             "pnr": str(pnr),
@@ -667,12 +880,12 @@ async def api_start_onboarding_process(
 @app.post("/api/processes/onboarding-ext")
 async def api_start_ext_onboarding_process(
     payload: dict,
-    current_user=Depends(get_current_user_dep)):
+    current_user=Depends(require_capability("onboarding.external.start"))):
     """
     Trigger den Onboarding-Prozess für einen Externen Dienstleister.
     """
     try:
-        user_id = current_user["user_id"] if isinstance(current_user, dict) else current_user.user_id
+        user_id = current_user.user_id
         payload["initiator_user_id"] = user_id
         result = await api_client.trigger_ext_onboarding(payload)
         return JSONResponse(content={"process_id": result["process_id"], "status": "started"})
@@ -683,15 +896,26 @@ async def api_start_ext_onboarding_process(
 
     
 @app.get("/api/tasks/overview")
-async def api_tasks_overview(current_user=Depends(get_current_user_dep)):
+async def api_tasks_overview(current_user=Depends(require_login)):
     try:
-        user_id = (
-            current_user["user_id"] 
-            if isinstance(current_user, dict) 
-            else current_user.user_id
-        )
+        user_id = current_user.user_id
 
         tasks = await api_client.get_task_overview(user_id)
+        for key in ("open_tasks", "blocked_tasks", "user_tasks", "completed_tasks"):
+            if isinstance(tasks.get(key), list):
+                tasks[key] = _filter_tasks_for_scope(tasks[key], current_user)
+        for key in (
+            "running_processes",
+            "open_processes",
+            "active_processes",
+            "ongoing_processes",
+            "completed_processes",
+            "closed_processes",
+            "finished_processes",
+            "processes",
+        ):
+            if isinstance(tasks.get(key), list):
+                tasks[key] = _filter_processes_for_scope(tasks[key], current_user)
         return JSONResponse(content=tasks)
 
     except httpx.HTTPStatusError as e:
@@ -700,6 +924,8 @@ async def api_tasks_overview(current_user=Depends(get_current_user_dep)):
             content=e.response.json(),
             status_code=e.response.status_code
         )
+    except HTTPException as e:
+        raise e
     except Exception as e:
         return JSONResponse(
             content={"error": str(e)},
@@ -707,9 +933,9 @@ async def api_tasks_overview(current_user=Depends(get_current_user_dep)):
         )
     
 @app.post("/api/resources/mail_template")
-async def api_get_mail_template(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_get_mail_template(payload: dict, current_user=Depends(require_login)):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.get_mail_template(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -725,8 +951,9 @@ async def api_get_mail_template(payload: dict, current_user=Depends(get_current_
         )
 
 @app.get("/api/tasks/{task_id}/history")
-async def api_task_logs(task_id, current_user=Depends(get_current_user_dep)):
+async def api_task_logs(task_id, current_user=Depends(require_login)):
     try:
+        await _get_relevant_task_or_raise(int(task_id), current_user)
         history = await api_client.get_task_logs(task_id)
         return JSONResponse(content=history)
     
@@ -745,7 +972,7 @@ async def api_task_logs(task_id, current_user=Depends(get_current_user_dep)):
 
     
 @app.get("/api/systems")
-async def api_system_overview(current_user=Depends(get_current_user_dep)):
+async def api_system_overview(current_user=Depends(require_page_access("systems"))):
     """
     Liefert die Systemliste für das Dashboard als JSON
     """
@@ -765,9 +992,9 @@ async def api_system_overview(current_user=Depends(get_current_user_dep)):
         )
 
 @app.post("/api/systems")
-async def api_create_system(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_create_system(payload: dict, current_user=Depends(require_page_access("systems"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.create_system(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -782,7 +1009,7 @@ async def api_create_system(payload: dict, current_user=Depends(get_current_user
         )
 
 @app.get("/api/systems/map")
-async def api_system_map(current_user=Depends(get_current_user_dep)):
+async def api_system_map(current_user=Depends(require_any_page_access("systems", "users"))):
     try:
         systems = await api_client.get_system_map()
 
@@ -809,7 +1036,7 @@ async def api_system_map(current_user=Depends(get_current_user_dep)):
      
 
 @app.get("/api/systems/{system_id}")
-async def api_get_system_detail(system_id: int, current_user=Depends(get_current_user_dep)):
+async def api_get_system_detail(system_id: int, current_user=Depends(require_page_access("systems"))):
     """
     Liefert Details + Ressourcen eines Systems für Frontend
     """
@@ -828,9 +1055,9 @@ async def api_get_system_detail(system_id: int, current_user=Depends(get_current
         )
 
 @app.post("/api/systems/{system_id}")
-async def api_update_system(system_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_update_system(system_id: int, payload: dict, current_user=Depends(require_page_access("systems"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.update_system(system_id, payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -845,7 +1072,7 @@ async def api_update_system(system_id: int, payload: dict, current_user=Depends(
         )
     
 @app.get("/api/systems/{system_id}/resources")
-async def api_get_system_resources(system_id: int, current_user=Depends(get_current_user_dep)):
+async def api_get_system_resources(system_id: int, current_user=Depends(require_page_access("systems"))):
     try:
         system_detail = await api_client.get_system_resources(system_id)
         return JSONResponse(content=system_detail)
@@ -865,7 +1092,7 @@ async def api_list_resources(
     type_id: int | None = None,
     search: str | None = None,
     limit: int | None = None,
-    current_user=Depends(get_current_user_dep)
+    current_user=Depends(require_page_access("systems"))
 ):
     try:
         params = {}
@@ -890,9 +1117,9 @@ async def api_list_resources(
         )
     
 @app.post("/api/resources")
-async def api_create_system_resource(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_create_system_resource(payload: dict, current_user=Depends(require_page_access("systems"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.create_resource(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -908,9 +1135,9 @@ async def api_create_system_resource(payload: dict, current_user=Depends(get_cur
         )
 
 @app.post("/api/resources/{resource_id}")
-async def api_update_system_resource(resource_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_update_system_resource(resource_id: int, payload: dict, current_user=Depends(require_page_access("systems"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.update_resource(resource_id, payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -927,7 +1154,7 @@ async def api_update_system_resource(resource_id: int, payload: dict, current_us
 
     
 @app.get("/api/roles")
-async def api_role_overview(current_user=Depends(get_current_user_dep)):
+async def api_role_overview(current_user=Depends(require_page_access("roles"))):
     try:
         systems = await api_client.get_role_overview()
         return JSONResponse(content=systems)
@@ -944,9 +1171,9 @@ async def api_role_overview(current_user=Depends(get_current_user_dep)):
         )
 
 @app.post("/api/roles")
-async def api_create_role(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_create_role(payload: dict, current_user=Depends(require_page_access("roles"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.create_role(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -961,7 +1188,7 @@ async def api_create_role(payload: dict, current_user=Depends(get_current_user_d
         )
     
 @app.get("/api/roles/map")
-async def api_role_map(current_user=Depends(get_current_user_dep)):
+async def api_role_map(current_user=Depends(require_any_page_access("roles", "users"))):
     try:
         roles = await api_client.get_role_map()
 
@@ -987,7 +1214,7 @@ async def api_role_map(current_user=Depends(get_current_user_dep)):
         )
     
 @app.get("/api/roles/{role_id}")
-async def api_get_role_detail(role_id: int, current_user=Depends(get_current_user_dep)):
+async def api_get_role_detail(role_id: int, current_user=Depends(require_page_access("roles"))):
     try:
         system_detail = await api_client.get_role_detail(role_id)
         return JSONResponse(content=system_detail)
@@ -1003,9 +1230,9 @@ async def api_get_role_detail(role_id: int, current_user=Depends(get_current_use
         )
 
 @app.post("/api/roles/{role_id}")
-async def api_update_role(role_id: int, payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_update_role(role_id: int, payload: dict, current_user=Depends(require_page_access("roles"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.update_role(role_id, payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -1020,9 +1247,9 @@ async def api_update_role(role_id: int, payload: dict, current_user=Depends(get_
         )
     
 @app.post("/api/processes/skill_assignment")
-async def api_start_skill_assignment_process(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_start_skill_assignment_process(payload: dict, current_user=Depends(require_capability("skill.assign"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_skill_assignment(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -1038,9 +1265,9 @@ async def api_start_skill_assignment_process(payload: dict, current_user=Depends
         )
 
 @app.post("/api/processes/change")
-async def api_start_primary_role_change_process(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_start_primary_role_change_process(payload: dict, current_user=Depends(require_capability("primary_role.change"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_primary_role_change(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -1056,9 +1283,9 @@ async def api_start_primary_role_change_process(payload: dict, current_user=Depe
         )
     
 @app.post("/api/processes/tmp_role")
-async def api_start_temporary_role_process(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_start_temporary_role_process(payload: dict, current_user=Depends(require_capability("temporary_role.assign"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_temporary_role(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -1074,9 +1301,9 @@ async def api_start_temporary_role_process(payload: dict, current_user=Depends(g
         )
     
 @app.post("/api/processes/offboarding")
-async def api_start_offboarding_process(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_start_offboarding_process(payload: dict, current_user=Depends(require_capability("offboarding.start"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_offboarding(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -1092,9 +1319,9 @@ async def api_start_offboarding_process(payload: dict, current_user=Depends(get_
         )
     
 @app.post("/api/processes/skill_revocation")
-async def api_start_skill_removal_process(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_start_skill_removal_process(payload: dict, current_user=Depends(require_capability("skill.revoke"))):
     try:
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_skill_removal(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
@@ -1110,13 +1337,13 @@ async def api_start_skill_removal_process(payload: dict, current_user=Depends(ge
         )
 
 @app.post("/api/processes/iks")
-async def api_start_iks_process_report(payload: dict, current_user=Depends(get_current_user_dep)):
+async def api_start_iks_process_report(payload: dict, current_user=Depends(require_page_access("iks"))):
     try:
         request_payload = {
             "process_type": payload.get("process_type"),
             "start_date": payload.get("start_data"),
             "end_date": payload.get("end_date"),
-            "initiator_user_id": current_user["user_id"]
+            "initiator_user_id": current_user.user_id
         }
         result = await api_client.trigger_iks_process_report(request_payload)
         return JSONResponse(content=result)
@@ -1132,12 +1359,12 @@ async def api_start_iks_process_report(payload: dict, current_user=Depends(get_c
         )
     
 @app.post("/api/roles/{role_id}/resources")
-async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_user=Depends(get_current_user_dep)):
+async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_user=Depends(require_page_access("roles"))):
     try:
         payload: dict = {}
         payload["role_id"] = role_id
         payload["resource_ids"] = resource_ids["resource_ids"]
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
 
         result = await api_client.add_resources_to_role(payload)
         return JSONResponse(content=result)
@@ -1155,12 +1382,12 @@ async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_us
 
 
 @app.delete("/api/roles/{role_id}/resources")
-async def api_remove_resources_from_role(role_id: int, resource_ids: dict, current_user=Depends(get_current_user_dep)):
+async def api_remove_resources_from_role(role_id: int, resource_ids: dict, current_user=Depends(require_page_access("roles"))):
     try:
         payload: dict = {}
         payload["role_id"] = role_id
         payload["resource_ids"] = resource_ids["resource_ids"]
-        payload["initiator_user_id"] = current_user["user_id"]
+        payload["initiator_user_id"] = current_user.user_id
 
         result = await api_client.remove_resources_from_role(payload)
         return JSONResponse(content=result)

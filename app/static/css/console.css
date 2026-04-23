@@ -1,9 +1,247 @@
 .console-page {
-    width: min(1220px, 100%);
+    width: min(1400px, 100%);
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
     padding: 2rem 0 3rem;
+}
+
+.console-calendar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    padding: 1.4rem;
+    background:
+        radial-gradient(circle at top left, rgba(65, 105, 225, 0.14), transparent 30%),
+        linear-gradient(135deg, #ffffff, #f3f7ff 52%, #edf2fb);
+}
+
+.console-calendar-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.console-calendar-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.console-week-labels {
+    min-width: 10rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.1rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 18px;
+    border: 1px solid rgba(215, 223, 235, 0.9);
+    background: rgba(255, 255, 255, 0.85);
+    color: #283954;
+}
+
+.console-week-labels span {
+    color: #617088;
+    font-size: 0.92rem;
+}
+
+.console-calendar-feedback {
+    min-height: 1.5rem;
+    color: #617088;
+}
+
+.console-calendar-feedback.is-error {
+    color: #a63f2b;
+}
+
+.console-calendar-feedback.is-success {
+    color: #526378;
+}
+
+.console-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.console-calendar-day {
+    min-height: 15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+    padding: 1rem;
+    border-radius: 22px;
+    border: 1px solid rgba(213, 221, 233, 0.9);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 249, 255, 0.92));
+}
+
+.console-calendar-day.is-today {
+    border-color: rgba(90, 133, 228, 0.72);
+    box-shadow: inset 0 0 0 1px rgba(90, 133, 228, 0.18);
+}
+
+.console-calendar-day.is-empty {
+    background: linear-gradient(180deg, rgba(250, 251, 255, 0.96), rgba(245, 247, 252, 0.92));
+}
+
+.console-day-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.console-day-title {
+    font-size: 1rem;
+    color: #1b2942;
+}
+
+.console-day-date {
+    color: #617088;
+    font-size: 0.92rem;
+}
+
+.console-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.console-event-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 18px;
+    border: 1px solid rgba(217, 225, 236, 0.95);
+    background: rgba(255, 255, 255, 0.94);
+}
+
+.console-event-card.is-blocking {
+    border-color: rgba(111, 145, 214, 0.62);
+    background: linear-gradient(180deg, #f7faff, #ffffff);
+}
+
+.console-event-title {
+    color: #18253b;
+    line-height: 1.35;
+}
+
+.console-event-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.console-event-time,
+.console-event-description,
+.console-empty-day,
+.console-empty-week {
+    color: #617088;
+    line-height: 1.5;
+}
+
+.console-event-time {
+    font-size: 0.9rem;
+}
+
+.console-event-description {
+    font-size: 0.92rem;
+}
+
+.console-empty-day {
+    display: inline-flex;
+    align-items: center;
+    min-height: 4rem;
+    padding: 0.85rem 0.9rem;
+    border-radius: 16px;
+    border: 1px dashed rgba(196, 206, 220, 0.95);
+    background: rgba(246, 248, 252, 0.8);
+}
+
+.console-empty-week {
+    grid-column: 1 / -1;
+    padding: 1rem 1.15rem;
+    border-radius: 18px;
+    border: 1px dashed rgba(196, 206, 220, 0.95);
+    background: rgba(248, 250, 255, 0.86);
+    text-align: center;
+}
+
+.console-event-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.85rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+}
+
+.console-event-type-onboarding {
+    background: #eef8f0;
+    border-color: #cde8d4;
+    color: #1e6b3e;
+}
+
+.console-event-type-offboarding {
+    background: #fff0eb;
+    border-color: #f2cbc0;
+    color: #9b4332;
+}
+
+.console-event-type-role_assignment {
+    background: #edf5ff;
+    border-color: #cddcf8;
+    color: #27579d;
+}
+
+.console-event-type-role_removal {
+    background: #f9eefb;
+    border-color: #e0caea;
+    color: #7a4089;
+}
+
+.console-event-type-default {
+    background: #f1f4f9;
+    border-color: #d6deea;
+    color: #4d5e78;
+}
+
+.console-event-status-planned {
+    background: #fff8df;
+    border-color: #edd899;
+    color: #846300;
+}
+
+.console-event-status-executed {
+    background: #edf8ef;
+    border-color: #c9e5d0;
+    color: #24613b;
+}
+
+.console-event-status-failed {
+    background: #ffefed;
+    border-color: #f1c6bf;
+    color: #a03c2c;
+}
+
+.console-event-status-skipped {
+    background: #f3f5f8;
+    border-color: #d8dee8;
+    color: #5f6e84;
+}
+
+.console-event-status-canceled {
+    background: #faf0f1;
+    border-color: #e4c7cc;
+    color: #8a4e58;
 }
 
 .console-hero {
@@ -132,9 +370,25 @@
 }
 
 @media (max-width: 1100px) {
+    .console-calendar-grid,
     .console-link-grid,
     .console-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .console-calendar-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .console-calendar-head {
+        flex-direction: column;
+    }
+
+    .console-calendar-nav {
+        width: 100%;
+        justify-content: flex-start;
     }
 }
 
@@ -143,13 +397,24 @@
         padding: 1.25rem 0 2.4rem;
     }
 
+    .console-calendar,
     .console-hero {
         flex-direction: column;
         padding: 1.3rem;
     }
 
+    .console-calendar-grid,
     .console-link-grid,
     .console-grid {
         grid-template-columns: 1fr;
+    }
+
+    .console-week-labels {
+        width: 100%;
+        align-items: flex-start;
+    }
+
+    .console-calendar-nav .btn {
+        flex: 1 1 auto;
     }
 }

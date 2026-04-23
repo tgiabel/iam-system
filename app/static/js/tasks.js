@@ -32,6 +32,14 @@ const LABELS = {
         COMPLETED: "Erledigt",
         BOT_RESPONSE: "Bot-Antwort",
         MAIL_SENT: "E-Mail versendet"
+    },
+    processes: {
+        SKILL_ASSIGNMENT: "Rollenzuweisung",
+        SKILL_REMOVAL: "Rollenentzug",
+        TEMPORARY_ROLE: "Temporäre Rolle",
+        ONBOARDING: "Onboarding",
+        OFFBOARDING: "Offboarding",
+        CHANGE: "Abteilungswechsel"
     }
 };
 
@@ -177,6 +185,31 @@ function formatHistoryAction(action) {
     return formatFromMap(LABELS.historyAction, action);
 }
 
+function formatProcessLabel(task) {
+    const explicitProcessName = firstDefinedValue(task, ["process_name", "name"], "");
+    if (explicitProcessName && explicitProcessName !== "-") {
+        return String(explicitProcessName);
+    }
+
+    const processType = firstDefinedValue(task, ["process_type", "type"], "");
+    if (processType && processType !== "-") {
+        return formatFromMap(LABELS.processes, processType);
+    }
+
+    return "Prozess";
+}
+
+function formatTaskModalSubtitle(task) {
+    const processId = firstDefinedValue(task, PROCESS_KEYS.id, "");
+    const processLabel = formatProcessLabel(task);
+
+    if (processId && processId !== "-") {
+        return `${processLabel} · #${processId}`;
+    }
+
+    return `Task #${task.task_id}`;
+}
+
 function formatDateTime(value) {
     if (!value) {
         return "-";
@@ -265,12 +298,13 @@ function renderTaskTile(task) {
 
     const statusLabel = isTaskCompleted(task) ? "Zuletzt erledigt" : formatStatus(task.status, task);
     const assignedTo = task.assigned_to_user_name || task.assigned_to_name || "-";
+    const kickerLabel = formatTaskModalSubtitle(task);
 
     return `
         <a href="#" class="task-tile task-card ${getTaskStateClass(task)}" data-task-id="${escapeHtml(task.task_id)}">
             <div class="task-card-top">
                 <div class="task-card-heading">
-                    <span class="task-card-kicker">Task #${escapeHtml(task.task_id)}</span>
+                    <span class="task-card-kicker">${escapeHtml(kickerLabel)}</span>
                     <h3 class="task-card-title">${escapeHtml(formatTaskType(task.task_type))}</h3>
                 </div>
                 <div class="task-card-chips">
@@ -472,17 +506,20 @@ function setHistoryExpanded(isOpen) {
 function populateTaskModal(task) {
     const titleEl = document.getElementById("task-modal-title");
     const subtitleEl = document.getElementById("task-modal-subtitle");
+    const systemEl = document.getElementById("task-modal-system");
     const userEl = document.getElementById("task-modal-user");
     const resourceEl = document.getElementById("task-modal-resource");
     const handlingEl = document.getElementById("task-modal-handling");
-    const typeEl = document.getElementById("task-modal-type");
     const statusEl = document.getElementById("task-modal-status");
 
     if (titleEl) {
         titleEl.textContent = formatTaskType(task.task_type);
     }
     if (subtitleEl) {
-        subtitleEl.textContent = `Task #${task.task_id}`;
+        subtitleEl.textContent = formatTaskModalSubtitle(task);
+    }
+    if (systemEl) {
+        systemEl.textContent = task.system_name || "-";
     }
     if (userEl) {
         userEl.textContent = task.target_user_name || "-";
@@ -492,9 +529,6 @@ function populateTaskModal(task) {
     }
     if (handlingEl) {
         handlingEl.textContent = formatHandlingType(task.handling_type);
-    }
-    if (typeEl) {
-        typeEl.textContent = formatTaskType(task.task_type);
     }
     if (statusEl) {
         statusEl.className = `ui-status-badge ${getStatusBadgeClass(task.status, task)}`;

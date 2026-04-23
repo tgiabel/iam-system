@@ -48,20 +48,32 @@
                     <a href="/tools" class="nav-link" data-nav-target="tools">Tools & Reports</a>
 
                     <!-- Admin dropdown (click-to-toggle) -->
-                    <div class="nav-item dropdown" id="nav-admin" data-nav-target="admin">
-                        <button id="admin-button" class="nav-button" type="button"
-                                aria-haspopup="true" aria-expanded="false" aria-controls="admin-subnav">
-                            <span>Admin</span>
-                            <span class="nav-caret" aria-hidden="true">▾</span>
-                        </button>
-                        <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
-                            <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console">Konsole</a>
-                            <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users">Userverwaltung</a>
-                            <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems">Systemverwaltung</a>
-                            <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
-                            <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks">Kontrollsystem</a>
+                    {% if authz.has_admin_access %}
+                        <div class="nav-item dropdown" id="nav-admin" data-nav-target="admin">
+                            <button id="admin-button" class="nav-button" type="button"
+                                    aria-haspopup="true" aria-expanded="false" aria-controls="admin-subnav">
+                                <span>Admin</span>
+                                <span class="nav-caret" aria-hidden="true">▾</span>
+                            </button>
+                            <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
+                                {% if "console" in authz.pages %}
+                                    <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console">Konsole</a>
+                                {% endif %}
+                                {% if "users" in authz.pages %}
+                                    <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users">Userverwaltung</a>
+                                {% endif %}
+                                {% if "systems" in authz.pages %}
+                                    <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems">Systemverwaltung</a>
+                                {% endif %}
+                                {% if "roles" in authz.pages %}
+                                    <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
+                                {% endif %}
+                                {% if "iks" in authz.pages %}
+                                    <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks">Kontrollsystem</a>
+                                {% endif %}
+                            </div>
                         </div>
-                    </div>
+                    {% endif %}
                 {% endif %}
             </nav>
         </div>
@@ -114,6 +126,9 @@
     </footer>
 
     {% if user %}
+        <script>
+            window.currentAuthz = {{ authz | tojson }};
+        </script>
         <div
             id="password-change-modal"
             class="ui-modal-overlay profile-modal-overlay"

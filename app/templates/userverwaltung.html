@@ -19,7 +19,9 @@
                         Nutzer suchen, filtern und direkt in einem strukturierten Detail-Overlay verwalten.
                     </p>
                 </div>
-                <button type="button" class="btn btn-primary users-onboard-btn" id="onboard-action-btn">Onboarding</button>
+                {% if "onboarding.start" in authz.capabilities or "onboarding.external.start" in authz.capabilities %}
+                    <button type="button" class="btn btn-primary users-onboard-btn" id="onboard-action-btn">Onboarding</button>
+                {% endif %}
             </div>
 
             <div class="users-toolbar">
@@ -151,6 +153,16 @@
 
                     <article class="ui-card user-detail-card">
                         <div class="user-detail-card-header">
+                            <h3>Status</h3>
+                            <span class="ui-chip ui-chip-neutral" id="user-derived-status-count">0</span>
+                        </div>
+                        <div id="user-derived-status-list" class="user-derived-status-list">
+                            <div class="ui-empty-state ui-empty-inline">Keine abgeleiteten Status vorhanden.</div>
+                        </div>
+                    </article>
+
+                    <article class="ui-card user-detail-card">
+                        <div class="user-detail-card-header">
                             <h3>Accounts</h3>
                             <span class="ui-chip ui-chip-neutral" id="user-accounts-count">0</span>
                         </div>
@@ -175,7 +187,9 @@
                         </div>
                         <p class="user-action-copy">Austrittstermine sauber anstoßen und den Prozess direkt aus dem User-Kontext starten.</p>
                         <div class="user-action-group">
-                            <button type="button" class="btn btn-red" id="offboard-action-btn">Offboarding starten</button>
+                            {% if "offboarding.start" in authz.capabilities %}
+                                <button type="button" class="btn btn-red" id="offboard-action-btn">Offboarding starten</button>
+                            {% endif %}
                         </div>
                     </article>
                 </div>
@@ -191,10 +205,18 @@
                     </div>
                     <p class="user-action-copy">Rollenbezogene Aktionen direkt im Kontext der aktuellen Zuweisungen starten.</p>
                     <div class="user-action-group">
-                        <button type="button" class="btn btn-primary" id="primary-role-change-action-btn">Funktion wechseln</button>
-                        <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
-                        <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
-                        <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>
+                        {% if "primary_role.change" in authz.capabilities %}
+                            <button type="button" class="btn btn-primary" id="primary-role-change-action-btn">Funktion wechseln</button>
+                        {% endif %}
+                        {% if "skill.assign" in authz.capabilities %}
+                            <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
+                        {% endif %}
+                        {% if "temporary_role.assign" in authz.capabilities %}
+                            <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
+                        {% endif %}
+                        {% if "skill.revoke" in authz.capabilities %}
+                            <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>
+                        {% endif %}
                     </div>
                 </article>
             </section>

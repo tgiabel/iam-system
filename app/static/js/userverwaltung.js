@@ -15,15 +15,21 @@ const state = {
 
 const DOM = {};
 
+function getAuthz() {
+    return window.currentAuthz || { pages: [], capabilities: [], scopes: {} };
+}
+
+function hasCapability(capability) {
+    const authz = getAuthz();
+    return Array.isArray(authz.capabilities) && authz.capabilities.includes(capability);
+}
+
 const STATUS_LABELS = {
     active: "Aktiv",
     inactive: "Inaktiv",
     pending: "Offen",
     in_progress: "In Bearbeitung",
     requested: "Beantragt",
-    temp_role_active: "Temp. Rolle aktiv",
-    onboarding_pending: "Onboarding offen",
-    offboarding_pending: "Offboarding offen",
     revocation_requested: "Entzug angefragt",
     revoked: "Entzogen"
 };
@@ -34,6 +40,9 @@ const ASSIGNMENT_LABELS = {
     revocation_requested: "Entzug angefragt",
     revoked: "Entzogen"
 };
+
+const ACTIVE_ROLE_ASSIGNMENT_CODES = new Set(["active"]);
+const REQUESTED_ROLE_ASSIGNMENT_CODES = new Set(["requested", "open", "pending", "in_progress"]);
 
 const api = {
     async getUsers() {
@@ -389,6 +398,20 @@ function closeOverlay(id) {
 }
 
 function getSummaryStatus(user) {
+    const derivedStatuses = getNormalizedDerivedStatuses(user);
+    if (derivedStatuses.length) {
+        const primaryStatus = derivedStatuses[0];
+        return {
+            code: primaryStatus.code,
+            label: primaryStatus.label,
+            className: primaryStatus.className,
+            count: derivedStatuses.length,
+            extraCount: Math.max(derivedStatuses.length - 1, 0),
+            tooltip: buildDerivedStatusesTooltip(derivedStatuses),
+            source: "derived"
+        };
+    }
+
     const rawStatus =
         user?.summary_status_code ||
         user?.summary_status ||
@@ -406,11 +429,91 @@ function getSummaryStatus(user) {
         className = "users-status-pending";
     } else if (normalized.includes("warning") || normalized.includes("revocation")) {
         className = "users-status-warning";
-    } else if (normalized.includes("progress") || normalized.includes("pending") || normalized.includes("temp") || normalized.includes("onboarding") || normalized.includes("offboarding")) {
+    } else if (normalized.includes("progress") || normalized.includes("pending")) {
         className = "users-status-progress";
     }
 
-    return { code: normalized, label, className };
+    return { code: normalized, label, className, count: 1, extraCount: 0, tooltip: label, source: "fallback" };
+}
+
+function getSeverityBadgeClass(severity, isOverdue = false) {
+    const normalized = normalizeValue(severity) || "info";
+    if (isOverdue || normalized === "error") {
+        return "users-status-error";
+    }
+    if (normalized === "warning") {
+        return "users-status-warning";
+    }
+    return "users-status-progress";
+}
+
+function normalizeDerivedStatus(status) {
+    if (!status || typeof status !== "object") {
+        return null;
+    }
+
+    const code = String(status.code || "unknown").trim() || "unknown";
+    const label = String(status.label || humanizeToken(code)).trim() || humanizeToken(code);
+    const severity = normalizeValue(status.severity) || "info";
+    const isOverdue = Boolean(status.is_overdue);
+    const normalized = {
+        code,
+        label,
+        processId: status.process_id ?? null,
+        processType: status.process_type ?? null,
+        severity,
+        isOverdue,
+        referenceDate: status.reference_date || null,
+        startedAt: status.started_at || null,
+        completedAt: status.completed_at || null,
+        roleId: status.role_id ?? null,
+        roleName: status.role_name || null,
+        eventId: status.event_id ?? null,
+        eventType: status.event_type || null,
+        eventStatus: status.event_status || null,
+        lastError: status.last_error || null
+    };
+
+    return {
+        ...normalized,
+        className: getSeverityBadgeClass(normalized.severity, normalized.isOverdue)
+    };
+}
+
+function getNormalizedDerivedStatuses(user) {
+    const statuses = Array.isArray(user?.derived_statuses) ? user.derived_statuses : [];
+    return statuses
+        .map(normalizeDerivedStatus)
+        .filter(Boolean);
+}
+
+function formatDerivedStatusSummary(status) {
+    const parts = [status.label];
+    if (status.roleName) {
+        parts.push(`Rolle: ${status.roleName}`);
+    }
+    if (status.referenceDate) {
+        parts.push(`Bezug: ${formatDate(status.referenceDate)}`);
+    }
+    if (status.isOverdue) {
+        parts.push("überfällig");
+    }
+    return parts.join(" · ");
+}
+
+function buildDerivedStatusesTooltip(statuses) {
+    return statuses.map(formatDerivedStatusSummary).join("\n");
+}
+
+function renderDerivedStatusBadge(status, options = {}) {
+    const extraCount = Number(options.extraCount || 0);
+    const tooltip = options.tooltip || status.label;
+    return `
+        <span class="users-derived-status-main" title="${escapeHtml(tooltip)}">
+            <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
+            ${extraCount > 0 ? `<span class="users-derived-status-count" aria-label="${escapeHtml(`${extraCount} weitere Status`)}">+${escapeHtml(extraCount)}</span>` : ""}
+        </span>
+    `;
 }
 
 function getAssignmentStatus(resourceOrRole) {
@@ -443,17 +546,40 @@ function getAssignmentStatus(resourceOrRole) {
     };
 }
 
-function getSecondaryRoles(user) {
-    return Array.isArray(user?.secondary_roles) ? user.secondary_roles : [];
+function getAssignmentStatusCode(resourceOrRole) {
+    return getAssignmentStatus(resourceOrRole).code;
 }
 
-function getAssignedRoleIds(user) {
+function isActiveRoleAssignment(role) {
+    return ACTIVE_ROLE_ASSIGNMENT_CODES.has(getAssignmentStatusCode(role));
+}
+
+function isRequestedRoleAssignment(role) {
+    return REQUESTED_ROLE_ASSIGNMENT_CODES.has(getAssignmentStatusCode(role));
+}
+
+function isSelectionBlockingRoleAssignment(role) {
+    return isActiveRoleAssignment(role) || isRequestedRoleAssignment(role);
+}
+
+function getSecondaryRoles(user, options = {}) {
+    const { activeOnly = true } = options;
+    const secondaryRoles = Array.isArray(user?.secondary_roles) ? user.secondary_roles : [];
+
+    return activeOnly
+        ? secondaryRoles.filter(role => isActiveRoleAssignment(role))
+        : secondaryRoles;
+}
+
+function getBlockedRoleIdsForSelection(user, roleType = null) {
     const sourceUser = state.currentUserDetail?.user_id === user?.user_id
         ? state.currentUserDetail
         : user;
 
     return new Set(
         getRoleAssignments(sourceUser)
+            .filter(role => !roleType || normalizeValue(role.role_type) === normalizeValue(roleType))
+            .filter(isSelectionBlockingRoleAssignment)
             .map(role => String(role?.role_id || "").trim())
             .filter(Boolean)
     );
@@ -515,6 +641,7 @@ function getRoleAssignments(detail) {
             name: role.role_name || role.name || state.roleMap?.[role.role_id]?.name || `Rolle #${role.role_id}`,
             role_type: role.role_type || role.type || state.roleMap?.[role.role_id]?.type || null,
             assignment_status: role.assignment_status || role.status || "active",
+            process_id: role.process_id || null,
             is_primary: String(role.role_id) === String(detail?.primary_role?.role_id) || normalizeValue(role.role_type) === "primary",
             resources: Array.isArray(role.resources) ? role.resources : []
         }));
@@ -533,6 +660,7 @@ function getRoleAssignments(detail) {
         name: role.name || state.roleMap?.[role.role_id]?.name || `Rolle #${role.role_id}`,
         role_type: role.role_type || role.type || state.roleMap?.[role.role_id]?.type || null,
         assignment_status: role.assignment_status || role.status || "active",
+        process_id: role.process_id || null,
         is_primary: String(role.role_id) === String(detail?.primary_role?.role_id) || normalizeValue(role.role_type || role.type) === "primary",
         resources: Array.isArray(detail?.role_resources_map?.[role.role_id]) ? detail.role_resources_map[role.role_id] : []
     }));
@@ -899,7 +1027,7 @@ const tableController = {
                                 <span class="users-secondary-preview ${secondaryRoles.length ? "" : "is-empty"}">${escapeHtml(getRolePreview(secondaryRoles))}</span>
                             </div>
                         </td>
-                        <td><span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span></td>
+                        <td>${renderDerivedStatusBadge(status, { extraCount: status.extraCount, tooltip: status.tooltip })}</td>
                     </tr>
                 `;
             }).join("")
@@ -1005,6 +1133,7 @@ const sidebarController = {
         DOM.sidebarRacfChip.textContent = `RACF ${user.racf || "-"}`;
         DOM.sidebarStatusChip.className = `ui-status-badge ${status.className}`;
         DOM.sidebarStatusChip.textContent = status.label;
+        DOM.sidebarStatusChip.title = status.tooltip || status.label;
 
         DOM.sidebarPNR.textContent = user.pnr || "-";
         DOM.sidebarRacf.textContent = user.racf || "-";
@@ -1022,6 +1151,7 @@ const sidebarController = {
             DOM.userHelixLink.toggleAttribute("aria-disabled", !user.helix_url);
         }
 
+        this.renderDerivedStatuses(user);
         await this.renderAccounts(user.accounts || []);
         this.renderSofaAccessActions(user);
         this.renderRoles(user);
@@ -1032,18 +1162,79 @@ const sidebarController = {
 
     renderSofaAccessActions(user) {
         const hasSofaAccess = Boolean(user.has_sofa_access);
+        const canSetup = hasCapability("sofa_access.setup");
+        const canReset = hasCapability("sofa_access.reset");
+        const canRevoke = hasCapability("sofa_access.revoke");
+
         DOM.sofaAccessStatus.textContent = hasSofaAccess
             ? "SOFA Zugriff ist eingerichtet und kann hier direkt verwaltet werden."
             : "Für diesen User ist aktuell kein SOFA Zugriff eingerichtet.";
 
-        DOM.sofaAccessActions.innerHTML = hasSofaAccess
-            ? `
-                <button type="button" class="btn btn-secondary" id="sofa-password-reset-btn">SOFA Passwort zurücksetzen</button>
-                <button type="button" class="btn btn-red" id="sofa-access-revoke-btn">SOFA Zugriff entziehen</button>
-            `
-            : `
-                <button type="button" class="btn btn-primary" id="sofa-access-setup-btn">SOFA Zugriff einrichten</button>
+        if (!canSetup && !canReset && !canRevoke) {
+            DOM.sofaAccessActions.innerHTML = `
+                <div class="ui-empty-state ui-empty-inline">Keine administrativen SOFA-Aktionen verfuegbar.</div>
             `;
+            return;
+        }
+
+        if (!hasSofaAccess) {
+            DOM.sofaAccessActions.innerHTML = canSetup
+                ? `
+                    <button type="button" class="btn btn-primary" id="sofa-access-setup-btn">SOFA Zugriff einrichten</button>
+                `
+                : `
+                    <div class="ui-empty-state ui-empty-inline">Kein Recht zum Einrichten von SOFA-Zugaengen.</div>
+                `;
+            return;
+        }
+
+        const buttons = [];
+        if (canReset) {
+            buttons.push('<button type="button" class="btn btn-secondary" id="sofa-password-reset-btn">SOFA Passwort zurücksetzen</button>');
+        }
+        if (canRevoke) {
+            buttons.push('<button type="button" class="btn btn-red" id="sofa-access-revoke-btn">SOFA Zugriff entziehen</button>');
+        }
+
+        DOM.sofaAccessActions.innerHTML = buttons.join("") || `
+            <div class="ui-empty-state ui-empty-inline">Keine administrativen SOFA-Aktionen verfuegbar.</div>
+        `;
+    },
+
+    renderDerivedStatuses(user) {
+        const statuses = getNormalizedDerivedStatuses(user);
+        if (DOM.userDerivedStatusCount) {
+            DOM.userDerivedStatusCount.textContent = String(statuses.length);
+        }
+
+        if (!DOM.userDerivedStatusList) {
+            return;
+        }
+
+        if (!statuses.length) {
+            DOM.userDerivedStatusList.innerHTML = renderEmptyState("Keine abgeleiteten Status vorhanden.");
+            return;
+        }
+
+        DOM.userDerivedStatusList.innerHTML = statuses.map(status => `
+            <article class="user-derived-status-card">
+                <div class="user-derived-status-top">
+                    <div class="user-derived-status-head">
+                        <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
+                        ${status.roleName ? `<span class="ui-chip ui-chip-neutral">${escapeHtml(status.roleName)}</span>` : ""}
+                        ${status.isOverdue ? '<span class="ui-chip ui-chip-warning">Überfällig</span>' : ""}
+                    </div>
+                </div>
+                <div class="user-derived-status-meta">
+                    ${status.referenceDate ? `<span><strong>Bezug:</strong> ${escapeHtml(formatDateTime(status.referenceDate))}</span>` : ""}
+                    ${status.startedAt ? `<span><strong>Gestartet:</strong> ${escapeHtml(formatDateTime(status.startedAt))}</span>` : ""}
+                    ${status.completedAt ? `<span><strong>Abgeschlossen:</strong> ${escapeHtml(formatDateTime(status.completedAt))}</span>` : ""}
+                    ${status.processType ? `<span><strong>Prozess:</strong> ${escapeHtml(humanizeToken(status.processType))}${status.processId ? ` · #${escapeHtml(status.processId)}` : ""}</span>` : status.processId ? `<span><strong>Prozess:</strong> #${escapeHtml(status.processId)}</span>` : ""}
+                    ${status.eventType ? `<span><strong>Event:</strong> ${escapeHtml(humanizeToken(status.eventType))}${status.eventStatus ? ` · ${escapeHtml(humanizeToken(status.eventStatus))}` : ""}</span>` : status.eventStatus ? `<span><strong>Event-Status:</strong> ${escapeHtml(humanizeToken(status.eventStatus))}</span>` : ""}
+                </div>
+                ${status.lastError ? `<p class="user-derived-status-error"><strong>Letzter Fehler:</strong> ${escapeHtml(status.lastError)}</p>` : ""}
+            </article>
+        `).join("");
     },
 
     async renderAccounts(accounts = []) {
@@ -1233,11 +1424,21 @@ const sidebarController = {
         document.getElementById("sofa-access-revoke-btn")?.addEventListener("click", () => {
             sofaAccessModalController.open(user, "revoke");
         });
-        DOM.primaryRoleChangeActionBtn.onclick = () => primaryRoleChangeModalController.open(user);
-        DOM.tmpRightsActionBtn.onclick = () => tmpRightsModalController.open(user);
-        DOM.newSkillActionBtn.onclick = () => newSkillModalController.open(user);
-        DOM.skillRevokeActionBtn.onclick = () => skillRevokeModalController.open(user);
-        DOM.offboardActionBtn.onclick = () => offboardModalController.open(user);
+        if (DOM.primaryRoleChangeActionBtn) {
+            DOM.primaryRoleChangeActionBtn.onclick = () => primaryRoleChangeModalController.open(user);
+        }
+        if (DOM.tmpRightsActionBtn) {
+            DOM.tmpRightsActionBtn.onclick = () => tmpRightsModalController.open(user);
+        }
+        if (DOM.newSkillActionBtn) {
+            DOM.newSkillActionBtn.onclick = () => newSkillModalController.open(user);
+        }
+        if (DOM.skillRevokeActionBtn) {
+            DOM.skillRevokeActionBtn.onclick = () => skillRevokeModalController.open(user);
+        }
+        if (DOM.offboardActionBtn) {
+            DOM.offboardActionBtn.onclick = () => offboardModalController.open(user);
+        }
     }
 };
 
@@ -1484,7 +1685,7 @@ const tmpRightsModalController = {
                 </div>
                 <div class="ui-field-group">
                     <label class="ui-field-label" for="tmp-startdate">Ab wann (optional)</label>
-                    <input type="date" id="tmp-startdate" class="ui-input" disabled>
+                    <input type="date" id="tmp-startdate" class="ui-input">
                 </div>
                 <div class="ui-field-group">
                     <label class="ui-field-label" for="tmp-enddate">Enddatum</label>
@@ -1495,14 +1696,30 @@ const tmpRightsModalController = {
         `;
 
         const select = document.getElementById("tmp-role-select");
+        const blockedRoleIds = getBlockedRoleIdsForSelection(user, "secondary");
         Object.entries(await api.getRoleMap())
             .filter(([, role]) => role.type === "SECONDARY")
+            .filter(([roleId]) => !blockedRoleIds.has(String(roleId)))
+            .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .forEach(([id, role]) => {
                 const option = document.createElement("option");
                 option.value = id;
                 option.textContent = role.name;
                 select.appendChild(option);
             });
+
+        if (select.options.length <= 1) {
+            DOM.tmpRightsModalBody.innerHTML = `
+                <div class="user-action-form">
+                    <p class="user-action-note">Es sind keine beantragbaren Nebenrollen verfügbar.</p>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Schließen</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+            return;
+        }
 
         document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
         document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
@@ -1515,12 +1732,17 @@ const tmpRightsModalController = {
                 return;
             }
 
-            const success = await api.startTmpRoleAssignment({
+            const payload = {
                 user_id: user.user_id,
                 role_id: roleId,
-                startdate,
                 enddate
-            });
+            };
+
+            if (startdate) {
+                payload.startdate = startdate;
+            }
+
+            const success = await api.startTmpRoleAssignment(payload);
 
             if (!success) {
                 return;
@@ -1560,21 +1782,37 @@ const newSkillModalController = {
                 </div>
                 <div class="ui-field-group">
                     <label class="ui-field-label" for="new-skill-startdate">Ab wann (optional)</label>
-                    <input type="date" id="new-skill-startdate" class="ui-input" disabled>
+                    <input type="date" id="new-skill-startdate" class="ui-input">
                 </div>
                 ${buildButtonRow("Beantragen")}
             </div>
         `;
 
         const select = document.getElementById("new-skill-select");
+        const blockedRoleIds = getBlockedRoleIdsForSelection(user, "secondary");
         Object.entries(await api.getRoleMap())
             .filter(([, role]) => role.type === "SECONDARY")
+            .filter(([roleId]) => !blockedRoleIds.has(String(roleId)))
+            .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .forEach(([id, role]) => {
                 const option = document.createElement("option");
                 option.value = id;
                 option.textContent = role.name;
                 select.appendChild(option);
             });
+
+        if (select.options.length <= 1) {
+            DOM.newSkillModalBody.innerHTML = `
+                <div class="user-action-form">
+                    <p class="user-action-note">Es sind keine beantragbaren Nebenrollen verfügbar.</p>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Schließen</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+            return;
+        }
 
         document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
         document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
@@ -1586,11 +1824,16 @@ const newSkillModalController = {
                 return;
             }
 
-            const success = await api.startNewSkillAssignment({
+            const payload = {
                 user_id: user.user_id,
-                role_id: roleId,
-                start_date: startDate
-            });
+                role_id: roleId
+            };
+
+            if (startDate) {
+                payload.start_date = startDate;
+            }
+
+            const success = await api.startNewSkillAssignment(payload);
 
             if (!success) {
                 return;
@@ -1633,11 +1876,11 @@ const primaryRoleChangeModalController = {
         `;
 
         const select = document.getElementById("primary-role-change-select");
-        const assignedRoleIds = getAssignedRoleIds(user);
+        const blockedRoleIds = getBlockedRoleIdsForSelection(user, "primary");
 
         Object.entries(await api.getRoleMap())
             .filter(([, role]) => role.type === "PRIMARY")
-            .filter(([roleId]) => !assignedRoleIds.has(String(roleId)))
+            .filter(([roleId]) => !blockedRoleIds.has(String(roleId)))
             .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .forEach(([id, role]) => {
                 const option = document.createElement("option");
@@ -1732,7 +1975,7 @@ const skillRevokeModalController = {
                 </div>
                 <div class="ui-field-group">
                     <label class="ui-field-label" for="skill-revoke-startdate">Ab wann (optional)</label>
-                    <input type="date" id="skill-revoke-startdate" class="ui-input" disabled>
+                    <input type="date" id="skill-revoke-startdate" class="ui-input">
                 </div>
                 ${buildButtonRow("Beantragen")}
             </div>
@@ -1748,6 +1991,19 @@ const skillRevokeModalController = {
                 select.appendChild(option);
             });
 
+        if (select.options.length <= 1) {
+            DOM.skillRevokeModalBody.innerHTML = `
+                <div class="user-action-form">
+                    <p class="user-action-note">Es sind keine aktiv zugewiesenen Nebenrollen verfügbar.</p>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Schließen</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+            return;
+        }
+
         document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
         document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
             const roleId = document.getElementById("skill-revoke-select")?.value;
@@ -1758,11 +2014,16 @@ const skillRevokeModalController = {
                 return;
             }
 
-            const success = await api.startSkillRevoke({
+            const payload = {
                 user_id: user.user_id,
-                role_id: roleId,
-                start_date: startDate
-            });
+                role_id: roleId
+            };
+
+            if (startDate) {
+                payload.start_date = startDate;
+            }
+
+            const success = await api.startSkillRevoke(payload);
 
             if (!success) {
                 return;
@@ -1860,6 +2121,8 @@ function cacheDOM() {
     DOM.userHelixLink = document.getElementById("user-helix-link");
     DOM.sidebarAccounts = document.getElementById("user-accounts-list");
     DOM.userAccountsCount = document.getElementById("user-accounts-count");
+    DOM.userDerivedStatusList = document.getElementById("user-derived-status-list");
+    DOM.userDerivedStatusCount = document.getElementById("user-derived-status-count");
     DOM.sofaAccessStatus = document.getElementById("sofa-access-status");
     DOM.sofaAccessActions = document.getElementById("sofa-access-actions");
     DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
