@@ -3,6 +3,7 @@
 {% set page_title = "Dashboard" %}
 
 {% block css %}
+<link rel="stylesheet" href="/static/css/console.css">
 <link rel="stylesheet" href="/static/css/dashboard.css">
 {% endblock %}
 
@@ -14,7 +15,7 @@
                 <div class="ui-section-heading">
                     <p class="ui-section-kicker">Mein Bereich</p>
                     <h2 class="ui-section-title">Persönliche Übersicht für {{ user.first_name or user.pnr or "dein Profil" }}</h2>
-                    <p class="ui-section-copy">Angepinnte Arbeitsbereiche, aktuelle Task-Zahlen und persönliche Hinweise.</p>
+                    <p class="ui-section-copy">Wochenkalender, aktuelle Task-Zahlen und deine angepinnten Arbeitsbereiche auf einen Blick.</p>
                 </div>
                 <div class="dashboard-private-badges">
                     <span class="ui-chip ui-chip-primary">{{ user.primary_role.name if user.primary_role else "SOFA User" }}</span>
@@ -23,40 +24,31 @@
             </div>
 
             <div class="dashboard-private-grid">
-                <article class="ui-card dashboard-card dashboard-pinned-card">
-                    <div class="dashboard-card-head">
-                        <div>
-                            <p class="ui-section-kicker">Schnellzugriff</p>
-                            <h3 class="ui-section-title">Angepinnte Tools & Reports</h3>
+                <section class="ui-card console-calendar dashboard-calendar-card" aria-labelledby="console-calendar-title">
+                    <div class="console-calendar-head">
+                        <div class="ui-section-heading">
+                            <p class="ui-section-kicker">Wochenansicht</p>
+                            <h3 class="ui-section-title" id="console-calendar-title">Kalenderwoche</h3>
+                            <p class="ui-section-copy" id="console-calendar-copy">
+                                Deine Prozess-Events der sichtbaren Woche werden hier gesammelt dargestellt.
+                            </p>
+                        </div>
+                        <div class="console-calendar-nav" aria-label="Kalenderwochen-Navigation">
+                            <button type="button" class="btn btn-secondary" id="console-week-prev" aria-label="Vorherige Kalenderwoche">←</button>
+                            <div class="console-week-labels">
+                                <strong id="console-week-label">KW -</strong>
+                                <span id="console-week-range">-</span>
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="console-week-next" aria-label="Nächste Kalenderwoche">→</button>
+                            <button type="button" class="btn btn-secondary" id="console-week-current">Heute</button>
                         </div>
                     </div>
 
-                    <div class="dashboard-pin-grid">
-                        <a href="/tools/datex" class="dashboard-pin-card">
-                            <span class="ui-chip ui-chip-primary">Tool</span>
-                            <strong>DAT-Export Check</strong>
-                            <span>Dateien prüfen und in Excel umwandeln.</span>
-                        </a>
-                        <a href="/tools/iks" class="dashboard-pin-card">
-                            <span class="ui-chip ui-chip-accent">Tool</span>
-                            <strong>IKS-Bericht Generator</strong>
-                            <span>Kontrollen und Berichte direkt anstoßen.</span>
-                        </a>
-                        <article class="dashboard-pin-card is-disabled" aria-disabled="true">
-                            <span class="ui-chip ui-chip-warning">Coming Soon</span>
-                            <strong>Report Slot</strong>
-                            <span>Platz für einen späteren Favoriten oder Standardreport.</span>
-                        </article>
-                        <article class="dashboard-pin-card dashboard-pin-card-add is-disabled" aria-disabled="true">
-                            <span class="ui-chip ui-chip-neutral">Hinzufügen</span>
-                            <strong>Neues Tool oder Report anpinnen</strong>
-                            <span>Platzhalter für einen späteren Favoriten-Dialog.</span>
-                        </article>
+                    <div class="console-calendar-feedback" id="console-calendar-feedback" role="status">
+                        Events werden geladen…
                     </div>
-                    <div class="dashboard-link-row">
-                        <a href="/tools" class="dashboard-inline-link">Zu Tools & Reports</a>
-                    </div>
-                </article>
+                    <div class="console-calendar-grid" id="console-calendar-grid" aria-live="polite"></div>
+                </section>
 
                 <article class="ui-card dashboard-card dashboard-metrics-card">
                     <div class="dashboard-card-head">
@@ -91,18 +83,39 @@
                     </div>
                 </article>
 
-                <article class="ui-card dashboard-card">
+                <article class="ui-card dashboard-card dashboard-pinned-card dashboard-pinned-card-compact">
                     <div class="dashboard-card-head">
                         <div>
-                            <p class="ui-section-kicker">Hinweise</p>
-                            <h3 class="ui-section-title">Benachrichtigungen</h3>
+                            <p class="ui-section-kicker">Favoriten</p>
+                            <h3 class="ui-section-title">Angepinnte Tools & Reports</h3>
                         </div>
+                        <span class="ui-chip ui-chip-neutral">Kompakt</span>
                     </div>
 
-                    <div class="dashboard-feed">
-                        <div class="dashboard-feed-item" id="dashboard-notification-open">
-                            <span>Deine heutige Übersicht wird geladen.</span>
-                        </div>
+                    <div class="dashboard-pin-grid dashboard-pin-grid-compact">
+                        <a href="/tools/datex" class="dashboard-pin-card">
+                            <span class="ui-chip ui-chip-primary">Tool</span>
+                            <strong>DAT-Export Check</strong>
+                            <span>Exportdateien schnell prüfen.</span>
+                        </a>
+                        <a href="/tools/iks" class="dashboard-pin-card">
+                            <span class="ui-chip ui-chip-accent">Tool</span>
+                            <strong>IKS-Bericht Generator</strong>
+                            <span>Kontrollen direkt anstoßen.</span>
+                        </a>
+                        <article class="dashboard-pin-card is-disabled" aria-disabled="true">
+                            <span class="ui-chip ui-chip-warning">Report</span>
+                            <strong>Favoriten-Slot</strong>
+                            <span>Platz für einen Standardreport.</span>
+                        </article>
+                        <article class="dashboard-pin-card dashboard-pin-card-add is-disabled" aria-disabled="true">
+                            <span class="ui-chip ui-chip-neutral">Hinzufügen</span>
+                            <strong>Neues Element</strong>
+                            <span>Später per Dialog anpinnen.</span>
+                        </article>
+                    </div>
+                    <div class="dashboard-link-row">
+                        <a href="/tools" class="dashboard-inline-link">Zu Tools & Reports</a>
                     </div>
                 </article>
             </div>
@@ -213,5 +226,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/console.js"></script>
 <script src="/static/js/dashboard.js"></script>
 {% endblock %}

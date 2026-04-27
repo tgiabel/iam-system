@@ -32,16 +32,31 @@
 
 .roles-search-row {
     display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .roles-search-label {
     margin-left: 0.1rem;
 }
 
+.roles-filter-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    flex: 1 1 320px;
+}
+
 .roles-search-field {
     max-width: 520px;
+}
+
+.roles-type-filter-field {
+    flex: 0 1 220px;
+}
+
+.roles-type-filter-field .roles-search-field {
+    max-width: 220px;
 }
 
 .roles-table-card {
@@ -244,6 +259,10 @@
     }
 
     .roles-search-field {
+        max-width: 100%;
+    }
+
+    .roles-type-filter-field .roles-search-field {
         max-width: 100%;
     }
 }

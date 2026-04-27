@@ -139,17 +139,39 @@ const api = {
         return state.roleMap;
     },
 
+    async lookupOnboardingCandidate(pnr) {
+        try {
+            const res = await fetch("/api/processes/onboarding/lookup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ pnr })
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                showFlash(data.detail || data.error || "Unbekannter Fehler", "failure");
+                return null;
+            }
+
+            return data;
+        } catch (err) {
+            console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return null;
+        }
+    },
+
     async startOnboarding(payload) {
         try {
             const res = await fetch("/api/processes/onboarding", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ pnr: payload })
+                body: JSON.stringify(payload)
             });
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                showFlash(data.detail || data.error || "Unbekannter Fehler", "failure");
                 return false;
             }
 
@@ -1598,6 +1620,24 @@ const sofaAccessModalController = {
 };
 
 const onboardModalController = {
+    state: {
+        pnr: "",
+        lookupToken: "",
+        candidate: null,
+        manualMessage: "",
+        manualDraft: null
+    },
+
+    resetState() {
+        this.state = {
+            pnr: "",
+            lookupToken: "",
+            candidate: null,
+            manualMessage: "",
+            manualDraft: null
+        };
+    },
+
     init() {
         DOM.onboardActionBtn?.addEventListener("click", () => this.open());
         bindModalOverlayDismiss(DOM.onboardOverlay, () => this.close());
@@ -1607,12 +1647,14 @@ const onboardModalController = {
     },
 
     open() {
+        this.resetState();
         this.renderStart();
         openOverlay("onboard-overlay");
     },
 
     close() {
         closeOverlay("onboard-overlay");
+        this.resetState();
         this.renderStart();
     },
 
@@ -1631,14 +1673,15 @@ const onboardModalController = {
     },
 
     renderInternalForm() {
+        const prefilledPnr = this.state.manualDraft?.pnr || this.state.pnr || "";
         DOM.onboardModalTitle.textContent = "Onboarding Mitarbeiter";
         DOM.onboardModalBody.innerHTML = `
             <div class="user-action-form">
                 <div class="ui-field-group">
                     <label class="ui-field-label" for="personalnummer-input">Personalnummer</label>
-                    <input id="personalnummer-input" class="ui-input" placeholder="Personalnummer">
+                    <input id="personalnummer-input" class="ui-input" placeholder="Personalnummer" value="${escapeHtml(prefilledPnr)}">
                 </div>
-                <p class="user-action-note">Bitte sicherstellen, dass der Mitarbeiter bereits in Helix angelegt ist.</p>
+                <p class="user-action-note">Nach Eingabe der Personalnummer werden die Helix-Daten geprüft und vor dem Start noch einmal zur Bestätigung angezeigt.</p>
                 ${buildButtonRow("Weiter")}
             </div>
         `;
@@ -1651,13 +1694,273 @@ const onboardModalController = {
                 return;
             }
 
-            const success = await api.startOnboarding(pnr);
+            this.state.pnr = pnr;
+            const lookupResult = await api.lookupOnboardingCandidate(pnr);
+            if (!lookupResult) {
+                return;
+            }
+
+            if (lookupResult.status === "candidate_found" && lookupResult.lookup_token && lookupResult.candidate) {
+                this.state.lookupToken = String(lookupResult.lookup_token);
+                this.state.candidate = lookupResult.candidate;
+                this.state.manualMessage = "";
+                this.state.manualDraft = null;
+                this.renderLookupConfirmation();
+                return;
+            }
+
+            if (lookupResult.status === "manual_required") {
+                this.state.lookupToken = "";
+                this.state.candidate = null;
+                this.state.manualMessage = lookupResult.message || "User in Helix nicht ermittelt";
+                this.state.manualDraft = {
+                    pnr: String(lookupResult.prefill?.pnr || pnr),
+                    first_name: "",
+                    last_name: "",
+                    primary_role_id: "",
+                    entry_date: ""
+                };
+                await this.renderManualForm();
+                return;
+            }
+
+            showFlash("Die Antwort aus dem Onboarding-Lookup konnte nicht verarbeitet werden", "failure");
+        });
+    },
+
+    renderLookupConfirmation() {
+        const candidate = this.state.candidate || {};
+        DOM.onboardModalTitle.textContent = "Mitarbeiter prüfen";
+        DOM.onboardModalBody.innerHTML = `
+            <div class="user-action-form">
+                <p class="user-action-note">Bitte prüfen Sie den gefundenen Helix-Datensatz und bestätigen Sie anschließend das Onboarding.</p>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Personalnummer</label>
+                    <input class="ui-input" value="${escapeHtml(candidate.pnr || this.state.pnr || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Vorname</label>
+                    <input class="ui-input" value="${escapeHtml(candidate.first_name || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Nachname</label>
+                    <input class="ui-input" value="${escapeHtml(candidate.last_name || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Hauptrolle</label>
+                    <input class="ui-input" value="${escapeHtml(candidate.primary_role_name || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Eintrittsdatum</label>
+                    <input class="ui-input" value="${escapeHtml(formatDate(candidate.entry_date))}" readonly>
+                </div>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-primary" id="modal-submit-btn">Bestätigen</button>
+                    <button type="button" class="btn btn-secondary" id="modal-manual-btn">Manuell erfassen</button>
+                    <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Zurück</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.renderInternalForm());
+        document.getElementById("modal-manual-btn")?.addEventListener("click", async () => {
+            this.state.manualMessage = "Die Helix-Daten werden nicht verwendet. Bitte den Datensatz manuell bestätigen.";
+            this.state.manualDraft = {
+                pnr: String(candidate.pnr || this.state.pnr || ""),
+                first_name: String(candidate.first_name || ""),
+                last_name: String(candidate.last_name || ""),
+                primary_role_id: "",
+                entry_date: String(candidate.entry_date || "")
+            };
+            await this.renderManualForm();
+        });
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const success = await api.startOnboarding({
+                mode: "helix",
+                lookup_token: this.state.lookupToken,
+                confirmed: true
+            });
             if (!success) {
                 return;
             }
+
             await tableController.loadUsers();
             this.close();
         });
+    },
+
+    async renderManualForm() {
+        let roleMap;
+        try {
+            roleMap = await api.getRoleMap();
+        } catch (err) {
+            console.error(err);
+            showFlash("Rollen konnten nicht geladen werden", "failure");
+            return;
+        }
+
+        const draft = {
+            pnr: this.state.manualDraft?.pnr || this.state.pnr || "",
+            first_name: this.state.manualDraft?.first_name || "",
+            last_name: this.state.manualDraft?.last_name || "",
+            primary_role_id: this.state.manualDraft?.primary_role_id || "",
+            entry_date: this.state.manualDraft?.entry_date || ""
+        };
+
+        if (!draft.primary_role_id) {
+            draft.primary_role_id = this.resolvePrimaryRoleIdByName(this.state.candidate?.primary_role_name, roleMap) || "";
+        }
+        this.state.manualDraft = draft;
+
+        const roleOptions = getRoleOptionsByType("PRIMARY");
+        if (!roleOptions.length) {
+            DOM.onboardModalTitle.textContent = "Manuelle Erfassung";
+            DOM.onboardModalBody.innerHTML = `
+                <div class="user-action-form">
+                    <p class="user-action-note">Es sind keine Hauptrollen für das manuelle Onboarding verfügbar.</p>
+                    <div class="btn-row">
+                        <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Schließen</button>
+                    </div>
+                </div>
+            `;
+            document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
+            return;
+        }
+
+        const roleOptionsMarkup = roleOptions
+            .map(([roleId, role]) => `
+                <option value="${escapeHtml(roleId)}" ${String(draft.primary_role_id) === String(roleId) ? "selected" : ""}>
+                    ${escapeHtml(role.name)}
+                </option>
+            `)
+            .join("");
+
+        DOM.onboardModalTitle.textContent = "Manuelle Erfassung";
+        DOM.onboardModalBody.innerHTML = `
+            <div class="user-action-form">
+                ${this.state.manualMessage ? `<p class="user-action-note">${escapeHtml(this.state.manualMessage)}</p>` : ""}
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-pnr">Personalnummer</label>
+                    <input id="manual-onboard-pnr" class="ui-input" placeholder="Personalnummer" value="${escapeHtml(draft.pnr)}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-first-name">Vorname</label>
+                    <input id="manual-onboard-first-name" class="ui-input" placeholder="Vorname" value="${escapeHtml(draft.first_name)}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-last-name">Nachname</label>
+                    <input id="manual-onboard-last-name" class="ui-input" placeholder="Nachname" value="${escapeHtml(draft.last_name)}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-role">Hauptrolle</label>
+                    <select id="manual-onboard-role" class="ui-input">
+                        <option value="" disabled ${draft.primary_role_id ? "" : "selected"}>Hauptrolle auswählen…</option>
+                        ${roleOptionsMarkup}
+                    </select>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-entry-date">Eintrittsdatum</label>
+                    <input id="manual-onboard-entry-date" class="ui-input" type="date" value="${escapeHtml(draft.entry_date)}">
+                </div>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-primary" id="modal-submit-btn">Weiter</button>
+                    <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Zurück</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => {
+            if (this.state.candidate && this.state.lookupToken) {
+                this.renderLookupConfirmation();
+                return;
+            }
+            this.renderInternalForm();
+        });
+        document.getElementById("modal-submit-btn")?.addEventListener("click", () => {
+            const manualPayload = {
+                pnr: document.getElementById("manual-onboard-pnr")?.value.trim(),
+                first_name: document.getElementById("manual-onboard-first-name")?.value.trim(),
+                last_name: document.getElementById("manual-onboard-last-name")?.value.trim(),
+                primary_role_id: document.getElementById("manual-onboard-role")?.value,
+                entry_date: document.getElementById("manual-onboard-entry-date")?.value
+            };
+
+            if (!manualPayload.pnr || !manualPayload.first_name || !manualPayload.last_name || !manualPayload.primary_role_id || !manualPayload.entry_date) {
+                showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
+                return;
+            }
+
+            this.state.manualDraft = manualPayload;
+            this.renderManualConfirmation();
+        });
+    },
+
+    renderManualConfirmation() {
+        const payload = this.state.manualDraft || {};
+        const roleName = state.roleMap?.[payload.primary_role_id]?.name || `Rolle #${payload.primary_role_id}`;
+
+        DOM.onboardModalTitle.textContent = "Onboarding bestätigen";
+        DOM.onboardModalBody.innerHTML = `
+            <div class="user-action-form">
+                <p class="user-action-note">Bitte prüfen Sie die manuell erfassten Daten und bestätigen Sie anschließend das Onboarding.</p>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Personalnummer</label>
+                    <input class="ui-input" value="${escapeHtml(payload.pnr || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Vorname</label>
+                    <input class="ui-input" value="${escapeHtml(payload.first_name || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Nachname</label>
+                    <input class="ui-input" value="${escapeHtml(payload.last_name || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Hauptrolle</label>
+                    <input class="ui-input" value="${escapeHtml(roleName)}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Eintrittsdatum</label>
+                    <input class="ui-input" value="${escapeHtml(formatDate(payload.entry_date))}" readonly>
+                </div>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-primary" id="modal-submit-btn">Bestätigen</button>
+                    <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Zurück</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", async () => this.renderManualForm());
+        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+            const success = await api.startOnboarding({
+                mode: "manual",
+                confirmed: true,
+                pnr: payload.pnr,
+                first_name: payload.first_name,
+                last_name: payload.last_name,
+                primary_role_id: payload.primary_role_id,
+                entry_date: payload.entry_date
+            });
+            if (!success) {
+                return;
+            }
+
+            await tableController.loadUsers();
+            this.close();
+        });
+    },
+
+    resolvePrimaryRoleIdByName(roleName, roleMap = state.roleMap || {}) {
+        const normalizedRoleName = normalizeValue(roleName);
+        if (!normalizedRoleName) {
+            return "";
+        }
+
+        const match = Object.entries(roleMap)
+            .filter(([, role]) => role.type === "PRIMARY")
+            .find(([, role]) => normalizeValue(role.name) === normalizedRoleName);
+
+        return match?.[0] || "";
     },
 
     renderExternalForm() {

@@ -2,6 +2,7 @@ const roleState = {
     roles: [],
     roleMap: null,
     searchTerm: "",
+    typeFilter: "",
     ui: {}
 };
 
@@ -107,8 +108,26 @@ function matchesSearch(role, searchTerm) {
     return haystack.includes(searchTerm);
 }
 
+function isSkillRole(role) {
+    return normalizeValue(role.name).startsWith("skill");
+}
+
+function matchesTypeFilter(role, typeFilter) {
+    if (!typeFilter) {
+        return true;
+    }
+
+    if (typeFilter === "SKILLS") {
+        return isSkillRole(role);
+    }
+
+    return String(role.role_type || "").toUpperCase() === typeFilter;
+}
+
 function getFilteredRoles() {
-    return sortRoles(roleState.roles).filter(role => matchesSearch(role, roleState.searchTerm));
+    return sortRoles(roleState.roles).filter(role =>
+        matchesSearch(role, roleState.searchTerm) && matchesTypeFilter(role, roleState.typeFilter)
+    );
 }
 
 function renderEmptyState(message) {
@@ -132,7 +151,8 @@ function renderRoles() {
 
     const roles = getFilteredRoles();
     if (!roles.length) {
-        renderEmptyState(roleState.searchTerm ? "Keine Rollen für diese Suche gefunden." : "Keine Rollen vorhanden.");
+        const hasActiveFilter = Boolean(roleState.searchTerm || roleState.typeFilter);
+        renderEmptyState(hasActiveFilter ? "Keine Rollen für die gewählten Filter gefunden." : "Keine Rollen vorhanden.");
         return;
     }
 
@@ -327,9 +347,17 @@ function bindSearch() {
     });
 }
 
+function bindTypeFilter() {
+    roleState.ui.typeFilter?.addEventListener("change", event => {
+        roleState.typeFilter = String(event.target.value || "").toUpperCase();
+        renderRoles();
+    });
+}
+
 function initRoleManagementUI() {
     roleState.ui = {
         searchInput: document.getElementById("search-input"),
+        typeFilter: document.getElementById("type-filter"),
         tableBody: document.getElementById("roles-table-body"),
         fab: document.getElementById("role-create-fab"),
         trigger: document.getElementById("role-create-trigger"),
@@ -363,5 +391,6 @@ function initRoleManagementUI() {
 document.addEventListener("DOMContentLoaded", () => {
     initRoleManagementUI();
     bindSearch();
+    bindTypeFilter();
     loadRoles();
 });

@@ -31,14 +31,29 @@
             </div>
 
             <div class="roles-search-row">
-                <label for="search-input" class="ui-field-label roles-search-label">Suche</label>
-                <div class="roles-search-field">
-                    <input
-                        type="text"
-                        id="search-input"
-                        class="ui-input"
-                        placeholder="Suche nach Rolle, ID, Ressource oder User..."
-                    >
+                <div class="roles-filter-field">
+                    <label for="search-input" class="ui-field-label roles-search-label">Suche</label>
+                    <div class="roles-search-field">
+                        <input
+                            type="text"
+                            id="search-input"
+                            class="ui-input"
+                            placeholder="Suche nach Rolle, ID, Ressource oder User..."
+                        >
+                    </div>
+                </div>
+
+                <div class="roles-filter-field roles-type-filter-field">
+                    <label for="type-filter" class="ui-field-label roles-search-label">Typ</label>
+                    <div class="roles-search-field">
+                        <select id="type-filter" class="ui-input">
+                            <option value="">Alle Typen</option>
+                            <option value="PRIMARY">Hauptrolle</option>
+                            <option value="SECONDARY">Nebenrolle</option>
+                            <option value="TEMPLATE">Template</option>
+                            <option value="SKILLS">Skills</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>

@@ -272,6 +272,21 @@ function fillSystemInfo(){
     document.querySelector("#system-owner-text").textContent = system.owner || "-";
 }
 
+function sortResourcesByShortCode(resources) {
+    return [...resources].sort((left, right) => {
+        const leftKey = String(left.technical_identifier || "").trim();
+        const rightKey = String(right.technical_identifier || "").trim();
+
+        if (!leftKey && !rightKey) {
+            return String(left.display_name || "").localeCompare(String(right.display_name || ""), "de", { sensitivity: "base" });
+        }
+        if (!leftKey) return 1;
+        if (!rightKey) return -1;
+
+        return leftKey.localeCompare(rightKey, "de", { sensitivity: "base", numeric: true });
+    });
+}
+
 //------------------------------------------------
 // RESOURCE TABLE
 //------------------------------------------------
@@ -282,7 +297,7 @@ function renderResourceTable(){
 
     DOM.tableBody.innerHTML = "";
 
-    system.resources.forEach(res=>{
+    sortResourcesByShortCode(system.resources || []).forEach(res=>{
 
         const tr = document.createElement("tr");
         const parentLabel = getResourceParentDisplayLabel(res);

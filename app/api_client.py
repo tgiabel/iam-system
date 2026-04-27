@@ -196,10 +196,20 @@ class APIClient:
             resp.raise_for_status()
             return resp.json()
         
+    async def lookup_onboarding_candidate(self, payload: dict) -> dict:
+        """
+        Führt den Helix-Lookup für das Mitarbeiter-Onboarding aus.
+        payload enthält mindestens: { "pnr": str, "initiator_user_id": int }
+        """
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+            resp = await client.post("/processes/onboarding/lookup", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+
     async def trigger_onboarding(self, payload: dict) -> dict:
         """
         Triggert den Onboarding-Prozess via Backend.
-        payload muss enthalten: { "pnr": str, "initiator_user_id": int }
+        payload enthält die bestätigten Onboarding-Daten inkl. initiator_user_id.
         """
         async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
             resp = await client.post("/processes/onboarding", json=payload)

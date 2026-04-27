@@ -856,26 +856,103 @@ async def api_change_own_password(payload: dict, current_user=Depends(require_lo
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
     
+@app.post("/api/processes/onboarding/lookup")
+async def api_lookup_onboarding_candidate(
+    payload: dict,
+    current_user=Depends(require_capability("onboarding.start"))):
+    """
+    Führt den Helix-Lookup für das Mitarbeiter-Onboarding aus.
+    """
+    pnr = str(payload.get("pnr") or "").strip()
+    if not pnr:
+        return JSONResponse(
+            content={"detail": "Die Personalnummer ist erforderlich."},
+            status_code=400
+        )
+
+    try:
+        result = await api_client.lookup_onboarding_candidate({
+            "pnr": pnr,
+            "initiator_user_id": current_user.user_id
+        })
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=_error_content_from_response(e.response),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
 @app.post("/api/processes/onboarding")
 async def api_start_onboarding_process(
     payload: dict,
     current_user=Depends(require_capability("onboarding.start"))):
     """
-    Trigger den Onboarding-Prozess für einen Mitarbeiter.
+    Trigger den bestätigten Onboarding-Prozess für einen Mitarbeiter.
     """
-    try:
-        pnr = payload.get("pnr")
-        user_id = current_user.user_id
+    mode = str(payload.get("mode") or "").strip().lower()
+    confirmed = bool(payload.get("confirmed"))
 
-        payload = {
-            "pnr": str(pnr),
-            "initiator_user_id": user_id
-        }
-        result = await api_client.trigger_onboarding(payload)
-        return JSONResponse(content={"process_id": result["process_id"], "status": "started"})
-    
+    if not confirmed:
+        return JSONResponse(
+            content={"detail": "Das Onboarding muss vor dem Start bestätigt werden."},
+            status_code=400
+        )
+
+    forwarded_payload = {
+        "mode": mode,
+        "confirmed": True,
+        "initiator_user_id": current_user.user_id
+    }
+
+    if mode == "helix":
+        lookup_token = str(payload.get("lookup_token") or "").strip()
+        if not lookup_token:
+            return JSONResponse(
+                content={"detail": "Der Lookup-Token ist erforderlich."},
+                status_code=400
+            )
+        forwarded_payload["lookup_token"] = lookup_token
+    elif mode == "manual":
+        pnr = str(payload.get("pnr") or "").strip()
+        first_name = str(payload.get("first_name") or "").strip()
+        last_name = str(payload.get("last_name") or "").strip()
+        primary_role_id = _coerce_int(payload.get("primary_role_id"))
+        entry_date = str(payload.get("entry_date") or "").strip()
+
+        if not pnr or not first_name or not last_name or primary_role_id is None or not entry_date:
+            return JSONResponse(
+                content={"detail": "Für das manuelle Onboarding sind alle Pflichtfelder erforderlich."},
+                status_code=400
+            )
+
+        forwarded_payload.update({
+            "pnr": pnr,
+            "first_name": first_name,
+            "last_name": last_name,
+            "primary_role_id": primary_role_id,
+            "entry_date": entry_date
+        })
+    else:
+        return JSONResponse(
+            content={"detail": "Unbekannter Onboarding-Modus."},
+            status_code=400
+        )
+
+    try:
+        result = await api_client.trigger_onboarding(forwarded_payload)
+        return JSONResponse(content={
+            "process_id": result.get("process_id"),
+            "status": result.get("status", "started")
+        })
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=_error_content_from_response(e.response),
+            status_code=e.response.status_code
+        )
     except Exception as e:
-        # Catch-All, kann noch spezifischer auf HTTPException oder ValueError mapen
         return JSONResponse(content={"error": str(e)}, status_code=500)
     
 @app.post("/api/processes/onboarding-ext")
@@ -890,9 +967,13 @@ async def api_start_ext_onboarding_process(
         payload["initiator_user_id"] = user_id
         result = await api_client.trigger_ext_onboarding(payload)
         return JSONResponse(content={"process_id": result["process_id"], "status": "started"})
-    
+
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=_error_content_from_response(e.response),
+            status_code=e.response.status_code
+        )
     except Exception as e:
-        # Catch-All, kann noch spezifischer auf HTTPException oder ValueError mapen
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
     

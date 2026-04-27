@@ -90,14 +90,6 @@ async function loadDashboardMetrics() {
                 ? `Letzte Erledigung: ${latestCompleted.resource_name || latestCompleted.task_type || "Task"} am ${formatDashboardDate(latestCompleted.completed_at || latestCompleted.updated_at || latestCompleted.created_at)}`
                 : "Noch keine erledigten Aufgaben vorhanden."
         );
-
-        const notificationOpen = document.getElementById("dashboard-notification-open");
-        if (notificationOpen) {
-            notificationOpen.innerHTML = `
-                <strong>Aktuelles</strong>
-                <span>MUSTER</span>
-            `;
-        }
     } catch (error) {
         console.error(error);
         setDashboardText("dashboard-open-count", "0");

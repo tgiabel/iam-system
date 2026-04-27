@@ -27,6 +27,7 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.25rem;
+    align-items: start;
 }
 
 .dashboard-public-grid {
@@ -49,8 +50,12 @@
     gap: 1rem;
 }
 
-.dashboard-pinned-card {
+.dashboard-calendar-card {
     grid-column: 1 / -1;
+}
+
+.dashboard-calendar-card {
+    gap: 1rem;
 }
 
 .dashboard-metrics-card {
@@ -173,6 +178,34 @@
     scroll-snap-align: start;
 }
 
+.dashboard-pinned-card-compact {
+    gap: 1rem;
+}
+
+.dashboard-pin-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+    padding-bottom: 0;
+}
+
+.dashboard-pinned-card-compact .dashboard-pin-card {
+    flex: initial;
+    min-width: 0;
+    padding: 0.85rem 0.9rem;
+    gap: 0.45rem;
+    border-radius: 18px;
+}
+
+.dashboard-pinned-card-compact .dashboard-pin-card strong {
+    font-size: 0.98rem;
+}
+
+.dashboard-pinned-card-compact .dashboard-pin-card span {
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+
 .dashboard-pin-card span,
 .dashboard-mini-card span {
     color: #627188;
@@ -254,6 +287,48 @@
     line-height: 1.6;
 }
 
+.dashboard-calendar-card .console-calendar-head {
+    align-items: flex-start;
+}
+
+.dashboard-calendar-card .console-calendar-grid {
+    gap: 0.7rem;
+}
+
+.dashboard-calendar-card .console-calendar-day {
+    min-height: 12rem;
+    gap: 0.65rem;
+    padding: 0.85rem;
+    border-radius: 20px;
+}
+
+.dashboard-calendar-card .console-day-title {
+    font-size: 0.95rem;
+}
+
+.dashboard-calendar-card .console-day-date,
+.dashboard-calendar-card .console-calendar-feedback,
+.dashboard-calendar-card .console-event-description,
+.dashboard-calendar-card .console-empty-day,
+.dashboard-calendar-card .console-empty-week {
+    font-size: 0.9rem;
+}
+
+.dashboard-calendar-card .console-day-events {
+    gap: 0.5rem;
+}
+
+.dashboard-calendar-card .console-event-card {
+    gap: 0.35rem;
+    padding: 0.7rem 0.75rem;
+    border-radius: 16px;
+}
+
+.dashboard-calendar-card .console-empty-day {
+    min-height: 3.35rem;
+    padding: 0.75rem 0.8rem;
+}
+
 .dashboard-link-placeholder {
     color: #6f7e92;
     line-height: 1.5;
@@ -274,8 +349,11 @@
         grid-column: span 1;
     }
 
-    .dashboard-pin-grid,
     .dashboard-mini-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-pin-grid-compact {
         grid-template-columns: 1fr;
     }
 }
@@ -292,5 +370,23 @@
     .dashboard-public-grid,
     .dashboard-metrics-grid {
         grid-template-columns: 1fr;
+    }
+
+    .dashboard-calendar-card .console-calendar-head {
+        flex-direction: column;
+    }
+
+    .dashboard-calendar-card .console-calendar-nav {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .dashboard-calendar-card .console-week-labels {
+        width: 100%;
+        align-items: flex-start;
+    }
+
+    .dashboard-calendar-card .console-calendar-nav .btn {
+        flex: 1 1 auto;
     }
 }

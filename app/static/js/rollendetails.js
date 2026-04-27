@@ -215,6 +215,21 @@ function getAllRoleResources() {
     ];
 }
 
+function sortResourcesByShortCode(resources) {
+    return [...resources].sort((left, right) => {
+        const leftKey = String(left.technical_identifier || "").trim();
+        const rightKey = String(right.technical_identifier || "").trim();
+
+        if (!leftKey && !rightKey) {
+            return String(left.display_name || "").localeCompare(String(right.display_name || ""), "de", { sensitivity: "base" });
+        }
+        if (!leftKey) return 1;
+        if (!rightKey) return -1;
+
+        return leftKey.localeCompare(rightKey, "de", { sensitivity: "base", numeric: true });
+    });
+}
+
 //------------------------------------------------
 // RESOURCE TABLE
 //------------------------------------------------
@@ -222,7 +237,7 @@ function getAllRoleResources() {
 function renderResourceTable() {
     DOM.tableBody.innerHTML = "";
 
-    getAllRoleResources().forEach(res => {
+    sortResourcesByShortCode(getAllRoleResources()).forEach(res => {
         const tr = document.createElement("tr");
 
         tr.dataset.type = res.isInherited ? "inherited" : "own";
@@ -230,10 +245,10 @@ function renderResourceTable() {
         tr.dataset.system_id = res.system_id || "";
 
         tr.innerHTML = `
-            <td>${res.technical_identifier || ""}</td>
-            <td>${res.display_name}</td>
-            <td>${res.type_name}</td>
-            <td>${res.override_handling_type || ""}</td>
+            <td>${escapeHtml(res.technical_identifier || "")}</td>
+            <td>${escapeHtml(res.display_name || "-")}</td>
+            <td>${escapeHtml(res.type_name || "-")}</td>
+            <td>${escapeHtml(res.override_handling_type || "")}</td>
             <td>${res.isInherited ? "Ja" : "Nein"}</td>
         `;
 
