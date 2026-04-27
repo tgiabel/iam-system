@@ -17,9 +17,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const themeToggleButton = document.getElementById("theme-toggle-button");
     const themeToggleIcon = document.getElementById("theme-toggle-icon");
     const themeIcons = [
-        { key: "sun", src: "/static/img/sun-icon-white.png", label: "Sonnenmodus-Symbol" },
-        { key: "moon", src: "/static/img/moon-icon-white.png", label: "Mondmodus-Symbol" },
-        { key: "duck", src: "/static/img/duck-icon-white.png", label: "Entenmodus-Symbol" }
+        { key: "sun", src: "/static/img/sun-icon-white.png", label: "Light Theme" },
+        { key: "moon", src: "/static/img/moon-icon-white.png", label: "Dark Theme" },
+        { key: "duck", src: "/static/img/duck-icon-white.png", label: "SD Theme" }
     ];
 
 

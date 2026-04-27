@@ -355,6 +355,12 @@ class APIClient:
             resp.raise_for_status()
             return resp.json()
 
+    async def trigger_training_schedule(self, payload):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/processes/training_schedule", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+
     async def trigger_iks_process_report(self, payload):
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.post(f"/processes/iks", json=payload)

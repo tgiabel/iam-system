@@ -58,6 +58,7 @@ POLICY_DEFINITIONS = {
         "capabilities": {
             "onboarding.start",
             "onboarding.external.start",
+            "training.schedule",
             "primary_role.change",
             "temporary_role.assign",
             "skill.assign",
@@ -76,6 +77,7 @@ POLICY_DEFINITIONS = {
         "capabilities": {
             "onboarding.start",
             "onboarding.external.start",
+            "training.schedule",
             "primary_role.change",
             "temporary_role.assign",
             "skill.assign",
@@ -94,6 +96,7 @@ POLICY_DEFINITIONS = {
         "capabilities": {
             "onboarding.start",
             "onboarding.external.start",
+            "training.schedule",
             "primary_role.change",
             "temporary_role.assign",
             "skill.assign",

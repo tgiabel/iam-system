@@ -1,4 +1,5 @@
 from functools import wraps
+from datetime import date
 from fastapi import FastAPI, Request, Cookie, Depends, Form, File, UploadFile    # type: ignore
 from fastapi.templating import Jinja2Templates                  # type: ignore
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse    # type: ignore
@@ -1318,6 +1319,58 @@ async def api_start_offboarding_process(payload: dict, current_user=Depends(requ
             status_code=500
         )
     
+@app.post("/api/processes/training_schedule")
+async def api_start_training_schedule_process(payload: dict, current_user=Depends(require_capability("training.schedule"))):
+    user_ids = payload.get("user_ids")
+    role_ids = payload.get("role_ids")
+    scheduled_for = str(payload.get("scheduled_for") or "").strip()
+
+    if not isinstance(user_ids, list) or not user_ids:
+        return JSONResponse(content={"detail": "Mindestens ein User muss ausgewählt werden."}, status_code=400)
+
+    if not isinstance(role_ids, list) or not role_ids:
+        return JSONResponse(content={"detail": "Mindestens eine Nebenrolle muss ausgewählt werden."}, status_code=400)
+
+    normalized_user_ids = [_coerce_int(value) for value in user_ids]
+    normalized_role_ids = [_coerce_int(value) for value in role_ids]
+
+    if any(value is None for value in normalized_user_ids):
+        return JSONResponse(content={"detail": "Die User-Auswahl ist ungültig."}, status_code=400)
+
+    if any(value is None for value in normalized_role_ids):
+        return JSONResponse(content={"detail": "Die Rollenauswahl ist ungültig."}, status_code=400)
+
+    if not scheduled_for:
+        return JSONResponse(content={"detail": "Das Schulungsdatum ist erforderlich."}, status_code=400)
+
+    try:
+        scheduled_date = date.fromisoformat(scheduled_for)
+    except ValueError:
+        return JSONResponse(content={"detail": "Das Schulungsdatum ist ungültig."}, status_code=400)
+
+    if scheduled_date < date.today():
+        return JSONResponse(content={"detail": "Das Schulungsdatum darf nicht in der Vergangenheit liegen."}, status_code=400)
+
+    try:
+        request_payload = {
+            "user_ids": normalized_user_ids,
+            "role_ids": normalized_role_ids,
+            "scheduled_for": scheduled_for,
+            "initiator_user_id": current_user.user_id,
+        }
+        result = await api_client.trigger_training_schedule(request_payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
 @app.post("/api/processes/skill_revocation")
 async def api_start_skill_removal_process(payload: dict, current_user=Depends(require_capability("skill.revoke"))):
     try:

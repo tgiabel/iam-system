@@ -19,9 +19,14 @@
                         Nutzer suchen, filtern und direkt in einem strukturierten Detail-Overlay verwalten.
                     </p>
                 </div>
-                {% if "onboarding.start" in authz.capabilities or "onboarding.external.start" in authz.capabilities %}
-                    <button type="button" class="btn btn-primary users-onboard-btn" id="onboard-action-btn">Onboarding</button>
-                {% endif %}
+                <div class="users-header-actions">
+                    {% if "training.schedule" in authz.capabilities %}
+                        <button type="button" class="btn btn-secondary users-onboard-btn" id="training-action-btn">Schulung planen</button>
+                    {% endif %}
+                    {% if "onboarding.start" in authz.capabilities or "onboarding.external.start" in authz.capabilities %}
+                        <button type="button" class="btn btn-primary users-onboard-btn" id="onboard-action-btn">Onboarding</button>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="users-toolbar">
@@ -208,6 +213,9 @@
                         {% if "primary_role.change" in authz.capabilities %}
                             <button type="button" class="btn btn-primary" id="primary-role-change-action-btn">Abteilungswechsel</button>
                         {% endif %}
+                        {% if "training.schedule" in authz.capabilities %}
+                            <button type="button" class="btn btn-secondary" id="detail-training-action-btn">Schulung planen</button>
+                        {% endif %}
                         {% if "skill.assign" in authz.capabilities %}
                             <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
                         {% endif %}
@@ -276,6 +284,19 @@
                 <button id="onboard-employee-btn" class="btn btn-primary">Mitarbeiter</button>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="ui-modal-overlay" id="training-overlay" aria-hidden="true">
+    <div class="ui-modal user-action-modal training-modal" id="training-modal">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title">Schulung planen</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="training-close-btn" aria-label="Schulung planen schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body"></div>
     </div>
 </div>
 

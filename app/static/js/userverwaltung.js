@@ -5,6 +5,7 @@ const state = {
     currentUserDetail: null,
     currentUserActivity: null,
     activeUserTab: "details",
+    searchTerm: "",
     filters: {
         primaryRoleIds: [],
         secondaryRoleIds: [],
@@ -295,6 +296,34 @@ const api = {
 
             const roleName = state.roleMap?.[payload.role_id]?.name || payload.role_id;
             showFlash(`Rollen-Entzug für ${roleName} beantragt`, "success");
+            return true;
+        } catch (err) {
+            console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
+        }
+    },
+
+    async startTrainingSchedule(payload) {
+        try {
+            const res = await fetch("/api/processes/training_schedule", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (res.status === 501) {
+                showFlash(data.detail || "Backend für Schulungsplanung ist noch nicht implementiert", "failure");
+                return false;
+            }
+
+            if (!res.ok) {
+                showFlash(data.detail || data.error || "Unbekannter Fehler", "failure");
+                return false;
+            }
+
+            showFlash("Schulung erfolgreich geplant", "success");
             return true;
         } catch (err) {
             console.error(err);
@@ -632,6 +661,29 @@ function dedupeBy(items, keyBuilder) {
     });
 }
 
+function sortUsersByName(users) {
+    return [...(Array.isArray(users) ? users : [])].sort((left, right) => {
+        const leftKey = `${left?.last_name || ""} ${left?.first_name || ""}`.trim();
+        const rightKey = `${right?.last_name || ""} ${right?.first_name || ""}`.trim();
+        return leftKey.localeCompare(rightKey, "de");
+    });
+}
+
+function buildUserLabel(user) {
+    const name = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
+    return name || user?.email || user?.racf || user?.pnr || `User #${user?.user_id}`;
+}
+
+function buildUserSelectionMeta(user) {
+    return [user?.pnr && `PNR ${user.pnr}`, user?.racf && `RACF ${user.racf}`, user?.primary_role?.name]
+        .filter(Boolean)
+        .join(" · ");
+}
+
+function mergeUsersById(...groups) {
+    return dedupeBy(groups.flat().filter(Boolean), user => String(user?.user_id || ""));
+}
+
 function getRoleAssignments(detail) {
     const directAssignments = Array.isArray(detail?.role_assignments) ? detail.role_assignments : [];
 
@@ -951,15 +1003,12 @@ const tableController = {
     },
 
     getFilteredUsers() {
-        return state.users
+        return sortUsersByName(
+            state.users
             .filter(user => this.matchesSearch(user))
             .filter(user => this.matchesPrimaryRoles(user))
             .filter(user => this.matchesSecondaryRoles(user))
-            .sort((left, right) => {
-                const leftKey = `${left.last_name || ""} ${left.first_name || ""}`.trim();
-                const rightKey = `${right.last_name || ""} ${right.first_name || ""}`.trim();
-                return leftKey.localeCompare(rightKey, "de");
-            });
+        );
     },
 
     matchesSearch(user) {
@@ -1427,6 +1476,9 @@ const sidebarController = {
         if (DOM.primaryRoleChangeActionBtn) {
             DOM.primaryRoleChangeActionBtn.onclick = () => primaryRoleChangeModalController.open(user);
         }
+        if (DOM.detailTrainingActionBtn) {
+            DOM.detailTrainingActionBtn.onclick = () => trainingModalController.open({ presetUsers: [user], source: "detail" });
+        }
         if (DOM.tmpRightsActionBtn) {
             DOM.tmpRightsActionBtn.onclick = () => tmpRightsModalController.open(user);
         }
@@ -1652,6 +1704,280 @@ const onboardModalController = {
             }
 
             await tableController.loadUsers();
+            this.close();
+        });
+    }
+};
+
+const trainingModalController = {
+    state: {
+        availableUsers: [],
+        roleOptions: [],
+        selectedUserIds: new Set(),
+        selectedRoleIds: new Set(),
+        scheduledFor: "",
+        userSearchTerm: "",
+        roleSearchTerm: "",
+        source: "global"
+    },
+
+    init() {
+        DOM.trainingActionBtn?.addEventListener("click", () => this.open({ source: "global" }));
+        bindModalOverlayDismiss(DOM.trainingOverlay, () => this.close());
+        DOM.trainingCloseBtn?.addEventListener("click", () => this.close());
+    },
+
+    async open(options = {}) {
+        await api.getRoleMap();
+        const availableUsers = this.resolveAvailableUsers(options);
+        const presetUsers = Array.isArray(options.presetUsers) ? options.presetUsers : [];
+
+        this.state = {
+            availableUsers,
+            roleOptions: this.getRoleOptions(),
+            selectedUserIds: new Set(presetUsers.map(user => String(user?.user_id || "")).filter(Boolean)),
+            selectedRoleIds: new Set(),
+            scheduledFor: "",
+            userSearchTerm: "",
+            roleSearchTerm: "",
+            source: options.source === "detail" ? "detail" : "global"
+        };
+
+        this.render();
+        openOverlay("training-overlay");
+    },
+
+    close() {
+        closeOverlay("training-overlay");
+        DOM.trainingModalBody.innerHTML = "";
+    },
+
+    resolveAvailableUsers(options = {}) {
+        const hasUserFilters = Boolean(
+            normalizeValue(state.searchTerm) ||
+            state.filters.primaryRoleIds.length ||
+            state.filters.secondaryRoleIds.length ||
+            state.filters.includeInactive
+        );
+        const baseUsers = hasUserFilters ? tableController.getFilteredUsers() : state.users;
+        const presetUsers = Array.isArray(options.presetUsers) ? options.presetUsers : [];
+        return sortUsersByName(mergeUsersById(baseUsers, presetUsers));
+    },
+
+    getRoleOptions() {
+        return Object.entries(state.roleMap || {})
+            .filter(([, role]) => role.type === "SECONDARY")
+            .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
+            .map(([id, role]) => ({
+                role_id: String(id),
+                name: role.name || `Rolle #${id}`
+            }));
+    },
+
+    getVisibleUsers() {
+        const search = normalizeValue(this.state.userSearchTerm);
+        if (!search) {
+            return this.state.availableUsers;
+        }
+
+        return this.state.availableUsers.filter(user => {
+            const haystacks = [
+                user?.pnr,
+                user?.racf,
+                user?.email,
+                user?.first_name,
+                user?.last_name,
+                user?.primary_role?.name
+            ];
+            return haystacks.some(value => normalizeValue(value).includes(search));
+        });
+    },
+
+    getVisibleRoleOptions() {
+        const search = normalizeValue(this.state.roleSearchTerm);
+        if (!search) {
+            return this.state.roleOptions;
+        }
+        return this.state.roleOptions.filter(role => normalizeValue(role.name).includes(search));
+    },
+
+    hasValidSelection() {
+        return Boolean(
+            this.state.selectedUserIds.size &&
+            this.state.selectedRoleIds.size &&
+            this.state.scheduledFor
+        );
+    },
+
+    renderSummaryChips(items, emptyLabel) {
+        if (!items.length) {
+            return `<span class="ui-chip ui-chip-neutral">${escapeHtml(emptyLabel)}</span>`;
+        }
+
+        return items.map(item => `
+            <span class="ui-chip ui-chip-neutral">${escapeHtml(item)}</span>
+        `).join("");
+    },
+
+    render() {
+        const visibleUsers = this.getVisibleUsers();
+        const visibleRoles = this.getVisibleRoleOptions();
+        const selectedUsers = this.state.availableUsers.filter(user => this.state.selectedUserIds.has(String(user.user_id)));
+        const selectedRoles = this.state.roleOptions.filter(role => this.state.selectedRoleIds.has(String(role.role_id)));
+        const isDetailContext = this.state.source === "detail";
+
+        DOM.trainingModalTitle.textContent = isDetailContext ? "Schulung planen für User" : "Schulung planen";
+        DOM.trainingModalBody.innerHTML = `
+            <div class="training-modal-grid">
+                <section class="training-panel">
+                    <div class="training-panel-header">
+                        <h4 class="training-panel-title">User auswählen</h4>
+                        <span class="training-selection-count">${escapeHtml(this.state.selectedUserIds.size)}</span>
+                    </div>
+                    <input
+                        type="search"
+                        id="training-user-search"
+                        class="ui-input training-selection-search"
+                        placeholder="Suche nach PNR, RACF, Name oder Funktion"
+                        value="${escapeHtml(this.state.userSearchTerm)}"
+                    >
+                    <div class="training-selection-list">
+                        ${visibleUsers.length ? visibleUsers.map(user => `
+                            <label class="training-selection-item">
+                                <input
+                                    type="checkbox"
+                                    data-training-user-id="${escapeHtml(user.user_id)}"
+                                    ${this.state.selectedUserIds.has(String(user.user_id)) ? "checked" : ""}
+                                >
+                                <span class="training-selection-main">
+                                    <span class="training-selection-title">${escapeHtml(buildUserLabel(user))}</span>
+                                    <span class="training-selection-meta">${escapeHtml(buildUserSelectionMeta(user) || "Keine Zusatzinformationen")}</span>
+                                </span>
+                            </label>
+                        `).join("") : renderEmptyState("Keine User für die aktuelle Auswahl gefunden.")}
+                    </div>
+                </section>
+
+                <section class="training-panel">
+                    <div class="training-panel-header">
+                        <h4 class="training-panel-title">Nebenrollen auswählen</h4>
+                        <span class="training-selection-count">${escapeHtml(this.state.selectedRoleIds.size)}</span>
+                    </div>
+                    <input
+                        type="search"
+                        id="training-role-search"
+                        class="ui-input training-selection-search"
+                        placeholder="Suche nach Nebenrolle"
+                        value="${escapeHtml(this.state.roleSearchTerm)}"
+                    >
+                    <div class="training-selection-list">
+                        ${visibleRoles.length ? visibleRoles.map(role => `
+                            <label class="training-selection-item">
+                                <input
+                                    type="checkbox"
+                                    data-training-role-id="${escapeHtml(role.role_id)}"
+                                    ${this.state.selectedRoleIds.has(String(role.role_id)) ? "checked" : ""}
+                                >
+                                <span class="training-selection-main">
+                                    <span class="training-selection-title">${escapeHtml(role.name)}</span>
+                                    <span class="training-selection-meta">Nebenrolle aus der zentralen Rollenliste</span>
+                                </span>
+                            </label>
+                        `).join("") : renderEmptyState("Keine Nebenrollen für die Suche gefunden.")}
+                    </div>
+                </section>
+            </div>
+
+            <div class="training-modal-footer">
+                <div class="training-panel">
+                    <div class="ui-field-group">
+                        <label class="ui-field-label" for="training-date-input">Schulungsdatum</label>
+                        <input
+                            type="date"
+                            id="training-date-input"
+                            class="ui-input"
+                            min="${new Date().toISOString().split("T")[0]}"
+                            value="${escapeHtml(this.state.scheduledFor)}"
+                        >
+                    </div>
+                    <div class="training-selection-summary">
+                        ${this.renderSummaryChips(selectedUsers.map(buildUserLabel), "Keine User ausgewählt")}
+                        ${this.renderSummaryChips(selectedRoles.map(role => role.name), "Keine Nebenrollen ausgewählt")}
+                    </div>
+                </div>
+                <p class="training-submit-note">Der Prozess wird bereits über den finalen BFF-Endpunkt ausgelöst. Solange das Backend noch fehlt, bleibt der Dialog nach dem 501-Hinweis geöffnet.</p>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-primary" id="training-submit-btn" ${this.hasValidSelection() ? "" : "disabled"}>Schulung planen</button>
+                    <button type="button" class="btn btn-secondary" id="training-cancel-btn">Abbrechen</button>
+                </div>
+            </div>
+        `;
+
+        this.bindEvents();
+    },
+
+    bindEvents() {
+        document.getElementById("training-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("training-user-search")?.addEventListener("input", event => {
+            this.state.userSearchTerm = event.target.value || "";
+            this.render();
+        });
+        document.getElementById("training-role-search")?.addEventListener("input", event => {
+            this.state.roleSearchTerm = event.target.value || "";
+            this.render();
+        });
+        document.getElementById("training-date-input")?.addEventListener("change", event => {
+            this.state.scheduledFor = event.target.value || "";
+            this.render();
+        });
+
+        DOM.trainingModalBody.querySelectorAll("[data-training-user-id]").forEach(input => {
+            input.addEventListener("change", event => {
+                const userId = String(event.target.dataset.trainingUserId || "");
+                if (!userId) {
+                    return;
+                }
+                if (event.target.checked) {
+                    this.state.selectedUserIds.add(userId);
+                } else {
+                    this.state.selectedUserIds.delete(userId);
+                }
+                this.render();
+            });
+        });
+
+        DOM.trainingModalBody.querySelectorAll("[data-training-role-id]").forEach(input => {
+            input.addEventListener("change", event => {
+                const roleId = String(event.target.dataset.trainingRoleId || "");
+                if (!roleId) {
+                    return;
+                }
+                if (event.target.checked) {
+                    this.state.selectedRoleIds.add(roleId);
+                } else {
+                    this.state.selectedRoleIds.delete(roleId);
+                }
+                this.render();
+            });
+        });
+
+        document.getElementById("training-submit-btn")?.addEventListener("click", async () => {
+            if (!this.state.selectedUserIds.size || !this.state.selectedRoleIds.size || !this.state.scheduledFor) {
+                showFlash("Bitte mindestens einen User, eine Nebenrolle und ein Schulungsdatum auswählen", "failure");
+                return;
+            }
+
+            const payload = {
+                user_ids: Array.from(this.state.selectedUserIds, value => Number(value)).filter(Number.isFinite),
+                role_ids: Array.from(this.state.selectedRoleIds, value => Number(value)).filter(Number.isFinite),
+                scheduled_for: this.state.scheduledFor
+            };
+
+            const success = await api.startTrainingSchedule(payload);
+            if (!success) {
+                return;
+            }
+
             this.close();
         });
     }
@@ -2127,6 +2453,7 @@ function cacheDOM() {
     DOM.sofaAccessActions = document.getElementById("sofa-access-actions");
     DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
     DOM.primaryRoleChangeActionBtn = document.getElementById("primary-role-change-action-btn");
+    DOM.detailTrainingActionBtn = document.getElementById("detail-training-action-btn");
     DOM.newSkillActionBtn = document.getElementById("new-skill-action-btn");
     DOM.tmpRightsActionBtn = document.getElementById("tmp-rights-action-btn");
     DOM.skillRevokeActionBtn = document.getElementById("skill-revoke-action-btn");
@@ -2144,6 +2471,13 @@ function cacheDOM() {
     DOM.onboardCloseBtn = document.getElementById("onboard-close-btn");
     DOM.onboardInternBtn = document.getElementById("onboard-employee-btn");
     DOM.onboardExternalBtn = document.getElementById("onboard-external-btn");
+
+    DOM.trainingActionBtn = document.getElementById("training-action-btn");
+    DOM.trainingOverlay = document.getElementById("training-overlay");
+    DOM.trainingModal = document.getElementById("training-modal");
+    DOM.trainingModalTitle = DOM.trainingModal?.querySelector(".ui-section-title");
+    DOM.trainingModalBody = DOM.trainingModal?.querySelector(".ui-modal-body");
+    DOM.trainingCloseBtn = document.getElementById("training-close-btn");
 
     DOM.tmpRightsOverlay = document.getElementById("tmp-rights-overlay");
     DOM.tmpRightsModal = document.getElementById("tmp-rights-modal");
@@ -2188,6 +2522,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     await filterController.init();
     await tableController.init();
     onboardModalController.init();
+    trainingModalController.init();
     sofaAccessModalController.init();
     tmpRightsModalController.init();
     newSkillModalController.init();

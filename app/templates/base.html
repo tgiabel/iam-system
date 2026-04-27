@@ -56,9 +56,6 @@
                                 <span class="nav-caret" aria-hidden="true">▾</span>
                             </button>
                             <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
-                                {% if "console" in authz.pages %}
-                                    <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console">Konsole</a>
-                                {% endif %}
                                 {% if "users" in authz.pages %}
                                     <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users">Userverwaltung</a>
                                 {% endif %}
@@ -68,8 +65,11 @@
                                 {% if "roles" in authz.pages %}
                                     <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
                                 {% endif %}
-                                {% if "iks" in authz.pages %}
+                                {% if implemented and "iks" in authz.pages %}
                                     <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks">Kontrollsystem</a>
+                                {% endif %}
+                                {% if "console" in authz.pages %}
+                                    <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console">Konsole</a>
                                 {% endif %}
                             </div>
                         </div>

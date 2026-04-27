@@ -95,7 +95,7 @@ async function loadDashboardMetrics() {
         if (notificationOpen) {
             notificationOpen.innerHTML = `
                 <strong>Aktuelles</strong>
-                <span>;USTER</span>
+                <span>MUSTER</span>
             `;
         }
     } catch (error) {
