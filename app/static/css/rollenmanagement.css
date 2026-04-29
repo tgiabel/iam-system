@@ -102,7 +102,7 @@
 }
 
 .roles-name-main {
-    color: #162133;
+    color: var(--ui-text-strong);
     font-weight: 700;
 }
 

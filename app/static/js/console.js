@@ -2,7 +2,17 @@ const consoleState = {
     events: [],
     weekOffset: 0,
     loading: false,
-    error: null
+    error: null,
+    reevaluate: {
+        roles: [],
+        selectedRoleId: "",
+        previewResult: null,
+        executionResult: null,
+        loadingRoles: false,
+        previewLoading: false,
+        executeLoading: false,
+        error: null
+    }
 };
 
 const consoleDOM = {};
@@ -11,11 +21,29 @@ const LABELS = {
     event_status: {
         PLANNED: "Geplant",
         EXECUTED: "Erledigt",
-        SKIPPED: "Übersprungen",
+        SKIPPED: "Uebersprungen",
         FAILED: "Fehler",
         CANCELED: "Abgebrochen"
-    },
+    }
 };
+
+const ROLE_REEVALUATION_ACTION_LABELS = {
+    assign: "Zuweisen",
+    reassign: "Neu zuweisen",
+    reactivate: "Reaktivieren",
+    revoke: "Entziehen",
+    abort: "Abbrechen"
+};
+
+const ROLE_REEVALUATION_COUNT_FIELDS = [
+    { key: "scanned_user_count", label: "Gepruefte User" },
+    { key: "affected_user_count", label: "Betroffene User" },
+    { key: "assign_count", label: "Zuweisungen" },
+    { key: "reassign_count", label: "Neuzuordnungen" },
+    { key: "reactivate_count", label: "Reaktivierungen" },
+    { key: "revoke_count", label: "Entzuege" },
+    { key: "abort_count", label: "Abbrueche" }
+];
 
 function formatFromMap(map, value) {
     if (value === null || value === undefined || value === "") {
@@ -205,7 +233,7 @@ function getEventsByDay() {
     return buckets;
 }
 
-function setFeedback(message, stateClass = "") {
+function setCalendarFeedback(message, stateClass = "") {
     if (!consoleDOM.feedback) {
         return;
     }
@@ -215,16 +243,6 @@ function setFeedback(message, stateClass = "") {
     if (stateClass) {
         consoleDOM.feedback.classList.add(stateClass);
     }
-}
-
-function getEventTypeClass(eventType) {
-    const normalized = normalizeToken(eventType);
-    return {
-        onboarding: "console-event-type-onboarding",
-        offboarding: "console-event-type-offboarding",
-        role_assignment: "console-event-type-role_assignment",
-        role_removal: "console-event-type-role_removal"
-    }[normalized] || "console-event-type-default";
 }
 
 function getEventStatusClass(eventStatus) {
@@ -241,8 +259,6 @@ function getEventStatusClass(eventStatus) {
 function renderEventCard(event) {
     const title = event.title || humanizeToken(event.event_type || "event");
     const description = String(event.description || "").trim();
-    const time = formatTime(event.display_at);
-    const typeLabel = humanizeToken(event.event_type || "event");
     const statusLabel = formatFromMap(LABELS.event_status, event.event_status) || humanizeToken(event.event_status || "unknown");
 
     return `
@@ -294,14 +310,14 @@ function renderCalendar() {
         : `${dayMarkup}<div class="console-empty-week">In dieser Kalenderwoche sind keine Events vorhanden.</div>`;
 
     if (consoleState.error) {
-        setFeedback(consoleState.error, "is-error");
+        setCalendarFeedback(consoleState.error, "is-error");
         return;
     }
 
-    setFeedback(
+    setCalendarFeedback(
         hasWeekEvents
             ? "Die sichtbare Kalenderwoche wurde aus den geladenen Prozess-Events aufgebaut."
-            : "Für die sichtbare Kalenderwoche wurden keine Events gefunden.",
+            : "Fuer die sichtbare Kalenderwoche wurden keine Events gefunden.",
         "is-success"
     );
 }
@@ -309,7 +325,7 @@ function renderCalendar() {
 async function loadEvents() {
     consoleState.loading = true;
     consoleState.error = null;
-    setFeedback("Events werden geladen…");
+    setCalendarFeedback("Events werden geladen...");
 
     try {
         const response = await fetch("/api/events");
@@ -332,7 +348,7 @@ async function loadEvents() {
     }
 }
 
-function bindControls() {
+function bindCalendarControls() {
     consoleDOM.prevBtn?.addEventListener("click", () => {
         consoleState.weekOffset -= 1;
         renderCalendar();
@@ -349,6 +365,343 @@ function bindControls() {
     });
 }
 
+function hasRoleReevaluationAccess() {
+    const pages = window.currentAuthz?.pages;
+    return Array.isArray(pages) && pages.includes("roles");
+}
+
+function setRoleReevaluationFeedback(message = "", stateClass = "") {
+    if (!consoleDOM.reevaluateFeedback) {
+        return;
+    }
+
+    consoleDOM.reevaluateFeedback.textContent = message;
+    consoleDOM.reevaluateFeedback.className = "console-reevaluate-feedback";
+    if (stateClass) {
+        consoleDOM.reevaluateFeedback.classList.add(stateClass);
+    }
+}
+
+function formatRoleOptionLabel(role) {
+    const roleName = String(role?.name || `Rolle #${role?.role_id ?? "-"}`).trim();
+    return `${roleName} (ID ${role?.role_id ?? "-"})`;
+}
+
+function sortRoles(roles) {
+    return [...roles].sort((left, right) => {
+        const leftName = String(left?.name || "").trim();
+        const rightName = String(right?.name || "").trim();
+        const nameDiff = leftName.localeCompare(rightName, "de", { sensitivity: "base" });
+        if (nameDiff !== 0) {
+            return nameDiff;
+        }
+        return Number(left?.role_id || 0) - Number(right?.role_id || 0);
+    });
+}
+
+function renderRoleOptions() {
+    if (!consoleDOM.reevaluateRoleSelect) {
+        return;
+    }
+
+    const options = ['<option value="">Rolle auswaehlen...</option>'];
+
+    sortRoles(consoleState.reevaluate.roles).forEach(role => {
+        const roleId = String(role?.role_id ?? "");
+        const isSelected = roleId === String(consoleState.reevaluate.selectedRoleId);
+        options.push(
+            `<option value="${escapeHtml(roleId)}" ${isSelected ? "selected" : ""}>${escapeHtml(formatRoleOptionLabel(role))}</option>`
+        );
+    });
+
+    consoleDOM.reevaluateRoleSelect.innerHTML = options.join("");
+}
+
+function getCurrentReevaluationResult() {
+    return consoleState.reevaluate.executionResult || consoleState.reevaluate.previewResult;
+}
+
+function formatAssignmentStatus(value) {
+    if (!value) {
+        return "";
+    }
+    return humanizeToken(String(value).toUpperCase());
+}
+
+function formatReevaluationAction(value) {
+    const normalized = normalizeToken(value);
+    return ROLE_REEVALUATION_ACTION_LABELS[normalized] || humanizeToken(value);
+}
+
+function renderCounts(result) {
+    return ROLE_REEVALUATION_COUNT_FIELDS.map(({ key, label }) => `
+        <div class="console-reevaluate-count-card">
+            <span class="console-reevaluate-count-label">${escapeHtml(label)}</span>
+            <strong class="console-reevaluate-count-value">${escapeHtml(result?.[key] ?? 0)}</strong>
+        </div>
+    `).join("");
+}
+
+function renderUsers(result) {
+    const users = Array.isArray(result?.users) ? result.users : [];
+    if (!users.length) {
+        return `
+            <div class="console-reevaluate-empty">
+                Keine betroffenen User oder Ressourcen in der Rueckgabe vorhanden.
+            </div>
+        `;
+    }
+
+    return users.map(user => {
+        const changes = Array.isArray(user?.changes) ? user.changes : [];
+        const changesMarkup = changes.length
+            ? changes.map(change => {
+                const assignmentStatus = formatAssignmentStatus(change?.current_assignment_status);
+                return `
+                    <div class="console-reevaluate-change-item">
+                        <div class="console-reevaluate-change-main">
+                            <strong>${escapeHtml(change?.resource_name || `Ressource #${change?.resource_id ?? "-"}`)}</strong>
+                            <span>Ressource ${escapeHtml(change?.resource_id ?? "-")}</span>
+                        </div>
+                        <div class="console-reevaluate-change-meta">
+                            <span class="console-reevaluate-action-badge">${escapeHtml(formatReevaluationAction(change?.action))}</span>
+                            ${assignmentStatus ? `<span class="console-reevaluate-status">Status: ${escapeHtml(assignmentStatus)}</span>` : ""}
+                        </div>
+                    </div>
+                `;
+            }).join("")
+            : `<div class="console-reevaluate-empty">Keine Aenderungen fuer diesen User gemeldet.</div>`;
+
+        return `
+            <article class="console-reevaluate-user-card">
+                <div class="console-reevaluate-user-head">
+                    <strong>User ${escapeHtml(user?.user_id ?? "-")}</strong>
+                    <span>${escapeHtml(changes.length)} Aenderung${changes.length === 1 ? "" : "en"}</span>
+                </div>
+                <div class="console-reevaluate-change-list">
+                    ${changesMarkup}
+                </div>
+            </article>
+        `;
+    }).join("");
+}
+
+function updateRoleReevaluationButtons() {
+    if (consoleDOM.reevaluatePreviewBtn) {
+        const isBusy = consoleState.reevaluate.previewLoading || consoleState.reevaluate.executeLoading;
+        consoleDOM.reevaluatePreviewBtn.disabled = isBusy;
+        consoleDOM.reevaluatePreviewBtn.textContent = consoleState.reevaluate.previewLoading
+            ? "Vorschau laedt..."
+            : "Vorschau laden";
+    }
+
+    const executeBtn = document.getElementById("reevaluate-execute-btn");
+    if (executeBtn) {
+        executeBtn.disabled = consoleState.reevaluate.previewLoading || consoleState.reevaluate.executeLoading;
+        executeBtn.textContent = consoleState.reevaluate.executeLoading
+            ? "Re-Evaluierung laeuft..."
+            : "Re-Evaluierung ausfuehren";
+    }
+
+    if (consoleDOM.reevaluateRoleSelect) {
+        consoleDOM.reevaluateRoleSelect.disabled = consoleState.reevaluate.loadingRoles
+            || consoleState.reevaluate.previewLoading
+            || consoleState.reevaluate.executeLoading;
+    }
+}
+
+function renderRoleReevaluationResult() {
+    if (!consoleDOM.reevaluateResults) {
+        return;
+    }
+
+    const result = getCurrentReevaluationResult();
+    if (!result) {
+        consoleDOM.reevaluateResults.innerHTML = `
+            <div class="console-reevaluate-empty">
+                Waehle eine Rolle aus und lade zuerst die Vorschau.
+            </div>
+        `;
+        updateRoleReevaluationButtons();
+        return;
+    }
+
+    const isPreview = Boolean(result.dry_run);
+    const hasAffectedUsers = Number(result.affected_user_count || 0) > 0;
+    const canExecute = isPreview
+        && hasAffectedUsers
+        && String(result.role_id) === String(consoleState.reevaluate.selectedRoleId);
+
+    consoleDOM.reevaluateResults.innerHTML = `
+        <section class="console-reevaluate-result-card">
+            <div class="console-reevaluate-result-head">
+                <div>
+                    <p class="console-reevaluate-result-kicker">${isPreview ? "Vorschau" : "Ergebnis"}</p>
+                    <h3 class="ui-section-title">Rollenpaket ${escapeHtml(result.role_id ?? "-")}</h3>
+                </div>
+                <span class="ui-chip ${isPreview ? "ui-chip-neutral" : "ui-chip-primary"}">${isPreview ? "Dry Run" : "Ausgefuehrt"}</span>
+            </div>
+
+            <div class="console-reevaluate-count-grid">
+                ${renderCounts(result)}
+            </div>
+
+            ${Number(result.affected_user_count || 0) === 0
+                ? `<div class="console-reevaluate-success">Keine nachtraeglichen Aenderungen noetig.</div>`
+                : `
+                    <div class="console-reevaluate-user-list">
+                        ${renderUsers(result)}
+                    </div>
+                `}
+
+            ${canExecute
+                ? `
+                    <div class="console-reevaluate-result-actions">
+                        <button type="button" class="btn btn-primary" id="reevaluate-execute-btn">
+                            Re-Evaluierung ausfuehren
+                        </button>
+                    </div>
+                `
+                : ""}
+        </section>
+    `;
+
+    document.getElementById("reevaluate-execute-btn")?.addEventListener("click", () => {
+        runRoleReevaluation(false);
+    });
+
+    updateRoleReevaluationButtons();
+}
+
+function resetRoleReevaluationResults() {
+    consoleState.reevaluate.previewResult = null;
+    consoleState.reevaluate.executionResult = null;
+    consoleState.reevaluate.error = null;
+    renderRoleReevaluationResult();
+}
+
+async function loadRolesForReevaluation() {
+    if (!consoleDOM.reevaluateRoleSelect || !hasRoleReevaluationAccess()) {
+        return;
+    }
+
+    consoleState.reevaluate.loadingRoles = true;
+    updateRoleReevaluationButtons();
+    setRoleReevaluationFeedback("Rollen werden geladen...");
+
+    try {
+        const response = await fetch("/api/roles");
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.detail || data.error || "Rollen konnten nicht geladen werden.");
+        }
+
+        consoleState.reevaluate.roles = Array.isArray(data) ? data : [];
+        renderRoleOptions();
+        renderRoleReevaluationResult();
+        setRoleReevaluationFeedback(
+            consoleState.reevaluate.roles.length
+                ? "Waehle eine Rolle fuer die Vorschau aus."
+                : "Es sind keine Rollen fuer die Re-Evaluierung verfuegbar.",
+            consoleState.reevaluate.roles.length ? "is-success" : ""
+        );
+    } catch (error) {
+        console.error("Rollen fuer die Re-Evaluierung konnten nicht geladen werden", error);
+        consoleState.reevaluate.roles = [];
+        renderRoleOptions();
+        renderRoleReevaluationResult();
+        setRoleReevaluationFeedback(
+            error instanceof Error ? error.message : "Rollen konnten nicht geladen werden.",
+            "is-error"
+        );
+    } finally {
+        consoleState.reevaluate.loadingRoles = false;
+        updateRoleReevaluationButtons();
+    }
+}
+
+async function runRoleReevaluation(dryRun) {
+    const selectedRoleId = String(consoleState.reevaluate.selectedRoleId || "").trim();
+    if (!selectedRoleId) {
+        setRoleReevaluationFeedback("Bitte zuerst eine Rolle auswaehlen.", "is-error");
+        showFlash("Bitte zuerst eine Rolle auswaehlen.", "failure");
+        return;
+    }
+
+    if (!dryRun) {
+        const previewResult = consoleState.reevaluate.previewResult;
+        if (!previewResult || String(previewResult.role_id) !== selectedRoleId) {
+            setRoleReevaluationFeedback("Bitte zuerst eine aktuelle Vorschau fuer diese Rolle laden.", "is-error");
+            showFlash("Bitte zuerst eine aktuelle Vorschau fuer diese Rolle laden.", "failure");
+            return;
+        }
+    }
+
+    consoleState.reevaluate.error = null;
+    if (dryRun) {
+        consoleState.reevaluate.previewLoading = true;
+        consoleState.reevaluate.executionResult = null;
+        setRoleReevaluationFeedback("Vorschau wird geladen...");
+    } else {
+        consoleState.reevaluate.executeLoading = true;
+        setRoleReevaluationFeedback("Re-Evaluierung wird ausgefuehrt...");
+    }
+    updateRoleReevaluationButtons();
+
+    try {
+        const response = await fetch(`/api/roles/${encodeURIComponent(selectedRoleId)}/resources/reevaluate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dry_run: dryRun })
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.detail || data.error || "Re-Evaluierung konnte nicht ausgefuehrt werden.");
+        }
+
+        if (dryRun) {
+            consoleState.reevaluate.previewResult = data;
+            consoleState.reevaluate.executionResult = null;
+            setRoleReevaluationFeedback("Vorschau erfolgreich geladen.", "is-success");
+        } else {
+            consoleState.reevaluate.executionResult = data;
+            setRoleReevaluationFeedback("Re-Evaluierung erfolgreich ausgefuehrt.", "is-success");
+        }
+
+        renderRoleReevaluationResult();
+    } catch (error) {
+        console.error("Re-Evaluierung fehlgeschlagen", error);
+        const message = error instanceof Error
+            ? error.message
+            : "Re-Evaluierung konnte nicht ausgefuehrt werden.";
+        consoleState.reevaluate.error = message;
+        setRoleReevaluationFeedback(message, "is-error");
+        showFlash(message, "failure");
+    } finally {
+        consoleState.reevaluate.previewLoading = false;
+        consoleState.reevaluate.executeLoading = false;
+        updateRoleReevaluationButtons();
+    }
+}
+
+function bindRoleReevaluationControls() {
+    if (!consoleDOM.reevaluateRoleSelect || !consoleDOM.reevaluatePreviewBtn) {
+        return;
+    }
+
+    consoleDOM.reevaluateRoleSelect.addEventListener("change", event => {
+        consoleState.reevaluate.selectedRoleId = String(event.target.value || "");
+        resetRoleReevaluationResults();
+        setRoleReevaluationFeedback(consoleState.reevaluate.selectedRoleId ? "" : "Bitte eine Rolle auswaehlen.");
+    });
+
+    consoleDOM.reevaluatePreviewBtn.addEventListener("click", () => {
+        runRoleReevaluation(true);
+    });
+}
+
 function cacheDom() {
     consoleDOM.grid = document.getElementById("console-calendar-grid");
     consoleDOM.feedback = document.getElementById("console-calendar-feedback");
@@ -357,21 +710,30 @@ function cacheDom() {
     consoleDOM.prevBtn = document.getElementById("console-week-prev");
     consoleDOM.nextBtn = document.getElementById("console-week-next");
     consoleDOM.currentBtn = document.getElementById("console-week-current");
+    consoleDOM.reevaluateRoleSelect = document.getElementById("reevaluate-role-select");
+    consoleDOM.reevaluatePreviewBtn = document.getElementById("reevaluate-preview-btn");
+    consoleDOM.reevaluateFeedback = document.getElementById("reevaluate-feedback");
+    consoleDOM.reevaluateResults = document.getElementById("reevaluate-results");
 }
 
-function initConsoleCalendar() {
+function initConsole() {
     cacheDom();
-    if (!consoleDOM.grid) {
-        return;
+
+    if (consoleDOM.grid) {
+        bindCalendarControls();
+        renderCalendar();
+        loadEvents();
     }
 
-    bindControls();
-    renderCalendar();
-    loadEvents();
+    if (consoleDOM.reevaluateRoleSelect && hasRoleReevaluationAccess()) {
+        bindRoleReevaluationControls();
+        renderRoleReevaluationResult();
+        loadRolesForReevaluation();
+    }
 }
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initConsoleCalendar);
+    document.addEventListener("DOMContentLoaded", initConsole);
 } else {
-    initConsoleCalendar();
+    initConsole();
 }

@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const root = document.documentElement;
     const adminBtn = document.getElementById("admin-button");
     const navAdmin = document.getElementById("nav-admin");
     const adminMenu = document.getElementById("admin-subnav");
@@ -16,11 +17,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const reportProblemForm = document.getElementById("report-problem-form");
     const themeToggleButton = document.getElementById("theme-toggle-button");
     const themeToggleIcon = document.getElementById("theme-toggle-icon");
-    const themeIcons = [
-        { key: "sun", src: "/static/img/sun-icon-white.png", label: "Light Theme" },
-        { key: "moon", src: "/static/img/moon-icon-white.png", label: "Dark Theme" },
-        { key: "duck", src: "/static/img/duck-icon-white.png", label: "SD Theme" }
+    const themes = [
+        { key: "light", icon: "/static/img/sun-icon-white.png", label: "Light Theme" },
+        { key: "dark", icon: "/static/img/moon-icon-white.png", label: "Dark Theme" },
+        { key: "servodata", icon: "/static/img/duck-icon-white.png", label: "Servodata-Theme" }
     ];
+    const validThemeKeys = themes.map(theme => theme.key);
 
 
     function closeAll() {
@@ -118,21 +120,39 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    function updateThemeIcon(nextIconKey) {
-        if (!themeToggleIcon) return;
-
-        const nextIcon = themeIcons.find(icon => icon.key === nextIconKey) || themeIcons[0];
-        themeToggleIcon.src = nextIcon.src;
-        if (themeToggleButton) {
-            themeToggleButton.setAttribute("data-theme-icon", nextIcon.key);
-            themeToggleButton.setAttribute("aria-label", `${nextIcon.label} aktivieren`);
-            themeToggleButton.setAttribute("title", `${nextIcon.label} aktivieren`);
+    function getStoredTheme() {
+        try {
+            const storedTheme = window.localStorage.getItem("sofaTheme");
+            return validThemeKeys.includes(storedTheme) ? storedTheme : "light";
+        } catch (error) {
+            console.debug("Theme state could not be restored.", error);
+            return "light";
         }
+    }
+
+    function getThemeByKey(themeKey) {
+        return themes.find(theme => theme.key === themeKey) || themes[0];
+    }
+
+    function updateThemeButton(themeKey) {
+        if (!themeToggleButton || !themeToggleIcon) return;
+
+        const activeTheme = getThemeByKey(themeKey);
+        themeToggleIcon.src = activeTheme.icon;
+        themeToggleButton.setAttribute("data-theme", activeTheme.key);
+        themeToggleButton.setAttribute("aria-label", `Aktives Theme: ${activeTheme.label}`);
+        themeToggleButton.setAttribute("title", `Aktives Theme: ${activeTheme.label}`);
+    }
+
+    function applyTheme(themeKey) {
+        const activeTheme = getThemeByKey(themeKey);
+        root.setAttribute("data-theme", activeTheme.key);
+        updateThemeButton(activeTheme.key);
 
         try {
-            window.localStorage.setItem("sofaThemeToggleIcon", nextIcon.key);
+            window.localStorage.setItem("sofaTheme", activeTheme.key);
         } catch (error) {
-            console.debug("Theme icon state could not be persisted.", error);
+            console.debug("Theme state could not be persisted.", error);
         }
     }
 
@@ -184,23 +204,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (themeToggleButton && themeToggleIcon) {
-        let initialThemeIcon = themeIcons[0].key;
-
-        try {
-            initialThemeIcon = window.localStorage.getItem("sofaThemeToggleIcon") || initialThemeIcon;
-        } catch (error) {
-            console.debug("Theme icon state could not be restored.", error);
-        }
-
-        updateThemeIcon(initialThemeIcon);
+        applyTheme(getStoredTheme());
 
         themeToggleButton.addEventListener("click", (ev) => {
             ev.stopPropagation();
-            const currentIcon = themeToggleButton.getAttribute("data-theme-icon") || themeIcons[0].key;
-            const currentIndex = themeIcons.findIndex(icon => icon.key === currentIcon);
-            const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % themeIcons.length : 0;
-            updateThemeIcon(themeIcons[nextIndex].key);
+            const currentTheme = themeToggleButton.getAttribute("data-theme") || getStoredTheme();
+            const currentIndex = themes.findIndex(theme => theme.key === currentTheme);
+            const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % themes.length : 0;
+            applyTheme(themes[nextIndex].key);
         });
+    } else {
+        applyTheme(getStoredTheme());
     }
 
     profileModalTriggers.forEach(trigger => {

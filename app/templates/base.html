@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <title>{{ page_title }} | SOFA</title>
     <link rel="icon" type="image/x-icon" href="/static/img/logo.png">
+    <script>
+        (function () {
+            const root = document.documentElement;
+            const validThemes = ["light", "dark", "servodata"];
+
+            try {
+                const storedTheme = window.localStorage.getItem("sofaTheme");
+                const theme = validThemes.includes(storedTheme) ? storedTheme : "light";
+                root.setAttribute("data-theme", theme);
+            } catch (error) {
+                root.setAttribute("data-theme", "light");
+            }
+        }());
+    </script>
     <link rel="stylesheet" href="/static/css/_.css">
     <link rel="stylesheet" href="/static/css/ui.css">
     {% block css %}{% endblock %}
@@ -85,7 +99,7 @@
                     <button id="profile-button" class="profile-button" type="button"
                             aria-haspopup="true" aria-expanded="false" aria-controls="profile-subnav" title="Profil">
                         <img src="/static/img/account_icon.png" alt="Profil" class="profile-icon" />
-                        <span style="color: white;">{{user.first_name}}</span>
+                        <span class="profile-label">{{user.first_name}}</span>
                     </button>
                     <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
                         <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1">Account</button>

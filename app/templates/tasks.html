@@ -20,6 +20,47 @@
         </div>
 
         <section class="tasks-tab-panel active" id="tab-aufgaben" role="tabpanel" aria-labelledby="tasks-tab-aufgaben">
+            <section class="ui-card tasks-discovery-bar" aria-label="Aufgaben durchsuchen und filtern">
+                <div class="tasks-search-row">
+                    <label class="ui-field-label" for="tasks-search-input">Suche</label>
+                    <input
+                        type="search"
+                        id="tasks-search-input"
+                        class="ui-input"
+                        placeholder="Suche nach ID, Nutzer, Ressource, System oder Prozess"
+                        autocomplete="off"
+                    >
+                </div>
+
+                <div class="tasks-filter-grid">
+                    <div class="tasks-filter-field">
+                        <label class="ui-field-label" for="tasks-status-filter">Status</label>
+                        <select id="tasks-status-filter" class="ui-input">
+                            <option value="">Alle Status</option>
+                        </select>
+                    </div>
+
+                    <div class="tasks-filter-field">
+                        <label class="ui-field-label" for="tasks-handling-filter">Handling</label>
+                        <select id="tasks-handling-filter" class="ui-input">
+                            <option value="">Alle Handling-Typen</option>
+                        </select>
+                    </div>
+
+                    <div class="tasks-filter-field">
+                        <label class="ui-field-label" for="tasks-type-filter">Task-Typ</label>
+                        <select id="tasks-type-filter" class="ui-input">
+                            <option value="">Alle Task-Typen</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="tasks-toolbar-footer">
+                    <p class="tasks-filter-summary" id="tasks-filter-summary">Alle Aufgaben sichtbar</p>
+                    <button type="button" class="btn btn-secondary" id="tasks-filter-reset">Filter zurücksetzen</button>
+                </div>
+            </section>
+
             <div class="task-section">
                 <div class="ui-section-header">
                     <div class="ui-section-heading">

@@ -986,22 +986,34 @@ async def api_tasks_overview(current_user=Depends(require_login)):
         for key in ("open_tasks", "blocked_tasks", "user_tasks", "completed_tasks"):
             if isinstance(tasks.get(key), list):
                 tasks[key] = _filter_tasks_for_scope(tasks[key], current_user)
-        for key in (
-            "running_processes",
-            "open_processes",
-            "active_processes",
-            "ongoing_processes",
-            "completed_processes",
-            "closed_processes",
-            "finished_processes",
-            "processes",
-        ):
-            if isinstance(tasks.get(key), list):
-                tasks[key] = _filter_processes_for_scope(tasks[key], current_user)
         return JSONResponse(content=tasks)
 
     except httpx.HTTPStatusError as e:
         # Backend-Fehler sauber weitergeben
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.get("/api/processes/overview")
+async def api_processes_overview(current_user=Depends(require_login)):
+    try:
+        user_id = current_user.user_id
+        processes = await api_client.get_process_overview(user_id)
+
+        for key in ("running_processes", "completed_processes"):
+            if isinstance(processes.get(key), list):
+                processes[key] = _filter_processes_for_scope(processes[key], current_user)
+
+        return JSONResponse(content=processes)
+    except httpx.HTTPStatusError as e:
         return JSONResponse(
             content=e.response.json(),
             status_code=e.response.status_code
@@ -1316,6 +1328,26 @@ async def api_update_role(role_id: int, payload: dict, current_user=Depends(requ
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.update_role(role_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.post("/api/roles/{role_id}/resources/reevaluate")
+async def api_reevaluate_role_resources(role_id: int, payload: dict, current_user=Depends(require_page_access("roles"))):
+    try:
+        request_payload = {
+            "initiator_user_id": current_user.user_id,
+            "dry_run": _coerce_bool(payload.get("dry_run"), default=False),
+        }
+        result = await api_client.reevaluate_role_resources(role_id, request_payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as e:
         return JSONResponse(

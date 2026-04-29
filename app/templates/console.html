@@ -98,6 +98,35 @@
         </article>
     </section>
 
+    {% if "roles" in authz.pages %}
+    <section class="ui-card console-reevaluate-panel" aria-labelledby="console-reevaluate-title">
+        <div class="console-reevaluate-head">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Admin-Aktion</p>
+                <h2 class="ui-section-title" id="console-reevaluate-title">Rollenpaket neu evaluieren</h2>
+                <p class="ui-section-copy">
+                    Starte zuerst eine Vorschau und führe die Re-Evaluierung nur nach Bestätigung aus.
+                </p>
+            </div>
+        </div>
+
+        <div class="console-reevaluate-form">
+            <div class="ui-field-group console-reevaluate-field">
+                <label for="reevaluate-role-select" class="ui-field-label">Rolle</label>
+                <select id="reevaluate-role-select" class="ui-input">
+                    <option value="">Rolle auswählen...</option>
+                </select>
+            </div>
+            <div class="console-reevaluate-actions">
+                <button type="button" class="btn btn-primary" id="reevaluate-preview-btn">Vorschau laden</button>
+            </div>
+        </div>
+
+        <div class="console-reevaluate-feedback" id="reevaluate-feedback" role="status" aria-live="polite"></div>
+        <div class="console-reevaluate-results" id="reevaluate-results"></div>
+    </section>
+    {% endif %}
+
     <section class="console-calendar ui-card" aria-labelledby="console-calendar-title">
         <div class="console-calendar-head">
             <div class="ui-section-heading">

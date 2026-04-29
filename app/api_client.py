@@ -231,6 +231,15 @@ class APIClient:
             resp = await client.get(f"/tasks/overview", params={"user_id": user_id})
             resp.raise_for_status()
             return resp.json()
+
+    async def get_process_overview(self, user_id: int) -> dict:
+        """
+        Liefert eine Übersicht über laufende und abgeschlossene Prozesse für einen User.
+        """
+        async with httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout) as client:
+            resp = await client.get("/processes/overview", params={"user_id": user_id})
+            resp.raise_for_status()
+            return resp.json()
         
     async def get_system_overview(self) -> dict:
         """
@@ -332,6 +341,12 @@ class APIClient:
     async def update_role(self, role_id: int, payload: dict) -> dict:
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.post(f"/roles/{role_id}", json=payload)
+            resp.raise_for_status()
+            return resp.json()
+
+    async def reevaluate_role_resources(self, role_id: int, payload: dict) -> dict:
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/roles/{role_id}/resources/reevaluate", json=payload)
             resp.raise_for_status()
             return resp.json()
         

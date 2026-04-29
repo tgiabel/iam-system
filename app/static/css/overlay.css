@@ -4,7 +4,7 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--surface-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -12,11 +12,13 @@
 }
 
 .overlay-content-wrapper {
-  background-color: white;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 98%, transparent), color-mix(in srgb, var(--surface-muted) 96%, transparent));
+  border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
   border-radius: 12px;
   max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--shadow-strong);
   max-width: 90%;
   width: 600px;
   min-width: 400px;
@@ -45,6 +47,31 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 30px 0 30px;
+  gap: 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 70%, transparent);
+  padding-bottom: 18px;
+}
+
+.overlay-header h2 {
+  color: var(--text-strong);
+}
+
+.overlay-header .close-button {
+  color: var(--text-muted);
+  border-radius: 999px;
+  width: 2.4rem;
+  height: 2.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.overlay-header .close-button:hover,
+.overlay-header .close-button:focus-visible {
+  background: rgba(var(--color-primary-rgb), 0.08);
+  color: var(--text-strong);
+  outline: none;
 }
 
 .status-badge {
@@ -77,10 +104,10 @@
 
 /* Skeleton Loading */
 .skeleton {
-  background-color: #e0e0e0;
+  background-color: var(--surface-muted);
   border-radius: 4px;
   margin: 10px 0;
-  background-image: linear-gradient(to right, #e0e0e0 0%, #f5f5f5 20%, #e0e0e0 40%, #e0e0e0 100%);
+  background-image: linear-gradient(to right, var(--surface-muted) 0%, var(--surface-soft) 20%, var(--surface-muted) 40%, var(--surface-muted) 100%);
   background-size: 200% 100%;
   background-repeat: no-repeat;
   animation: shimmer 1.5s infinite ease-out;
@@ -103,4 +130,37 @@
 @keyframes shimmer {
   0% { background-position: -200px 0; }
   100% { background-position: 200px 0; }
+}
+
+@media (max-width: 720px) {
+  .overlay {
+    padding: 1rem;
+  }
+
+  .overlay-content-wrapper {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .overlay-header,
+  .overlay-form {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .overlay-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .overlay-actions {
+    margin-left: 0;
+    margin-right: 0;
+    flex-direction: column-reverse;
+  }
+
+  .overlay-actions .btn {
+    width: 100%;
+  }
 }

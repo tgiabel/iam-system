@@ -18,6 +18,7 @@ const STATE = {
 
 const TASK_TYPES = ["ASSIGNMENT", "REVOCATION"];
 const PARENT_RESOURCE_TYPE_ID = 1;
+const EXTERNAL_PROVIDER_PRIMARY_ROLE_ID = 9;
 
 const api = {
     async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, meta = null) {
@@ -710,6 +711,10 @@ function getRecipientOptions() {
     const seen = new Set();
 
     STATE.users.forEach(user => {
+        if (getUserPrimaryRoleId(user) !== EXTERNAL_PROVIDER_PRIMARY_ROLE_ID) {
+            return;
+        }
+
         if (!user.user_id) {
             return;
         }
@@ -731,11 +736,37 @@ function getRecipientOptions() {
         const value = getExternalRecipientValue(entry?.meta);
         if (value && !seen.has(value)) {
             seen.add(value);
-            options.push({ value, label: value });
+            options.push({ value, label: getRecipientFallbackLabel(value) });
         }
     });
 
     return options;
+}
+
+function getRecipientFallbackLabel(value) {
+    if (String(value) === "1") {
+        return "TEST";
+    }
+
+    return String(value);
+}
+
+function getUserPrimaryRoleId(user) {
+    return parseInteger(
+        user?.primary_role?.role_id
+        ?? user?.primary_role_id
+        ?? user?.primaryRoleId
+        ?? user?.hauptrolle_id
+    );
+}
+
+function parseInteger(value) {
+    const normalized = String(value ?? "").trim();
+    if (!/^\d+$/.test(normalized)) {
+        return null;
+    }
+
+    return parseInt(normalized, 10);
 }
 
 function resetMetaFields() {
@@ -782,7 +813,9 @@ function fillMetaFieldsForHandling(handlingType, resource) {
         if (handlingType === "BOT") {
             formFields.bot.value = metaEntry.meta.bot || "";
             formFields.action.value = metaEntry.meta.action || "";
-            formFields.data.value = metaEntry.meta.data || "";
+            formFields.data.value = typeof metaEntry.meta.data === "object"
+                ? JSON.stringify(metaEntry.meta.data)
+                : (metaEntry.meta.data || "");
         }
     });
 }

@@ -4,6 +4,7 @@ if (!window.taskOverlayInitialized) {
         initTaskOverlay();
         initMailDialog();
         initTaskActionHandling();
+        initTaskFilters();
         loadTasks();
     });
     window.taskOverlayInitialized = true;
@@ -51,6 +52,38 @@ const PROCESS_KEYS = {
     startedAt: ["started_at", "created_at", "process_started_at"],
     completedAt: ["completed_at", "finished_at", "process_completed_at"],
     openTaskCount: ["open_task_count", "pending_task_count"]
+};
+
+const TASK_FILTER_DEFAULTS = {
+    search: "",
+    status: "",
+    handling: "",
+    taskType: ""
+};
+
+const taskViewState = {
+    filters: { ...TASK_FILTER_DEFAULTS },
+    filterOptions: {
+        status: [],
+        handling: [],
+        taskType: []
+    },
+    buckets: {
+        open: [],
+        blocked: [],
+        mine: [],
+        completed: []
+    }
+};
+
+const processViewState = {
+    loaded: false,
+    loading: false,
+    error: null,
+    data: {
+        running_processes: [],
+        completed_processes: []
+    }
 };
 
 const api = {
@@ -181,6 +214,16 @@ function formatStatus(status, task) {
     return formatFromMap(LABELS.status, status);
 }
 
+function formatStatusFilterValue(status) {
+    if (!status) {
+        return "-";
+    }
+    if (status === "BLOCKED") {
+        return LABELS.status.BLOCKED;
+    }
+    return formatFromMap(LABELS.status, status);
+}
+
 function formatHistoryAction(action) {
     return formatFromMap(LABELS.historyAction, action);
 }
@@ -274,6 +317,173 @@ function firstDefinedValue(record, keys, fallback = "-") {
 
 function decorateTasks(tasks, uiListState) {
     return tasks.map(task => ({ ...task, uiListState }));
+}
+
+function normalizeSearchValue(value) {
+    return String(value ?? "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+}
+
+function getTaskStatusFilterKey(task) {
+    if (task?.uiListState === "blocked") {
+        return "BLOCKED";
+    }
+
+    const status = String(task?.status || "").trim().toUpperCase();
+    if (status) {
+        return status;
+    }
+
+    return isTaskCompleted(task) ? "COMPLETED" : "";
+}
+
+function getTaskHandlingFilterKey(task) {
+    return String(task?.handling_type || "").trim().toUpperCase();
+}
+
+function getTaskTypeFilterKey(task) {
+    return String(task?.task_type || "").trim().toUpperCase();
+}
+
+function getTaskSearchIndex(task) {
+    return [
+        task.task_id,
+        task.target_user_name,
+        task.resource_name,
+        task.system_name,
+        formatProcessLabel(task),
+        formatStatus(task.status, task),
+        formatHandlingType(task.handling_type),
+        formatTaskType(task.task_type)
+    ]
+        .map(normalizeSearchValue)
+        .filter(Boolean)
+        .join(" ");
+}
+
+function collectAllTasks() {
+    return [
+        ...taskViewState.buckets.open,
+        ...taskViewState.buckets.blocked,
+        ...taskViewState.buckets.mine,
+        ...taskViewState.buckets.completed
+    ];
+}
+
+function createSortedFilterOptions(values, formatter) {
+    return Array.from(new Set(values.filter(Boolean)))
+        .map(value => ({ value, label: formatter(value) }))
+        .sort((left, right) => left.label.localeCompare(right.label, "de"));
+}
+
+function buildTaskFilterOptions() {
+    const tasks = collectAllTasks();
+
+    taskViewState.filterOptions.status = createSortedFilterOptions(
+        tasks.map(getTaskStatusFilterKey),
+        formatStatusFilterValue
+    );
+    taskViewState.filterOptions.handling = createSortedFilterOptions(
+        tasks.map(getTaskHandlingFilterKey),
+        formatHandlingType
+    );
+    taskViewState.filterOptions.taskType = createSortedFilterOptions(
+        tasks.map(getTaskTypeFilterKey),
+        formatTaskType
+    );
+}
+
+function populateFilterSelect(elementId, options, defaultLabel, selectedValue) {
+    const select = document.getElementById(elementId);
+    if (!select) {
+        return;
+    }
+
+    const defaultOption = `<option value="">${escapeHtml(defaultLabel)}</option>`;
+    const optionMarkup = options.map(option => `
+        <option value="${escapeHtml(option.value)}"${option.value === selectedValue ? " selected" : ""}>
+            ${escapeHtml(option.label)}
+        </option>
+    `).join("");
+
+    select.innerHTML = defaultOption + optionMarkup;
+    select.value = selectedValue || "";
+}
+
+function syncTaskFilterControls() {
+    const searchInput = document.getElementById("tasks-search-input");
+    if (searchInput) {
+        searchInput.value = taskViewState.filters.search;
+    }
+
+    populateFilterSelect(
+        "tasks-status-filter",
+        taskViewState.filterOptions.status,
+        "Alle Status",
+        taskViewState.filters.status
+    );
+    populateFilterSelect(
+        "tasks-handling-filter",
+        taskViewState.filterOptions.handling,
+        "Alle Handling-Typen",
+        taskViewState.filters.handling
+    );
+    populateFilterSelect(
+        "tasks-type-filter",
+        taskViewState.filterOptions.taskType,
+        "Alle Task-Typen",
+        taskViewState.filters.taskType
+    );
+}
+
+function hasActiveTaskFilters() {
+    return Object.values(taskViewState.filters).some(value => String(value || "").trim() !== "");
+}
+
+function updateTaskFilterSummary(visibleCount, totalCount) {
+    const summary = document.getElementById("tasks-filter-summary");
+    if (summary) {
+        summary.textContent = hasActiveTaskFilters()
+            ? `${visibleCount} von ${totalCount} Aufgaben sichtbar`
+            : `${totalCount} Aufgaben sichtbar`;
+    }
+
+    const resetButton = document.getElementById("tasks-filter-reset");
+    if (resetButton) {
+        resetButton.disabled = !hasActiveTaskFilters();
+    }
+}
+
+function taskMatchesFilters(task) {
+    const normalizedSearch = normalizeSearchValue(taskViewState.filters.search);
+    if (normalizedSearch && !getTaskSearchIndex(task).includes(normalizedSearch)) {
+        return false;
+    }
+
+    if (taskViewState.filters.status && getTaskStatusFilterKey(task) !== taskViewState.filters.status) {
+        return false;
+    }
+
+    if (taskViewState.filters.handling && getTaskHandlingFilterKey(task) !== taskViewState.filters.handling) {
+        return false;
+    }
+
+    if (taskViewState.filters.taskType && getTaskTypeFilterKey(task) !== taskViewState.filters.taskType) {
+        return false;
+    }
+
+    return true;
+}
+
+function filterTaskBuckets() {
+    return {
+        open: taskViewState.buckets.open.filter(taskMatchesFilters),
+        blocked: taskViewState.buckets.blocked.filter(taskMatchesFilters),
+        mine: taskViewState.buckets.mine.filter(taskMatchesFilters),
+        completed: taskViewState.buckets.completed.filter(taskMatchesFilters)
+    };
 }
 
 function isTaskCompleted(task) {
@@ -617,6 +827,10 @@ function initTabs() {
             panel.classList.toggle("active", isActive);
             panel.setAttribute("aria-hidden", String(!isActive));
         });
+
+        if (target === "prozesse") {
+            loadProcesses();
+        }
     }
 
     tabs.forEach(tab => {
@@ -1049,6 +1263,25 @@ function renderProcessRow(process, isCompleted) {
     `;
 }
 
+function renderProcessStateRow(bodyId, message, variant = "empty") {
+    const body = document.getElementById(bodyId);
+    if (!body) {
+        return;
+    }
+
+    const stateClass = variant === "error"
+        ? "process-state-row process-state-error"
+        : "process-state-row";
+
+    body.innerHTML = `
+        <tr class="${stateClass}">
+            <td colspan="6">
+                <div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>
+            </td>
+        </tr>
+    `;
+}
+
 function renderProcessTable(bodyId, processes, isCompleted) {
     const body = document.getElementById(bodyId);
     if (!body) {
@@ -1056,15 +1289,10 @@ function renderProcessTable(bodyId, processes, isCompleted) {
     }
 
     if (!processes.length) {
-        body.innerHTML = `
-            <tr class="process-empty-row">
-                <td colspan="6">
-                    <div class="ui-empty-state ui-empty-inline">
-                        ${isCompleted ? "Keine abgeschlossenen Prozesse vorhanden." : "Keine laufenden Prozesse vorhanden."}
-                    </div>
-                </td>
-            </tr>
-        `;
+        renderProcessStateRow(
+            bodyId,
+            isCompleted ? "Keine abgeschlossenen Prozesse vorhanden." : "Keine laufenden Prozesse vorhanden."
+        );
         return;
     }
 
@@ -1077,6 +1305,141 @@ function renderProcessTables(data) {
     renderProcessTable("completed-processes-body", completed, true);
 }
 
+function renderProcessLoadingState() {
+    renderProcessStateRow("running-processes-body", "Lade laufende Prozesse...", "loading");
+    renderProcessStateRow("completed-processes-body", "Lade abgeschlossene Prozesse...", "loading");
+}
+
+function renderProcessErrorState(message) {
+    renderProcessStateRow("running-processes-body", message, "error");
+    renderProcessStateRow("completed-processes-body", message, "error");
+}
+
+async function loadProcesses(forceReload = false) {
+    if (processViewState.loading) {
+        return;
+    }
+
+    if (processViewState.loaded && !forceReload) {
+        renderProcessTables(processViewState.data);
+        return;
+    }
+
+    processViewState.loading = true;
+    processViewState.error = null;
+    renderProcessLoadingState();
+
+    try {
+        const res = await fetch("/api/processes/overview");
+        const data = await res.json();
+
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "Fehler beim Laden der Prozesse.");
+        }
+
+        processViewState.loaded = true;
+        processViewState.data = data;
+        renderProcessTables(processViewState.data);
+    } catch (err) {
+        processViewState.error = err;
+        console.error("Prozess-Ladefehler:", err);
+        renderProcessErrorState("Prozessübersicht konnte nicht geladen werden.");
+    } finally {
+        processViewState.loading = false;
+    }
+}
+
+function renderTaskBuckets(filteredBuckets) {
+    const openContainer = document.getElementById("open-tasks-slider");
+    const myContainer = document.getElementById("my-tasks-slider");
+    const completedContainer = document.getElementById("completed-tasks-slider");
+
+    const openAndBlocked = [...filteredBuckets.open, ...filteredBuckets.blocked];
+    const isFiltered = hasActiveTaskFilters();
+
+    if (openContainer) {
+        openContainer.innerHTML = openAndBlocked.length
+            ? openAndBlocked.map(renderTaskTile).join("")
+            : renderEmptyState(isFiltered ? "Keine Aufgaben für die aktuelle Suche" : "Keine offenen Aufgaben");
+    }
+
+    if (myContainer) {
+        myContainer.innerHTML = filteredBuckets.mine.length
+            ? filteredBuckets.mine.map(renderTaskTile).join("")
+            : renderEmptyState(isFiltered ? "Keine eigenen Aufgaben für die aktuelle Suche" : "Keine eigenen Aufgaben");
+    }
+
+    if (completedContainer) {
+        completedContainer.innerHTML = filteredBuckets.completed.length
+            ? filteredBuckets.completed.map(renderTaskTile).join("")
+            : renderEmptyState(isFiltered ? "Keine erledigten Aufgaben für die aktuelle Suche" : "Keine abgeschlossenen Aufgaben");
+    }
+
+    setCount("open-tasks-count", openAndBlocked.length);
+    setCount("my-tasks-count", filteredBuckets.mine.length);
+}
+
+function refreshTaskView() {
+    const filteredBuckets = filterTaskBuckets();
+    renderTaskBuckets(filteredBuckets);
+
+    const visibleCount = Object.values(filteredBuckets).reduce((sum, tasks) => sum + tasks.length, 0);
+    const totalCount = Object.values(taskViewState.buckets).reduce((sum, tasks) => sum + tasks.length, 0);
+    updateTaskFilterSummary(visibleCount, totalCount);
+}
+
+function initTaskFilters() {
+    const searchInput = document.getElementById("tasks-search-input");
+    const statusFilter = document.getElementById("tasks-status-filter");
+    const handlingFilter = document.getElementById("tasks-handling-filter");
+    const typeFilter = document.getElementById("tasks-type-filter");
+    const resetButton = document.getElementById("tasks-filter-reset");
+
+    if (searchInput && searchInput.dataset.bound !== "true") {
+        searchInput.dataset.bound = "true";
+        searchInput.addEventListener("input", event => {
+            taskViewState.filters.search = event.target.value || "";
+            refreshTaskView();
+        });
+    }
+
+    if (statusFilter && statusFilter.dataset.bound !== "true") {
+        statusFilter.dataset.bound = "true";
+        statusFilter.addEventListener("change", event => {
+            taskViewState.filters.status = event.target.value || "";
+            refreshTaskView();
+        });
+    }
+
+    if (handlingFilter && handlingFilter.dataset.bound !== "true") {
+        handlingFilter.dataset.bound = "true";
+        handlingFilter.addEventListener("change", event => {
+            taskViewState.filters.handling = event.target.value || "";
+            refreshTaskView();
+        });
+    }
+
+    if (typeFilter && typeFilter.dataset.bound !== "true") {
+        typeFilter.dataset.bound = "true";
+        typeFilter.addEventListener("change", event => {
+            taskViewState.filters.taskType = event.target.value || "";
+            refreshTaskView();
+        });
+    }
+
+    if (resetButton && resetButton.dataset.bound !== "true") {
+        resetButton.dataset.bound = "true";
+        resetButton.addEventListener("click", () => {
+            taskViewState.filters = { ...TASK_FILTER_DEFAULTS };
+            syncTaskFilterControls();
+            refreshTaskView();
+        });
+    }
+
+    syncTaskFilterControls();
+    updateTaskFilterSummary(0, 0);
+}
+
 async function loadTasks() {
     try {
         const res = await fetch("/api/tasks/overview");
@@ -1087,37 +1450,21 @@ async function loadTasks() {
         const myTasks = decorateTasks(Array.isArray(data.user_tasks) ? data.user_tasks : [], "mine");
         const completedTasks = decorateTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : [], "completed");
 
+        taskViewState.buckets = {
+            open: openTasks,
+            blocked: blockedTasks,
+            mine: myTasks,
+            completed: completedTasks
+        };
+        buildTaskFilterOptions();
+        syncTaskFilterControls();
+
         window.taskIndex = {};
         [...openTasks, ...blockedTasks, ...myTasks, ...completedTasks].forEach(task => {
             window.taskIndex[String(task.task_id)] = task;
         });
 
-        const openContainer = document.getElementById("open-tasks-slider");
-        const myContainer = document.getElementById("my-tasks-slider");
-        const completedContainer = document.getElementById("completed-tasks-slider");
-
-        if (openContainer) {
-            openContainer.innerHTML = [...openTasks, ...blockedTasks].length
-                ? [...openTasks, ...blockedTasks].map(renderTaskTile).join("")
-                : renderEmptyState("Keine offenen Aufgaben");
-        }
-
-        if (myContainer) {
-            myContainer.innerHTML = myTasks.length
-                ? myTasks.map(renderTaskTile).join("")
-                : renderEmptyState("Keine eigenen Aufgaben");
-        }
-
-        if (completedContainer) {
-            completedContainer.innerHTML = completedTasks.length
-                ? completedTasks.map(renderTaskTile).join("")
-                : renderEmptyState("Keine abgeschlossenen Aufgaben");
-        }
-
-        setCount("open-tasks-count", openTasks.length + blockedTasks.length);
-        setCount("my-tasks-count", myTasks.length);
-
-        renderProcessTables(data);
+        refreshTaskView();
     } catch (err) {
         console.error("Task-Ladefehler:", err);
         showFlash("Fehler beim Laden der Aufgaben. Siehe Konsole.", "failure");
