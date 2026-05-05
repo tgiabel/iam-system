@@ -116,6 +116,28 @@ POLICY_DEFINITIONS = {
 }
 
 
+# Backlog-Sicht wird lokal aus den bereits auf Policies gemappten Rollen abgeleitet.
+# Weitere Zuordnungen koennen hier ergaenzt werden, sobald die fachlichen Backlog-IDs feststehen.
+TASK_BACKLOG_ACCESS_BY_POLICY = {
+    "basic_user": {
+        "all": False,
+        "backlog_ids": set(),
+    },
+    "people_admin": {
+        "all": False,
+        "backlog_ids": set(),
+    },
+    "operations_admin": {
+        "all": False,
+        "backlog_ids": set(),
+    },
+    "it_admin": {
+        "all": True,
+        "backlog_ids": [1,],
+    },
+}
+
+
 ROLE_POLICY_BY_ID = {
     21: "it_admin",
 }
@@ -166,6 +188,8 @@ class AuthorizationContext:
     pages: frozenset[str]
     capabilities: frozenset[str]
     data_scopes: dict[str, str]
+    visible_task_backlog_ids: tuple[int, ...]
+    can_view_all_task_backlogs: bool
     effective_role_ids: tuple[int, ...]
     effective_role_names: tuple[str, ...]
     effective_policy_keys: tuple[str, ...]
@@ -253,6 +277,24 @@ def _merge_scopes(base_scopes: dict[str, str], additional_scopes: dict[str, str]
     return merged
 
 
+def _resolve_task_backlog_access(policy_keys: list[str]) -> tuple[tuple[int, ...], bool]:
+    visible_backlog_ids: set[int] = set()
+    can_view_all = False
+
+    effective_policy_keys = policy_keys or ["basic_user"]
+    for policy_key in effective_policy_keys:
+        access_definition = TASK_BACKLOG_ACCESS_BY_POLICY.get(policy_key, {})
+        if access_definition.get("all"):
+            can_view_all = True
+
+        backlog_ids = access_definition.get("backlog_ids", set())
+        for backlog_id in backlog_ids:
+            if isinstance(backlog_id, int):
+                visible_backlog_ids.add(backlog_id)
+
+    return tuple(sorted(visible_backlog_ids)), can_view_all
+
+
 def build_authorization_context_from_user(user: dict[str, Any]) -> AuthorizationContext:
     primary_role = user.get("primary_role") or {}
     primary_role_id = _coerce_role_id(primary_role.get("role_id"))
@@ -288,6 +330,7 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
         role_key = "basic_user"
 
     debug_policy_keys = tuple(effective_policy_keys) or ("basic_user",)
+    visible_task_backlog_ids, can_view_all_task_backlogs = _resolve_task_backlog_access(effective_policy_keys)
 
     return AuthorizationContext(
         user_id=user.get("user_id"),
@@ -298,6 +341,8 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
         pages=frozenset(pages),
         capabilities=frozenset(capabilities),
         data_scopes=data_scopes,
+        visible_task_backlog_ids=visible_task_backlog_ids,
+        can_view_all_task_backlogs=can_view_all_task_backlogs,
         effective_role_ids=tuple(role["role_id"] for role in effective_roles),
         effective_role_names=tuple(str(role["name"]) for role in effective_roles),
         effective_policy_keys=debug_policy_keys,
@@ -383,6 +428,8 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
             "effective_role_ids": [],
             "effective_role_names": [],
             "effective_policy_keys": [],
+            "visible_task_backlog_ids": [],
+            "can_view_all_task_backlogs": False,
             "has_admin_access": False,
         }
 
@@ -396,5 +443,7 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
         "effective_role_ids": list(authz.effective_role_ids),
         "effective_role_names": list(authz.effective_role_names),
         "effective_policy_keys": list(authz.effective_policy_keys),
+        "visible_task_backlog_ids": list(authz.visible_task_backlog_ids),
+        "can_view_all_task_backlogs": authz.can_view_all_task_backlogs,
         "has_admin_access": bool(authz.pages),
     }

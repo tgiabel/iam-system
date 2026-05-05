@@ -2112,6 +2112,71 @@ const trainingModalController = {
         );
     },
 
+    captureRenderState() {
+        const activeElement = document.activeElement;
+        const focusedField = activeElement && DOM.trainingOverlay?.contains(activeElement) ? {
+            id: activeElement.id || "",
+            selectionStart: typeof activeElement.selectionStart === "number" ? activeElement.selectionStart : null,
+            selectionEnd: typeof activeElement.selectionEnd === "number" ? activeElement.selectionEnd : null,
+            selectionDirection: typeof activeElement.selectionDirection === "string" ? activeElement.selectionDirection : "none"
+        } : null;
+
+        return {
+            focusedField,
+            modalScrollTop: DOM.trainingModalBody?.scrollTop || 0,
+            userListScrollTop: document.getElementById("training-user-selection-list")?.scrollTop || 0,
+            roleListScrollTop: document.getElementById("training-role-selection-list")?.scrollTop || 0
+        };
+    },
+
+    restoreRenderState(renderState) {
+        if (!renderState) {
+            return;
+        }
+
+        if (DOM.trainingModalBody) {
+            DOM.trainingModalBody.scrollTop = renderState.modalScrollTop || 0;
+        }
+
+        const userList = document.getElementById("training-user-selection-list");
+        if (userList) {
+            userList.scrollTop = renderState.userListScrollTop || 0;
+        }
+
+        const roleList = document.getElementById("training-role-selection-list");
+        if (roleList) {
+            roleList.scrollTop = renderState.roleListScrollTop || 0;
+        }
+
+        if (!renderState.focusedField?.id) {
+            return;
+        }
+
+        const nextFocusedField = document.getElementById(renderState.focusedField.id);
+        if (!nextFocusedField) {
+            return;
+        }
+
+        nextFocusedField.focus({ preventScroll: true });
+
+        if (
+            typeof nextFocusedField.setSelectionRange === "function" &&
+            typeof renderState.focusedField.selectionStart === "number"
+        ) {
+            try {
+                nextFocusedField.setSelectionRange(
+                    renderState.focusedField.selectionStart,
+                    typeof renderState.focusedField.selectionEnd === "number"
+                        ? renderState.focusedField.selectionEnd
+                        : renderState.focusedField.selectionStart,
+                    renderState.focusedField.selectionDirection || "none"
+                );
+            } catch (error) {
+                // Some input types do not support explicit selection ranges.
+            }
+        }
+    },
+
     renderSummaryChips(items, emptyLabel) {
         if (!items.length) {
             return `<span class="ui-chip ui-chip-neutral">${escapeHtml(emptyLabel)}</span>`;
@@ -2123,6 +2188,7 @@ const trainingModalController = {
     },
 
     render() {
+        const renderState = this.captureRenderState();
         const visibleUsers = this.getVisibleUsers();
         const visibleRoles = this.getVisibleRoleOptions();
         const selectedUsers = this.state.availableUsers.filter(user => this.state.selectedUserIds.has(String(user.user_id)));
@@ -2144,7 +2210,7 @@ const trainingModalController = {
                         placeholder="Suche nach PNR, RACF, Name oder Funktion"
                         value="${escapeHtml(this.state.userSearchTerm)}"
                     >
-                    <div class="training-selection-list">
+                    <div class="training-selection-list" id="training-user-selection-list">
                         ${visibleUsers.length ? visibleUsers.map(user => `
                             <label class="training-selection-item">
                                 <input
@@ -2173,7 +2239,7 @@ const trainingModalController = {
                         placeholder="Suche nach Nebenrolle"
                         value="${escapeHtml(this.state.roleSearchTerm)}"
                     >
-                    <div class="training-selection-list">
+                    <div class="training-selection-list" id="training-role-selection-list">
                         ${visibleRoles.length ? visibleRoles.map(role => `
                             <label class="training-selection-item">
                                 <input
@@ -2217,6 +2283,7 @@ const trainingModalController = {
         `;
 
         this.bindEvents();
+        this.restoreRenderState(renderState);
     },
 
     bindEvents() {

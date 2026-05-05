@@ -68,6 +68,9 @@ class APIClient:
     async def get_events(self) -> list[dict]:
         return await self.get("/events")
 
+    async def get_task_backlogs(self) -> list[dict]:
+        return await self.get("/task_backlogs/")
+
     async def setup_user_sofa_access(self, user_id: int, payload: dict) -> dict:
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.post(f"/users/{user_id}/sofa-access/setup", json=payload)
@@ -408,6 +411,12 @@ class APIClient:
     async def get_task_logs(self, task_id):
         async with httpx.AsyncClient(base_url=self.base_url) as client:
             resp = await client.get(f"/tasks/{task_id}/logs")  
+            resp.raise_for_status()
+            return resp.json()
+
+    async def send_task_mail(self, task_id, payload: dict):
+        async with httpx.AsyncClient(base_url=self.base_url) as client:
+            resp = await client.post(f"/tasks/{task_id}/send_mail", json=payload)
             resp.raise_for_status()
             return resp.json()
         

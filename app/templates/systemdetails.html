@@ -43,6 +43,7 @@
                 {"label": "ID", "id": "system-id", "type": "text", "readonly": true, "editable": false},
                 {"label": "Name", "id": "system-name", "type": "text", "editable": true},
                 {"label": "Kürzel", "id": "system-short", "type": "text", "editable": true},
+                {"label": "Standard-Backlog", "id": "system-backlog", "type": "select", "editable": true},
                 {"label": "Typ", "id": "system-type", "type": "text", "editable": false},
                 {"label": "Status", "id": "system-status", "type": "text", "editable": false},
                 {"label": "Verantwortlich", "id": "system-owner", "type": "text", "editable": false}
@@ -64,6 +65,12 @@
                         {% if field.readonly %}readonly{% endif %}
                         style="display:none;"
                     >
+                {% elif field.type == "select" and field.editable %}
+                    <select
+                        class="field-input"
+                        id="{{ field.id }}-input"
+                        style="display:none;"
+                    ></select>
                 {% endif %}
 
             </div>
@@ -154,6 +161,7 @@
                         <th>Name</th>
                         <th>Typ</th>
                         <th>Übergeordnete Ressource</th>
+                        <th>Backlog</th>
                         <th>Zuweisung</th>
                     </tr>
                 </thead>
@@ -225,6 +233,12 @@
                                     <option value="INTERNAL">Internal</option>
                                     <option value="BOT">Bot</option>
                                     <option value="EXTERNAL">External</option>
+                                </select>
+                            </div>
+                            <div class="form-field">
+                                <label for="res-backlog-id">Backlog</label>
+                                <select id="res-backlog-id" class="form-input">
+                                    <option value="">System-Standard verwenden</option>
                                 </select>
                             </div>
                         </div>

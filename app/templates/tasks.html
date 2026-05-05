@@ -53,6 +53,13 @@
                             <option value="">Alle Task-Typen</option>
                         </select>
                     </div>
+
+                    <div class="tasks-filter-field">
+                        <label class="ui-field-label" for="tasks-backlog-filter">Backlog</label>
+                        <select id="tasks-backlog-filter" class="ui-input">
+                            <option value="">Alle Backlogs</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="tasks-toolbar-footer">
@@ -211,10 +218,13 @@
             </section>
 
             <section class="ui-card task-history-card">
-                <button type="button" id="history-toggle" class="history-toggle" aria-expanded="false" aria-controls="history-container">
-                    <span>Verlauf anzeigen</span>
-                    <i class="chevron-icon" aria-hidden="true">▾</i>
-                </button>
+                <div class="history-toolbar">
+                    <button type="button" id="history-toggle" class="history-toggle" aria-expanded="false" aria-controls="history-container">
+                        <span>Verlauf anzeigen</span>
+                        <i class="chevron-icon" aria-hidden="true">▾</i>
+                    </button>
+                    <button type="button" id="history-refresh-btn" class="btn btn-secondary history-refresh-btn">Aktualisieren</button>
+                </div>
 
                 <div id="history-container" class="history-container">
                     <div class="history-scroll-area">
@@ -268,6 +278,28 @@
         <div class="ui-modal-footer">
             <button id="mail-cancel-btn" class="btn btn-secondary" type="button">Abbrechen</button>
             <button id="send-mail-btn" class="btn btn-primary" type="button">E-Mail jetzt senden</button>
+        </div>
+    </div>
+</div>
+
+<div id="task-warning-overlay" class="ui-modal-overlay" aria-hidden="true">
+    <div class="task-warning-modal ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="task-warning-title">
+        <div class="ui-modal-header">
+            <div class="task-modal-heading">
+                <p class="ui-section-kicker">Hinweis</p>
+                <h3 id="task-warning-title">Aktion erneut ausführen?</h3>
+            </div>
+            <button id="task-warning-close-btn" class="ui-icon-button" type="button" aria-label="Hinweis schließen">&times;</button>
+        </div>
+
+        <div class="ui-modal-body">
+            <p id="task-warning-text" class="task-warning-text"></p>
+            <ul id="task-warning-list" class="task-warning-list"></ul>
+        </div>
+
+        <div class="ui-modal-footer">
+            <button id="task-warning-cancel-btn" class="btn btn-secondary" type="button">Abbrechen</button>
+            <button id="task-warning-confirm-btn" class="btn btn-primary" type="button">Trotzdem ausführen</button>
         </div>
     </div>
 </div>

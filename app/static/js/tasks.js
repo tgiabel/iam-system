@@ -3,9 +3,10 @@ if (!window.taskOverlayInitialized) {
         initTabs();
         initTaskOverlay();
         initMailDialog();
+        initTaskWarningDialog();
         initTaskActionHandling();
         initTaskFilters();
-        loadTasks();
+        loadInitialTaskData();
     });
     window.taskOverlayInitialized = true;
 }
@@ -31,6 +32,7 @@ const LABELS = {
         ASSIGNED: "Übernommen",
         RELEASED: "Freigegeben",
         COMPLETED: "Erledigt",
+        BOT_DISPATCHED: "Bot dispatcht",
         BOT_RESPONSE: "Bot-Antwort",
         MAIL_SENT: "E-Mail versendet"
     },
@@ -40,7 +42,7 @@ const LABELS = {
         TEMPORARY_ROLE: "Temporäre Rolle",
         ONBOARDING: "Onboarding",
         OFFBOARDING: "Offboarding",
-        CHANGE: "Abteilungswechsel"
+        CHANGE: "Funktionswechsel"
     }
 };
 
@@ -58,16 +60,21 @@ const TASK_FILTER_DEFAULTS = {
     search: "",
     status: "",
     handling: "",
-    taskType: ""
+    taskType: "",
+    backlog: ""
 };
+
+const NO_BACKLOG_FILTER_VALUE = "__NONE__";
 
 const taskViewState = {
     filters: { ...TASK_FILTER_DEFAULTS },
     filterOptions: {
         status: [],
         handling: [],
-        taskType: []
+        taskType: [],
+        backlog: []
     },
+    backlogLookup: {},
     buckets: {
         open: [],
         blocked: [],
@@ -86,7 +93,36 @@ const processViewState = {
     }
 };
 
+const WARNING_HISTORY_ACTIONS = new Set(["MAIL_SENT", "BOT_DISPATCHED", "BOT_RESPONSE"]);
+
+const taskHistoryState = {
+    taskId: null,
+    entries: [],
+    loading: false,
+    requestId: 0
+};
+
+const taskWarningState = {
+    resolver: null
+};
+
 const api = {
+    async getTaskBacklogs() {
+        try {
+            const res = await fetch("/api/task_backlogs");
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.detail || data.error || "Backlogs konnten nicht geladen werden");
+            }
+
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error(err);
+            return [];
+        }
+    },
+
     async getMailTemplate(resourceId, userId, taskType) {
         try {
             const res = await fetch("/api/resources/mail_template", {
@@ -112,22 +148,18 @@ const api = {
         }
     },
 
-    async sendMail(mailToSend) {
+    async sendMail(taskId, mailToSend) {
         try {
-            const payload = {
-                Absender: "test@servodata.de",
-                EmpfängerTo: mailToSend.recipient,
-                EmpfängerCC: mailToSend.cc || "",
-                EmpfängerBCC: mailToSend.bcc || "",
-                Betreff: mailToSend.subject,
-                Mailtext: mailToSend.body,
-                Html: 0
-            };
-
-            const res = await fetch("/api/mail/send", {
+            const res = await fetch(`/api/tasks/${taskId}/send_mail`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    recipient: mailToSend.recipient,
+                    cc: mailToSend.cc || "",
+                    bcc: mailToSend.bcc || "",
+                    subject: mailToSend.subject,
+                    body: mailToSend.body
+                })
             });
 
             const data = await res.json();
@@ -160,7 +192,7 @@ const api = {
                 return null;
             }
 
-            showFlash("Bot erfolgreich dispatched", "success");
+            showFlash("Bot erfolgreich dispatcht. Das Ergebnis erscheint später im Verlauf. Bitte Historie prüfen oder aktualisieren.", "success");
             return data;
         } catch (err) {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
@@ -226,6 +258,36 @@ function formatStatusFilterValue(status) {
 
 function formatHistoryAction(action) {
     return formatFromMap(LABELS.historyAction, action);
+}
+
+function formatHistoryUser(entry) {
+    return entry.user_id || entry.user_name || entry.username || "-";
+}
+
+function normalizeBacklogId(value) {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function getTaskBacklogFilterKey(task) {
+    const backlogId = normalizeBacklogId(task?.backlog_id);
+    return backlogId === null ? NO_BACKLOG_FILTER_VALUE : String(backlogId);
+}
+
+function formatBacklogFilterValue(backlogValue) {
+    if (!backlogValue) {
+        return "-";
+    }
+
+    if (backlogValue === NO_BACKLOG_FILTER_VALUE) {
+        return "Kein Backlog";
+    }
+
+    return taskViewState.backlogLookup[backlogValue]?.name || `Backlog ${backlogValue}`;
 }
 
 function formatProcessLabel(task) {
@@ -353,6 +415,7 @@ function getTaskSearchIndex(task) {
         task.target_user_name,
         task.resource_name,
         task.system_name,
+        formatBacklogFilterValue(getTaskBacklogFilterKey(task)),
         formatProcessLabel(task),
         formatStatus(task.status, task),
         formatHandlingType(task.handling_type),
@@ -392,6 +455,10 @@ function buildTaskFilterOptions() {
     taskViewState.filterOptions.taskType = createSortedFilterOptions(
         tasks.map(getTaskTypeFilterKey),
         formatTaskType
+    );
+    taskViewState.filterOptions.backlog = createSortedFilterOptions(
+        tasks.map(getTaskBacklogFilterKey),
+        formatBacklogFilterValue
     );
 }
 
@@ -436,6 +503,12 @@ function syncTaskFilterControls() {
         "Alle Task-Typen",
         taskViewState.filters.taskType
     );
+    populateFilterSelect(
+        "tasks-backlog-filter",
+        taskViewState.filterOptions.backlog,
+        "Alle Backlogs",
+        taskViewState.filters.backlog
+    );
 }
 
 function hasActiveTaskFilters() {
@@ -474,6 +547,10 @@ function taskMatchesFilters(task) {
         return false;
     }
 
+    if (taskViewState.filters.backlog && getTaskBacklogFilterKey(task) !== taskViewState.filters.backlog) {
+        return false;
+    }
+
     return true;
 }
 
@@ -509,6 +586,7 @@ function renderTaskTile(task) {
     const statusLabel = isTaskCompleted(task) ? "Zuletzt erledigt" : formatStatus(task.status, task);
     const assignedTo = task.assigned_to_user_name || task.assigned_to_name || "-";
     const kickerLabel = formatTaskModalSubtitle(task);
+    const backlogLabel = formatBacklogFilterValue(getTaskBacklogFilterKey(task));
 
     return `
         <a href="#" class="task-tile task-card ${getTaskStateClass(task)}" data-task-id="${escapeHtml(task.task_id)}">
@@ -532,6 +610,10 @@ function renderTaskTile(task) {
                     <div class="task-card-row">
                         <span>Status</span>
                         <span>${escapeHtml(statusLabel)}</span>
+                    </div>
+                    <div class="task-card-row">
+                        <span>Backlog</span>
+                        <span>${escapeHtml(backlogLabel)}</span>
                     </div>
                     <div class="task-card-row">
                         <span>Bearbeitet von</span>
@@ -713,6 +795,42 @@ function setHistoryExpanded(isOpen) {
     }
 }
 
+function setHistoryLoadingState(isLoading) {
+    taskHistoryState.loading = isLoading;
+
+    const refreshBtn = document.getElementById("history-refresh-btn");
+    if (refreshBtn) {
+        refreshBtn.disabled = isLoading;
+        refreshBtn.textContent = isLoading ? "Aktualisiere..." : "Aktualisieren";
+    }
+}
+
+function renderHistoryLoadingState(message = "Lade Verlauf...") {
+    const historyBody = document.getElementById("task-history-body");
+    if (!historyBody) {
+        return;
+    }
+
+    historyBody.innerHTML = `
+        <tr>
+            <td colspan="4" class="history-empty-cell">${escapeHtml(message)}</td>
+        </tr>
+    `;
+}
+
+function renderHistoryErrorState(message = "Fehler beim Laden des Verlaufs") {
+    const historyBody = document.getElementById("task-history-body");
+    if (!historyBody) {
+        return;
+    }
+
+    historyBody.innerHTML = `
+        <tr>
+            <td colspan="4" class="history-empty-cell history-error-cell">${escapeHtml(message)}</td>
+        </tr>
+    `;
+}
+
 function populateTaskModal(task) {
     const titleEl = document.getElementById("task-modal-title");
     const subtitleEl = document.getElementById("task-modal-subtitle");
@@ -767,48 +885,128 @@ function renderHistoryEntries(entries) {
             <tr>
                 <td>${escapeHtml(formatDateTime(entry.timestamp))}</td>
                 <td>${escapeHtml(formatHistoryAction(entry.action))}</td>
-                <td>${escapeHtml(entry.user_id || "-")}</td>
+                <td>${escapeHtml(formatHistoryUser(entry))}</td>
                 <td>${escapeHtml(details)}</td>
             </tr>
         `;
     }).join("");
 }
 
-async function openTaskOverlay(task) {
-    window.currentTask = task;
-    populateTaskModal(task);
-    renderTaskActions(task);
-    setHistoryExpanded(false);
-
-    const historyBody = document.getElementById("task-history-body");
-    if (historyBody) {
-        historyBody.innerHTML = `
-            <tr>
-                <td colspan="4" class="history-empty-cell">Lade Verlauf...</td>
-            </tr>
-        `;
+async function loadTaskHistory(taskId, { showLoading = true } = {}) {
+    if (!taskId) {
+        return null;
     }
 
-    openOverlay("task-overlay");
+    const requestId = ++taskHistoryState.requestId;
+    taskHistoryState.taskId = taskId;
+
+    if (showLoading) {
+        renderHistoryLoadingState();
+    }
+
+    setHistoryLoadingState(true);
 
     try {
-        const res = await fetch(`/api/tasks/${task.task_id}/history`);
+        const res = await fetch(`/api/tasks/${taskId}/history`);
         if (!res.ok) {
             throw new Error("History failed");
         }
 
         const historyData = await res.json();
-        renderHistoryEntries(historyData);
+        if (requestId !== taskHistoryState.requestId) {
+            return historyData;
+        }
+
+        taskHistoryState.entries = Array.isArray(historyData) ? historyData : [];
+        renderHistoryEntries(taskHistoryState.entries);
+        return taskHistoryState.entries;
     } catch (err) {
         console.error("History Error:", err);
-        if (historyBody) {
-            historyBody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="history-empty-cell history-error-cell">Fehler beim Laden des Verlaufs</td>
-                </tr>
-            `;
+        if (requestId === taskHistoryState.requestId) {
+            taskHistoryState.entries = [];
+            renderHistoryErrorState();
+        }
+        return null;
+    } finally {
+        if (requestId === taskHistoryState.requestId) {
+            setHistoryLoadingState(false);
         }
     }
+}
+
+function getRelevantWarningEntries(entries) {
+    if (!Array.isArray(entries)) {
+        return [];
+    }
+
+    return entries.filter(entry => WARNING_HISTORY_ACTIONS.has(String(entry.action || "").toUpperCase()));
+}
+
+function closeTaskWarningDialog(result) {
+    closeOverlay("task-warning-overlay");
+
+    if (typeof taskWarningState.resolver === "function") {
+        const resolve = taskWarningState.resolver;
+        taskWarningState.resolver = null;
+        resolve(result);
+    }
+}
+
+function showTaskWarningDialog(actionLabel, warningEntries) {
+    const titleEl = document.getElementById("task-warning-title");
+    const textEl = document.getElementById("task-warning-text");
+    const listEl = document.getElementById("task-warning-list");
+    const recentEntries = warningEntries.slice(-5).reverse();
+
+    if (titleEl) {
+        titleEl.textContent = `${actionLabel} erneut ausführen?`;
+    }
+
+    if (textEl) {
+        textEl.textContent = "Im Verlauf gibt es bereits Einträge zu einer früheren Ausführung. Bitte prüfe am besten zuerst die Historie. Du kannst die Aktion trotzdem erneut ausführen.";
+    }
+
+    if (listEl) {
+        listEl.innerHTML = recentEntries.map(entry => `
+            <li>
+                <strong>${escapeHtml(formatHistoryAction(entry.action))}</strong>
+                <span>${escapeHtml(formatDateTime(entry.timestamp))}</span>
+            </li>
+        `).join("");
+    }
+
+    openOverlay("task-warning-overlay");
+
+    return new Promise(resolve => {
+        taskWarningState.resolver = resolve;
+    });
+}
+
+async function confirmTaskActionIfNeeded(task, actionLabel) {
+    const history = await loadTaskHistory(task.task_id, { showLoading: false });
+    if (!history) {
+        showFlash("Historie konnte nicht geladen werden. Aktion wurde vorsorglich nicht ausgeführt.", "failure");
+        return false;
+    }
+
+    const warningEntries = getRelevantWarningEntries(history);
+    if (!warningEntries.length) {
+        return true;
+    }
+
+    return showTaskWarningDialog(actionLabel, warningEntries);
+}
+
+async function openTaskOverlay(task) {
+    window.currentTask = task;
+    taskHistoryState.taskId = task.task_id;
+    taskHistoryState.entries = [];
+    populateTaskModal(task);
+    renderTaskActions(task);
+    setHistoryExpanded(false);
+
+    openOverlay("task-overlay");
+    await loadTaskHistory(task.task_id);
 }
 
 function initTabs() {
@@ -850,6 +1048,14 @@ function initTaskOverlay() {
         setHistoryExpanded(!container?.classList.contains("open"));
     });
 
+    document.getElementById("history-refresh-btn")?.addEventListener("click", async () => {
+        if (!window.currentTask || taskHistoryState.loading) {
+            return;
+        }
+
+        await loadTaskHistory(window.currentTask.task_id, { showLoading: false });
+    });
+
     document.addEventListener("click", async event => {
         const tile = event.target.closest(".task-tile");
         if (!tile) {
@@ -881,6 +1087,12 @@ function initTaskOverlay() {
             return;
         }
 
+        const warningOverlay = document.getElementById("task-warning-overlay");
+        if (warningOverlay?.classList.contains("active")) {
+            closeTaskWarningDialog(false);
+            return;
+        }
+
         const mailOverlay = document.getElementById("mail-dialog-overlay");
         if (mailOverlay?.classList.contains("active")) {
             closeOverlay("mail-dialog-overlay");
@@ -906,6 +1118,26 @@ function initMailDialog() {
     document.getElementById("mail-dialog-overlay")?.addEventListener("click", event => {
         if (event.target.id === "mail-dialog-overlay") {
             closeOverlay("mail-dialog-overlay");
+        }
+    });
+}
+
+function initTaskWarningDialog() {
+    document.getElementById("task-warning-cancel-btn")?.addEventListener("click", () => {
+        closeTaskWarningDialog(false);
+    });
+
+    document.getElementById("task-warning-confirm-btn")?.addEventListener("click", () => {
+        closeTaskWarningDialog(true);
+    });
+
+    document.getElementById("task-warning-close-btn")?.addEventListener("click", () => {
+        closeTaskWarningDialog(false);
+    });
+
+    document.getElementById("task-warning-overlay")?.addEventListener("click", event => {
+        if (event.target.id === "task-warning-overlay") {
+            closeTaskWarningDialog(false);
         }
     });
 }
@@ -1105,6 +1337,8 @@ async function openMailDialog(task) {
     sendBtn.onclick = async () => {
         const mailToSend = {
             recipient: recipientInput.value.trim(),
+            cc: "",
+            bcc: "",
             subject: subjectInput.value.trim(),
             body: bodyInput.value.trim(),
             task_id: task.task_id
@@ -1115,50 +1349,43 @@ async function openMailDialog(task) {
             return;
         }
 
+        const shouldProceed = await confirmTaskActionIfNeeded(task, "E-Mail senden");
+        if (!shouldProceed) {
+            return;
+        }
+
+        sendBtn.disabled = true;
+        sendBtn.textContent = "E-Mail wird gesendet...";
+
         try {
-            const result = await api.sendMail(mailToSend);
+            const result = await api.sendMail(task.task_id, mailToSend);
             if (result) {
                 closeOverlay("mail-dialog-overlay");
+                await loadTaskHistory(task.task_id, { showLoading: false });
             }
         } catch (err) {
             console.error("Fehler beim Senden der Mail:", err);
             showFlash("Fehler beim Senden der E-Mail. Bitte erneut versuchen.", "failure");
+        } finally {
+            sendBtn.disabled = false;
+            sendBtn.textContent = "E-Mail jetzt senden";
         }
     };
 }
 
 async function dispatchBot(task) {
+    const shouldProceed = await confirmTaskActionIfNeeded(task, "Bot dispatchen");
+    if (!shouldProceed) {
+        return;
+    }
+
     try {
-        const historyRes = await fetch(`/api/tasks/${task.task_id}/history`);
-        if (!historyRes.ok) {
-            showFlash("Fehler beim Laden der History", "failure");
-            return;
-        }
-
-        const history = await historyRes.json();
-        const hasSuccessfulBotResponse = history.some(entry => {
-            if (entry.action !== "BOT_RESPONSE" || !entry.details) {
-                return false;
-            }
-
-            try {
-                return JSON.parse(entry.details).status === "success";
-            } catch (err) {
-                return false;
-            }
-        });
-
-        if (hasSuccessfulBotResponse) {
-            showFlash("Bot wurde bereits erfolgreich ausgeführt. Bitte prüfen Sie den Verlauf.", "info");
-            return;
-        }
-
         const result = await api.dispatchBot(task.task_id);
         if (!result) {
             return;
         }
 
-        closeOverlay("task-overlay");
+        await loadTaskHistory(task.task_id, { showLoading: false });
         await loadTasks();
     } catch (err) {
         console.error("Bot Dispatch Error:", err);
@@ -1393,6 +1620,7 @@ function initTaskFilters() {
     const statusFilter = document.getElementById("tasks-status-filter");
     const handlingFilter = document.getElementById("tasks-handling-filter");
     const typeFilter = document.getElementById("tasks-type-filter");
+    const backlogFilter = document.getElementById("tasks-backlog-filter");
     const resetButton = document.getElementById("tasks-filter-reset");
 
     if (searchInput && searchInput.dataset.bound !== "true") {
@@ -1427,6 +1655,14 @@ function initTaskFilters() {
         });
     }
 
+    if (backlogFilter && backlogFilter.dataset.bound !== "true") {
+        backlogFilter.dataset.bound = "true";
+        backlogFilter.addEventListener("change", event => {
+            taskViewState.filters.backlog = event.target.value || "";
+            refreshTaskView();
+        });
+    }
+
     if (resetButton && resetButton.dataset.bound !== "true") {
         resetButton.dataset.bound = "true";
         resetButton.addEventListener("click", () => {
@@ -1438,6 +1674,34 @@ function initTaskFilters() {
 
     syncTaskFilterControls();
     updateTaskFilterSummary(0, 0);
+}
+
+async function loadTaskBacklogs() {
+    const backlogs = await api.getTaskBacklogs();
+    taskViewState.backlogLookup = {};
+
+    backlogs.forEach(backlog => {
+        const backlogId = normalizeBacklogId(backlog?.backlog_id);
+        if (backlogId === null) {
+            return;
+        }
+
+        taskViewState.backlogLookup[String(backlogId)] = {
+            backlog_id: backlogId,
+            slug: String(backlog.slug || "").trim(),
+            name: String(backlog.name || backlog.slug || `Backlog ${backlogId}`).trim()
+        };
+    });
+
+    buildTaskFilterOptions();
+    syncTaskFilterControls();
+}
+
+async function loadInitialTaskData() {
+    await Promise.all([
+        loadTaskBacklogs(),
+        loadTasks()
+    ]);
 }
 
 async function loadTasks() {

@@ -247,6 +247,27 @@ def _normalize_events_payload(payload) -> list[dict]:
     return [_normalize_event_record(event) for event in _extract_event_records(payload)]
 
 
+def _get_task_backlog_id(task: dict) -> int | None:
+    return _coerce_int(_first_defined_value(task, ["backlog_id"]))
+
+
+def _task_backlog_is_visible_to_user(task: dict, authz: AuthorizationContext) -> bool:
+    backlog_id = _get_task_backlog_id(task)
+
+    if authz.can_view_all_task_backlogs:
+        return True
+
+    if not authz.visible_task_backlog_ids:
+        # Uebergangsmodus: Solange fuer die Rolle noch keine lokalen Backlog-IDs gepflegt sind,
+        # bleibt das bisherige Verhalten erhalten.
+        return True
+
+    if backlog_id is None:
+        return False
+
+    return backlog_id in authz.visible_task_backlog_ids
+
+
 def _build_template_context(
     request: Request,
     user: dict | None = None,
@@ -280,10 +301,18 @@ def _task_is_relevant_to_user(task: dict, authz: AuthorizationContext) -> bool:
     return False
 
 
-def _filter_tasks_for_scope(tasks: list[dict], authz: AuthorizationContext) -> list[dict]:
+def _task_is_visible_to_user(task: dict, authz: AuthorizationContext) -> bool:
+    if not _task_backlog_is_visible_to_user(task, authz):
+        return False
+
     if authz.get_scope("tasks") != "relevant_only":
-        return tasks
-    return [task for task in tasks if _task_is_relevant_to_user(task, authz)]
+        return True
+
+    return _task_is_relevant_to_user(task, authz)
+
+
+def _filter_tasks_for_scope(tasks: list[dict], authz: AuthorizationContext) -> list[dict]:
+    return [task for task in tasks if _task_is_visible_to_user(task, authz)]
 
 
 def _process_is_relevant_to_user(process: dict, authz: AuthorizationContext) -> bool:
@@ -322,17 +351,16 @@ def _filter_processes_for_scope(processes: list[dict], authz: AuthorizationConte
 
 
 async def _get_relevant_task_or_raise(task_id: int, authz: AuthorizationContext) -> dict:
-    task_scope = authz.get_scope("tasks")
     tasks = await api_client.list_tasks()
     for task in tasks:
         if str(task.get("task_id")) != str(task_id):
             continue
-        if task_scope != "relevant_only" or _task_is_relevant_to_user(task, authz):
+        if _task_is_visible_to_user(task, authz):
             return task
 
     raise HTTPException(
         status_code=403,
-        detail={"code": "task_scope_denied", "message": "Kein Zugriff auf diesen Task."},
+        detail={"code": "task_scope_denied", "message": "Kein Zugriff auf diesen Task oder dessen Backlog."},
     )
 
 # ------------------------------
@@ -621,6 +649,20 @@ async def api_events(current_user=Depends(require_page_access("console"))):
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
+
+@app.get("/api/task_backlogs")
+async def api_task_backlogs(current_user=Depends(require_login)):
+    try:
+        backlogs = await api_client.get_task_backlogs()
+        return JSONResponse(content=backlogs)
+    except httpx.HTTPStatusError as e:
+        return JSONResponse(
+            content=_error_content_from_response(e.response),
+            status_code=e.response.status_code
+        )
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
 @app.post("/api/users/{user_id}/sofa-access/setup")
 async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(require_capability("sofa_access.setup"))):
     try:
@@ -802,6 +844,28 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(require_login)):
 
     except httpx.HTTPStatusError as e:
         # Fehler vom Backend sauber weiterreichen
+        return JSONResponse(
+            content=e.response.json(),
+            status_code=e.response.status_code
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=500
+        )
+
+@app.post("/api/tasks/{task_id}/send_mail")
+async def api_send_task_mail(task_id: int, payload: dict, current_user=Depends(require_login)):
+    try:
+        await _get_relevant_task_or_raise(task_id, current_user)
+        payload["initiator_user_id"] = current_user.user_id
+        result = await api_client.send_task_mail(task_id, payload)
+
+        return JSONResponse(content=result)
+
+    except httpx.HTTPStatusError as e:
         return JSONResponse(
             content=e.response.json(),
             status_code=e.response.status_code

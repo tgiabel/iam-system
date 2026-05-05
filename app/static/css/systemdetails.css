@@ -266,7 +266,8 @@
     color: var(--ui-text);
 }
 
-.resource-parent-cell.is-empty {
+.resource-parent-cell.is-empty,
+.resource-backlog-cell.is-empty {
     color: var(--ui-text-muted);
 }
 

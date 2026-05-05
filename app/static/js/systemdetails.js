@@ -12,6 +12,8 @@ const STATE = {
     parentResourceQuery: "",
     selectedParentResourceId: null,
     activeMetaTaskType: "ASSIGNMENT",
+    taskBacklogs: [],
+    backlogLookup: {},
     users: [],
     isEditing: false
 };
@@ -21,7 +23,7 @@ const PARENT_RESOURCE_TYPE_ID = 1;
 const EXTERNAL_PROVIDER_PRIMARY_ROLE_ID = 9;
 
 const api = {
-    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, meta = null) {
+    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, backlogId = null, meta = null) {
         try {    
             const body = { 
                 system_id: sysId,
@@ -29,7 +31,8 @@ const api = {
                 display_name: displayName,
                 technical_identifier: technicalIdentifier,
                 override_handling_type: handlingType,
-                parent_resource_id: parentResourceId
+                parent_resource_id: parentResourceId,
+                backlog_id: backlogId
             };
             if (Array.isArray(meta) && meta.length > 0) {
                 body.meta = meta;
@@ -53,7 +56,7 @@ const api = {
             return false;
         }
     },
-    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, meta = null) {
+    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, backlogId = null, meta = null) {
         try{
             const body = {
                 resource_id: resId,
@@ -62,7 +65,8 @@ const api = {
                 display_name: displayName,
                 technical_identifier: technicalIdentifier,
                 override_handling_type: handlingType,
-                parent_resource_id: parentResourceId
+                parent_resource_id: parentResourceId,
+                backlog_id: backlogId
             };
             if (Array.isArray(meta) && meta.length > 0) {
                 body.meta = meta;
@@ -105,6 +109,19 @@ const api = {
             console.error(err);
             return false;
         }
+    },
+    async getTaskBacklogs() {
+        try {
+            const res = await fetch("/api/task_backlogs");
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || data.error || "Backlogs konnten nicht geladen werden");
+            }
+            return Array.isArray(data) ? data : [];
+        } catch (err) {
+            console.error(err);
+            return [];
+        }
     }
 }
 
@@ -126,6 +143,7 @@ async function init(){
     cacheDOM();
     bindBaseEvents();
     await loadUsers();
+    await loadTaskBacklogs();
     await loadParentResourceCandidates();
     await loadSystemDetail();
 }
@@ -167,6 +185,7 @@ function cacheDOM(){
     DOM.techId = document.getElementById("res-technical-id");
     DOM.type = document.getElementById("res-type");
     DOM.handling = document.getElementById("res-handling");
+    DOM.resourceBacklogSelect = document.getElementById("res-backlog-id");
     DOM.parentSearch = document.getElementById("res-parent-search");
     DOM.parentSelect = document.getElementById("res-parent-id");
     DOM.parentSelectionLabel = document.getElementById("res-parent-selection-label");
@@ -203,6 +222,7 @@ function cacheDOM(){
 
     DOM.systemNameInput = document.getElementById("system-name-input");
     DOM.systemShortInput = document.getElementById("system-short-input");
+    DOM.systemBacklogInput = document.getElementById("system-backlog-input");
 }
 
 //------------------------------------------------
@@ -242,6 +262,27 @@ async function loadUsers() {
     fillRecipientOptions();
 }
 
+async function loadTaskBacklogs() {
+    STATE.taskBacklogs = await api.getTaskBacklogs();
+    STATE.backlogLookup = {};
+
+    STATE.taskBacklogs.forEach(backlog => {
+        const backlogId = parseInteger(backlog?.backlog_id);
+        if (backlogId === null) {
+            return;
+        }
+
+        STATE.backlogLookup[String(backlogId)] = {
+            backlog_id: backlogId,
+            slug: String(backlog.slug || "").trim(),
+            name: String(backlog.name || backlog.slug || `Backlog ${backlogId}`).trim()
+        };
+    });
+
+    fillSystemBacklogOptions();
+    fillResourceBacklogOptions();
+}
+
 async function loadParentResourceCandidates() {
     try {
         const res = await fetch(`/api/resources?type_id=${PARENT_RESOURCE_TYPE_ID}`);
@@ -268,6 +309,7 @@ function fillSystemInfo(){
     document.querySelector("#system-id-text").textContent = system.system_id;
     document.querySelector("#system-name-text").textContent = system.name;
     document.querySelector("#system-short-text").textContent = system.short_name;
+    document.querySelector("#system-backlog-text").textContent = formatSystemBacklogLabel(system.default_backlog_id);
     document.querySelector("#system-type-text").textContent = system.type || "-";
     document.querySelector("#system-status-text").textContent = system.status || "-";
     document.querySelector("#system-owner-text").textContent = system.owner || "-";
@@ -302,6 +344,7 @@ function renderResourceTable(){
 
         const tr = document.createElement("tr");
         const parentLabel = getResourceParentDisplayLabel(res);
+        const backlogLabel = getResourceBacklogDisplayLabel(res);
 
         tr.dataset.type = resourceTypes[res.type_id] || "other";
         tr.dataset.res_id = res.resource_id;
@@ -311,6 +354,7 @@ function renderResourceTable(){
             <td>${escapeHtml(res.display_name || "-")}</td>
             <td>${escapeHtml(res.type_name || "-")}</td>
             <td class="resource-parent-cell ${parentLabel === "-" ? "is-empty" : ""}">${escapeHtml(parentLabel)}</td>
+            <td class="resource-backlog-cell ${backlogLabel === "-" ? "is-empty" : ""}">${escapeHtml(backlogLabel)}</td>
             <td>${escapeHtml(res.override_handling_type || "")}</td>
         `;
 
@@ -434,6 +478,8 @@ function editSystem(){
 
     DOM.systemNameInput.value = system.name || "";
     DOM.systemShortInput.value = system.short_name || "";
+    fillSystemBacklogOptions();
+    DOM.systemBacklogInput.value = getSystemDefaultBacklogValue();
 
     DOM.sectionButtons.forEach(btn=> btn.disabled = true);
     DOM.editBtn.disabled = true;
@@ -466,7 +512,8 @@ function cancelEdit(){
 async function saveSystemEdit() {
     const payload = {
         name: String(DOM.systemNameInput.value || "").trim(),
-        short_name: String(DOM.systemShortInput.value || "").trim()
+        short_name: String(DOM.systemShortInput.value || "").trim(),
+        default_backlog_id: getSelectedSystemBacklogId()
     };
 
     if (!payload.name || !payload.short_name) {
@@ -597,6 +644,8 @@ function fillResourceForm(res){
     DOM.techId.value = res.technical_identifier || "";
     DOM.type.value = res.type_id || 1;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
+    fillResourceBacklogOptions();
+    DOM.resourceBacklogSelect.value = getResourceBacklogValue(res);
     STATE.selectedParentResourceId = parentResourceId;
     DOM.parentSearch.value = "";
     STATE.parentResourceQuery = "";
@@ -647,6 +696,7 @@ async function saveResource(){
     const handlingType = DOM.handling.value;
     const typeId = parseInt(DOM.type.value, 10);
     const parentResourceId = getSelectedParentResourceId();
+    const backlogId = getSelectedResourceBacklogId();
     const meta = buildMetaPayload(handlingType);
     let success = false;
 
@@ -659,6 +709,7 @@ async function saveResource(){
             DOM.techId.value,
             handlingType,
             parentResourceId,
+            backlogId,
             meta
         );
     }else{
@@ -669,6 +720,7 @@ async function saveResource(){
             DOM.techId.value,
             handlingType,
             parentResourceId,
+            backlogId,
             meta
         );
     }
@@ -767,6 +819,124 @@ function parseInteger(value) {
     }
 
     return parseInt(normalized, 10);
+}
+
+function getBacklogById(backlogId) {
+    return STATE.backlogLookup[String(backlogId)] || null;
+}
+
+function formatSystemBacklogLabel(backlogId) {
+    const normalizedBacklogId = parseInteger(backlogId);
+    if (normalizedBacklogId === null) {
+        return "-";
+    }
+
+    return getBacklogById(normalizedBacklogId)?.name || `Backlog ${normalizedBacklogId}`;
+}
+
+function getSystemDefaultBacklogId() {
+    return parseInteger(system?.default_backlog_id);
+}
+
+function getSystemDefaultBacklogValue() {
+    const backlogId = getSystemDefaultBacklogId();
+    return backlogId === null ? "" : String(backlogId);
+}
+
+function getSelectedSystemBacklogId() {
+    return parseInteger(DOM.systemBacklogInput?.value);
+}
+
+function getResourceBacklogId(resource) {
+    return parseInteger(
+        resource?.backlog_id
+        ?? resource?.backlog?.backlog_id
+        ?? resource?.task_backlog?.backlog_id
+    );
+}
+
+function getResourceBacklogValue(resource) {
+    const backlogId = getResourceBacklogId(resource);
+    return backlogId === null ? "" : String(backlogId);
+}
+
+function getSelectedResourceBacklogId() {
+    return parseInteger(DOM.resourceBacklogSelect?.value);
+}
+
+function getEffectiveResourceBacklogId(resource) {
+    const resourceBacklogId = getResourceBacklogId(resource);
+    if (resourceBacklogId !== null) {
+        return resourceBacklogId;
+    }
+
+    return getSystemDefaultBacklogId();
+}
+
+function getResourceBacklogDisplayLabel(resource) {
+    const resourceBacklogId = getResourceBacklogId(resource);
+    if (resourceBacklogId !== null) {
+        return formatSystemBacklogLabel(resourceBacklogId);
+    }
+
+    const effectiveBacklogId = getEffectiveResourceBacklogId(resource);
+    if (effectiveBacklogId === null) {
+        return "-";
+    }
+
+    return `${formatSystemBacklogLabel(effectiveBacklogId)} (Standard)`;
+}
+
+function fillSystemBacklogOptions() {
+    if (!DOM.systemBacklogInput) {
+        return;
+    }
+
+    const selectedValue = DOM.systemBacklogInput.value;
+    DOM.systemBacklogInput.innerHTML = "<option value=''>Kein Standard-Backlog</option>";
+
+    STATE.taskBacklogs
+        .slice()
+        .sort((left, right) => String(left.name || left.slug || "").localeCompare(String(right.name || right.slug || ""), "de"))
+        .forEach(backlog => {
+            const backlogId = parseInteger(backlog?.backlog_id);
+            if (backlogId === null) {
+                return;
+            }
+
+            const option = document.createElement("option");
+            option.value = String(backlogId);
+            option.textContent = formatSystemBacklogLabel(backlogId);
+            DOM.systemBacklogInput.appendChild(option);
+        });
+
+    DOM.systemBacklogInput.value = selectedValue || getSystemDefaultBacklogValue();
+}
+
+function fillResourceBacklogOptions() {
+    if (!DOM.resourceBacklogSelect) {
+        return;
+    }
+
+    const selectedValue = DOM.resourceBacklogSelect.value;
+    DOM.resourceBacklogSelect.innerHTML = "<option value=''>System-Standard verwenden</option>";
+
+    STATE.taskBacklogs
+        .slice()
+        .sort((left, right) => String(left.name || left.slug || "").localeCompare(String(right.name || right.slug || ""), "de"))
+        .forEach(backlog => {
+            const backlogId = parseInteger(backlog?.backlog_id);
+            if (backlogId === null) {
+                return;
+            }
+
+            const option = document.createElement("option");
+            option.value = String(backlogId);
+            option.textContent = formatSystemBacklogLabel(backlogId);
+            DOM.resourceBacklogSelect.appendChild(option);
+        });
+
+    DOM.resourceBacklogSelect.value = selectedValue || "";
 }
 
 function resetMetaFields() {
