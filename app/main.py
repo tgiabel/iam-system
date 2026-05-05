@@ -973,20 +973,39 @@ async def api_start_onboarding_process(
 
     if mode == "helix":
         lookup_token = str(payload.get("lookup_token") or "").strip()
+        telephone = str(payload.get("telephone") or "").strip()
+        entry_date = str(payload.get("entry_date") or "").strip()
+        weekly_hours = _coerce_int(payload.get("weekly_hours"))
         if not lookup_token:
             return JSONResponse(
                 content={"detail": "Der Lookup-Token ist erforderlich."},
                 status_code=400
             )
         forwarded_payload["lookup_token"] = lookup_token
+        if telephone:
+            forwarded_payload["telephone"] = telephone
+        if entry_date:
+            forwarded_payload["entry_date"] = entry_date
+        if weekly_hours is not None:
+            forwarded_payload["weekly_hours"] = weekly_hours
     elif mode == "manual":
         pnr = str(payload.get("pnr") or "").strip()
         first_name = str(payload.get("first_name") or "").strip()
         last_name = str(payload.get("last_name") or "").strip()
         primary_role_id = _coerce_int(payload.get("primary_role_id"))
+        telephone = str(payload.get("telephone") or "").strip()
         entry_date = str(payload.get("entry_date") or "").strip()
+        weekly_hours = _coerce_int(payload.get("weekly_hours"))
 
-        if not pnr or not first_name or not last_name or primary_role_id is None or not entry_date:
+        if (
+            not pnr
+            or not first_name
+            or not last_name
+            or primary_role_id is None
+            or not telephone
+            or not entry_date
+            or weekly_hours is None
+        ):
             return JSONResponse(
                 content={"detail": "Für das manuelle Onboarding sind alle Pflichtfelder erforderlich."},
                 status_code=400
@@ -997,7 +1016,9 @@ async def api_start_onboarding_process(
             "first_name": first_name,
             "last_name": last_name,
             "primary_role_id": primary_role_id,
-            "entry_date": entry_date
+            "telephone": telephone,
+            "entry_date": entry_date,
+            "weekly_hours": weekly_hours
         })
     else:
         return JSONResponse(

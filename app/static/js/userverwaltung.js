@@ -417,6 +417,14 @@ function formatDateTime(value) {
     });
 }
 
+function formatPlainValue(value) {
+    if (value === null || value === undefined || value === "") {
+        return "-";
+    }
+
+    return String(value);
+}
+
 function getRoleOptionsByType(type) {
     return Object.entries(state.roleMap || {})
         .filter(([, role]) => role.type === type)
@@ -1212,10 +1220,10 @@ const sidebarController = {
         DOM.sidebarFirstName.textContent = user.first_name || "-";
         DOM.sidebarFunktion.textContent = user.primary_role?.name || "-";
         DOM.sidebarEmail.textContent = user.email || "-";
-        DOM.sidebarTelefon.textContent = user.telefon || "-";
-        DOM.sidebarMobil.textContent = user.mobile || "-";
-        DOM.sidebarEintritt.textContent = formatDate(user.eintritt);
-        DOM.sidebarAustritt.textContent = formatDate(user.austritt);
+        DOM.sidebarTelefon.textContent = user.telephone || "-";
+        DOM.sidebarWeeklyHours.textContent = formatPlainValue(user.weekly_hours);
+        DOM.sidebarEintritt.textContent = formatDate(user.entry_date);
+        DOM.sidebarAustritt.textContent = formatDate(user.exit_date);
 
         if (DOM.userHelixLink) {
             DOM.userHelixLink.href = user.helix_url || "#";
@@ -1701,8 +1709,26 @@ const onboardModalController = {
             }
 
             if (lookupResult.status === "candidate_found" && lookupResult.lookup_token && lookupResult.candidate) {
+                const candidate = lookupResult.candidate;
+                if (!candidate.telephone || candidate.weekly_hours === null || candidate.weekly_hours === undefined || candidate.weekly_hours === "") {
+                    this.state.lookupToken = "";
+                    this.state.candidate = candidate;
+                    this.state.manualMessage = "Die Helix-Daten sind unvollständig. Bitte den Datensatz manuell ergänzen und bestätigen.";
+                    this.state.manualDraft = {
+                        pnr: String(candidate.pnr || pnr),
+                        first_name: String(candidate.first_name || ""),
+                        last_name: String(candidate.last_name || ""),
+                        primary_role_id: "",
+                        telephone: String(candidate.telephone || ""),
+                        entry_date: String(candidate.entry_date || ""),
+                        weekly_hours: candidate.weekly_hours === null || candidate.weekly_hours === undefined ? "" : String(candidate.weekly_hours)
+                    };
+                    await this.renderManualForm();
+                    return;
+                }
+
                 this.state.lookupToken = String(lookupResult.lookup_token);
-                this.state.candidate = lookupResult.candidate;
+                this.state.candidate = candidate;
                 this.state.manualMessage = "";
                 this.state.manualDraft = null;
                 this.renderLookupConfirmation();
@@ -1718,7 +1744,9 @@ const onboardModalController = {
                     first_name: "",
                     last_name: "",
                     primary_role_id: "",
-                    entry_date: ""
+                    telephone: "",
+                    entry_date: "",
+                    weekly_hours: ""
                 };
                 await this.renderManualForm();
                 return;
@@ -1751,8 +1779,16 @@ const onboardModalController = {
                     <input class="ui-input" value="${escapeHtml(candidate.primary_role_name || "-")}" readonly>
                 </div>
                 <div class="ui-field-group">
+                    <label class="ui-field-label">Telefon</label>
+                    <input class="ui-input" value="${escapeHtml(candidate.telephone || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
                     <label class="ui-field-label">Eintrittsdatum</label>
                     <input class="ui-input" value="${escapeHtml(formatDate(candidate.entry_date))}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Wochenstunden</label>
+                    <input class="ui-input" value="${escapeHtml(formatPlainValue(candidate.weekly_hours))}" readonly>
                 </div>
                 <div class="btn-row">
                     <button type="button" class="btn btn-primary" id="modal-submit-btn">Bestätigen</button>
@@ -1770,7 +1806,9 @@ const onboardModalController = {
                 first_name: String(candidate.first_name || ""),
                 last_name: String(candidate.last_name || ""),
                 primary_role_id: "",
-                entry_date: String(candidate.entry_date || "")
+                telephone: String(candidate.telephone || ""),
+                entry_date: String(candidate.entry_date || ""),
+                weekly_hours: candidate.weekly_hours === null || candidate.weekly_hours === undefined ? "" : String(candidate.weekly_hours)
             };
             await this.renderManualForm();
         });
@@ -1778,6 +1816,9 @@ const onboardModalController = {
             const success = await api.startOnboarding({
                 mode: "helix",
                 lookup_token: this.state.lookupToken,
+                telephone: candidate.telephone,
+                entry_date: candidate.entry_date,
+                weekly_hours: candidate.weekly_hours,
                 confirmed: true
             });
             if (!success) {
@@ -1804,7 +1845,9 @@ const onboardModalController = {
             first_name: this.state.manualDraft?.first_name || "",
             last_name: this.state.manualDraft?.last_name || "",
             primary_role_id: this.state.manualDraft?.primary_role_id || "",
-            entry_date: this.state.manualDraft?.entry_date || ""
+            telephone: this.state.manualDraft?.telephone || "",
+            entry_date: this.state.manualDraft?.entry_date || "",
+            weekly_hours: this.state.manualDraft?.weekly_hours || ""
         };
 
         if (!draft.primary_role_id) {
@@ -1859,8 +1902,16 @@ const onboardModalController = {
                     </select>
                 </div>
                 <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-telephone">Telefon</label>
+                    <input id="manual-onboard-telephone" class="ui-input" type="tel" placeholder="Telefon" value="${escapeHtml(draft.telephone)}">
+                </div>
+                <div class="ui-field-group">
                     <label class="ui-field-label" for="manual-onboard-entry-date">Eintrittsdatum</label>
                     <input id="manual-onboard-entry-date" class="ui-input" type="date" value="${escapeHtml(draft.entry_date)}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-weekly-hours">Wochenstunden</label>
+                    <input id="manual-onboard-weekly-hours" class="ui-input" type="number" min="0" step="1" placeholder="Wochenstunden" value="${escapeHtml(draft.weekly_hours)}">
                 </div>
                 <div class="btn-row">
                     <button type="button" class="btn btn-primary" id="modal-submit-btn">Weiter</button>
@@ -1882,10 +1933,20 @@ const onboardModalController = {
                 first_name: document.getElementById("manual-onboard-first-name")?.value.trim(),
                 last_name: document.getElementById("manual-onboard-last-name")?.value.trim(),
                 primary_role_id: document.getElementById("manual-onboard-role")?.value,
-                entry_date: document.getElementById("manual-onboard-entry-date")?.value
+                telephone: document.getElementById("manual-onboard-telephone")?.value.trim(),
+                entry_date: document.getElementById("manual-onboard-entry-date")?.value,
+                weekly_hours: document.getElementById("manual-onboard-weekly-hours")?.value.trim()
             };
 
-            if (!manualPayload.pnr || !manualPayload.first_name || !manualPayload.last_name || !manualPayload.primary_role_id || !manualPayload.entry_date) {
+            if (
+                !manualPayload.pnr
+                || !manualPayload.first_name
+                || !manualPayload.last_name
+                || !manualPayload.primary_role_id
+                || !manualPayload.telephone
+                || !manualPayload.entry_date
+                || !manualPayload.weekly_hours
+            ) {
                 showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
                 return;
             }
@@ -1920,8 +1981,16 @@ const onboardModalController = {
                     <input class="ui-input" value="${escapeHtml(roleName)}" readonly>
                 </div>
                 <div class="ui-field-group">
+                    <label class="ui-field-label">Telefon</label>
+                    <input class="ui-input" value="${escapeHtml(payload.telephone || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
                     <label class="ui-field-label">Eintrittsdatum</label>
                     <input class="ui-input" value="${escapeHtml(formatDate(payload.entry_date))}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Wochenstunden</label>
+                    <input class="ui-input" value="${escapeHtml(formatPlainValue(payload.weekly_hours))}" readonly>
                 </div>
                 <div class="btn-row">
                     <button type="button" class="btn btn-primary" id="modal-submit-btn">Bestätigen</button>
@@ -1939,7 +2008,9 @@ const onboardModalController = {
                 first_name: payload.first_name,
                 last_name: payload.last_name,
                 primary_role_id: payload.primary_role_id,
-                entry_date: payload.entry_date
+                telephone: payload.telephone,
+                entry_date: payload.entry_date,
+                weekly_hours: payload.weekly_hours
             });
             if (!success) {
                 return;
@@ -2811,7 +2882,7 @@ function cacheDOM() {
     DOM.sidebarFunktion = document.getElementById("user-funktion");
     DOM.sidebarEmail = document.getElementById("user-email");
     DOM.sidebarTelefon = document.getElementById("user-telefon");
-    DOM.sidebarMobil = document.getElementById("user-mobil");
+    DOM.sidebarWeeklyHours = document.getElementById("user-wochenstunden");
     DOM.sidebarEintritt = document.getElementById("user-eintritt");
     DOM.sidebarAustritt = document.getElementById("user-austritt");
     DOM.userHelixLink = document.getElementById("user-helix-link");
