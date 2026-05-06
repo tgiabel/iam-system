@@ -100,6 +100,9 @@ class APIClient:
     async def get_system_overview(self) -> dict:
         return await self._get(ACCESS_BASE_URL, "/systems/")
 
+    async def get_system_map(self) -> dict:
+        return await self._get(ACCESS_BASE_URL, "/systems/map")
+
     async def create_system(self, payload: dict) -> dict:
         return await self._post(ACCESS_BASE_URL, "/systems/", payload=payload)
 
