@@ -338,9 +338,9 @@ p, span, a, label {
     justify-content: center;
     color: var(--text-inverse);
     text-decoration: none;
-    border-radius: 16px;
-    background: var(--header-surface);
-    border: 1px solid var(--header-border);
+    border-radius: 999px;
+    
+    
     transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
