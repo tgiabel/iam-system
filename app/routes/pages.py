@@ -15,6 +15,14 @@ from app.routes.shared import _build_session_user_from_login, _build_template_co
 router = APIRouter()
 
 
+def _request_uses_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    if forwarded_proto:
+        primary_proto = forwarded_proto.split(",")[0].strip().lower()
+        return primary_proto == "https"
+    return request.url.scheme.lower() == "https"
+
+
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request, sofa_user: str | None = Cookie(default=None)):
     user = get_current_user(sofa_user)
@@ -44,14 +52,20 @@ async def login(request: Request, pnr: str = Form(...), password: str = Form(...
         value=json.dumps(session_user),
         httponly=True,
         max_age=3600 * 8,
+        samesite="lax",
+        secure=_request_uses_https(request),
     )
     return response
 
 
 @router.get("/logout")
-def logout():
+def logout(request: Request):
     response = RedirectResponse(url="/", status_code=303)
-    response.delete_cookie("sofa_user")
+    response.delete_cookie(
+        "sofa_user",
+        samesite="lax",
+        secure=_request_uses_https(request),
+    )
     return response
 
 
