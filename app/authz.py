@@ -46,21 +46,7 @@ async def get_current_user_dep(
 # Unknown or unmapped roles intentionally keep the default policy.
 # Multiple active role policies are merged by unioning pages/capabilities,
 # taking the highest scope priority, and combining backlog access.
-DEFAULT_POLICY = {
-    "key": "basic_user",
-    "pages": set(),
-    "capabilities": set(),
-    "scopes": {
-        "tasks": "relevant_only",
-        "tools": "own_only",
-        "reports": "own_only",
-        "users": "none",
-    },
-    "task_backlogs": {
-        "all": False,
-        "ids": set(),
-    },
-}
+DEFAULT_POLICY_KEY = "basic_user"
 
 
 COMMON_ADMIN_CAPABILITIES = {
@@ -75,53 +61,55 @@ COMMON_ADMIN_CAPABILITIES = {
 }
 
 
-ROLE_POLICIES_BY_ID = {
-    11: {
-        "key": "operations_admin",
-        "pages": {"console", "users", "iks"},
-        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
+POLICY_DEFINITIONS = {
+    DEFAULT_POLICY_KEY: {
+        "key": DEFAULT_POLICY_KEY,
+        "pages": set(),
+        "capabilities": set(),
         "scopes": {
             "tasks": "relevant_only",
             "tools": "own_only",
             "reports": "own_only",
-            "users": "all",
+            "users": "none",
         },
         "task_backlogs": {
             "all": False,
             "ids": set(),
         },
     },
-    13: {
-        "key": "operations_admin",
-        "pages": {"console", "users", "iks"},
-        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "all",
-        },
-        "task_backlogs": {
-            "all": False,
-            "ids": set(),
-        },
-    },
-    19: {
+}
+
+
+COMMON_ADMIN_SCOPES = {
+    "tasks": "relevant_only",
+    "tools": "own_only",
+    "reports": "own_only",
+    "users": "all",
+}
+
+
+POLICY_DEFINITIONS.update({
+    "people_admin": {
         "key": "people_admin",
         "pages": {"users"},
         "capabilities": set(COMMON_ADMIN_CAPABILITIES),
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "all",
-        },
+        "scopes": dict(COMMON_ADMIN_SCOPES),
         "task_backlogs": {
             "all": False,
             "ids": set(),
         },
     },
-    21: {
+    "operations_admin": {
+        "key": "operations_admin",
+        "pages": {"console", "users", "iks"},
+        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
+        "scopes": dict(COMMON_ADMIN_SCOPES),
+        "task_backlogs": {
+            "all": False,
+            "ids": set(),
+        },
+    },
+    "it_admin": {
         "key": "it_admin",
         "pages": {"console", "users", "systems", "roles", "iks"},
         "capabilities": {
@@ -141,21 +129,18 @@ ROLE_POLICIES_BY_ID = {
             "ids": set(),
         },
     },
-    23: {
-        "key": "operations_admin",
-        "pages": {"console", "users", "iks"},
-        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "all",
-        },
-        "task_backlogs": {
-            "all": False,
-            "ids": set(),
-        },
-    },
+})
+
+
+DEFAULT_POLICY = POLICY_DEFINITIONS[DEFAULT_POLICY_KEY]
+
+
+ROLE_POLICY_KEYS_BY_ID = {
+    11: "it_admin",
+    13: "it_admin",
+    19: "it_admin",
+    21: "it_admin",
+    23: "it_admin",
 }
 
 
@@ -260,7 +245,10 @@ def _collect_effective_roles(user: dict[str, Any] | None) -> list[dict[str, Any]
 def _resolve_policy_for_role_id(role_id: int | None) -> dict[str, Any] | None:
     if role_id is None:
         return None
-    return ROLE_POLICIES_BY_ID.get(role_id)
+    policy_key = ROLE_POLICY_KEYS_BY_ID.get(role_id)
+    if not policy_key:
+        return None
+    return POLICY_DEFINITIONS.get(policy_key)
 
 
 def _merge_scopes(base_scopes: dict[str, str], additional_scopes: dict[str, str]) -> dict[str, str]:
@@ -327,7 +315,7 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
     else:
         role_key = str(DEFAULT_POLICY["key"])
 
-    debug_policy_keys = tuple(effective_policy_keys) or (str(DEFAULT_POLICY["key"]),)
+    resolved_policy_keys = tuple(effective_policy_keys) or (str(DEFAULT_POLICY["key"]),)
     visible_task_backlog_ids, can_view_all_task_backlogs = _resolve_task_backlog_access(effective_policies)
 
     return AuthorizationContext(
@@ -343,7 +331,7 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
         can_view_all_task_backlogs=can_view_all_task_backlogs,
         effective_role_ids=tuple(role["role_id"] for role in effective_roles),
         effective_role_names=tuple(str(role["name"]) for role in effective_roles),
-        effective_policy_keys=debug_policy_keys,
+        effective_policy_keys=resolved_policy_keys,
         raw_user=user,
     )
 
