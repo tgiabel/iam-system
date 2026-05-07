@@ -42,66 +42,90 @@ async def get_current_user_dep(
     return user
 
 
-POLICY_DEFINITIONS = {
-    "basic_user": {
-        "pages": set(),
-        "capabilities": set(),
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "none",
-        },
+# Role IDs are the only source of truth for elevated access.
+# Unknown or unmapped roles intentionally keep the default policy.
+# Multiple active role policies are merged by unioning pages/capabilities,
+# taking the highest scope priority, and combining backlog access.
+DEFAULT_POLICY = {
+    "key": "basic_user",
+    "pages": set(),
+    "capabilities": set(),
+    "scopes": {
+        "tasks": "relevant_only",
+        "tools": "own_only",
+        "reports": "own_only",
+        "users": "none",
     },
-    "people_admin": {
-        "pages": {"users"},
-        "capabilities": {
-            "onboarding.start",
-            "onboarding.external.start",
-            "training.schedule",
-            "primary_role.change",
-            "temporary_role.assign",
-            "skill.assign",
-            "skill.revoke",
-            "offboarding.start",
-        },
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "all",
-        },
+    "task_backlogs": {
+        "all": False,
+        "ids": set(),
     },
-    "operations_admin": {
+}
+
+
+COMMON_ADMIN_CAPABILITIES = {
+    "onboarding.start",
+    "onboarding.external.start",
+    "training.schedule",
+    "primary_role.change",
+    "temporary_role.assign",
+    "skill.assign",
+    "skill.revoke",
+    "offboarding.start",
+}
+
+
+ROLE_POLICIES_BY_ID = {
+    11: {
+        "key": "operations_admin",
         "pages": {"console", "users", "iks"},
-        "capabilities": {
-            "onboarding.start",
-            "onboarding.external.start",
-            "training.schedule",
-            "primary_role.change",
-            "temporary_role.assign",
-            "skill.assign",
-            "skill.revoke",
-            "offboarding.start",
-        },
+        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
         "scopes": {
             "tasks": "relevant_only",
             "tools": "own_only",
             "reports": "own_only",
             "users": "all",
         },
+        "task_backlogs": {
+            "all": False,
+            "ids": set(),
+        },
     },
-    "it_admin": {
+    13: {
+        "key": "operations_admin",
+        "pages": {"console", "users", "iks"},
+        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
+        "scopes": {
+            "tasks": "relevant_only",
+            "tools": "own_only",
+            "reports": "own_only",
+            "users": "all",
+        },
+        "task_backlogs": {
+            "all": False,
+            "ids": set(),
+        },
+    },
+    19: {
+        "key": "people_admin",
+        "pages": {"users"},
+        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
+        "scopes": {
+            "tasks": "relevant_only",
+            "tools": "own_only",
+            "reports": "own_only",
+            "users": "all",
+        },
+        "task_backlogs": {
+            "all": False,
+            "ids": set(),
+        },
+    },
+    21: {
+        "key": "it_admin",
         "pages": {"console", "users", "systems", "roles", "iks"},
         "capabilities": {
-            "onboarding.start",
-            "onboarding.external.start",
-            "training.schedule",
-            "primary_role.change",
-            "temporary_role.assign",
-            "skill.assign",
-            "skill.revoke",
-            "offboarding.start",
+            *COMMON_ADMIN_CAPABILITIES,
             "sofa_access.setup",
             "sofa_access.reset",
             "sofa_access.revoke",
@@ -112,51 +136,26 @@ POLICY_DEFINITIONS = {
             "reports": "all",
             "users": "all",
         },
+        "task_backlogs": {
+            "all": True,
+            "ids": set(),
+        },
     },
-}
-
-
-# Backlog-Sicht wird lokal aus den bereits auf Policies gemappten Rollen abgeleitet.
-# Weitere Zuordnungen koennen hier ergaenzt werden, sobald die fachlichen Backlog-IDs feststehen.
-TASK_BACKLOG_ACCESS_BY_POLICY = {
-    "basic_user": {
-        "all": False,
-        "backlog_ids": set(),
+    23: {
+        "key": "operations_admin",
+        "pages": {"console", "users", "iks"},
+        "capabilities": set(COMMON_ADMIN_CAPABILITIES),
+        "scopes": {
+            "tasks": "relevant_only",
+            "tools": "own_only",
+            "reports": "own_only",
+            "users": "all",
+        },
+        "task_backlogs": {
+            "all": False,
+            "ids": set(),
+        },
     },
-    "people_admin": {
-        "all": False,
-        "backlog_ids": set(),
-    },
-    "operations_admin": {
-        "all": False,
-        "backlog_ids": set(),
-    },
-    "it_admin": {
-        "all": True,
-        "backlog_ids": [1,],
-    },
-}
-
-
-ROLE_POLICY_BY_ID = {
-    21: "it_admin",
-}
-
-
-# Compatibility fallback until the remaining role ids are wired explicitly.
-ROLE_POLICY_BY_NAME = {
-    "sd-it": "it_admin",
-    "it": "it_admin",
-    "sd-personal": "people_admin",
-    "personal": "people_admin",
-    "sd-vv-leitung": "people_admin",
-    "vv-leitung": "people_admin",
-    "sd-teamleiter": "operations_admin",
-    "teamleiter": "operations_admin",
-    "sd-produktionsleitung": "operations_admin",
-    "produktionsleitung": "operations_admin",
-    "sd-steuerung": "operations_admin",
-    "steuerung": "operations_admin",
 }
 
 
@@ -258,13 +257,10 @@ def _collect_effective_roles(user: dict[str, Any] | None) -> list[dict[str, Any]
     return effective_roles
 
 
-def _resolve_policy_key_for_role(role: dict[str, Any]) -> str | None:
-    role_id = _coerce_role_id(role.get("role_id"))
-    if role_id is not None and role_id in ROLE_POLICY_BY_ID:
-        return ROLE_POLICY_BY_ID[role_id]
-
-    role_name = _normalize_text(role.get("name") or role.get("role_name"))
-    return ROLE_POLICY_BY_NAME.get(role_name)
+def _resolve_policy_for_role_id(role_id: int | None) -> dict[str, Any] | None:
+    if role_id is None:
+        return None
+    return ROLE_POLICIES_BY_ID.get(role_id)
 
 
 def _merge_scopes(base_scopes: dict[str, str], additional_scopes: dict[str, str]) -> dict[str, str]:
@@ -277,17 +273,17 @@ def _merge_scopes(base_scopes: dict[str, str], additional_scopes: dict[str, str]
     return merged
 
 
-def _resolve_task_backlog_access(policy_keys: list[str]) -> tuple[tuple[int, ...], bool]:
+def _resolve_task_backlog_access(policies: list[dict[str, Any]]) -> tuple[tuple[int, ...], bool]:
     visible_backlog_ids: set[int] = set()
     can_view_all = False
 
-    effective_policy_keys = policy_keys or ["basic_user"]
-    for policy_key in effective_policy_keys:
-        access_definition = TASK_BACKLOG_ACCESS_BY_POLICY.get(policy_key, {})
+    effective_policies = policies or [DEFAULT_POLICY]
+    for policy in effective_policies:
+        access_definition = policy.get("task_backlogs", {})
         if access_definition.get("all"):
             can_view_all = True
 
-        backlog_ids = access_definition.get("backlog_ids", set())
+        backlog_ids = access_definition.get("ids", set())
         for backlog_id in backlog_ids:
             if isinstance(backlog_id, int):
                 visible_backlog_ids.add(backlog_id)
@@ -298,39 +294,41 @@ def _resolve_task_backlog_access(policy_keys: list[str]) -> tuple[tuple[int, ...
 def build_authorization_context_from_user(user: dict[str, Any]) -> AuthorizationContext:
     primary_role = user.get("primary_role") or {}
     primary_role_id = _coerce_role_id(primary_role.get("role_id"))
-    primary_policy_key = _resolve_policy_key_for_role(primary_role) if isinstance(primary_role, dict) else None
+    primary_policy = _resolve_policy_for_role_id(primary_role_id) if isinstance(primary_role, dict) else None
 
     effective_roles = _collect_effective_roles(user)
     effective_policy_keys: list[str] = []
     seen_policy_keys: set[str] = set()
+    effective_policies: list[dict[str, Any]] = []
 
     pages: set[str] = set()
     capabilities: set[str] = set()
-    data_scopes = dict(POLICY_DEFINITIONS["basic_user"]["scopes"])
+    data_scopes = dict(DEFAULT_POLICY["scopes"])
 
     for role in effective_roles:
-        policy_key = _resolve_policy_key_for_role(role)
-        if not policy_key or policy_key not in POLICY_DEFINITIONS:
+        policy = _resolve_policy_for_role_id(role["role_id"])
+        if not policy:
             continue
 
+        policy_key = str(policy["key"])
         if policy_key not in seen_policy_keys:
             seen_policy_keys.add(policy_key)
             effective_policy_keys.append(policy_key)
+            effective_policies.append(policy)
 
-        policy = POLICY_DEFINITIONS[policy_key]
         pages.update(policy["pages"])
         capabilities.update(policy["capabilities"])
         data_scopes = _merge_scopes(data_scopes, policy["scopes"])
 
-    if primary_policy_key and primary_policy_key in POLICY_DEFINITIONS:
-        role_key = primary_policy_key
+    if primary_policy:
+        role_key = str(primary_policy["key"])
     elif effective_policy_keys:
         role_key = effective_policy_keys[0]
     else:
-        role_key = "basic_user"
+        role_key = str(DEFAULT_POLICY["key"])
 
-    debug_policy_keys = tuple(effective_policy_keys) or ("basic_user",)
-    visible_task_backlog_ids, can_view_all_task_backlogs = _resolve_task_backlog_access(effective_policy_keys)
+    debug_policy_keys = tuple(effective_policy_keys) or (str(DEFAULT_POLICY["key"]),)
+    visible_task_backlog_ids, can_view_all_task_backlogs = _resolve_task_backlog_access(effective_policies)
 
     return AuthorizationContext(
         user_id=user.get("user_id"),

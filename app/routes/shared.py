@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 import httpx  # type: ignore
@@ -250,9 +252,7 @@ def _task_backlog_is_visible_to_user(task: dict, authz: AuthorizationContext) ->
         return True
 
     if not authz.visible_task_backlog_ids:
-        # Uebergangsmodus: Solange fuer die Rolle noch keine lokalen Backlog-IDs gepflegt sind,
-        # bleibt das bisherige Verhalten erhalten.
-        return True
+        return False
 
     if backlog_id is None:
         return False
