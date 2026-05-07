@@ -506,13 +506,46 @@ function getSeverityBadgeClass(severity, isOverdue = false) {
     return "users-status-progress";
 }
 
+function getDerivedStatusProcessLabel(processType) {
+    const normalized = normalizeValue(processType).replace(/\s+/g, "_");
+    if (!normalized) {
+        return "";
+    }
+
+    return ({
+        onboarding: "Onboarding",
+        offboarding: "Offboarding"
+    })[normalized] || humanizeToken(processType);
+}
+
+function buildDerivedStatusLabel(processType, label) {
+    const resolvedLabel = String(label || "").trim();
+    const processLabel = getDerivedStatusProcessLabel(processType);
+
+    if (!resolvedLabel) {
+        return processLabel || "-";
+    }
+
+    if (!processLabel) {
+        return resolvedLabel;
+    }
+
+    if (normalizeValue(resolvedLabel).startsWith(normalizeValue(processLabel))) {
+        return resolvedLabel;
+    }
+
+    const loweredLabel = `${resolvedLabel.charAt(0).toLocaleLowerCase("de-DE")}${resolvedLabel.slice(1)}`;
+    return `${processLabel} ${loweredLabel}`;
+}
+
 function normalizeDerivedStatus(status) {
     if (!status || typeof status !== "object") {
         return null;
     }
 
     const code = String(status.code || "unknown").trim() || "unknown";
-    const label = String(status.label || humanizeToken(code)).trim() || humanizeToken(code);
+    const rawLabel = String(status.label || humanizeToken(code)).trim() || humanizeToken(code);
+    const label = buildDerivedStatusLabel(status.process_type, rawLabel);
     const severity = normalizeValue(status.severity) || "info";
     const isOverdue = Boolean(status.is_overdue);
     const normalized = {
