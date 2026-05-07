@@ -514,7 +514,12 @@ function getDerivedStatusProcessLabel(processType) {
 
     return ({
         onboarding: "Onboarding",
-        offboarding: "Offboarding"
+        offboarding: "Offboarding",
+        skill_assignment: "Neue Rolle",
+        skill_removal: "Rollenentzug",
+        training_schedule: "Schulung",
+        temporary_role: "Temporäre Rolle",
+        change: "Abteilungswechsel"
     })[normalized] || humanizeToken(processType);
 }
 
