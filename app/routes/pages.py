@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 
 from fastapi import APIRouter, Cookie, Depends, Form, Request  # type: ignore

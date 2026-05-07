@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import httpx  # type: ignore
 from typing import Any
 
