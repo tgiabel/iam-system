@@ -943,6 +943,26 @@ function initTaskBulkActions() {
     updateTaskBulkActionState();
 }
 
+async function refreshTaskModalFromOverview(taskId) {
+    const didLoad = await loadTasks();
+    if (!didLoad) {
+        return null;
+    }
+
+    const refreshedTask = window.taskIndex?.[String(taskId)];
+    if (!refreshedTask) {
+        closeOverlay("task-overlay");
+        showFlash("Task ist nicht mehr verfügbar.", "failure");
+        return null;
+    }
+
+    window.currentTask = refreshedTask;
+    populateTaskModal(refreshedTask);
+    renderTaskActions(refreshedTask);
+    await loadTaskHistory(taskId, { showLoading: false });
+    return refreshedTask;
+}
+
 function openOverlay(elementId) {
     const overlay = document.getElementById(elementId);
     if (!overlay) {
@@ -1323,48 +1343,57 @@ function initTaskActionHandling() {
 
         if (action === "assign") {
             try {
-                const res = await fetch(`/api/tasks/${task.task_id}/assign?user_id=${window.currentUserId}`, {
-                    method: "PATCH"
-                });
+                btn.disabled = true;
+                btn.textContent = "Übernehme...";
 
-                if (!res.ok) {
-                    if (res.status === 409) {
-                        showFlash("Task wurde bereits übernommen", "failure");
-                        await loadTasks();
-                        return;
+                const result = await requestTaskAssign(task.task_id);
+                if (!result.ok) {
+                    showFlash(result.message, "failure");
+
+                    if ([404, 409].includes(result.status)) {
+                        await refreshTaskModalFromOverview(task.task_id);
                     }
-
-                    throw new Error("Assign fehlgeschlagen");
+                    return;
                 }
 
-                showFlash("Task erfolgreich übernommen");
-                await res.json();
-                closeOverlay("task-overlay");
-                await loadTasks();
+                showFlash("Task erfolgreich übernommen", "success");
+                await refreshTaskModalFromOverview(task.task_id);
             } catch (err) {
                 console.error(err);
-                alert("Fehler beim Übernehmen des Tasks.");
+                showFlash("Fehler beim Übernehmen des Tasks.", "failure");
+            } finally {
+                if (btn.isConnected) {
+                    btn.disabled = false;
+                    btn.textContent = "Übernehmen";
+                }
             }
         }
 
         if (action === "release") {
             try {
-                const res = await fetch(`/api/tasks/${task.task_id}/assign`, {
-                    method: "DELETE"
-                });
+                btn.disabled = true;
+                btn.textContent = "Gebe frei...";
 
-                if (!res.ok) {
-                    const err = await res.json();
-                    showFlash(err.detail || "Fehler beim Freigeben", "failure");
-                    throw new Error(err.detail || "API Error");
+                const result = await requestTaskRelease(task.task_id);
+                if (!result.ok) {
+                    showFlash(result.message, "failure");
+
+                    if ([404, 409].includes(result.status)) {
+                        await refreshTaskModalFromOverview(task.task_id);
+                    }
+                    return;
                 }
 
-                await res.json();
-                showFlash("Task erfolgreich freigegeben");
-                closeOverlay("task-overlay");
-                await loadTasks();
+                showFlash("Task erfolgreich freigegeben", "success");
+                await refreshTaskModalFromOverview(task.task_id);
             } catch (err) {
                 console.error("Release Task Error:", err);
+                showFlash("Fehler beim Freigeben", "failure");
+            } finally {
+                if (btn.isConnected) {
+                    btn.disabled = false;
+                    btn.textContent = "Freigeben";
+                }
             }
         }
 
@@ -1707,8 +1736,10 @@ async function loadTasks() {
         });
 
         refreshTaskView();
+        return true;
     } catch (err) {
         console.error("Task-Ladefehler:", err);
         showFlash("Fehler beim Laden der Aufgaben. Siehe Konsole.", "failure");
+        return false;
     }
 }
