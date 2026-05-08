@@ -246,6 +246,9 @@ def _get_task_backlog_id(task: dict) -> int | None:
 
 
 def _task_backlog_is_visible_to_user(task: dict, authz: AuthorizationContext) -> bool:
+    if not authz.has_page("tasks"):
+        return False
+
     backlog_id = _get_task_backlog_id(task)
 
     if authz.can_view_all_task_backlogs:
@@ -297,10 +300,7 @@ def _task_is_visible_to_user(task: dict, authz: AuthorizationContext) -> bool:
     if not _task_backlog_is_visible_to_user(task, authz):
         return False
 
-    if authz.get_scope("tasks") != "relevant_only":
-        return True
-
-    return _task_is_relevant_to_user(task, authz)
+    return True
 
 
 def _filter_tasks_for_scope(tasks: list[dict], authz: AuthorizationContext) -> list[dict]:
@@ -337,9 +337,12 @@ def _process_is_relevant_to_user(process: dict, authz: AuthorizationContext) -> 
 
 
 def _filter_processes_for_scope(processes: list[dict], authz: AuthorizationContext) -> list[dict]:
-    if authz.get_scope("tasks") != "relevant_only":
+    if not authz.has_page("tasks"):
+        return []
+
+    if authz.can_view_all_task_backlogs or authz.visible_task_backlog_ids:
         return processes
-    return [process for process in processes if _process_is_relevant_to_user(process, authz)]
+    return []
 
 
 async def _get_relevant_task_or_raise(task_id: int, authz: AuthorizationContext) -> dict:

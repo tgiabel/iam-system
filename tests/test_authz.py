@@ -162,12 +162,19 @@ def make_user(primary_role=None, **extra):
     return payload
 
 
+def make_grant(permission, resources=None):
+    payload = {"permission": permission}
+    if resources is not None:
+        payload["resources"] = resources
+    return payload
+
+
 def run_async(awaitable):
     return asyncio.run(awaitable)
 
 
 class AuthorizationContextTests(unittest.TestCase):
-    def test_unknown_role_uses_default_policy(self):
+    def test_missing_sofa_authorization_uses_minimal_rights(self):
         user = make_user(primary_role=make_role(999, "Unbekannt"))
 
         authz = build_authorization_context_from_user(user)
@@ -176,47 +183,71 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertEqual(authz.effective_policy_keys, ("basic_user",))
         self.assertEqual(authz.pages, frozenset())
         self.assertEqual(authz.capabilities, frozenset())
-        self.assertEqual(authz.get_scope("tasks"), "relevant_only")
+        self.assertEqual(authz.get_scope("tasks"), "none")
         self.assertEqual(authz.get_scope("users"), "none")
         self.assertFalse(authz.can_view_all_task_backlogs)
         self.assertEqual(authz.visible_task_backlog_ids, ())
 
-    def test_it_role_receives_full_policy(self):
-        user = make_user(primary_role=make_role(21, "IT"))
+    def test_grants_project_pages_capabilities_and_backlog_scope(self):
+        user = make_user(
+            primary_role=make_role(21, "IT"),
+            sofa_authorization={
+                "version": 1,
+                "grants": [
+                    make_grant("tasks.view"),
+                    make_grant("tasks.backlog.view", {"task_backlogs": {"all": True, "ids": [7]}}),
+                    make_grant("users.view"),
+                    make_grant("users.primary_role.request", {"roles": {"all": True, "ids": []}}),
+                    make_grant("roles.view"),
+                ],
+            },
+        )
 
         authz = build_authorization_context_from_user(user)
 
-        self.assertEqual(authz.role_key, "it_admin")
-        self.assertEqual(authz.effective_policy_keys, ("it_admin",))
+        self.assertEqual(authz.role_key, "custom")
+        self.assertEqual(authz.effective_policy_keys, ("custom",))
+        self.assertTrue(authz.has_page("tasks"))
+        self.assertTrue(authz.has_page("users"))
         self.assertTrue(authz.has_page("roles"))
-        self.assertTrue(authz.has_page("systems"))
-        self.assertTrue(authz.has_capability("sofa_access.setup"))
+        self.assertTrue(authz.has_capability("primary_role.change"))
         self.assertEqual(authz.get_scope("tasks"), "all")
         self.assertEqual(authz.get_scope("users"), "all")
         self.assertTrue(authz.can_view_all_task_backlogs)
-        self.assertEqual(authz.visible_task_backlog_ids, ())
+        self.assertEqual(authz.visible_task_backlog_ids, (7,))
 
-    def test_multiple_roles_merge_pages_capabilities_and_scope_priority(self):
+    def test_multiple_roles_keep_effective_roles_and_merge_permission_keys(self):
         user = make_user(
             primary_role=make_role(19, "Verwaltung & Vertrieb Leitung"),
             secondary_roles=[
                 make_role(13, "Teamleiter"),
                 make_role(21, "IT"),
             ],
+            sofa_authorization={
+                "version": 1,
+                "profile_keys": ["operational-admin", "agent-supervisor"],
+                "grants": [
+                    make_grant("tasks.view"),
+                    make_grant("tasks.backlog.view", {"task_backlogs": {"all": False, "ids": [3, 5]}}),
+                    make_grant("tools.view"),
+                    make_grant("tools.item.view", {"tools": {"all": False, "ids": [11]}}),
+                    make_grant("reports.item.view", {"reports": {"all": True, "ids": []}}),
+                    make_grant("console.view"),
+                ],
+            },
         )
 
         authz = build_authorization_context_from_user(user)
 
-        self.assertEqual(authz.role_key, "people_admin")
-        self.assertEqual(authz.effective_policy_keys, ("people_admin", "operations_admin", "it_admin"))
-        self.assertTrue(authz.has_page("users"))
+        self.assertEqual(authz.role_key, "operational-admin")
+        self.assertEqual(authz.effective_policy_keys, ("operational-admin", "agent-supervisor"))
         self.assertTrue(authz.has_page("console"))
-        self.assertTrue(authz.has_page("roles"))
-        self.assertTrue(authz.has_capability("primary_role.change"))
-        self.assertTrue(authz.has_capability("sofa_access.reset"))
-        self.assertEqual(authz.get_scope("tasks"), "all")
-        self.assertEqual(authz.get_scope("tools"), "all")
-        self.assertTrue(authz.can_view_all_task_backlogs)
+        self.assertEqual(authz.permission_keys, ("tasks.view", "tasks.backlog.view", "tools.view", "tools.item.view", "reports.item.view", "console.view"))
+        self.assertEqual(authz.get_scope("tasks"), "relevant_only")
+        self.assertEqual(authz.get_scope("tools"), "own_only")
+        self.assertEqual(authz.get_scope("reports"), "all")
+        self.assertFalse(authz.can_view_all_task_backlogs)
+        self.assertEqual(authz.visible_task_backlog_ids, (3, 5))
 
     def test_inactive_and_duplicate_roles_are_ignored(self):
         user = make_user(
@@ -226,13 +257,14 @@ class AuthorizationContextTests(unittest.TestCase):
                 make_role(21, "IT", assignment_status="REVOKED"),
                 make_role(23, "Steuerung", is_active=False),
             ],
+            sofa_authorization={"version": 1, "grants": [make_grant("tasks.view")]},
         )
 
         authz = build_authorization_context_from_user(user)
 
         self.assertEqual(authz.effective_role_ids, (13,))
-        self.assertEqual(authz.effective_policy_keys, ("operations_admin",))
-        self.assertEqual(authz.get_scope("tasks"), "relevant_only")
+        self.assertEqual(authz.effective_policy_keys, ("custom",))
+        self.assertEqual(authz.get_scope("tasks"), "none")
         self.assertFalse(authz.can_view_all_task_backlogs)
 
     def test_require_page_access_denies_missing_page(self):
@@ -246,7 +278,12 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertEqual(exc_info.exception.detail["code"], "page_access_denied")
 
     def test_require_capability_allows_present_capability(self):
-        authz = build_authorization_context_from_user(make_user(primary_role=make_role(21, "IT")))
+        authz = build_authorization_context_from_user(
+            make_user(
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={"version": 1, "grants": [make_grant("sofa_access.revoke")]},
+            )
+        )
         dependency = require_capability("sofa_access.revoke")
 
         resolved = run_async(dependency(authz=authz))
@@ -266,7 +303,12 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertEqual(json.loads(response.body), [])
 
     def test_task_backlog_access_blocks_tasks_without_explicit_backlog_rights(self):
-        authz = build_authorization_context_from_user(make_user(primary_role=make_role(13, "Teamleiter")))
+        authz = build_authorization_context_from_user(
+            make_user(
+                primary_role=make_role(13, "Teamleiter"),
+                sofa_authorization={"version": 1, "grants": [make_grant("tasks.view")]},
+            )
+        )
         task = {
             "task_id": 100,
             "backlog_id": 1,
@@ -276,8 +318,19 @@ class AuthorizationContextTests(unittest.TestCase):
 
         self.assertFalse(_task_is_visible_to_user(task, authz))
 
-    def test_task_visibility_allows_it_admin_for_any_backlog(self):
-        authz = build_authorization_context_from_user(make_user(primary_role=make_role(21, "IT")))
+    def test_task_visibility_allows_any_task_from_permitted_backlog(self):
+        authz = build_authorization_context_from_user(
+            make_user(
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={
+                    "version": 1,
+                    "grants": [
+                        make_grant("tasks.view"),
+                        make_grant("tasks.backlog.view", {"task_backlogs": {"all": False, "ids": [999]}}),
+                    ],
+                },
+            )
+        )
         task = {
             "task_id": 101,
             "backlog_id": 999,
@@ -288,7 +341,12 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertTrue(_task_is_visible_to_user(task, authz))
 
     def test_template_payload_keeps_existing_shape(self):
-        authz = build_authorization_context_from_user(make_user(primary_role=make_role(21, "IT")))
+        authz = build_authorization_context_from_user(
+            make_user(
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={"version": 1, "grants": [make_grant("roles.view")]},
+            )
+        )
 
         payload = get_authz_payload_for_template(authz)
 
@@ -302,6 +360,8 @@ class AuthorizationContextTests(unittest.TestCase):
             "effective_role_ids",
             "effective_role_names",
             "effective_policy_keys",
+            "permission_keys",
+            "grants",
             "visible_task_backlog_ids",
             "can_view_all_task_backlogs",
             "has_admin_access",
@@ -312,6 +372,8 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertIsInstance(payload["scopes"], dict)
         self.assertIsInstance(payload["effective_role_ids"], list)
         self.assertIsInstance(payload["effective_policy_keys"], list)
+        self.assertIsInstance(payload["permission_keys"], list)
+        self.assertIsInstance(payload["grants"], list)
 
 
 if __name__ == "__main__":

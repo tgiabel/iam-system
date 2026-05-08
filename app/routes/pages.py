@@ -72,12 +72,12 @@ def logout(request: Request):
 
 
 @router.get("/tasks", response_class=HTMLResponse)
-def tasks(request: Request, authz=Depends(require_login)):
+def tasks(request: Request, authz=Depends(require_page_access("tasks", redirect_to="/"))):
     return templates.TemplateResponse("tasks.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
 @router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_login)):
+def tools(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
     return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
@@ -143,7 +143,7 @@ async def iks_tool(request: Request, authz=Depends(require_page_access("iks", re
 
 
 @router.get("/tools/datex", response_class=HTMLResponse)
-async def datex_tool(request: Request, authz=Depends(require_login)):
+async def datex_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
     return templates.TemplateResponse(
         "tools/datex_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),

@@ -167,7 +167,7 @@ async def api_events(current_user=Depends(require_page_access("console"))):
 
 
 @router.get("/task_backlogs")
-async def api_task_backlogs(current_user=Depends(require_login)):
+async def api_task_backlogs(current_user=Depends(require_any_page_access("tasks", "roles"))):
     try:
         backlogs = await api_client.get_task_backlogs()
         return JSONResponse(content=backlogs)
@@ -238,7 +238,7 @@ async def api_list_tasks(
     handling_type: str | None = None,
     assigned_to_user_id: int | None = None,
     process_id: int | None = None,
-    current_user=Depends(require_login),
+    current_user=Depends(require_page_access("tasks")),
 ):
     try:
         tasks = await api_client.list_tasks(
@@ -254,7 +254,7 @@ async def api_list_tasks(
 
 
 @router.patch("/tasks/{task_id}/assign")
-async def api_assign_task(task_id: int, user_id: int, current_user=Depends(require_login)):
+async def api_assign_task(task_id: int, user_id: int, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         if int(user_id) != int(current_user.user_id):
@@ -275,7 +275,7 @@ async def api_assign_task(task_id: int, user_id: int, current_user=Depends(requi
 
 
 @router.delete("/tasks/{task_id}/assign")
-async def api_unassign_task(task_id: int, current_user=Depends(require_login)):
+async def api_unassign_task(task_id: int, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         task = await api_client.unassign_task(task_id, current_user.user_id)
@@ -289,7 +289,7 @@ async def api_unassign_task(task_id: int, current_user=Depends(require_login)):
 
 
 @router.post("/tasks/{task_id}/complete")
-async def api_complete_task(task_id: int, payload: dict, current_user=Depends(require_login)):
+async def api_complete_task(task_id: int, payload: dict, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         user_id = current_user.user_id
@@ -306,7 +306,7 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(re
 
 
 @router.post("/tasks/dispatch_bot")
-async def api_dispatch_bot(payload: dict, current_user=Depends(require_login)):
+async def api_dispatch_bot(payload: dict, current_user=Depends(require_page_access("tasks"))):
     try:
         task_id = payload.get("task_id")
         await _get_relevant_task_or_raise(task_id, current_user)
@@ -321,7 +321,7 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(require_login)):
 
 
 @router.post("/tasks/{task_id}/send_mail")
-async def api_send_task_mail(task_id: int, payload: dict, current_user=Depends(require_login)):
+async def api_send_task_mail(task_id: int, payload: dict, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         payload["initiator_user_id"] = current_user.user_id
@@ -507,7 +507,7 @@ async def api_start_ext_onboarding_process(
 
 
 @router.get("/tasks/overview")
-async def api_tasks_overview(current_user=Depends(require_login)):
+async def api_tasks_overview(current_user=Depends(require_page_access("tasks"))):
     try:
         user_id = current_user.user_id
         tasks = await api_client.get_task_overview(user_id)
@@ -524,7 +524,7 @@ async def api_tasks_overview(current_user=Depends(require_login)):
 
 
 @router.get("/processes/overview")
-async def api_processes_overview(current_user=Depends(require_login)):
+async def api_processes_overview(current_user=Depends(require_page_access("tasks"))):
     try:
         user_id = current_user.user_id
         processes = await api_client.get_process_overview(user_id)
@@ -555,7 +555,7 @@ async def api_get_mail_template(payload: dict, current_user=Depends(require_logi
 
 
 @router.get("/tasks/{task_id}/history")
-async def api_task_logs(task_id, current_user=Depends(require_login)):
+async def api_task_logs(task_id, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(int(task_id), current_user)
         history = await api_client.get_task_logs(task_id)
