@@ -7,6 +7,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const profileBtn = document.getElementById("profile-button");
     const navProfile = document.getElementById("nav-profile");
     const profileMenu = document.getElementById("profile-subnav");
+    const mobileNavToggle = document.getElementById("mobile-nav-toggle");
+    const mobileNavPanel = document.getElementById("mobile-nav-panel");
     const profileModalTriggers = document.querySelectorAll("[data-profile-modal-trigger]");
     const modalCloseButtons = document.querySelectorAll("[data-modal-close]");
     const modalOverlays = document.querySelectorAll(".ui-modal-overlay[data-base-modal]");
@@ -24,8 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     ];
     const validThemeKeys = themes.map(theme => theme.key);
 
-
-    function closeAll() {
+    function closeDropdowns() {
         [navAdmin, navProfile].forEach(parent => {
             if (!parent) return;
             parent.classList.remove("open");
@@ -36,9 +37,50 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    function closeAll() {
+        closeDropdowns();
+        closeMobileNav();
+    }
+
+    function openMobileNav() {
+        if (!mobileNavToggle || !mobileNavPanel) return;
+        document.body.classList.add("mobile-nav-open");
+        mobileNavToggle.setAttribute("aria-expanded", "true");
+        mobileNavPanel.setAttribute("aria-hidden", "false");
+    }
+
+    function closeMobileNav() {
+        if (!mobileNavToggle || !mobileNavPanel) return;
+        document.body.classList.remove("mobile-nav-open");
+        mobileNavToggle.setAttribute("aria-expanded", "false");
+        mobileNavPanel.setAttribute("aria-hidden", "true");
+    }
+
+    function toggleMobileNav() {
+        if (!mobileNavToggle || !mobileNavPanel) return;
+        if (document.body.classList.contains("mobile-nav-open")) {
+            closeMobileNav();
+            return;
+        }
+
+        [navAdmin, navProfile].forEach(parent => {
+            if (!parent) return;
+            parent.classList.remove("open");
+            const btn = parent.querySelector("button[aria-expanded]");
+            if (btn) btn.setAttribute("aria-expanded", "false");
+            const menu = parent.querySelector(".subnav");
+            if (menu) menu.setAttribute("aria-hidden", "true");
+        });
+
+        openMobileNav();
+    }
+
     function updateBodyScrollLock() {
         const hasOpenModal = document.querySelector(".ui-modal-overlay.active");
-        document.body.classList.toggle("modal-open", Boolean(hasOpenModal));
+        document.body.classList.toggle(
+            "modal-open",
+            Boolean(hasOpenModal) || document.body.classList.contains("mobile-nav-open")
+        );
     }
 
     function openModal(overlay) {
@@ -77,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function clearActiveNavigation() {
         document
-            .querySelectorAll(".nav-link.is-active, .subnav-item.is-active, .nav-item.is-active, .profile-dropdown.is-active")
+            .querySelectorAll(".nav-link.is-active, .subnav-item.is-active, .nav-item.is-active, .profile-dropdown.is-active, .mobile-nav-link.is-active")
             .forEach(element => element.classList.remove("is-active"));
     }
 
@@ -94,8 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         directTargets.forEach(({ selector, match }) => {
             if (!match) return;
-            const element = document.querySelector(selector);
-            if (element) element.classList.add("is-active");
+            document.querySelectorAll(selector).forEach(element => element.classList.add("is-active"));
         });
 
         const adminTargets = [
@@ -108,8 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const activeAdminItem = adminTargets.find(({ path }) => pathMatches(currentPath, path));
         if (activeAdminItem) {
-            const adminItem = document.querySelector(activeAdminItem.selector);
-            if (adminItem) adminItem.classList.add("is-active");
+            document.querySelectorAll(activeAdminItem.selector).forEach(adminItem => adminItem.classList.add("is-active"));
             if (navAdmin) navAdmin.classList.add("is-active");
         }
 
@@ -217,6 +257,19 @@ document.addEventListener("DOMContentLoaded", () => {
         applyTheme(getStoredTheme());
     }
 
+    mobileNavToggle?.addEventListener("click", ev => {
+        ev.stopPropagation();
+        toggleMobileNav();
+        updateBodyScrollLock();
+    });
+
+    mobileNavPanel?.addEventListener("click", event => {
+        const link = event.target.closest("a");
+        if (!link) return;
+        closeMobileNav();
+        updateBodyScrollLock();
+    });
+
     profileModalTriggers.forEach(trigger => {
         trigger.addEventListener("click", (ev) => {
             ev.preventDefault();
@@ -315,8 +368,16 @@ document.addEventListener("DOMContentLoaded", () => {
     markActiveNavigation();
 
     // click outside closes menus
-    window.addEventListener("click", () => {
-        closeAll();
+    window.addEventListener("click", event => {
+        closeDropdowns();
+
+        if (mobileNavPanel && mobileNavToggle) {
+            const clickedInsideMobileNav = mobileNavPanel.contains(event.target) || mobileNavToggle.contains(event.target);
+            if (!clickedInsideMobileNav) {
+                closeMobileNav();
+            }
+        }
+        updateBodyScrollLock();
     });
 
     // Escape closes menus
@@ -330,6 +391,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         closeAll();
+        updateBodyScrollLock();
+    });
+
+    window.addEventListener("resize", () => {
+        if (window.innerWidth > 1080) {
+            closeMobileNav();
+            updateBodyScrollLock();
+        }
     });
 
     // existing alerts logic
