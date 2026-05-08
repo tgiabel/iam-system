@@ -1,22 +1,15 @@
 .tasks-page {
-    display: flex;
-    flex: 1 1 auto;
-    flex-direction: column;
     width: 100%;
     gap: 1.5rem;
     padding-top: 2rem;
     padding-bottom: 2.5rem;
-    min-height: 0;
-    overflow: hidden;
 }
 
 .tasks-shell {
     display: flex;
-    flex: 1 1 auto;
     flex-direction: column;
     gap: 1.5rem;
     width: 100%;
-    min-height: 0;
 }
 
 .tasks-tabs {
@@ -57,18 +50,12 @@
 .tasks-tab-panel {
     display: none;
     width: 100%;
-    min-height: 0;
 }
 
 .tasks-tab-panel.active {
     display: flex;
     flex-direction: column;
-    flex: 1 1 auto;
     gap: 1.6rem;
-}
-
-#tab-prozesse.tasks-tab-panel.active {
-    overflow: hidden;
 }
 
 .tasks-discovery-bar {
@@ -113,21 +100,17 @@
 }
 
 .process-section {
-    flex: 1 1 0;
-    min-height: 0;
+    flex: 0 0 auto;
 }
 
 .process-section .ui-table-card {
     display: flex;
-    flex: 1 1 auto;
     flex-direction: column;
-    min-height: 0;
 }
 
 .process-section .table-wrapper {
-    flex: 1 1 auto;
-    min-height: 0;
     overflow: auto;
+    max-height: min(24rem, 40vh);
 }
 
 .task-strip {

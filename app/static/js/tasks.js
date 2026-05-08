@@ -488,25 +488,25 @@ function syncTaskFilterControls() {
     populateFilterSelect(
         "tasks-status-filter",
         taskViewState.filterOptions.status,
-        "Alle Status",
+        "Alle",
         taskViewState.filters.status
     );
     populateFilterSelect(
         "tasks-handling-filter",
         taskViewState.filterOptions.handling,
-        "Alle Handling-Typen",
+        "Alle",
         taskViewState.filters.handling
     );
     populateFilterSelect(
         "tasks-type-filter",
         taskViewState.filterOptions.taskType,
-        "Alle Task-Typen",
+        "Alle",
         taskViewState.filters.taskType
     );
     populateFilterSelect(
         "tasks-backlog-filter",
         taskViewState.filterOptions.backlog,
-        "Alle Backlogs",
+        "Alle",
         taskViewState.filters.backlog
     );
 }

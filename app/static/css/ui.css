@@ -305,11 +305,16 @@
 }
 
 .ui-table-card {
+    --table-header-surface: var(--table-header-bg);
     background: var(--ui-surface-card);
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-lg);
     box-shadow: var(--ui-shadow-sm);
     overflow: hidden;
+}
+
+.ui-table-card-muted {
+    --table-header-surface: var(--table-header-muted-bg);
 }
 
 .ui-table-card .table-wrapper {
@@ -326,18 +331,14 @@
 }
 
 .ui-table-card thead {
-    background: var(--table-header-bg);
-}
-
-.ui-table-card-muted thead {
-    background: var(--table-header-muted-bg);
+    background: var(--table-header-surface);
 }
 
 .ui-table-card thead th {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: inherit;
+    background: var(--table-header-surface);
     color: var(--text-inverse);
 }
 
