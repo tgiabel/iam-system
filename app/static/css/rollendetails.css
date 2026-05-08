@@ -20,16 +20,8 @@
     gap: 1rem;
 }
 
-.sofa-grant-panels {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-}
-
 .sofa-profile-strip {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
+    display: block;
 }
 
 .sofa-profile-block {
@@ -50,99 +42,20 @@
     gap: 0.55rem;
 }
 
-#sofa-direct-grants-table thead,
-#sofa-inherited-grants-table thead {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 88%, black), color-mix(in srgb, var(--surface-soft) 58%, black));
-}
-
-#sofa-direct-grants-table thead th,
-#sofa-inherited-grants-table thead th {
-    color: var(--text-inverse);
-}
-
-#sofa-direct-grants-table tbody td,
-#sofa-inherited-grants-table tbody td {
-    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
-    color: var(--ui-text);
-    vertical-align: top;
-}
-
-#sofa-direct-grants-table tbody td:first-child,
-#sofa-direct-grants-table tbody td:nth-child(2),
-#sofa-inherited-grants-table tbody td:first-child,
-#sofa-inherited-grants-table tbody td:nth-child(2) {
-    color: var(--ui-text-strong);
-}
-
-.sofa-empty-state {
-    color: var(--ui-text-muted);
-    font-style: italic;
-}
-
-.sofa-resource-list {
+.sofa-redirect-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
-}
-
-.sofa-resource-list .ui-chip {
-    margin: 0;
-}
-
-.sofa-grant-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.sofa-grant-editor-row {
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-    padding: 1rem;
-    border-radius: 16px;
-    border: 1px solid var(--ui-border);
-    background: color-mix(in srgb, var(--surface-card) 98%, transparent);
-}
-
-.sofa-grant-editor-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-}
-
-.sofa-grant-resource-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.9rem 1rem;
-}
-
-.sofa-grant-resource-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    padding: 0.85rem;
-    border-radius: 14px;
-    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
-    background: color-mix(in srgb, var(--surface-subtle) 82%, transparent);
-}
-
-.sofa-inline-check {
-    display: inline-flex;
     align-items: center;
-    gap: 0.45rem;
-    font-weight: 600;
-    color: var(--ui-text);
+    gap: 0.75rem;
 }
 
-.sofa-multi-select {
-    min-height: 7.5rem;
-}
-
-.sofa-resource-help {
+.sofa-redirect-copy {
     color: var(--ui-text-muted);
-    font-size: 0.86rem;
+    font-size: 0.92rem;
+}
+
+.sofa-redirect-panel {
+    border-style: dashed;
 }
 
 .resource-card {
@@ -382,10 +295,9 @@
         grid-template-columns: 1fr;
     }
 
-    .sofa-profile-strip,
-    .sofa-grant-panels,
-    .sofa-grant-resource-grid {
-        grid-template-columns: 1fr;
+    .sofa-redirect-actions {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 

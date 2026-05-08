@@ -10,10 +10,7 @@ const STATE = {
     currentResource: null,
     systemMap: null,
     roleMap: null,
-    sofaCatalog: null,
-    sofaOptionCache: {},
-    isEditing: false,
-    isEditingSofa: false
+    isEditing: false
 };
 
 const ROLE_TYPE_OPTIONS = [
@@ -128,14 +125,6 @@ const api = {
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
-    const msg = sessionStorage.getItem("flash_msg");
-    const type = sessionStorage.getItem("flash_type");
-
-    if (msg) {
-        showFlash(msg, type);
-        sessionStorage.removeItem("flash_msg");
-        sessionStorage.removeItem("flash_type");
-    }
     cacheDOM();
     bindBaseEvents();
     await loadRoleDetail();
@@ -172,17 +161,9 @@ function cacheDOM() {
     DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
     DOM.saveEdit = document.querySelector("#save-edit-btn");
     DOM.editActions = document.querySelector("#edit-actions");
-    DOM.sofaDirectGrantBody = document.getElementById("sofa-direct-grants-body");
-    DOM.sofaInheritedGrantBody = document.getElementById("sofa-inherited-grants-body");
-    DOM.sofaDirectGrantCount = document.getElementById("sofa-direct-grant-count");
-    DOM.sofaInheritedGrantCount = document.getElementById("sofa-inherited-grant-count");
-    DOM.sofaTotalGrantCount = document.getElementById("sofa-total-grant-count");
-    DOM.editSofaBtn = document.getElementById("edit-sofa-grants-btn");
-    DOM.sofaGrantEditor = document.getElementById("sofa-grant-editor");
-    DOM.sofaGrantList = document.getElementById("sofa-grant-list");
-    DOM.addSofaGrantBtn = document.getElementById("add-sofa-grant-btn");
-    DOM.cancelSofaGrantsBtn = document.getElementById("cancel-sofa-grants-btn");
-    DOM.saveSofaGrantsBtn = document.getElementById("save-sofa-grants-btn");
+    DOM.roleSofaDirectCount = document.getElementById("role-sofa-direct-count");
+    DOM.roleSofaInheritedCount = document.getElementById("role-sofa-inherited-count");
+    DOM.roleSofaTotalCount = document.getElementById("role-sofa-total-count");
 
     // form fields
     DOM.displayName = document.getElementById("res-display-name");
@@ -206,15 +187,11 @@ async function loadRoleDetail() {
     const roleId = window.location.pathname.split("/").pop();
 
     try {
-        const [resp] = await Promise.all([
-            fetch(`/api/roles/${roleId}`),
-            api.getSofaPermissionCatalog()
-        ]);
+        const resp = await fetch(`/api/roles/${roleId}`);
         if (!resp.ok) throw new Error("Rollendetails konnten nicht geladen werden");
 
         role = await resp.json();
         fillRoleInfo();
-        renderSofaPermissions();
         renderResourceTable();
         setupCards();
     } catch (e) {
@@ -234,6 +211,22 @@ function fillRoleInfo() {
     setText("role-status-text", formatRoleStatus(getRoleStatusValue()));
     setText("role-parent-text", role.parent_role_name || "-");
     setText("role-description-text", role.description || "-");
+    fillSofaSummary();
+}
+
+function fillSofaSummary() {
+    const directGrantCount = Array.isArray(role?.sofa_grants) ? role.sofa_grants.length : 0;
+    const inheritedGrantCount = Array.isArray(role?.inherited_sofa_grants) ? role.inherited_sofa_grants.length : 0;
+
+    if (DOM.roleSofaDirectCount) {
+        DOM.roleSofaDirectCount.textContent = `${directGrantCount} direkte Grants`;
+    }
+    if (DOM.roleSofaInheritedCount) {
+        DOM.roleSofaInheritedCount.textContent = `${inheritedGrantCount} geerbte Grants`;
+    }
+    if (DOM.roleSofaTotalCount) {
+        DOM.roleSofaTotalCount.textContent = `${directGrantCount + inheritedGrantCount} gesamt`;
+    }
 }
 
 function setText(id, value) {
@@ -683,13 +676,6 @@ function bindBaseEvents() {
     DOM.editBtn.addEventListener("click", editRole);
     DOM.cancelEdit.addEventListener("click", cancelEdit);
     DOM.saveEdit.addEventListener("click", saveRoleEdit);
-    DOM.editSofaBtn.addEventListener("click", openSofaGrantEditor);
-    DOM.cancelSofaGrantsBtn.addEventListener("click", closeSofaGrantEditor);
-    DOM.addSofaGrantBtn.addEventListener("click", () => {
-        DOM.sofaGrantList.appendChild(createGrantEditorRow());
-    });
-    DOM.saveSofaGrantsBtn.addEventListener("click", saveSofaGrantEdit);
-
     DOM.addResBtn.addEventListener("click", () => openOverlay("add"));
     DOM.rmResBtn.addEventListener("click", () => openOverlay("rm"));
 
