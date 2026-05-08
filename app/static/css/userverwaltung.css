@@ -174,7 +174,7 @@
     box-shadow: none;
     border-radius: 0;
     overflow: auto;
-    max-height: min(34rem, 60vh);
+    max-height: 65vh;
 }
 
 #user-table {
