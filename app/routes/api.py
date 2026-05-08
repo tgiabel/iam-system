@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from datetime import date
+import json
 
 import httpx  # type: ignore
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile  # type: ignore
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Request, UploadFile  # type: ignore
 from fastapi.responses import JSONResponse, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
 from app.authz import (
+    build_authorization_context_from_user,
+    get_authz_payload_for_template,
+    get_current_user,
     require_any_page_access,
     require_capability,
     require_login,
@@ -18,6 +22,7 @@ from app.routes.shared import (
     _build_template_context,
     _coerce_bool,
     _coerce_int,
+    _build_session_user_from_login,
     _error_content_from_response,
     _filter_processes_for_scope,
     _filter_tasks_for_scope,
@@ -36,6 +41,14 @@ from app.sofa_permissions import (
 
 
 router = APIRouter(prefix="/api")
+
+
+def _request_uses_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    if forwarded_proto:
+        primary_proto = forwarded_proto.split(",")[0].strip().lower()
+        return primary_proto == "https"
+    return request.url.scheme.lower() == "https"
 
 
 def _normalize_role_detail_payload(payload: dict | None) -> dict:
@@ -140,6 +153,66 @@ async def api_sofa_permissions(current_user=Depends(require_page_access("roles")
         )
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/session/authz")
+async def api_session_authz_refresh(request: Request, sofa_user: str | None = Cookie(default=None)):
+    try:
+        session_user = get_current_user(sofa_user)
+    except Exception:
+        session_user = None
+
+    if not isinstance(session_user, dict):
+        return JSONResponse(content={"detail": "Keine aktive Session vorhanden."}, status_code=401)
+
+    normalized_session_user = await _build_session_user_from_login(session_user)
+    session_user_id = _coerce_int(normalized_session_user.get("user_id"))
+    if session_user_id is None:
+        return JSONResponse(content={"detail": "Session konnte nicht eindeutig aufgeloest werden."}, status_code=401)
+
+    stale_authz = get_authz_payload_for_template(build_authorization_context_from_user(normalized_session_user))
+
+    try:
+        refreshed_user = await api_client.get_current_user(session_user_id)
+        normalized_user = await _build_session_user_from_login(refreshed_user)
+        refreshed_authz = get_authz_payload_for_template(build_authorization_context_from_user(normalized_user))
+
+        response = JSONResponse(
+            content={
+                "user": normalized_user,
+                "authz": refreshed_authz,
+                "refreshed": True,
+            }
+        )
+        response.set_cookie(
+            key="sofa_user",
+            value=json.dumps(normalized_user),
+            httponly=True,
+            max_age=3600 * 8,
+            samesite="lax",
+            secure=_request_uses_https(request),
+        )
+        return response
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content={
+                "detail": _error_content_from_response(exc.response).get("detail", "Berechtigungen konnten nicht aktualisiert werden."),
+                "user": normalized_session_user,
+                "authz": stale_authz,
+                "refreshed": False,
+            },
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(
+            content={
+                "detail": str(exc),
+                "user": normalized_session_user,
+                "authz": stale_authz,
+                "refreshed": False,
+            },
+            status_code=503,
+        )
 
 
 @router.get("/users")
@@ -826,10 +899,14 @@ async def api_replace_role_sofa_grants(role_id: int, payload: dict, current_user
             "grants": normalize_role_scoped_grants(payload.get("grants")),
         }
         result = await api_client.replace_role_sofa_grants(role_id, request_payload)
-        normalized_result = dict(result or {})
-        normalized_result["grants"] = normalize_role_scoped_grants(
-            normalized_result.get("grants") if isinstance(normalized_result.get("grants"), list) else request_payload["grants"]
-        )
+        normalized_result = dict(result) if isinstance(result, dict) else {}
+
+        if isinstance(result, list):
+            normalized_result["grants"] = normalize_role_scoped_grants(result)
+        else:
+            normalized_result["grants"] = normalize_role_scoped_grants(
+                normalized_result.get("grants") if isinstance(normalized_result.get("grants"), list) else request_payload["grants"]
+            )
         return JSONResponse(content=normalized_result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(

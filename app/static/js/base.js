@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const AUTHZ_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
     const root = document.documentElement;
     const adminBtn = document.getElementById("admin-button");
     const navAdmin = document.getElementById("nav-admin");
@@ -25,6 +26,20 @@ document.addEventListener("DOMContentLoaded", () => {
         { key: "servodata", icon: "/static/img/duck-icon-white.png", label: "Servodata-Theme" }
     ];
     const validThemeKeys = themes.map(theme => theme.key);
+    let authzRefreshTimer = null;
+    let authzRefreshInFlight = false;
+
+    try {
+        const flashMessage = window.sessionStorage.getItem("flash_msg");
+        const flashType = window.sessionStorage.getItem("flash_type");
+        if (flashMessage) {
+            showFlash(flashMessage, flashType || "success");
+            window.sessionStorage.removeItem("flash_msg");
+            window.sessionStorage.removeItem("flash_type");
+        }
+    } catch (error) {
+        console.debug("Session flash state could not be restored.", error);
+    }
 
     function closeDropdowns() {
         [navAdmin, navProfile].forEach(parent => {
@@ -194,6 +209,145 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             console.debug("Theme state could not be persisted.", error);
         }
+    }
+
+    function getCurrentAuthz() {
+        return window.currentAuthz || { pages: [], capabilities: [], scopes: {} };
+    }
+
+    function hasPageAccess(pageKey) {
+        const pages = getCurrentAuthz().pages;
+        return Array.isArray(pages) && pages.includes(pageKey);
+    }
+
+    function hasCapability(capabilityKey) {
+        const capabilities = getCurrentAuthz().capabilities;
+        return Array.isArray(capabilities) && capabilities.includes(capabilityKey);
+    }
+
+    function parseRequirementList(rawValue) {
+        return String(rawValue || "")
+            .split(",")
+            .map(item => item.trim())
+            .filter(Boolean);
+    }
+
+    function setAuthzElementState(element, isAllowed) {
+        const mode = element.dataset.authzMode || (
+            element.matches("button, input, select, textarea, a") ? "disable" : "hide"
+        );
+
+        if (mode === "hide") {
+            element.hidden = !isAllowed;
+            return;
+        }
+
+        const shouldDisable = !isAllowed;
+        if ("disabled" in element) {
+            element.disabled = shouldDisable;
+        }
+        element.classList.toggle("is-disabled", shouldDisable);
+        element.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
+    }
+
+    function applyAuthzDomState() {
+        document.querySelectorAll("[data-requires-page], [data-requires-capability]").forEach(element => {
+            const requiredPages = parseRequirementList(element.dataset.requiresPage);
+            const requiredCapabilities = parseRequirementList(element.dataset.requiresCapability);
+
+            const pageAllowed = !requiredPages.length || requiredPages.some(hasPageAccess);
+            const capabilityAllowed = !requiredCapabilities.length || requiredCapabilities.some(hasCapability);
+            setAuthzElementState(element, pageAllowed && capabilityAllowed);
+        });
+    }
+
+    function getRequiredPageForPath(pathname) {
+        const currentPath = normalizePath(pathname);
+        const pageTargets = [
+            { page: "tasks", path: "/tasks" },
+            { page: "tools", path: "/tools" },
+            { page: "console", path: "/console" },
+            { page: "users", path: "/users" },
+            { page: "systems", path: "/systems" },
+            { page: "roles", path: "/roles" },
+            { page: "iks", path: "/iks" }
+        ];
+        return pageTargets.find(target => pathMatches(currentPath, target.path))?.page || null;
+    }
+
+    function queueRedirectFlash(message, category = "failure") {
+        try {
+            window.sessionStorage.setItem("flash_msg", message);
+            window.sessionStorage.setItem("flash_type", category);
+        } catch (error) {
+            console.debug("Redirect flash state could not be persisted.", error);
+        }
+    }
+
+    function handleAuthzLossAfterRefresh() {
+        const requiredPage = getRequiredPageForPath(window.location.pathname);
+        if (!requiredPage || hasPageAccess(requiredPage)) {
+            return false;
+        }
+
+        queueRedirectFlash("Deine Berechtigungen wurden aktualisiert. Diese Seite ist nicht mehr verfuegbar.");
+        window.location.href = "/";
+        return true;
+    }
+
+    async function refreshSessionAuthz() {
+        if (authzRefreshInFlight || !window.currentAuthz) {
+            return;
+        }
+
+        authzRefreshInFlight = true;
+
+        try {
+            const response = await fetch("/api/session/authz", {
+                headers: { Accept: "application/json" }
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (response.status === 401) {
+                queueRedirectFlash("Deine Session ist abgelaufen. Bitte melde dich erneut an.");
+                window.location.href = "/login";
+                return;
+            }
+
+            if (!response.ok) {
+                throw new Error(data.detail || data.error || "Berechtigungen konnten nicht aktualisiert werden.");
+            }
+
+            if (data && typeof data === "object") {
+                if (data.authz) {
+                    window.currentAuthz = data.authz;
+                }
+                if (data.user) {
+                    window.currentUser = data.user;
+                }
+            }
+
+            applyAuthzDomState();
+            window.dispatchEvent(new CustomEvent("sofa:authz-updated", { detail: data || {} }));
+            handleAuthzLossAfterRefresh();
+        } catch (error) {
+            console.error("Berechtigungs-Refresh fehlgeschlagen", error);
+        } finally {
+            authzRefreshInFlight = false;
+        }
+    }
+
+    function startAuthzRefresh() {
+        if (!window.currentAuthz || authzRefreshTimer) {
+            return;
+        }
+
+        authzRefreshTimer = window.setInterval(refreshSessionAuthz, AUTHZ_REFRESH_INTERVAL_MS);
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+                refreshSessionAuthz();
+            }
+        });
     }
 
     // toggle helper
@@ -366,6 +520,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     markActiveNavigation();
+    applyAuthzDomState();
+    startAuthzRefresh();
 
     // click outside closes menus
     window.addEventListener("click", event => {

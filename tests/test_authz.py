@@ -25,6 +25,10 @@ except ModuleNotFoundError:
         def __init__(self, content=None, status_code=200):
             self.status_code = status_code
             self.body = json.dumps(content).encode("utf-8")
+            self.headers = {}
+
+        def set_cookie(self, key, value, **kwargs):
+            self.headers["set-cookie"] = f"{key}={value}"
 
     class HTMLResponse:
         pass
@@ -140,6 +144,7 @@ from app.routes.api import (
     api_get_role_detail,
     api_get_role_sofa_grants,
     api_replace_role_sofa_grants,
+    api_session_authz_refresh,
     api_sofa_permissions,
 )
 from app.routes.shared import _task_is_visible_to_user
@@ -507,6 +512,76 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertEqual(captured["payload"]["initiator_user_id"], 7)
         self.assertEqual(captured["payload"]["grants"][0]["resource_ids"], [55, 56])
         self.assertEqual(payload["grants"][0]["permission"], "tasks.backlog.view")
+
+    def test_api_replace_role_sofa_grants_accepts_list_response_without_error(self):
+        authz = build_authorization_context_from_user(
+            make_user(
+                user_id=7,
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={"version": 1, "grants": [make_grant("roles.view")]},
+            )
+        )
+
+        async def fake_replace_role_sofa_grants(*args, **kwargs):
+            return [
+                {
+                    "permission": "tasks.backlog.view",
+                    "all_scoped_resources": False,
+                    "resource_ids": [55, 56],
+                }
+            ]
+
+        with patch("app.routes.api.api_client.replace_role_sofa_grants", new=fake_replace_role_sofa_grants):
+            response = run_async(
+                api_replace_role_sofa_grants(
+                    21,
+                    {"grants": [{"permission": "tasks.backlog.view", "all_scoped_resources": False, "resource_ids": [55, 56]}]},
+                    current_user=authz,
+                )
+            )
+
+        payload = json.loads(response.body)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["grants"][0]["permission"], "tasks.backlog.view")
+        self.assertEqual(payload["grants"][0]["resource_ids"], [55, 56])
+
+    def test_api_session_authz_refresh_updates_cookie_and_authz(self):
+        session_user = make_user(
+            primary_role=make_role(7, "Agent"),
+            sofa_authorization={"version": 1, "grants": [make_grant("tasks.view")]},
+        )
+        refreshed_user = make_user(
+            primary_role=make_role(21, "IT"),
+            sofa_authorization={
+                "version": 1,
+                "grants": [
+                    make_grant("roles.view"),
+                    make_grant("console.view"),
+                ],
+            },
+        )
+        request = types.SimpleNamespace(headers={}, url=types.SimpleNamespace(scheme="http"))
+
+        async def fake_get_current_user(*args, **kwargs):
+            return refreshed_user
+
+        with patch("app.routes.api.api_client.get_current_user", new=fake_get_current_user):
+            response = run_async(api_session_authz_refresh(request=request, sofa_user=json.dumps(session_user)))
+
+        payload = json.loads(response.body)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(payload["refreshed"])
+        self.assertIn("roles", payload["authz"]["pages"])
+        self.assertIn("set-cookie", getattr(response, "headers", {}))
+
+    def test_api_session_authz_refresh_returns_401_without_session(self):
+        request = types.SimpleNamespace(headers={}, url=types.SimpleNamespace(scheme="http"))
+
+        response = run_async(api_session_authz_refresh(request=request, sofa_user=None))
+
+        payload = json.loads(response.body)
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Keine aktive Session", payload["detail"])
 
 
 if __name__ == "__main__":
