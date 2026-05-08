@@ -1,11 +1,11 @@
 if (!window.taskOverlayInitialized) {
     document.addEventListener("DOMContentLoaded", () => {
-        initTabs();
         initTaskOverlay();
         initMailDialog();
         initTaskWarningDialog();
         initTaskActionHandling();
         initTaskFilters();
+        initTaskBulkActions();
         loadInitialTaskData();
     });
     window.taskOverlayInitialized = true;
@@ -20,7 +20,7 @@ const LABELS = {
     },
     handling: {
         INTERNAL: "Intern",
-        EXTERNAL: "Extern",
+        EXTERNAL: "Mail",
         BOT: "Automatisiert"
     },
     taskType: {
@@ -75,21 +75,17 @@ const taskViewState = {
         backlog: []
     },
     backlogLookup: {},
+    filteredBuckets: {
+        open: [],
+        blocked: [],
+        mine: [],
+        completed: []
+    },
     buckets: {
         open: [],
         blocked: [],
         mine: [],
         completed: []
-    }
-};
-
-const processViewState = {
-    loaded: false,
-    loading: false,
-    error: null,
-    data: {
-        running_processes: [],
-        completed_processes: []
     }
 };
 
@@ -262,6 +258,23 @@ function formatHistoryAction(action) {
 
 function formatHistoryUser(entry) {
     return entry.user_id || entry.user_name || entry.username || "-";
+}
+
+function extractErrorMessage(detail, fallback) {
+    if (typeof detail === "string" && detail.trim()) {
+        return detail;
+    }
+
+    if (detail && typeof detail === "object") {
+        if (typeof detail.message === "string" && detail.message.trim()) {
+            return detail.message;
+        }
+        if (typeof detail.error === "string" && detail.error.trim()) {
+            return detail.error;
+        }
+    }
+
+    return fallback;
 }
 
 function normalizeBacklogId(value) {
@@ -742,7 +755,7 @@ function renderTaskActions(task) {
     actionsEl.append(createActionButton("Freigeben", "release", "red"));
 
     if (task.handling_type === "EXTERNAL") {
-        actionsEl.append(createActionButton("Extern beauftragen", "external", "secondary"));
+        actionsEl.append(createActionButton("Mail versenden", "external", "secondary"));
     }
 
     if (task.handling_type === "BOT") {
@@ -750,6 +763,204 @@ function renderTaskActions(task) {
     }
 
     actionsEl.append(createActionButton("Erledigt", "complete", "primary", "task-complete-btn"));
+}
+
+async function requestTaskAssign(taskId) {
+    try {
+        const res = await fetch(`/api/tasks/${taskId}/assign?user_id=${window.currentUserId}`, {
+            method: "PATCH"
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            return {
+                ok: false,
+                status: res.status,
+                message: extractErrorMessage(
+                    data.detail || data.error,
+                    res.status === 409 ? "Task wurde bereits übernommen" : "Fehler beim Übernehmen des Tasks."
+                )
+            };
+        }
+
+        return { ok: true, data };
+    } catch (err) {
+        console.error("Assign Task Error:", err);
+        return {
+            ok: false,
+            status: 0,
+            message: "Fehler beim Übernehmen des Tasks."
+        };
+    }
+}
+
+async function requestTaskRelease(taskId) {
+    try {
+        const res = await fetch(`/api/tasks/${taskId}/assign`, {
+            method: "DELETE"
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            return {
+                ok: false,
+                status: res.status,
+                message: extractErrorMessage(data.detail || data.error, "Fehler beim Freigeben")
+            };
+        }
+
+        return { ok: true, data };
+    } catch (err) {
+        console.error("Release Task Error:", err);
+        return {
+            ok: false,
+            status: 0,
+            message: "Fehler beim Freigeben"
+        };
+    }
+}
+
+function setTaskBulkButtonState(button, isBusy, busyLabel) {
+    if (!button) {
+        return;
+    }
+
+    if (!button.dataset.defaultLabel) {
+        button.dataset.defaultLabel = button.textContent;
+    }
+
+    button.dataset.busy = isBusy ? "true" : "false";
+    button.disabled = isBusy;
+    button.textContent = isBusy ? busyLabel : button.dataset.defaultLabel;
+}
+
+function updateTaskBulkActionState(filteredBuckets = taskViewState.filteredBuckets) {
+    const openBulkButton = document.getElementById("open-tasks-bulk-assign");
+    const myBulkButton = document.getElementById("my-tasks-bulk-release");
+    const openBusy = openBulkButton?.dataset.busy === "true";
+    const mineBusy = myBulkButton?.dataset.busy === "true";
+
+    if (openBulkButton) {
+        openBulkButton.disabled = openBusy || !filteredBuckets.open.length;
+    }
+
+    if (myBulkButton) {
+        myBulkButton.disabled = mineBusy || !filteredBuckets.mine.length;
+    }
+}
+
+function buildBulkActionSummary(successCount, failedTasks, successLabel) {
+    if (!failedTasks.length) {
+        return {
+            type: "success",
+            message: `${successCount} ${successLabel}.`
+        };
+    }
+
+    const failureHint = failedTasks[0]?.message
+        ? ` Erste Meldung: ${failedTasks[0].message}`
+        : "";
+
+    if (!successCount) {
+        return {
+            type: "failure",
+            message: `Keine Aufgabe verarbeitet.${failureHint}`
+        };
+    }
+
+    return {
+        type: "failure",
+        message: `${successCount} ${successLabel}, ${failedTasks.length} fehlgeschlagen.${failureHint}`
+    };
+}
+
+async function handleBulkTaskAction({ buttonId, busyLabel, taskSelector, requestHandler, successLabel }) {
+    const button = document.getElementById(buttonId);
+    const tasks = taskSelector();
+
+    if (!button || !tasks.length) {
+        return;
+    }
+
+    setTaskBulkButtonState(button, true, busyLabel);
+
+    const failedTasks = [];
+    let successCount = 0;
+
+    try {
+        for (const task of tasks) {
+            const result = await requestHandler(task.task_id);
+            if (result.ok) {
+                successCount += 1;
+            } else {
+                failedTasks.push({
+                    taskId: task.task_id,
+                    message: result.message
+                });
+            }
+        }
+
+        await loadTasks();
+
+        const summary = buildBulkActionSummary(successCount, failedTasks, successLabel);
+        showFlash(summary.message, summary.type);
+    } finally {
+        setTaskBulkButtonState(button, false, busyLabel);
+        updateTaskBulkActionState(taskViewState.filteredBuckets);
+    }
+}
+
+function initTaskBulkActions() {
+    const openBulkButton = document.getElementById("open-tasks-bulk-assign");
+    const myBulkButton = document.getElementById("my-tasks-bulk-release");
+
+    if (openBulkButton && openBulkButton.dataset.bound !== "true") {
+        openBulkButton.dataset.bound = "true";
+        openBulkButton.addEventListener("click", async () => {
+            await handleBulkTaskAction({
+                buttonId: "open-tasks-bulk-assign",
+                busyLabel: "Übernehme...",
+                taskSelector: () => [...taskViewState.filteredBuckets.open],
+                requestHandler: requestTaskAssign,
+                successLabel: "Aufgaben übernommen"
+            });
+        });
+    }
+
+    if (myBulkButton && myBulkButton.dataset.bound !== "true") {
+        myBulkButton.dataset.bound = "true";
+        myBulkButton.addEventListener("click", async () => {
+            await handleBulkTaskAction({
+                buttonId: "my-tasks-bulk-release",
+                busyLabel: "Gebe frei...",
+                taskSelector: () => [...taskViewState.filteredBuckets.mine],
+                requestHandler: requestTaskRelease,
+                successLabel: "Aufgaben freigegeben"
+            });
+        });
+    }
+
+    updateTaskBulkActionState();
+}
+
+async function refreshTaskModalFromOverview(taskId) {
+    const didLoad = await loadTasks();
+    if (!didLoad) {
+        return null;
+    }
+
+    const refreshedTask = window.taskIndex?.[String(taskId)];
+    if (!refreshedTask) {
+        closeOverlay("task-overlay");
+        showFlash("Task ist nicht mehr verfügbar.", "failure");
+        return null;
+    }
+
+    window.currentTask = refreshedTask;
+    populateTaskModal(refreshedTask);
+    renderTaskActions(refreshedTask);
+    await loadTaskHistory(taskId, { showLoading: false });
+    return refreshedTask;
 }
 
 function openOverlay(elementId) {
@@ -1009,38 +1220,6 @@ async function openTaskOverlay(task) {
     await loadTaskHistory(task.task_id);
 }
 
-function initTabs() {
-    const tabs = document.querySelectorAll(".tasks-tab");
-    const tabPanels = document.querySelectorAll(".tasks-tab-panel");
-
-    function activateTab(target) {
-        tabs.forEach(item => {
-            const isActive = item.dataset.tab === target;
-            item.classList.toggle("active", isActive);
-            item.setAttribute("aria-selected", String(isActive));
-        });
-
-        tabPanels.forEach(panel => {
-            const isActive = panel.id === `tab-${target}`;
-            panel.classList.toggle("active", isActive);
-            panel.setAttribute("aria-hidden", String(!isActive));
-        });
-
-        if (target === "prozesse") {
-            loadProcesses();
-        }
-    }
-
-    tabs.forEach(tab => {
-        tab.addEventListener("click", () => {
-            activateTab(tab.dataset.tab);
-        });
-    });
-
-    const initiallyActive = document.querySelector(".tasks-tab.active")?.dataset.tab || "aufgaben";
-    activateTab(initiallyActive);
-}
-
 function initTaskOverlay() {
     const historyToggle = document.getElementById("history-toggle");
     historyToggle?.addEventListener("click", () => {
@@ -1164,48 +1343,57 @@ function initTaskActionHandling() {
 
         if (action === "assign") {
             try {
-                const res = await fetch(`/api/tasks/${task.task_id}/assign?user_id=${window.currentUserId}`, {
-                    method: "PATCH"
-                });
+                btn.disabled = true;
+                btn.textContent = "Übernehme...";
 
-                if (!res.ok) {
-                    if (res.status === 409) {
-                        showFlash("Task wurde bereits übernommen", "failure");
-                        await loadTasks();
-                        return;
+                const result = await requestTaskAssign(task.task_id);
+                if (!result.ok) {
+                    showFlash(result.message, "failure");
+
+                    if ([404, 409].includes(result.status)) {
+                        await refreshTaskModalFromOverview(task.task_id);
                     }
-
-                    throw new Error("Assign fehlgeschlagen");
+                    return;
                 }
 
-                showFlash("Task erfolgreich übernommen");
-                await res.json();
-                closeOverlay("task-overlay");
-                await loadTasks();
+                showFlash("Task erfolgreich übernommen", "success");
+                await refreshTaskModalFromOverview(task.task_id);
             } catch (err) {
                 console.error(err);
-                alert("Fehler beim Übernehmen des Tasks.");
+                showFlash("Fehler beim Übernehmen des Tasks.", "failure");
+            } finally {
+                if (btn.isConnected) {
+                    btn.disabled = false;
+                    btn.textContent = "Übernehmen";
+                }
             }
         }
 
         if (action === "release") {
             try {
-                const res = await fetch(`/api/tasks/${task.task_id}/assign`, {
-                    method: "DELETE"
-                });
+                btn.disabled = true;
+                btn.textContent = "Gebe frei...";
 
-                if (!res.ok) {
-                    const err = await res.json();
-                    showFlash(err.detail || "Fehler beim Freigeben", "failure");
-                    throw new Error(err.detail || "API Error");
+                const result = await requestTaskRelease(task.task_id);
+                if (!result.ok) {
+                    showFlash(result.message, "failure");
+
+                    if ([404, 409].includes(result.status)) {
+                        await refreshTaskModalFromOverview(task.task_id);
+                    }
+                    return;
                 }
 
-                await res.json();
-                showFlash("Task erfolgreich freigegeben");
-                closeOverlay("task-overlay");
-                await loadTasks();
+                showFlash("Task erfolgreich freigegeben", "success");
+                await refreshTaskModalFromOverview(task.task_id);
             } catch (err) {
                 console.error("Release Task Error:", err);
+                showFlash("Fehler beim Freigeben", "failure");
+            } finally {
+                if (btn.isConnected) {
+                    btn.disabled = false;
+                    btn.textContent = "Freigeben";
+                }
             }
         }
 
@@ -1393,189 +1581,6 @@ async function dispatchBot(task) {
     }
 }
 
-function getFirstArrayByKeys(data, keys) {
-    for (const key of keys) {
-        if (Array.isArray(data?.[key])) {
-            return data[key];
-        }
-    }
-    return [];
-}
-
-function extractProcessBuckets(data) {
-    const running = getFirstArrayByKeys(data, [
-        "running_processes",
-        "open_processes",
-        "active_processes",
-        "ongoing_processes"
-    ]);
-
-    const completed = getFirstArrayByKeys(data, [
-        "completed_processes",
-        "closed_processes",
-        "finished_processes"
-    ]);
-
-    if (running.length || completed.length) {
-        return { running, completed };
-    }
-
-    const allProcesses = getFirstArrayByKeys(data, ["processes"]);
-    if (!allProcesses.length) {
-        return { running: [], completed: [] };
-    }
-
-    return allProcesses.reduce((acc, process) => {
-        const completedAt = firstDefinedValue(process, PROCESS_KEYS.completedAt, null);
-        const status = String(process.status || "").toUpperCase();
-        const isCompleted = Boolean(completedAt) || ["COMPLETED", "DONE", "FINISHED", "CANCELLED"].includes(status);
-
-        if (isCompleted) {
-            acc.completed.push(process);
-        } else {
-            acc.running.push(process);
-        }
-        return acc;
-    }, { running: [], completed: [] });
-}
-
-function computeOpenTaskCount(process) {
-    const explicitCount = firstDefinedValue(process, PROCESS_KEYS.openTaskCount, null);
-    if (explicitCount !== null) {
-        return explicitCount;
-    }
-
-    if (Array.isArray(process.open_tasks)) {
-        return process.open_tasks.length;
-    }
-
-    if (Array.isArray(process.tasks)) {
-        return process.tasks.filter(task => !task.completed_at && task.status !== "COMPLETED").length;
-    }
-
-    return "-";
-}
-
-function renderProcessRow(process, isCompleted) {
-    const id = firstDefinedValue(process, PROCESS_KEYS.id);
-    const name = firstDefinedValue(process, PROCESS_KEYS.name);
-    const target = firstDefinedValue(process, PROCESS_KEYS.target);
-    const triggeredBy = firstDefinedValue(process, PROCESS_KEYS.triggeredBy);
-    const startedAt = formatDateTime(firstDefinedValue(process, PROCESS_KEYS.startedAt, null));
-
-    if (isCompleted) {
-        const completedAt = formatDateTime(firstDefinedValue(process, PROCESS_KEYS.completedAt, null));
-        return `
-            <tr>
-                <td>${escapeHtml(id)}</td>
-                <td>${escapeHtml(name)}</td>
-                <td>${escapeHtml(target)}</td>
-                <td>${escapeHtml(triggeredBy)}</td>
-                <td>${escapeHtml(startedAt)}</td>
-                <td>${escapeHtml(completedAt)}</td>
-            </tr>
-        `;
-    }
-
-    const openTaskCount = computeOpenTaskCount(process);
-    return `
-        <tr>
-            <td>${escapeHtml(id)}</td>
-            <td>${escapeHtml(name)}</td>
-            <td>${escapeHtml(target)}</td>
-            <td>${escapeHtml(triggeredBy)}</td>
-            <td>${escapeHtml(startedAt)}</td>
-            <td>${escapeHtml(openTaskCount)}</td>
-        </tr>
-    `;
-}
-
-function renderProcessStateRow(bodyId, message, variant = "empty") {
-    const body = document.getElementById(bodyId);
-    if (!body) {
-        return;
-    }
-
-    const stateClass = variant === "error"
-        ? "process-state-row process-state-error"
-        : "process-state-row";
-
-    body.innerHTML = `
-        <tr class="${stateClass}">
-            <td colspan="6">
-                <div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>
-            </td>
-        </tr>
-    `;
-}
-
-function renderProcessTable(bodyId, processes, isCompleted) {
-    const body = document.getElementById(bodyId);
-    if (!body) {
-        return;
-    }
-
-    if (!processes.length) {
-        renderProcessStateRow(
-            bodyId,
-            isCompleted ? "Keine abgeschlossenen Prozesse vorhanden." : "Keine laufenden Prozesse vorhanden."
-        );
-        return;
-    }
-
-    body.innerHTML = processes.map(process => renderProcessRow(process, isCompleted)).join("");
-}
-
-function renderProcessTables(data) {
-    const { running, completed } = extractProcessBuckets(data);
-    renderProcessTable("running-processes-body", running, false);
-    renderProcessTable("completed-processes-body", completed, true);
-}
-
-function renderProcessLoadingState() {
-    renderProcessStateRow("running-processes-body", "Lade laufende Prozesse...", "loading");
-    renderProcessStateRow("completed-processes-body", "Lade abgeschlossene Prozesse...", "loading");
-}
-
-function renderProcessErrorState(message) {
-    renderProcessStateRow("running-processes-body", message, "error");
-    renderProcessStateRow("completed-processes-body", message, "error");
-}
-
-async function loadProcesses(forceReload = false) {
-    if (processViewState.loading) {
-        return;
-    }
-
-    if (processViewState.loaded && !forceReload) {
-        renderProcessTables(processViewState.data);
-        return;
-    }
-
-    processViewState.loading = true;
-    processViewState.error = null;
-    renderProcessLoadingState();
-
-    try {
-        const res = await fetch("/api/processes/overview");
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "Fehler beim Laden der Prozesse.");
-        }
-
-        processViewState.loaded = true;
-        processViewState.data = data;
-        renderProcessTables(processViewState.data);
-    } catch (err) {
-        processViewState.error = err;
-        console.error("Prozess-Ladefehler:", err);
-        renderProcessErrorState("Prozessübersicht konnte nicht geladen werden.");
-    } finally {
-        processViewState.loading = false;
-    }
-}
-
 function renderTaskBuckets(filteredBuckets) {
     const openContainer = document.getElementById("open-tasks-slider");
     const myContainer = document.getElementById("my-tasks-slider");
@@ -1608,7 +1613,9 @@ function renderTaskBuckets(filteredBuckets) {
 
 function refreshTaskView() {
     const filteredBuckets = filterTaskBuckets();
+    taskViewState.filteredBuckets = filteredBuckets;
     renderTaskBuckets(filteredBuckets);
+    updateTaskBulkActionState(filteredBuckets);
 
     const visibleCount = Object.values(filteredBuckets).reduce((sum, tasks) => sum + tasks.length, 0);
     const totalCount = Object.values(taskViewState.buckets).reduce((sum, tasks) => sum + tasks.length, 0);
@@ -1729,8 +1736,10 @@ async function loadTasks() {
         });
 
         refreshTaskView();
+        return true;
     } catch (err) {
         console.error("Task-Ladefehler:", err);
         showFlash("Fehler beim Laden der Aufgaben. Siehe Konsole.", "failure");
+        return false;
     }
 }

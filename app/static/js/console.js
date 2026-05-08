@@ -3,6 +3,15 @@ const consoleState = {
     weekOffset: 0,
     loading: false,
     error: null,
+    processes: {
+        loaded: false,
+        loading: false,
+        error: null,
+        data: {
+            running_processes: [],
+            completed_processes: []
+        }
+    },
     reevaluate: {
         roles: [],
         selectedRoleId: "",
@@ -28,6 +37,14 @@ const consoleState = {
 const consoleDOM = {};
 
 const LABELS = {
+    process: {
+        SKILL_ASSIGNMENT: "Rollenzuweisung",
+        SKILL_REMOVAL: "Rollenentzug",
+        TEMPORARY_ROLE: "Temporäre Rolle",
+        ONBOARDING: "Onboarding",
+        OFFBOARDING: "Offboarding",
+        CHANGE: "Funktionswechsel"
+    },
     event_status: {
         PLANNED: "Geplant",
         EXECUTED: "Erledigt",
@@ -54,6 +71,16 @@ const ROLE_REEVALUATION_COUNT_FIELDS = [
     { key: "revoke_count", label: "Entzuege" },
     { key: "abort_count", label: "Abbrueche" }
 ];
+
+const PROCESS_KEYS = {
+    id: ["process_id", "id"],
+    name: ["process_name", "name", "process_type", "type"],
+    target: ["target_name", "for_name", "resource_name", "user_name", "target_user_name"],
+    triggeredBy: ["initiator_name", "triggered_by_name", "created_by_name", "initiator_user_name", "created_by"],
+    startedAt: ["started_at", "created_at", "process_started_at"],
+    completedAt: ["completed_at", "finished_at", "process_completed_at"],
+    openTaskCount: ["open_task_count", "pending_task_count"]
+};
 
 async function fetchJson(url, options = {}, fallback = {}) {
     const response = await fetch(url, options);
@@ -103,6 +130,16 @@ function humanizeToken(value) {
         .filter(Boolean)
         .map(part => part.charAt(0).toUpperCase() + part.slice(1))
         .join(" ");
+}
+
+function firstDefinedValue(record, keys, fallback = "-") {
+    for (const key of keys) {
+        const value = record?.[key];
+        if (value !== undefined && value !== null && value !== "") {
+            return value;
+        }
+    }
+    return fallback;
 }
 
 function parseDateLike(value) {
@@ -206,6 +243,39 @@ function formatTime(value) {
         hour: "2-digit",
         minute: "2-digit"
     }).format(parsed);
+}
+
+function formatDateTime(value) {
+    if (!value) {
+        return "-";
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return date.toLocaleString("de-DE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+}
+
+function formatProcessLabel(process) {
+    const explicitProcessName = firstDefinedValue(process, ["process_name", "name"], "");
+    if (explicitProcessName && explicitProcessName !== "-") {
+        return String(explicitProcessName);
+    }
+
+    const processType = firstDefinedValue(process, ["process_type", "type"], "");
+    if (processType && processType !== "-") {
+        return formatFromMap(LABELS.process, processType);
+    }
+
+    return "Prozess";
 }
 
 function getWeekStart() {
@@ -389,6 +459,181 @@ function bindCalendarControls() {
         consoleState.weekOffset = 0;
         renderCalendar();
     });
+}
+
+function getFirstArrayByKeys(data, keys) {
+    for (const key of keys) {
+        if (Array.isArray(data?.[key])) {
+            return data[key];
+        }
+    }
+    return [];
+}
+
+function extractProcessBuckets(data) {
+    const running = getFirstArrayByKeys(data, [
+        "running_processes",
+        "open_processes",
+        "active_processes",
+        "ongoing_processes"
+    ]);
+
+    const completed = getFirstArrayByKeys(data, [
+        "completed_processes",
+        "closed_processes",
+        "finished_processes"
+    ]);
+
+    if (running.length || completed.length) {
+        return { running, completed };
+    }
+
+    const allProcesses = getFirstArrayByKeys(data, ["processes"]);
+    if (!allProcesses.length) {
+        return { running: [], completed: [] };
+    }
+
+    return allProcesses.reduce((acc, process) => {
+        const completedAt = firstDefinedValue(process, PROCESS_KEYS.completedAt, null);
+        const status = String(process.status || "").toUpperCase();
+        const isCompleted = Boolean(completedAt) || ["COMPLETED", "DONE", "FINISHED", "CANCELLED"].includes(status);
+
+        if (isCompleted) {
+            acc.completed.push(process);
+        } else {
+            acc.running.push(process);
+        }
+        return acc;
+    }, { running: [], completed: [] });
+}
+
+function computeOpenTaskCount(process) {
+    const explicitCount = firstDefinedValue(process, PROCESS_KEYS.openTaskCount, null);
+    if (explicitCount !== null) {
+        return explicitCount;
+    }
+
+    if (Array.isArray(process.open_tasks)) {
+        return process.open_tasks.length;
+    }
+
+    if (Array.isArray(process.tasks)) {
+        return process.tasks.filter(task => !task.completed_at && task.status !== "COMPLETED").length;
+    }
+
+    return "-";
+}
+
+function renderProcessRow(process, isCompleted) {
+    const id = firstDefinedValue(process, PROCESS_KEYS.id);
+    const name = formatProcessLabel(process);
+    const target = firstDefinedValue(process, PROCESS_KEYS.target);
+    const triggeredBy = firstDefinedValue(process, PROCESS_KEYS.triggeredBy);
+    const startedAt = formatDateTime(firstDefinedValue(process, PROCESS_KEYS.startedAt, null));
+
+    if (isCompleted) {
+        const completedAt = formatDateTime(firstDefinedValue(process, PROCESS_KEYS.completedAt, null));
+        return `
+            <tr>
+                <td>${escapeHtml(id)}</td>
+                <td>${escapeHtml(name)}</td>
+                <td>${escapeHtml(target)}</td>
+                <td>${escapeHtml(triggeredBy)}</td>
+                <td>${escapeHtml(startedAt)}</td>
+                <td>${escapeHtml(completedAt)}</td>
+            </tr>
+        `;
+    }
+
+    const openTaskCount = computeOpenTaskCount(process);
+    return `
+        <tr>
+            <td>${escapeHtml(id)}</td>
+            <td>${escapeHtml(name)}</td>
+            <td>${escapeHtml(target)}</td>
+            <td>${escapeHtml(triggeredBy)}</td>
+            <td>${escapeHtml(startedAt)}</td>
+            <td>${escapeHtml(openTaskCount)}</td>
+        </tr>
+    `;
+}
+
+function renderProcessStateRow(body, message, variant = "empty") {
+    if (!body) {
+        return;
+    }
+
+    const stateClass = variant === "error"
+        ? "console-process-state-row console-process-state-error"
+        : "console-process-state-row";
+
+    body.innerHTML = `
+        <tr class="${stateClass}">
+            <td colspan="6">
+                <div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>
+            </td>
+        </tr>
+    `;
+}
+
+function renderProcessTable(body, processes, isCompleted) {
+    if (!body) {
+        return;
+    }
+
+    if (!processes.length) {
+        renderProcessStateRow(
+            body,
+            isCompleted ? "Keine abgeschlossenen Prozesse vorhanden." : "Keine laufenden Prozesse vorhanden."
+        );
+        return;
+    }
+
+    body.innerHTML = processes.map(process => renderProcessRow(process, isCompleted)).join("");
+}
+
+function renderProcessTables(data) {
+    const { running, completed } = extractProcessBuckets(data);
+    renderProcessTable(consoleDOM.runningProcessesBody, running, false);
+    renderProcessTable(consoleDOM.completedProcessesBody, completed, true);
+}
+
+function renderProcessLoadingState() {
+    renderProcessStateRow(consoleDOM.runningProcessesBody, "Lade laufende Prozesse...", "loading");
+    renderProcessStateRow(consoleDOM.completedProcessesBody, "Lade abgeschlossene Prozesse...", "loading");
+}
+
+function renderProcessErrorState(message) {
+    renderProcessStateRow(consoleDOM.runningProcessesBody, message, "error");
+    renderProcessStateRow(consoleDOM.completedProcessesBody, message, "error");
+}
+
+async function loadProcesses(forceReload = false) {
+    if (!consoleDOM.runningProcessesBody || !consoleDOM.completedProcessesBody || consoleState.processes.loading) {
+        return;
+    }
+
+    if (consoleState.processes.loaded && !forceReload) {
+        renderProcessTables(consoleState.processes.data);
+        return;
+    }
+
+    consoleState.processes.loading = true;
+    consoleState.processes.error = null;
+    renderProcessLoadingState();
+
+    try {
+        const data = await fetchJson("/api/processes/overview", {}, {});
+        consoleState.processes.loaded = true;
+        consoleState.processes.data = data;
+        renderProcessTables(consoleState.processes.data);
+    } catch (error) {
+        consoleState.processes.error = error;
+        console.error("Prozess-Ladefehler:", error);
+        renderProcessErrorState("Prozessübersicht konnte nicht geladen werden.");
+    } finally {
+        consoleState.processes.loading = false;
+    }
 }
 
 function hasRoleReevaluationAccess() {
@@ -1280,6 +1525,8 @@ function cacheDom() {
     consoleDOM.prevBtn = document.getElementById("console-week-prev");
     consoleDOM.nextBtn = document.getElementById("console-week-next");
     consoleDOM.currentBtn = document.getElementById("console-week-current");
+    consoleDOM.runningProcessesBody = document.getElementById("console-running-processes-body");
+    consoleDOM.completedProcessesBody = document.getElementById("console-completed-processes-body");
     consoleDOM.reevaluateRoleSelect = document.getElementById("reevaluate-role-select");
     consoleDOM.reevaluatePreviewBtn = document.getElementById("reevaluate-preview-btn");
     consoleDOM.reevaluateFeedback = document.getElementById("reevaluate-feedback");
@@ -1304,6 +1551,10 @@ function cacheDom() {
 
 function initConsole() {
     cacheDom();
+
+    if (consoleDOM.runningProcessesBody && consoleDOM.completedProcessesBody) {
+        loadProcesses();
+    }
 
     if (consoleDOM.grid) {
         bindCalendarControls();

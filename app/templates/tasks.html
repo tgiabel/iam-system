@@ -10,17 +10,7 @@
 {% block content %}
 <div class="page-container tasks-page">
     <section class="tasks-shell">
-        <div class="tasks-tabs" role="tablist" aria-label="Tasks Navigation">
-            <button type="button" class="tasks-tab active" data-tab="aufgaben" role="tab" aria-selected="true" aria-controls="tab-aufgaben" id="tasks-tab-aufgaben">
-                Aufgaben
-            </button>
-            <button type="button" class="tasks-tab" data-tab="prozesse" role="tab" aria-selected="false" aria-controls="tab-prozesse" id="tasks-tab-prozesse">
-                Prozesse
-            </button>
-        </div>
-
-        <section class="tasks-tab-panel active" id="tab-aufgaben" role="tabpanel" aria-labelledby="tasks-tab-aufgaben">
-            <section class="ui-card tasks-discovery-bar" aria-label="Aufgaben durchsuchen und filtern">
+        <section class="ui-card tasks-discovery-bar" aria-label="Aufgaben durchsuchen und filtern">
                 <div class="tasks-search-row">
                     <label class="ui-field-label" for="tasks-search-input">Suche</label>
                     <input
@@ -66,111 +56,48 @@
                     <p class="tasks-filter-summary" id="tasks-filter-summary">Alle Aufgaben sichtbar</p>
                     <button type="button" class="btn btn-secondary" id="tasks-filter-reset">Filter zurücksetzen</button>
                 </div>
-            </section>
+        </section>
 
-            <div class="task-section">
-                <div class="ui-section-header">
-                    <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Offene Aufgaben</p>
-                        <h3 class="ui-section-title">TODO</h3>
-                        <p class="ui-section-copy">Alle aktuell verfügbaren Aufgaben.</p>
-                    </div>
+        <div class="task-section task-section-open">
+            <div class="ui-section-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Offene Aufgaben</p>
+                    <h3 class="ui-section-title">TODO</h3>
+                    <p class="ui-section-copy">Alle aktuell verfügbaren Aufgaben.</p>
+                </div>
+                <div class="task-section-actions">
+                    <button type="button" class="btn btn-secondary" id="open-tasks-bulk-assign">Alle übernehmen</button>
                     <span class="ui-count-pill" id="open-tasks-count">0</span>
                 </div>
-                <div class="task-strip" id="open-tasks-slider"></div>
             </div>
+            <div class="task-strip" id="open-tasks-slider"></div>
+        </div>
 
-            <div class="task-section">
-                <div class="ui-section-header">
-                    <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Meine Aufgaben</p>
-                        <h3 class="ui-section-title">IN BEARBEITUNG</h3>
-                        <p class="ui-section-copy">Aufgaben, die gerade von dir bearbeitet werden.</p>
-                    </div>
+        <div class="task-section task-section-progress">
+            <div class="ui-section-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Meine Aufgaben</p>
+                    <h3 class="ui-section-title">IN BEARBEITUNG</h3>
+                    <p class="ui-section-copy">Aufgaben, die gerade von dir bearbeitet werden.</p>
+                </div>
+                <div class="task-section-actions">
+                    <button type="button" class="btn btn-red" id="my-tasks-bulk-release">Alle freigeben</button>
                     <span class="ui-count-pill" id="my-tasks-count">0</span>
                 </div>
-                <div class="task-strip" id="my-tasks-slider"></div>
             </div>
+            <div class="task-strip" id="my-tasks-slider"></div>
+        </div>
 
-            <div class="task-section">
-                <div class="ui-section-header">
-                    <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Erledigte Aufgaben</p>
-                        <h3 class="ui-section-title">HISTORIE</h3>
-                        <p class="ui-section-copy">Zuletzt abgeschlossene Aufgaben zur schnellen Nachverfolgung.</p>
-                    </div>
-                </div>
-                <div class="task-strip" id="completed-tasks-slider"></div>
-            </div>
-        </section>
-
-        <section class="tasks-tab-panel" id="tab-prozesse" role="tabpanel" aria-labelledby="tasks-tab-prozesse">
-            <div class="process-section">
-                <div class="ui-section-header">
-                    <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Aktiv</p>
-                        <h3 class="ui-section-title">Laufende Prozesse</h3>
-                        <p class="ui-section-copy">Aktive Prozesse und die Anzahl ihrer noch offenen Aufgaben.</p>
-                    </div>
-                </div>
-                <div class="ui-table-card">
-                    <div class="table-wrapper">
-                        <table id="running-processes-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Prozess</th>
-                                    <th>Für</th>
-                                    <th>Ausgelöst von</th>
-                                    <th>Prozessstart</th>
-                                    <th>Offene Aufgaben</th>
-                                </tr>
-                            </thead>
-                            <tbody id="running-processes-body">
-                                <tr class="process-empty-row">
-                                    <td colspan="6">
-                                        <div class="ui-empty-state ui-empty-inline">Keine laufenden Prozesse vorhanden.</div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+        <div class="task-section">
+            <div class="ui-section-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Erledigte Aufgaben</p>
+                    <h3 class="ui-section-title">HISTORIE</h3>
+                    <p class="ui-section-copy">Zuletzt abgeschlossene Aufgaben zur schnellen Nachverfolgung.</p>
                 </div>
             </div>
-
-            <div class="process-section">
-                <div class="ui-section-header">
-                    <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Historie</p>
-                        <h3 class="ui-section-title">Abgeschlossene Prozesse</h3>
-                        <p class="ui-section-copy">Beendete Prozesse für Rückfragen und Nachvollziehbarkeit.</p>
-                    </div>
-                </div>
-                <div class="ui-table-card ui-table-card-muted">
-                    <div class="table-wrapper">
-                        <table id="completed-processes-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Prozess</th>
-                                    <th>Für</th>
-                                    <th>Ausgelöst von</th>
-                                    <th>Prozessstart</th>
-                                    <th>Prozessende</th>
-                                </tr>
-                            </thead>
-                            <tbody id="completed-processes-body">
-                                <tr class="process-empty-row">
-                                    <td colspan="6">
-                                        <div class="ui-empty-state ui-empty-inline">Keine abgeschlossenen Prozesse vorhanden.</div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </section>
+            <div class="task-strip" id="completed-tasks-slider"></div>
+        </div>
     </section>
 </div>
 

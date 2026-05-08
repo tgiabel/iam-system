@@ -12,52 +12,6 @@
     width: 100%;
 }
 
-.tasks-tabs {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-wrap: wrap;
-    width: fit-content;
-    padding: 0.35rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--surface-card) 82%, transparent);
-    border: 1px solid color-mix(in srgb, var(--border-color) 95%, transparent);
-    box-shadow: var(--shadow-soft);
-}
-
-.tasks-tab {
-    border: none;
-    background: transparent;
-    color: var(--text-muted);
-    border-radius: 999px;
-    padding: 0.8rem 1.15rem;
-    font-size: 0.98rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.tasks-tab:hover {
-    color: var(--text-strong);
-}
-
-.tasks-tab.active {
-    background: linear-gradient(135deg, var(--surface-card), var(--surface-soft));
-    color: var(--text-strong);
-    box-shadow: var(--shadow-soft);
-}
-
-.tasks-tab-panel {
-    display: none;
-    width: 100%;
-}
-
-.tasks-tab-panel.active {
-    display: flex;
-    flex-direction: column;
-    gap: 1.6rem;
-}
-
 .tasks-discovery-bar {
     display: flex;
     flex-direction: column;
@@ -92,25 +46,24 @@
     font-size: 0.94rem;
 }
 
-.task-section,
-.process-section {
+.task-section {
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
-.process-section {
-    flex: 0 0 auto;
-}
-
-.process-section .ui-table-card {
+.task-section-actions {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
-.process-section .table-wrapper {
-    overflow: auto;
-    max-height: min(24rem, 40vh);
+.task-section-progress .ui-count-pill {
+    border-color: rgba(194, 103, 11, 0.2);
+    color: #b86206;
+    background: linear-gradient(135deg, #fff4e8, #fff9f0);
 }
 
 .task-strip {
@@ -174,7 +127,7 @@
 }
 
 .task-card.is-mine::before {
-    background: linear-gradient(90deg, #2d7df6, #72b5ff);
+    background: linear-gradient(90deg, #d97706, #f5a524);
 }
 
 .task-card.is-completed::before {
@@ -267,6 +220,12 @@
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+}
+
+.tasks-page .ui-status-progress,
+.task-overlay .ui-status-progress {
+    background: #fff4e8;
+    color: #b86206;
 }
 
 .task-modal-header-actions {
@@ -463,15 +422,6 @@
     white-space: nowrap;
 }
 
-.process-state-row td,
-.process-empty-row td {
-    padding: 0;
-}
-
-.process-state-error .ui-empty-state {
-    color: var(--danger-text);
-}
-
 @media (max-width: 900px) {
     .task-meta-grid {
         grid-template-columns: 1fr;
@@ -522,6 +472,16 @@
     }
 
     .tasks-toolbar-footer .btn {
+        width: 100%;
+    }
+
+    .task-section-actions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .task-section-actions .btn,
+    .task-section-actions .ui-count-pill {
         width: 100%;
     }
 
