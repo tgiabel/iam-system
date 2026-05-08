@@ -20,7 +20,7 @@ const LABELS = {
     },
     handling: {
         INTERNAL: "Intern",
-        EXTERNAL: "Extern",
+        EXTERNAL: "Mail",
         BOT: "Automatisiert"
     },
     taskType: {
@@ -755,7 +755,7 @@ function renderTaskActions(task) {
     actionsEl.append(createActionButton("Freigeben", "release", "red"));
 
     if (task.handling_type === "EXTERNAL") {
-        actionsEl.append(createActionButton("Extern beauftragen", "external", "secondary"));
+        actionsEl.append(createActionButton("Mail versenden", "external", "secondary"));
     }
 
     if (task.handling_type === "BOT") {
