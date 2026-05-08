@@ -317,6 +317,8 @@
     background: transparent;
     box-shadow: none;
     border-radius: 0;
+    min-height: 0;
+    overflow: auto;
 }
 
 .ui-table-card table {
@@ -324,11 +326,19 @@
 }
 
 .ui-table-card thead {
-    background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, white));
+    background: var(--table-header-bg);
 }
 
 .ui-table-card-muted thead {
-    background: linear-gradient(135deg, #7d8ca8, #5f6d87);
+    background: var(--table-header-muted-bg);
+}
+
+.ui-table-card thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: inherit;
+    color: var(--text-inverse);
 }
 
 .ui-table-card tbody tr:hover {

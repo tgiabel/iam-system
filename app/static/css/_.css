@@ -17,6 +17,8 @@
     --header-surface-hover: rgba(255, 255, 255, 0.18);
     --header-border: rgba(255, 255, 255, 0.18);
     --header-shadow: 0 10px 28px rgba(29, 55, 137, 0.18);
+    --table-header-bg: linear-gradient(135deg, color-mix(in srgb, var(--header-bg) 96%, white), color-mix(in srgb, var(--header-bg) 82%, black));
+    --table-header-muted-bg: linear-gradient(135deg, #7d8ca8, #5f6d87);
 
     /* App Surfaces */
     --surface-page: #f6f8fc;
@@ -49,6 +51,9 @@
     --input-border-hover: #a5b3c6;
     --input-readonly-bg: #f2f2f2;
     --input-focus-ring: 0 0 0 3px rgba(65, 105, 225, 0.2);
+    --menu-surface: rgba(255, 255, 255, 0.98);
+    --menu-surface-hover: rgba(65, 105, 225, 0.08);
+    --menu-text: #162133;
     --danger-surface: #fff5f5;
     --danger-text: #b14343;
     --accent-bg: #f2edff;
@@ -85,6 +90,16 @@
     /* Floating Button */
     --fab-bg: #4169e1;
     --fab-hover: #2d4dad;
+    --btn-primary-bg: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 80%, white), var(--color-primary) 100%);
+    --btn-primary-hover-bg: linear-gradient(180deg, color-mix(in srgb, var(--color-primary-hover) 85%, white), var(--color-primary-hover) 100%);
+    --btn-primary-border: rgba(var(--color-primary-rgb), 0.45);
+    --btn-secondary-bg: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 96%, transparent), color-mix(in srgb, var(--surface-muted) 96%, transparent));
+    --btn-secondary-hover-bg: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 100%, transparent), color-mix(in srgb, var(--surface-soft) 96%, transparent));
+    --btn-secondary-border: var(--border-color);
+    --btn-red-bg: linear-gradient(180deg, #ffd7d2 0%, #ffc1b8 100%);
+    --btn-red-hover-bg: linear-gradient(180deg, #ffd0ca 0%, #ffb3a7 100%);
+    --btn-red-border: rgba(188, 74, 61, 0.24);
+    --btn-red-text: #8d2117;
 }
 
 html[data-theme="dark"] {
@@ -129,6 +144,9 @@ html[data-theme="dark"] {
     --input-border-hover: #4b6289;
     --input-readonly-bg: #1a2433;
     --input-focus-ring: 0 0 0 3px rgba(93, 134, 255, 0.28);
+    --menu-surface: rgba(18, 28, 43, 0.98);
+    --menu-surface-hover: rgba(93, 134, 255, 0.16);
+    --menu-text: #edf3ff;
     --danger-surface: rgba(172, 56, 56, 0.15);
     --danger-text: #ff9f9f;
     --accent-bg: rgba(93, 134, 255, 0.16);
@@ -137,6 +155,16 @@ html[data-theme="dark"] {
     --task-completed-bg-end: rgba(21, 32, 49, 0.98);
     --task-blocked-bg-start: rgba(46, 36, 73, 0.92);
     --task-blocked-bg-end: rgba(21, 32, 49, 0.98);
+    --btn-primary-bg: linear-gradient(180deg, #4768c9 0%, #3552a8 100%);
+    --btn-primary-hover-bg: linear-gradient(180deg, #5274db 0%, #3e5fc0 100%);
+    --btn-primary-border: rgba(143, 176, 255, 0.34);
+    --btn-secondary-bg: linear-gradient(180deg, #243248 0%, #1b2738 100%);
+    --btn-secondary-hover-bg: linear-gradient(180deg, #2b3a54 0%, #223146 100%);
+    --btn-secondary-border: #395172;
+    --btn-red-bg: linear-gradient(180deg, #8f3e3e 0%, #6e2525 100%);
+    --btn-red-hover-bg: linear-gradient(180deg, #a34747 0%, #7e2c2c 100%);
+    --btn-red-border: rgba(255, 159, 159, 0.24);
+    --btn-red-text: #ffe5e5;
 }
 
 html[data-theme="servodata"] {
@@ -181,6 +209,9 @@ html[data-theme="servodata"] {
     --input-border-hover: #4b6289;
     --input-readonly-bg: #1a2433;
     --input-focus-ring: 0 0 0 3px rgba(93, 134, 255, 0.28);
+    --menu-surface: rgba(18, 28, 43, 0.98);
+    --menu-surface-hover: rgba(93, 134, 255, 0.16);
+    --menu-text: #edf3ff;
     --danger-surface: rgba(172, 56, 56, 0.15);
     --danger-text: #ff9f9f;
     --accent-bg: rgba(93, 134, 255, 0.16);
@@ -195,6 +226,16 @@ html[data-theme="servodata"] {
     --main-background-size: cover, 520px auto;
     --main-background-repeat: no-repeat, repeat;
     --main-background-position: center, center top;
+    --btn-primary-bg: linear-gradient(180deg, #4f72d8 0%, #3857b2 100%);
+    --btn-primary-hover-bg: linear-gradient(180deg, #5b7fe8 0%, #4364c0 100%);
+    --btn-primary-border: rgba(143, 176, 255, 0.34);
+    --btn-secondary-bg: linear-gradient(180deg, #243248 0%, #1b2738 100%);
+    --btn-secondary-hover-bg: linear-gradient(180deg, #2b3a54 0%, #223146 100%);
+    --btn-secondary-border: #395172;
+    --btn-red-bg: linear-gradient(180deg, #8f3e3e 0%, #6e2525 100%);
+    --btn-red-hover-bg: linear-gradient(180deg, #a34747 0%, #7e2c2c 100%);
+    --btn-red-border: rgba(255, 159, 159, 0.24);
+    --btn-red-text: #ffe5e5;
 }
 
 /* =========================
@@ -223,6 +264,7 @@ main {
     flex-direction: column;
     align-items: center;
     width: 100%;
+    min-height: 0;
     padding: 0 50px;
     background-color: var(--surface-page);
     background-image: var(--main-background-image);
@@ -301,6 +343,10 @@ p, span, a, label {
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+body.mobile-nav-open {
+    overflow: hidden;
+}
+
 .header-left, .header-center, .header-right {
     display: flex;
     align-items: center;
@@ -315,6 +361,42 @@ p, span, a, label {
 .header-right .nav-links {
     width: auto;
     justify-content: flex-end;
+}
+
+.mobile-nav-toggle {
+    display: none;
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border: 1px solid var(--header-border);
+    border-radius: 16px;
+    background: var(--header-surface);
+    color: var(--text-inverse);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.mobile-nav-toggle:hover,
+.mobile-nav-toggle:focus-visible,
+body.mobile-nav-open .mobile-nav-toggle {
+    background: var(--header-surface-hover);
+    transform: translateY(-1px);
+}
+
+.mobile-nav-toggle-line {
+    display: block;
+    width: 20px;
+    height: 2px;
+    border-radius: 999px;
+    background: currentColor;
+}
+
+.mobile-nav-panel {
+    display: none;
 }
 
 .brand-link {
@@ -649,40 +731,144 @@ p, span, a, label {
     object-fit: contain;
 }
 
+.mobile-nav-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.mobile-nav-link {
+    display: flex;
+    align-items: center;
+    min-height: 3rem;
+    padding: 0.8rem 0.95rem;
+    border-radius: 16px;
+    color: var(--text-inverse);
+    text-decoration: none;
+    font-weight: 700;
+    background: transparent;
+    transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link:focus-visible,
+.mobile-nav-link.is-active {
+    background: var(--header-surface-hover);
+    outline: none;
+}
+
+.mobile-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding-top: 0.3rem;
+    border-top: 1px solid var(--header-border);
+}
+
+.mobile-nav-group-title {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.95rem 0 0.95rem;
+}
+
 /* ensure no hover-only behavior remains */
 .nav-item:hover .subnav,
 .profile-dropdown:hover .subnav { /* no-op to avoid hover persistence */ }
 
 @media (max-width: 1080px) {
     .main-header {
-        flex-wrap: wrap;
         padding: 12px 18px;
+        min-height: 80px;
     }
 
-    .header-left, .header-center, .header-right {
-        width: 100%;
+    .header-left,
+    .header-right {
+        flex: 0 1 auto;
     }
 
-    .header-left { order: 1; }
-    .header-right { order: 2; }
-    .header-center { order: 3; }
+    .header-center {
+        display: none;
+    }
 
     .header-right {
         justify-content: flex-end;
+        gap: 10px;
     }
 
-    .nav-links {
-        flex-wrap: wrap;
-        row-gap: 0.35rem;
+    .mobile-nav-toggle {
+        display: inline-flex;
     }
 
     .site-title {
         font-size: 1.7rem;
     }
 
+    .profile-label {
+        display: none;
+    }
+
+    .mobile-nav-panel {
+        position: fixed;
+        top: 80px;
+        left: 0;
+        right: 0;
+        z-index: 995;
+        padding: 0 18px 16px;
+        background: linear-gradient(180deg, rgba(15, 28, 53, 0.98), rgba(15, 28, 53, 0.92));
+        box-shadow: var(--header-shadow);
+    }
+
+    body.mobile-nav-open .mobile-nav-panel {
+        display: block;
+    }
+
+    .mobile-nav-links {
+        padding: 1rem;
+        border-radius: 0 0 22px 22px;
+        background: color-mix(in srgb, var(--header-bg) 92%, black);
+        border: 1px solid var(--header-border);
+        border-top: none;
+    }
+
     .profile-modal-userline {
         flex-direction: column;
         align-items: flex-start;
+    }
+}
+
+@media (max-width: 720px) {
+    .main-header {
+        padding: 10px 14px;
+        gap: 12px;
+    }
+
+    .logo-wrapper {
+        width: 52px;
+        height: 52px;
+    }
+
+    .back-logo-button {
+        width: 48px;
+        height: 48px;
+    }
+
+    .site-title {
+        font-size: 1.45rem;
+    }
+
+    .profile-button,
+    .theme-toggle-button,
+    .mobile-nav-toggle {
+        min-width: 46px;
+        min-height: 46px;
+    }
+
+    .mobile-nav-panel {
+        top: 76px;
+        padding: 0 14px 14px;
     }
 }
 
@@ -749,26 +935,24 @@ p, span, a, label {
 }
 
 .btn-primary {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 80%, white), var(--color-primary) 100%);
-    border: 1px solid rgba(var(--color-primary-rgb), 0.45);
+    background: var(--btn-primary-bg);
+    border: 1px solid var(--btn-primary-border);
     color: var(--text-inverse);
 }
 
 .btn-primary:hover:not(:disabled) {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--color-primary-hover) 85%, white), var(--color-primary-hover) 100%);
+    background: var(--btn-primary-hover-bg);
     box-shadow: 0 12px 24px rgba(var(--color-primary-rgb), 0.24);
 }
 
 .btn-secondary {
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 96%, transparent), color-mix(in srgb, var(--surface-muted) 96%, transparent));
-    border: 1px solid var(--border-color);
+    background: var(--btn-secondary-bg);
+    border: 1px solid var(--btn-secondary-border);
     color: var(--text-strong);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 100%, transparent), color-mix(in srgb, var(--surface-soft) 96%, transparent));
+    background: var(--btn-secondary-hover-bg);
     border-color: var(--border-strong);
     color: var(--text-strong);
     box-shadow: var(--shadow-medium);
@@ -783,13 +967,13 @@ p, span, a, label {
 
 
 .btn-red {
-    background: linear-gradient(180deg, #ffd7d2 0%, #ffc1b8 100%);
-    border: 1px solid rgba(188, 74, 61, 0.24);
-    color: #8d2117;
+    background: var(--btn-red-bg);
+    border: 1px solid var(--btn-red-border);
+    color: var(--btn-red-text);
 }
 
 .btn-red:hover:not(:disabled) {
-    background: linear-gradient(180deg, #ffd0ca 0%, #ffb3a7 100%);
+    background: var(--btn-red-hover-bg);
     box-shadow: 0 12px 22px rgba(188, 74, 61, 0.16);
 }
 
