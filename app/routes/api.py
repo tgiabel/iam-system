@@ -30,9 +30,66 @@ from app.routes.shared import (
     _task_matches_target_user,
     templates,
 )
+from app.sofa_permissions import (
+    get_profile_definitions_by_key,
+    get_sofa_permission_registry,
+    get_sofa_profile_registry,
+    normalize_grants,
+)
 
 
 router = APIRouter(prefix="/api")
+
+
+def _normalize_role_profile_keys(raw_profiles) -> list[str]:
+    normalized_keys: list[str] = []
+    seen_keys: set[str] = set()
+
+    if not isinstance(raw_profiles, list):
+        return normalized_keys
+
+    for item in raw_profiles:
+        if isinstance(item, dict):
+            candidate = str(item.get("key") or item.get("profile_key") or "").strip()
+        else:
+            candidate = str(item or "").strip()
+
+        if not candidate or candidate in seen_keys:
+            continue
+
+        seen_keys.add(candidate)
+        normalized_keys.append(candidate)
+
+    return normalized_keys
+
+
+def _normalize_role_profiles(raw_profiles) -> list[dict]:
+    profile_lookup = get_profile_definitions_by_key()
+    normalized_profiles: list[dict] = []
+
+    for profile_key in _normalize_role_profile_keys(raw_profiles):
+        definition = profile_lookup.get(profile_key, {})
+        normalized_profiles.append(
+            {
+                "key": profile_key,
+                "name": str(definition.get("name") or profile_key),
+                "description": str(definition.get("description") or "").strip(),
+            }
+        )
+
+    return normalized_profiles
+
+
+def _normalize_role_detail_payload(payload: dict | None) -> dict:
+    role_payload = dict(payload or {})
+    role_payload["sofa_grants"] = normalize_grants(
+        role_payload.get("sofa_grants")
+        or ((role_payload.get("sofa_authorization") or {}).get("grants") if isinstance(role_payload.get("sofa_authorization"), dict) else [])
+    )
+    role_payload["sofa_profile_keys"] = _normalize_role_profile_keys(role_payload.get("sofa_profiles") or role_payload.get("sofa_profile_keys") or [])
+    role_payload["sofa_profiles"] = _normalize_role_profiles(role_payload["sofa_profile_keys"])
+    role_payload["available_sofa_profiles"] = get_sofa_profile_registry().get("profiles", [])
+    return role_payload
 
 
 @router.post("/tools/datex/convert")
@@ -73,6 +130,21 @@ async def convert_datex_file(
         workbook,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/sofa/permissions")
+async def api_sofa_permissions(current_user=Depends(require_page_access("roles"))):
+    registry = get_sofa_permission_registry()
+    profiles = get_sofa_profile_registry()
+
+    return JSONResponse(
+        content={
+            "version": registry.get("version", 1),
+            "permissions": registry.get("permissions", []),
+            "resource_types": registry.get("resource_types", []),
+            "profiles": profiles.get("profiles", []),
+        }
     )
 
 
@@ -730,8 +802,8 @@ async def api_role_map(current_user=Depends(require_any_page_access("roles", "us
 @router.get("/roles/{role_id}")
 async def api_get_role_detail(role_id: int, current_user=Depends(require_page_access("roles"))):
     try:
-        system_detail = await api_client.get_role_detail(role_id)
-        return JSONResponse(content=system_detail)
+        role_detail = await api_client.get_role_detail(role_id)
+        return JSONResponse(content=_normalize_role_detail_payload(role_detail))
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
@@ -741,6 +813,10 @@ async def api_get_role_detail(role_id: int, current_user=Depends(require_page_ac
 @router.post("/roles/{role_id}")
 async def api_update_role(role_id: int, payload: dict, current_user=Depends(require_page_access("roles"))):
     try:
+        if "sofa_grants" in payload:
+            payload["sofa_grants"] = normalize_grants(payload.get("sofa_grants"))
+        if "sofa_profile_keys" in payload:
+            payload["sofa_profile_keys"] = _normalize_role_profile_keys(payload.get("sofa_profile_keys"))
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.update_role(role_id, payload)
         return JSONResponse(content=result)

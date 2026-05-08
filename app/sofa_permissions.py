@@ -141,6 +141,20 @@ def get_resource_type_definitions_by_key() -> dict[str, dict[str, Any]]:
     return definitions
 
 
+@lru_cache(maxsize=1)
+def get_profile_definitions_by_key() -> dict[str, dict[str, Any]]:
+    registry = get_sofa_profile_registry()
+    definitions: dict[str, dict[str, Any]] = {}
+
+    for item in registry.get("profiles") or []:
+        if not isinstance(item, dict):
+            continue
+        profile_key = _normalize_text(item.get("key"))
+        if profile_key:
+            definitions[profile_key] = item
+
+    return definitions
+
+
 def get_permission_definition(permission_key: str) -> dict[str, Any] | None:
     return get_permission_definitions_by_key().get(permission_key)
-

@@ -136,6 +136,7 @@ from app.authz import (
     require_page_access,
 )
 from app.routes.api import api_users
+from app.routes.api import api_get_role_detail, api_sofa_permissions
 from app.routes.shared import _task_is_visible_to_user
 
 
@@ -374,6 +375,51 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertIsInstance(payload["effective_policy_keys"], list)
         self.assertIsInstance(payload["permission_keys"], list)
         self.assertIsInstance(payload["grants"], list)
+
+    def test_api_role_detail_normalizes_sofa_grants_and_profiles(self):
+        authz = build_authorization_context_from_user(
+            make_user(
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={"version": 1, "grants": [make_grant("roles.view")]},
+            )
+        )
+
+        async def fake_get_role_detail(*args, **kwargs):
+            return {
+                "role_id": 21,
+                "name": "IT",
+                "sofa_grants": [
+                    {"permission": "tasks.view"},
+                    {"permission": "tasks.backlog.view", "resources": {"task_backlogs": {"all": False, "ids": ["7"]}}},
+                ],
+                "sofa_profile_keys": ["operational-admin"],
+            }
+
+        with patch("app.routes.api.api_client.get_role_detail", new=fake_get_role_detail):
+            response = run_async(api_get_role_detail(21, current_user=authz))
+
+        payload = json.loads(response.body)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["sofa_grants"][1]["resources"]["task_backlogs"]["ids"], [7])
+        self.assertEqual(payload["sofa_profiles"][0]["key"], "operational-admin")
+        self.assertTrue(isinstance(payload["available_sofa_profiles"], list))
+
+    def test_api_sofa_permissions_returns_registry(self):
+        authz = build_authorization_context_from_user(
+            make_user(
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={"version": 1, "grants": [make_grant("roles.view")]},
+            )
+        )
+
+        response = run_async(api_sofa_permissions(current_user=authz))
+        payload = json.loads(response.body)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("permissions", payload)
+        self.assertIn("resource_types", payload)
+        self.assertIn("profiles", payload)
+        self.assertTrue(any(item["key"] == "tasks.view" for item in payload["permissions"]))
 
 
 if __name__ == "__main__":

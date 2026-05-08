@@ -94,6 +94,79 @@
 
     </section>
 
+    <section class="info-section sofa-permissions-section">
+        <div class="section-header">
+            <div>
+                <h2>SOFA-Berechtigungen</h2>
+                <p class="resource-panel-copy">Kanonische SOFA-Permissions mit optionalen Ressourcenscopes fuer diese Rolle.</p>
+            </div>
+            <div class="section-actions">
+                <button class="btn btn-secondary" id="edit-sofa-grants-btn">
+                    Berechtigungen bearbeiten
+                </button>
+            </div>
+        </div>
+
+        <div class="sofa-profile-strip">
+            <div class="sofa-profile-block">
+                <span class="ui-section-kicker">Profile</span>
+                <div id="sofa-profile-list" class="sofa-chip-row"></div>
+            </div>
+            <div class="sofa-profile-block">
+                <span class="ui-section-kicker">Zusammenfassung</span>
+                <div class="sofa-metric-row">
+                    <span class="ui-chip ui-chip-neutral" id="sofa-grant-count">0 Permissions</span>
+                    <span class="ui-chip ui-chip-neutral" id="sofa-scoped-count">0 Scoped</span>
+                    <span class="ui-chip ui-chip-neutral" id="sofa-global-count">0 Global</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table id="sofa-grants-table">
+                <thead>
+                    <tr>
+                        <th>Permission</th>
+                        <th>Bereich</th>
+                        <th>Scope</th>
+                        <th>Ressourcen</th>
+                    </tr>
+                </thead>
+                <tbody id="sofa-grants-body"></tbody>
+            </table>
+        </div>
+
+        <div id="sofa-grant-editor" class="resource-stack-panel" style="display:none; margin-top:16px;">
+            <section class="resource-panel">
+                <div class="resource-panel-heading">
+                    <div>
+                        <span class="ui-section-kicker">Profile</span>
+                        <h4 class="resource-panel-title">Profil-Tags</h4>
+                        <p class="resource-panel-copy">Die Tags dienen als Vorlage und Dokumentation. Das Mapping auf echte Backend-Rollen wird spaeter in `app/config/sofa_profiles.json` gepflegt.</p>
+                    </div>
+                </div>
+                <div id="sofa-profile-options" class="sofa-profile-options"></div>
+            </section>
+
+            <section class="resource-panel resource-panel-accent">
+                <div class="resource-panel-heading">
+                    <div>
+                        <span class="ui-section-kicker">Permissions</span>
+                        <h4 class="resource-panel-title">Grant-Editor</h4>
+                        <p class="resource-panel-copy">Permissions koennen global oder ressourcenbegrenzt gespeichert werden. Fuer ressourcengebundene Permissions werden die Scopes direkt hier gepflegt.</p>
+                    </div>
+                </div>
+                <div id="sofa-grant-list" class="sofa-grant-list"></div>
+                <button class="btn btn-secondary" id="add-sofa-grant-btn" type="button">Permission hinzufuegen</button>
+            </section>
+
+            <div class="edit-actions" id="sofa-grant-actions" style="display:flex; margin-top:0; gap:16px;">
+                <button class="btn btn-secondary" id="cancel-sofa-grants-btn" type="button">Abbrechen</button>
+                <button class="btn btn-primary" id="save-sofa-grants-btn" type="button">SOFA-Berechtigungen speichern</button>
+            </div>
+        </div>
+    </section>
+
     <!-- ========================= -->
     <!-- RESSOURCEN -->
     <!-- ========================= -->

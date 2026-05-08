@@ -14,6 +14,148 @@
     flex-wrap: wrap;
 }
 
+.sofa-permissions-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.sofa-profile-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.sofa-profile-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 1rem 1.1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(var(--color-primary-rgb), 0.12);
+    background:
+        radial-gradient(circle at top right, rgba(var(--color-primary-rgb), 0.1), transparent 35%),
+        linear-gradient(180deg, var(--surface-card), var(--surface-subtle));
+}
+
+.sofa-chip-row,
+.sofa-metric-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+#sofa-grants-table thead {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 88%, black), color-mix(in srgb, var(--surface-soft) 58%, black));
+}
+
+#sofa-grants-table thead th {
+    color: var(--text-inverse);
+}
+
+#sofa-grants-table tbody td {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+    color: var(--ui-text);
+    vertical-align: top;
+}
+
+#sofa-grants-table tbody td:first-child,
+#sofa-grants-table tbody td:nth-child(2) {
+    color: var(--ui-text-strong);
+}
+
+.sofa-empty-state {
+    color: var(--ui-text-muted);
+    font-style: italic;
+}
+
+.sofa-resource-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.sofa-resource-list .ui-chip {
+    margin: 0;
+}
+
+.sofa-profile-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.sofa-profile-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.7rem 0.85rem;
+    border-radius: 14px;
+    border: 1px solid var(--ui-border);
+    background: color-mix(in srgb, var(--surface-card) 98%, transparent);
+    color: var(--ui-text);
+}
+
+.sofa-profile-option input {
+    margin: 0;
+}
+
+.sofa-grant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.sofa-grant-editor-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1rem;
+    border-radius: 16px;
+    border: 1px solid var(--ui-border);
+    background: color-mix(in srgb, var(--surface-card) 98%, transparent);
+}
+
+.sofa-grant-editor-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.sofa-grant-resource-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem 1rem;
+}
+
+.sofa-grant-resource-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.85rem;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    background: color-mix(in srgb, var(--surface-subtle) 82%, transparent);
+}
+
+.sofa-inline-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
+    color: var(--ui-text);
+}
+
+.sofa-multi-select {
+    min-height: 7.5rem;
+}
+
+.sofa-resource-help {
+    color: var(--ui-text-muted);
+    font-size: 0.86rem;
+}
+
 .resource-card {
     position: relative;
     background:
@@ -248,6 +390,11 @@
 
 @media (max-width: 900px) {
     .resource-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sofa-profile-strip,
+    .sofa-grant-resource-grid {
         grid-template-columns: 1fr;
     }
 }

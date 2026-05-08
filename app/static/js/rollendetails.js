@@ -10,7 +10,10 @@ const STATE = {
     currentResource: null,
     systemMap: null,
     roleMap: null,
-    isEditing: false
+    sofaCatalog: null,
+    sofaOptionCache: {},
+    isEditing: false,
+    isEditingSofa: false
 };
 
 const ROLE_TYPE_OPTIONS = [
@@ -59,6 +62,19 @@ const api = {
         if (!res.ok) {
             throw new Error(data.detail || data.error || "Rolle konnte nicht gespeichert werden");
         }
+        return data;
+    },
+
+    async getSofaPermissionCatalog() {
+        if (STATE.sofaCatalog) return STATE.sofaCatalog;
+
+        const res = await fetch("/api/sofa/permissions");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || "SOFA-Permission-Katalog konnte nicht geladen werden");
+        }
+
+        STATE.sofaCatalog = data;
         return data;
     },
 
@@ -134,6 +150,18 @@ function cacheDOM() {
     DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
     DOM.saveEdit = document.querySelector("#save-edit-btn");
     DOM.editActions = document.querySelector("#edit-actions");
+    DOM.sofaGrantBody = document.getElementById("sofa-grants-body");
+    DOM.sofaGrantCount = document.getElementById("sofa-grant-count");
+    DOM.sofaScopedCount = document.getElementById("sofa-scoped-count");
+    DOM.sofaGlobalCount = document.getElementById("sofa-global-count");
+    DOM.sofaProfileList = document.getElementById("sofa-profile-list");
+    DOM.editSofaBtn = document.getElementById("edit-sofa-grants-btn");
+    DOM.sofaGrantEditor = document.getElementById("sofa-grant-editor");
+    DOM.sofaProfileOptions = document.getElementById("sofa-profile-options");
+    DOM.sofaGrantList = document.getElementById("sofa-grant-list");
+    DOM.addSofaGrantBtn = document.getElementById("add-sofa-grant-btn");
+    DOM.cancelSofaGrantsBtn = document.getElementById("cancel-sofa-grants-btn");
+    DOM.saveSofaGrantsBtn = document.getElementById("save-sofa-grants-btn");
 
     // form fields
     DOM.displayName = document.getElementById("res-display-name");
@@ -157,11 +185,15 @@ async function loadRoleDetail() {
     const roleId = window.location.pathname.split("/").pop();
 
     try {
-        const resp = await fetch(`/api/roles/${roleId}`);
+        const [resp] = await Promise.all([
+            fetch(`/api/roles/${roleId}`),
+            api.getSofaPermissionCatalog()
+        ]);
         if (!resp.ok) throw new Error("Rollendetails konnten nicht geladen werden");
 
         role = await resp.json();
         fillRoleInfo();
+        renderSofaPermissions();
         renderResourceTable();
         setupCards();
     } catch (e) {
@@ -213,6 +245,355 @@ function getAllRoleResources() {
         ...getOwnResources().map(resource => ({ ...resource, isInherited: false })),
         ...getInheritedResources().map(resource => ({ ...resource, isInherited: true }))
     ];
+}
+
+function getSofaPermissions() {
+    return Array.isArray(STATE.sofaCatalog?.permissions) ? STATE.sofaCatalog.permissions : [];
+}
+
+function getSofaPermissionDefinition(permissionKey) {
+    return getSofaPermissions().find(permission => permission.key === permissionKey) || null;
+}
+
+function getSofaResourceTypes() {
+    return Array.isArray(STATE.sofaCatalog?.resource_types) ? STATE.sofaCatalog.resource_types : [];
+}
+
+function getSofaResourceTypeDefinition(resourceTypeKey) {
+    return getSofaResourceTypes().find(resourceType => resourceType.key === resourceTypeKey) || null;
+}
+
+function getRoleSofaGrants() {
+    return Array.isArray(role?.sofa_grants) ? role.sofa_grants : [];
+}
+
+function getAssignedSofaProfileKeys() {
+    if (Array.isArray(role?.sofa_profile_keys)) {
+        return role.sofa_profile_keys;
+    }
+    if (Array.isArray(role?.sofa_profiles)) {
+        return role.sofa_profiles.map(profile => profile?.key).filter(Boolean);
+    }
+    return [];
+}
+
+function getAvailableSofaProfiles() {
+    if (Array.isArray(role?.available_sofa_profiles) && role.available_sofa_profiles.length) {
+        return role.available_sofa_profiles;
+    }
+    return Array.isArray(STATE.sofaCatalog?.profiles) ? STATE.sofaCatalog.profiles : [];
+}
+
+function getPermissionLabel(permissionKey) {
+    return getSofaPermissionDefinition(permissionKey)?.label || permissionKey || "-";
+}
+
+function getPermissionCategory(permissionKey) {
+    return getSofaPermissionDefinition(permissionKey)?.category || "-";
+}
+
+function summarizeGrantScope(grant) {
+    const resources = grant?.resources;
+    if (!resources || !Object.keys(resources).length) {
+        return "Global";
+    }
+
+    const hasAnyIds = Object.values(resources).some(scope => Array.isArray(scope?.ids) && scope.ids.length > 0);
+    const hasAnyAll = Object.values(resources).some(scope => Boolean(scope?.all));
+
+    if (hasAnyAll && !hasAnyIds) {
+        return "Global je Ressourcentyp";
+    }
+
+    if (hasAnyAll && hasAnyIds) {
+        return "Gemischt";
+    }
+
+    return "Ressourcenbegrenzt";
+}
+
+function summarizeGrantResources(grant) {
+    const resources = grant?.resources;
+    if (!resources || !Object.keys(resources).length) {
+        return "<span class=\"ui-chip ui-chip-neutral\">Keine Einschraenkung</span>";
+    }
+
+    const fragments = [];
+
+    Object.entries(resources).forEach(([resourceKey, scope]) => {
+        const resourceDefinition = getSofaResourceTypeDefinition(resourceKey);
+        const resourceLabel = resourceDefinition?.label || resourceKey;
+
+        if (scope?.all) {
+            fragments.push(`<span class="ui-chip ui-chip-primary">${escapeHtml(resourceLabel)}: Alle</span>`);
+            return;
+        }
+
+        const ids = Array.isArray(scope?.ids) ? scope.ids : [];
+        if (!ids.length) {
+            fragments.push(`<span class="ui-chip ui-chip-neutral">${escapeHtml(resourceLabel)}: Keine Auswahl</span>`);
+            return;
+        }
+
+        const preview = ids.slice(0, 3).map(value => escapeHtml(value)).join(", ");
+        const suffix = ids.length > 3 ? ` +${ids.length - 3}` : "";
+        fragments.push(`<span class="ui-chip ui-chip-neutral">${escapeHtml(resourceLabel)}: ${preview}${suffix}</span>`);
+    });
+
+    return `<div class="sofa-resource-list">${fragments.join("")}</div>`;
+}
+
+function renderSofaPermissions() {
+    if (!DOM.sofaGrantBody) return;
+
+    const grants = getRoleSofaGrants();
+    const globalGrants = grants.filter(grant => summarizeGrantScope(grant).toLowerCase().includes("global")).length;
+    const scopedGrants = grants.length - globalGrants;
+
+    DOM.sofaGrantCount.textContent = `${grants.length} Permissions`;
+    DOM.sofaScopedCount.textContent = `${scopedGrants} Scoped`;
+    DOM.sofaGlobalCount.textContent = `${globalGrants} Global`;
+
+    renderSofaProfileSummary();
+
+    if (!grants.length) {
+        DOM.sofaGrantBody.innerHTML = `
+            <tr>
+                <td colspan="4" class="sofa-empty-state">Fuer diese Rolle sind noch keine SOFA-Berechtigungen hinterlegt.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    DOM.sofaGrantBody.innerHTML = grants.map(grant => `
+        <tr>
+            <td>${escapeHtml(getPermissionLabel(grant.permission))}</td>
+            <td>${escapeHtml(getPermissionCategory(grant.permission))}</td>
+            <td>${escapeHtml(summarizeGrantScope(grant))}</td>
+            <td>${summarizeGrantResources(grant)}</td>
+        </tr>
+    `).join("");
+}
+
+function renderSofaProfileSummary() {
+    const assignedKeys = new Set(getAssignedSofaProfileKeys());
+    const assignedProfiles = getAvailableSofaProfiles().filter(profile => assignedKeys.has(profile.key));
+
+    if (!assignedProfiles.length) {
+        DOM.sofaProfileList.innerHTML = `<span class="ui-chip ui-chip-neutral">Keine Profile markiert</span>`;
+        return;
+    }
+
+    DOM.sofaProfileList.innerHTML = assignedProfiles.map(profile => `
+        <span class="ui-chip ui-chip-primary" title="${escapeHtml(profile.description || "")}">${escapeHtml(profile.name || profile.key)}</span>
+    `).join("");
+}
+
+async function fetchSofaResourceOptions(resourceTypeKey) {
+    if (STATE.sofaOptionCache[resourceTypeKey]) {
+        return STATE.sofaOptionCache[resourceTypeKey];
+    }
+
+    const resourceType = getSofaResourceTypeDefinition(resourceTypeKey);
+    const selectionSource = resourceType?.selection_source;
+    let options = [];
+
+    if (!selectionSource || typeof selectionSource !== "object") {
+        STATE.sofaOptionCache[resourceTypeKey] = options;
+        return options;
+    }
+
+    if (selectionSource.kind === "static") {
+        options = Array.isArray(selectionSource.options) ? selectionSource.options.map(option => ({
+            id: option.id,
+            label: option.label || option.id
+        })) : [];
+    } else if (selectionSource.kind === "api" && selectionSource.path) {
+        const res = await fetch(selectionSource.path);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || `Optionen fuer ${resourceType?.label || resourceTypeKey} konnten nicht geladen werden`);
+        }
+
+        if (Array.isArray(data)) {
+            options = data.map(item => ({
+                id: item.backlog_id ?? item.id ?? item.resource_id ?? item.role_id ?? item.system_id,
+                label: item.name || item.display_name || item.slug || item.short_name || `Eintrag ${item.backlog_id ?? item.id ?? item.resource_id ?? item.role_id ?? item.system_id}`
+            })).filter(option => option.id !== undefined && option.id !== null);
+        } else if (data && typeof data === "object") {
+            options = Object.entries(data).map(([id, item]) => {
+                const label = item?.type
+                    ? `${item.name || id} (${item.type})`
+                    : item?.name || item?.label || id;
+                return { id, label };
+            });
+        }
+    }
+
+    STATE.sofaOptionCache[resourceTypeKey] = options;
+    return options;
+}
+
+function createGrantEditorRow(grant = null) {
+    const row = document.createElement("div");
+    row.className = "sofa-grant-editor-row";
+
+    const permissionOptions = getSofaPermissions().map(permission => `
+        <option value="${escapeHtml(permission.key)}">${escapeHtml(permission.label)}</option>
+    `).join("");
+
+    row.innerHTML = `
+        <div class="sofa-grant-editor-head">
+            <div class="form-field">
+                <label>Permission</label>
+                <select class="form-input sofa-permission-select">
+                    <option value="">-- Bitte wählen --</option>
+                    ${permissionOptions}
+                </select>
+            </div>
+            <button type="button" class="btn btn-red sofa-remove-grant-btn">Entfernen</button>
+        </div>
+        <div class="sofa-grant-resource-grid"></div>
+    `;
+
+    row.querySelector(".sofa-remove-grant-btn").addEventListener("click", () => {
+        row.remove();
+        ensureGrantEditorNotEmpty();
+    });
+
+    const select = row.querySelector(".sofa-permission-select");
+    select.value = grant?.permission || "";
+    select.addEventListener("change", () => renderGrantResourceEditors(row, null));
+
+    renderGrantResourceEditors(row, grant);
+    return row;
+}
+
+function ensureGrantEditorNotEmpty() {
+    if (DOM.sofaGrantList.children.length > 0) {
+        return;
+    }
+
+    DOM.sofaGrantList.appendChild(createGrantEditorRow());
+}
+
+async function renderGrantResourceEditors(row, grant) {
+    const permissionKey = row.querySelector(".sofa-permission-select")?.value;
+    const permissionDefinition = getSofaPermissionDefinition(permissionKey);
+    const container = row.querySelector(".sofa-grant-resource-grid");
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    const resourceTypes = Array.isArray(permissionDefinition?.resource_types) ? permissionDefinition.resource_types : [];
+    if (!resourceTypes.length) {
+        container.innerHTML = `<div class="sofa-resource-help">Diese Permission wird global vergeben und benoetigt keinen Ressourcenscope.</div>`;
+        return;
+    }
+
+    for (const resourceTypeKey of resourceTypes) {
+        const resourceType = getSofaResourceTypeDefinition(resourceTypeKey);
+        const options = await fetchSofaResourceOptions(resourceTypeKey);
+        const scope = grant?.resources?.[resourceTypeKey] || { all: false, ids: [] };
+
+        const card = document.createElement("div");
+        card.className = "sofa-grant-resource-card";
+        card.dataset.resourceType = resourceTypeKey;
+
+        const selectedIds = new Set((Array.isArray(scope.ids) ? scope.ids : []).map(value => String(value)));
+        const optionMarkup = options.map(option => `
+            <option value="${escapeHtml(option.id)}" ${selectedIds.has(String(option.id)) ? "selected" : ""}>${escapeHtml(option.label)}</option>
+        `).join("");
+
+        card.innerHTML = `
+            <div>
+                <strong>${escapeHtml(resourceType?.label || resourceTypeKey)}</strong>
+                <div class="sofa-resource-help">${escapeHtml(resourceType?.description || "Scope fuer diese Permission")}</div>
+            </div>
+            <label class="sofa-inline-check">
+                <input type="checkbox" class="sofa-scope-all-checkbox" ${scope.all ? "checked" : ""}>
+                Alle ${escapeHtml(resourceType?.label || resourceTypeKey)}
+            </label>
+            <select class="form-input sofa-multi-select" multiple size="5" ${scope.all ? "disabled" : ""}>
+                ${optionMarkup}
+            </select>
+        `;
+
+        const checkbox = card.querySelector(".sofa-scope-all-checkbox");
+        const multiSelect = card.querySelector(".sofa-multi-select");
+        checkbox.addEventListener("change", () => {
+            multiSelect.disabled = checkbox.checked;
+        });
+
+        container.appendChild(card);
+    }
+}
+
+function renderSofaGrantEditor() {
+    DOM.sofaProfileOptions.innerHTML = getAvailableSofaProfiles().map(profile => `
+        <label class="sofa-profile-option">
+            <input type="checkbox" value="${escapeHtml(profile.key)}" ${getAssignedSofaProfileKeys().includes(profile.key) ? "checked" : ""}>
+            <span title="${escapeHtml(profile.description || "")}">${escapeHtml(profile.name || profile.key)}</span>
+        </label>
+    `).join("");
+
+    DOM.sofaGrantList.innerHTML = "";
+    const grants = getRoleSofaGrants();
+
+    if (!grants.length) {
+        DOM.sofaGrantList.appendChild(createGrantEditorRow());
+        return;
+    }
+
+    grants.forEach(grant => {
+        DOM.sofaGrantList.appendChild(createGrantEditorRow(grant));
+    });
+}
+
+function openSofaGrantEditor() {
+    STATE.isEditingSofa = true;
+    DOM.sofaGrantEditor.style.display = "flex";
+    renderSofaGrantEditor();
+}
+
+function closeSofaGrantEditor() {
+    STATE.isEditingSofa = false;
+    DOM.sofaGrantEditor.style.display = "none";
+}
+
+function collectSofaGrantPayload() {
+    const grants = [];
+
+    DOM.sofaGrantList.querySelectorAll(".sofa-grant-editor-row").forEach(row => {
+        const permission = row.querySelector(".sofa-permission-select")?.value;
+        if (!permission) {
+            return;
+        }
+
+        const resources = {};
+        row.querySelectorAll(".sofa-grant-resource-card").forEach(card => {
+            const resourceTypeKey = card.dataset.resourceType;
+            if (!resourceTypeKey) {
+                return;
+            }
+
+            const all = Boolean(card.querySelector(".sofa-scope-all-checkbox")?.checked);
+            const ids = Array.from(card.querySelector(".sofa-multi-select")?.selectedOptions || []).map(option => {
+                const rawValue = option.value;
+                const numericValue = Number(rawValue);
+                return Number.isNaN(numericValue) || rawValue.trim() === "" ? rawValue : numericValue;
+            });
+
+            resources[resourceTypeKey] = { all, ids };
+        });
+
+        grants.push({ permission, resources });
+    });
+
+    return grants;
 }
 
 function sortResourcesByShortCode(resources) {
@@ -314,6 +695,12 @@ function bindBaseEvents() {
     DOM.editBtn.addEventListener("click", editRole);
     DOM.cancelEdit.addEventListener("click", cancelEdit);
     DOM.saveEdit.addEventListener("click", saveRoleEdit);
+    DOM.editSofaBtn.addEventListener("click", openSofaGrantEditor);
+    DOM.cancelSofaGrantsBtn.addEventListener("click", closeSofaGrantEditor);
+    DOM.addSofaGrantBtn.addEventListener("click", () => {
+        DOM.sofaGrantList.appendChild(createGrantEditorRow());
+    });
+    DOM.saveSofaGrantsBtn.addEventListener("click", saveSofaGrantEdit);
 
     DOM.addResBtn.addEventListener("click", () => openOverlay("add"));
     DOM.rmResBtn.addEventListener("click", () => openOverlay("rm"));
@@ -444,6 +831,39 @@ async function saveRoleEdit() {
         showFlash(err.message || "Rollendetails konnten nicht gespeichert werden", "failure");
     } finally {
         DOM.saveEdit.disabled = false;
+    }
+}
+
+async function saveSofaGrantEdit() {
+    const sofaGrants = collectSofaGrantPayload();
+    const sofaProfileKeys = Array.from(DOM.sofaProfileOptions.querySelectorAll("input[type='checkbox']:checked"))
+        .map(input => input.value)
+        .filter(Boolean);
+
+    DOM.saveSofaGrantsBtn.disabled = true;
+
+    try {
+        const updatedRole = await api.updateRole(role.role_id, {
+            sofa_grants: sofaGrants,
+            sofa_profile_keys: sofaProfileKeys
+        });
+
+        role = {
+            ...role,
+            ...updatedRole,
+            sofa_grants: sofaGrants,
+            sofa_profile_keys: sofaProfileKeys,
+            sofa_profiles: getAvailableSofaProfiles().filter(profile => sofaProfileKeys.includes(profile.key))
+        };
+
+        renderSofaPermissions();
+        closeSofaGrantEditor();
+        showFlash("SOFA-Berechtigungen gespeichert", "success");
+    } catch (err) {
+        console.error("Speichern der SOFA-Berechtigungen fehlgeschlagen:", err);
+        showFlash(err.message || "SOFA-Berechtigungen konnten nicht gespeichert werden", "failure");
+    } finally {
+        DOM.saveSofaGrantsBtn.disabled = false;
     }
 }
 
