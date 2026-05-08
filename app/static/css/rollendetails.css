@@ -20,6 +20,12 @@
     gap: 1rem;
 }
 
+.sofa-grant-panels {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
 .sofa-profile-strip {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -38,29 +44,33 @@
         linear-gradient(180deg, var(--surface-card), var(--surface-subtle));
 }
 
-.sofa-chip-row,
 .sofa-metric-row {
     display: flex;
     flex-wrap: wrap;
     gap: 0.55rem;
 }
 
-#sofa-grants-table thead {
+#sofa-direct-grants-table thead,
+#sofa-inherited-grants-table thead {
     background: linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 88%, black), color-mix(in srgb, var(--surface-soft) 58%, black));
 }
 
-#sofa-grants-table thead th {
+#sofa-direct-grants-table thead th,
+#sofa-inherited-grants-table thead th {
     color: var(--text-inverse);
 }
 
-#sofa-grants-table tbody td {
+#sofa-direct-grants-table tbody td,
+#sofa-inherited-grants-table tbody td {
     border-bottom: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
     color: var(--ui-text);
     vertical-align: top;
 }
 
-#sofa-grants-table tbody td:first-child,
-#sofa-grants-table tbody td:nth-child(2) {
+#sofa-direct-grants-table tbody td:first-child,
+#sofa-direct-grants-table tbody td:nth-child(2),
+#sofa-inherited-grants-table tbody td:first-child,
+#sofa-inherited-grants-table tbody td:nth-child(2) {
     color: var(--ui-text-strong);
 }
 
@@ -76,27 +86,6 @@
 }
 
 .sofa-resource-list .ui-chip {
-    margin: 0;
-}
-
-.sofa-profile-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.sofa-profile-option {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.7rem 0.85rem;
-    border-radius: 14px;
-    border: 1px solid var(--ui-border);
-    background: color-mix(in srgb, var(--surface-card) 98%, transparent);
-    color: var(--ui-text);
-}
-
-.sofa-profile-option input {
     margin: 0;
 }
 
@@ -394,6 +383,7 @@
     }
 
     .sofa-profile-strip,
+    .sofa-grant-panels,
     .sofa-grant-resource-grid {
         grid-template-columns: 1fr;
     }
