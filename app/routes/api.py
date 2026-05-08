@@ -31,65 +31,60 @@ from app.routes.shared import (
     templates,
 )
 from app.sofa_permissions import (
-    get_profile_definitions_by_key,
-    get_sofa_permission_registry,
-    get_sofa_profile_registry,
-    normalize_grants,
+    normalize_role_scoped_grants,
 )
 
 
 router = APIRouter(prefix="/api")
 
 
-def _normalize_role_profile_keys(raw_profiles) -> list[str]:
-    normalized_keys: list[str] = []
-    seen_keys: set[str] = set()
+def _normalize_role_detail_payload(payload: dict | None) -> dict:
+    role_payload = dict(payload or {})
+    role_payload["sofa_grants"] = normalize_role_scoped_grants(role_payload.get("sofa_grants"))
+    role_payload["inherited_sofa_grants"] = normalize_role_scoped_grants(role_payload.get("inherited_sofa_grants"))
+    return role_payload
 
-    if not isinstance(raw_profiles, list):
-        return normalized_keys
 
-    for item in raw_profiles:
-        if isinstance(item, dict):
-            candidate = str(item.get("key") or item.get("profile_key") or "").strip()
-        else:
-            candidate = str(item or "").strip()
+def _normalize_catalog_payload(payload: dict | None) -> dict:
+    catalog = dict(payload or {})
 
-        if not candidate or candidate in seen_keys:
+    permissions: list[dict] = []
+    for item in catalog.get("permissions") or []:
+        if not isinstance(item, dict):
             continue
-
-        seen_keys.add(candidate)
-        normalized_keys.append(candidate)
-
-    return normalized_keys
-
-
-def _normalize_role_profiles(raw_profiles) -> list[dict]:
-    profile_lookup = get_profile_definitions_by_key()
-    normalized_profiles: list[dict] = []
-
-    for profile_key in _normalize_role_profile_keys(raw_profiles):
-        definition = profile_lookup.get(profile_key, {})
-        normalized_profiles.append(
+        permissions.append(
             {
-                "key": profile_key,
-                "name": str(definition.get("name") or profile_key),
-                "description": str(definition.get("description") or "").strip(),
+                "permission_key": str(item.get("permission_key") or item.get("permission") or "").strip(),
+                "label": str(item.get("label") or "").strip(),
+                "scope_resource_type_id": _coerce_int(item.get("scope_resource_type_id")),
+                "scope_resource_type_slug": str(item.get("scope_resource_type_slug") or "").strip(),
+                "scope_resource_type_name": str(item.get("scope_resource_type_name") or "").strip(),
+                "is_global_only": _coerce_bool(item.get("is_global_only"), default=False),
+                "sort_order": _coerce_int(item.get("sort_order")) or 0,
             }
         )
 
-    return normalized_profiles
+    resources: list[dict] = []
+    for item in catalog.get("resources") or []:
+        if not isinstance(item, dict):
+            continue
+        resources.append(
+            {
+                "resource_id": _coerce_int(item.get("resource_id")),
+                "display_name": str(item.get("display_name") or "").strip(),
+                "technical_identifier": str(item.get("technical_identifier") or "").strip(),
+                "type_id": _coerce_int(item.get("type_id")),
+                "type_slug": str(item.get("type_slug") or "").strip(),
+                "type_name": str(item.get("type_name") or "").strip(),
+                "system_id": _coerce_int(item.get("system_id")),
+                "system_name": str(item.get("system_name") or "").strip(),
+            }
+        )
 
-
-def _normalize_role_detail_payload(payload: dict | None) -> dict:
-    role_payload = dict(payload or {})
-    role_payload["sofa_grants"] = normalize_grants(
-        role_payload.get("sofa_grants")
-        or ((role_payload.get("sofa_authorization") or {}).get("grants") if isinstance(role_payload.get("sofa_authorization"), dict) else [])
-    )
-    role_payload["sofa_profile_keys"] = _normalize_role_profile_keys(role_payload.get("sofa_profiles") or role_payload.get("sofa_profile_keys") or [])
-    role_payload["sofa_profiles"] = _normalize_role_profiles(role_payload["sofa_profile_keys"])
-    role_payload["available_sofa_profiles"] = get_sofa_profile_registry().get("profiles", [])
-    return role_payload
+    return {
+        "permissions": sorted(permissions, key=lambda item: (item["sort_order"], item["permission_key"])),
+        "resources": resources,
+    }
 
 
 @router.post("/tools/datex/convert")
@@ -135,17 +130,16 @@ async def convert_datex_file(
 
 @router.get("/sofa/permissions")
 async def api_sofa_permissions(current_user=Depends(require_page_access("roles"))):
-    registry = get_sofa_permission_registry()
-    profiles = get_sofa_profile_registry()
-
-    return JSONResponse(
-        content={
-            "version": registry.get("version", 1),
-            "permissions": registry.get("permissions", []),
-            "resource_types": registry.get("resource_types", []),
-            "profiles": profiles.get("profiles", []),
-        }
-    )
+    try:
+        payload = await api_client.get_sofa_authorization_catalog()
+        return JSONResponse(content=_normalize_catalog_payload(payload))
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
 @router.get("/users")
@@ -810,13 +804,45 @@ async def api_get_role_detail(role_id: int, current_user=Depends(require_page_ac
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/roles/{role_id}/sofa-grants")
+async def api_get_role_sofa_grants(role_id: int, current_user=Depends(require_page_access("roles"))):
+    try:
+        grants = await api_client.get_role_sofa_grants(role_id)
+        return JSONResponse(content=normalize_role_scoped_grants(grants))
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/roles/{role_id}/sofa-grants")
+async def api_replace_role_sofa_grants(role_id: int, payload: dict, current_user=Depends(require_page_access("roles"))):
+    try:
+        request_payload = {
+            "initiator_user_id": current_user.user_id,
+            "grants": normalize_role_scoped_grants(payload.get("grants")),
+        }
+        result = await api_client.replace_role_sofa_grants(role_id, request_payload)
+        normalized_result = dict(result or {})
+        normalized_result["grants"] = normalize_role_scoped_grants(
+            normalized_result.get("grants") if isinstance(normalized_result.get("grants"), list) else request_payload["grants"]
+        )
+        return JSONResponse(content=normalized_result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.post("/roles/{role_id}")
 async def api_update_role(role_id: int, payload: dict, current_user=Depends(require_page_access("roles"))):
     try:
-        if "sofa_grants" in payload:
-            payload["sofa_grants"] = normalize_grants(payload.get("sofa_grants"))
-        if "sofa_profile_keys" in payload:
-            payload["sofa_profile_keys"] = _normalize_role_profile_keys(payload.get("sofa_profile_keys"))
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.update_role(role_id, payload)
         return JSONResponse(content=result)

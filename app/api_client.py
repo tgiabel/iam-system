@@ -144,6 +144,15 @@ class APIClient:
     async def update_role(self, role_id: int, payload: dict) -> dict:
         return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}", payload=payload)
 
+    async def get_sofa_authorization_catalog(self) -> dict:
+        return await self._get(ACCESS_BASE_URL, "/sofa-authorization/catalog")
+
+    async def get_role_sofa_grants(self, role_id: int) -> list[dict]:
+        return await self._get(ACCESS_BASE_URL, f"/roles/{role_id}/sofa-grants")
+
+    async def replace_role_sofa_grants(self, role_id: int, payload: dict) -> dict:
+        return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}/sofa-grants", payload=payload)
+
     async def reevaluate_role_resources(self, role_id: int, payload: dict) -> dict:
         return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}/resources/reevaluate", payload=payload)
 

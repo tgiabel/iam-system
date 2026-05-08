@@ -6,7 +6,7 @@ import json
 
 from fastapi import Cookie, Depends
 from fastapi.exceptions import HTTPException  # type: ignore
-from app.sofa_permissions import get_permission_definition, normalize_grants
+from app.sofa_permissions import get_permission_definition, normalize_runtime_grants
 
 
 def _normalize_text(value: Any) -> str:
@@ -157,7 +157,8 @@ def _resolve_task_backlog_access(grants: list[dict[str, Any]]) -> tuple[tuple[in
         if str(grant.get("permission")) != "tasks.backlog.view":
             continue
 
-        access_definition = (grant.get("resources") or {}).get("task_backlogs") or {}
+        resources = grant.get("resources") or {}
+        access_definition = resources.get("task_backlog") or resources.get("task_backlogs") or {}
         if access_definition.get("all"):
             can_view_all = True
 
@@ -238,7 +239,7 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
         for profile_key in (profile_keys if isinstance(profile_keys, list) else [])
         if str(profile_key).strip()
     )
-    grants = normalize_grants((sofa_authorization or {}).get("grants"))
+    grants = normalize_runtime_grants((sofa_authorization or {}).get("grants"))
     pages, capabilities, permission_keys = _project_pages_and_capabilities(grants)
 
     role_key = normalized_profile_keys[0] if normalized_profile_keys else (DEFAULT_POLICY_KEY if not grants else "custom")

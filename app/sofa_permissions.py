@@ -69,7 +69,7 @@ def _normalize_resource_scope(scope: Any) -> dict[str, Any]:
     }
 
 
-def normalize_grants(grants: Any) -> list[dict[str, Any]]:
+def normalize_runtime_grants(grants: Any) -> list[dict[str, Any]]:
     if not isinstance(grants, list):
         return []
 
@@ -95,6 +95,42 @@ def normalize_grants(grants: Any) -> list[dict[str, Any]]:
             {
                 "permission": permission_key,
                 "resources": normalized_resources,
+            }
+        )
+
+    return normalized_grants
+
+
+def normalize_role_scoped_grants(grants: Any) -> list[dict[str, Any]]:
+    if not isinstance(grants, list):
+        return []
+
+    normalized_grants: list[dict[str, Any]] = []
+    for grant in grants:
+        if not isinstance(grant, dict):
+            continue
+
+        permission_key = _normalize_text(grant.get("permission") or grant.get("permission_key"))
+        if not permission_key:
+            continue
+
+        normalized_resource_ids: list[int] = []
+        seen_ids: set[int] = set()
+        raw_resource_ids = grant.get("resource_ids")
+
+        if isinstance(raw_resource_ids, list):
+            for raw_id in raw_resource_ids:
+                normalized_id = _normalize_resource_id(raw_id)
+                if not isinstance(normalized_id, int) or normalized_id in seen_ids:
+                    continue
+                seen_ids.add(normalized_id)
+                normalized_resource_ids.append(normalized_id)
+
+        normalized_grants.append(
+            {
+                "permission": permission_key,
+                "all_scoped_resources": _coerce_bool(grant.get("all_scoped_resources"), default=False),
+                "resource_ids": normalized_resource_ids,
             }
         )
 

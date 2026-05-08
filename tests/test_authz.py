@@ -136,7 +136,12 @@ from app.authz import (
     require_page_access,
 )
 from app.routes.api import api_users
-from app.routes.api import api_get_role_detail, api_sofa_permissions
+from app.routes.api import (
+    api_get_role_detail,
+    api_get_role_sofa_grants,
+    api_replace_role_sofa_grants,
+    api_sofa_permissions,
+)
 from app.routes.shared import _task_is_visible_to_user
 
 
@@ -196,7 +201,7 @@ class AuthorizationContextTests(unittest.TestCase):
                 "version": 1,
                 "grants": [
                     make_grant("tasks.view"),
-                    make_grant("tasks.backlog.view", {"task_backlogs": {"all": True, "ids": [7]}}),
+                    make_grant("tasks.backlog.view", {"task_backlog": {"all": True, "ids": [7]}}),
                     make_grant("users.view"),
                     make_grant("users.primary_role.request", {"roles": {"all": True, "ids": []}}),
                     make_grant("roles.view"),
@@ -229,7 +234,7 @@ class AuthorizationContextTests(unittest.TestCase):
                 "profile_keys": ["operational-admin", "agent-supervisor"],
                 "grants": [
                     make_grant("tasks.view"),
-                    make_grant("tasks.backlog.view", {"task_backlogs": {"all": False, "ids": [3, 5]}}),
+                    make_grant("tasks.backlog.view", {"task_backlog": {"all": False, "ids": [3, 5]}}),
                     make_grant("tools.view"),
                     make_grant("tools.item.view", {"tools": {"all": False, "ids": [11]}}),
                     make_grant("reports.item.view", {"reports": {"all": True, "ids": []}}),
@@ -327,7 +332,7 @@ class AuthorizationContextTests(unittest.TestCase):
                     "version": 1,
                     "grants": [
                         make_grant("tasks.view"),
-                        make_grant("tasks.backlog.view", {"task_backlogs": {"all": False, "ids": [999]}}),
+                        make_grant("tasks.backlog.view", {"task_backlog": {"all": False, "ids": [999]}}),
                     ],
                 },
             )
@@ -376,7 +381,7 @@ class AuthorizationContextTests(unittest.TestCase):
         self.assertIsInstance(payload["permission_keys"], list)
         self.assertIsInstance(payload["grants"], list)
 
-    def test_api_role_detail_normalizes_sofa_grants_and_profiles(self):
+    def test_api_role_detail_normalizes_direct_and_inherited_sofa_grants(self):
         authz = build_authorization_context_from_user(
             make_user(
                 primary_role=make_role(21, "IT"),
@@ -390,9 +395,11 @@ class AuthorizationContextTests(unittest.TestCase):
                 "name": "IT",
                 "sofa_grants": [
                     {"permission": "tasks.view"},
-                    {"permission": "tasks.backlog.view", "resources": {"task_backlogs": {"all": False, "ids": ["7"]}}},
+                    {"permission": "tasks.backlog.view", "all_scoped_resources": False, "resource_ids": ["55"]},
                 ],
-                "sofa_profile_keys": ["operational-admin"],
+                "inherited_sofa_grants": [
+                    {"permission": "users.view", "all_scoped_resources": False, "resource_ids": []},
+                ],
             }
 
         with patch("app.routes.api.api_client.get_role_detail", new=fake_get_role_detail):
@@ -400,11 +407,10 @@ class AuthorizationContextTests(unittest.TestCase):
 
         payload = json.loads(response.body)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(payload["sofa_grants"][1]["resources"]["task_backlogs"]["ids"], [7])
-        self.assertEqual(payload["sofa_profiles"][0]["key"], "operational-admin")
-        self.assertTrue(isinstance(payload["available_sofa_profiles"], list))
+        self.assertEqual(payload["sofa_grants"][1]["resource_ids"], [55])
+        self.assertEqual(payload["inherited_sofa_grants"][0]["permission"], "users.view")
 
-    def test_api_sofa_permissions_returns_registry(self):
+    def test_api_sofa_permissions_proxies_backend_catalog_shape(self):
         authz = build_authorization_context_from_user(
             make_user(
                 primary_role=make_role(21, "IT"),
@@ -412,14 +418,95 @@ class AuthorizationContextTests(unittest.TestCase):
             )
         )
 
-        response = run_async(api_sofa_permissions(current_user=authz))
+        async def fake_get_catalog(*args, **kwargs):
+            return {
+                "permissions": [
+                    {
+                        "permission_key": "tasks.backlog.view",
+                        "label": "Backlog sehen",
+                        "scope_resource_type_id": "101",
+                        "scope_resource_type_slug": "TASK_BACKLOG",
+                        "scope_resource_type_name": "Task Backlog",
+                        "is_global_only": False,
+                        "sort_order": 30,
+                    }
+                ],
+                "resources": [
+                    {
+                        "resource_id": "55",
+                        "display_name": "Windows Queue",
+                        "technical_identifier": "task_backlog:7",
+                        "type_id": "101",
+                        "type_slug": "TASK_BACKLOG",
+                        "type_name": "Task Backlog",
+                        "system_id": "999",
+                        "system_name": "SOFA",
+                    }
+                ],
+            }
+
+        with patch("app.routes.api.api_client.get_sofa_authorization_catalog", new=fake_get_catalog):
+            response = run_async(api_sofa_permissions(current_user=authz))
         payload = json.loads(response.body)
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("permissions", payload)
-        self.assertIn("resource_types", payload)
-        self.assertIn("profiles", payload)
-        self.assertTrue(any(item["key"] == "tasks.view" for item in payload["permissions"]))
+        self.assertIn("resources", payload)
+        self.assertEqual(payload["permissions"][0]["permission_key"], "tasks.backlog.view")
+        self.assertEqual(payload["resources"][0]["resource_id"], 55)
+
+    def test_api_get_role_sofa_grants_normalizes_backend_shape(self):
+        authz = build_authorization_context_from_user(
+            make_user(
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={"version": 1, "grants": [make_grant("roles.view")]},
+            )
+        )
+
+        async def fake_get_role_sofa_grants(*args, **kwargs):
+            return [
+                {"permission": "users.view", "all_scoped_resources": False, "resource_ids": []},
+                {"permission": "tasks.backlog.view", "all_scoped_resources": True, "resource_ids": ["55", "56"]},
+            ]
+
+        with patch("app.routes.api.api_client.get_role_sofa_grants", new=fake_get_role_sofa_grants):
+            response = run_async(api_get_role_sofa_grants(21, current_user=authz))
+
+        payload = json.loads(response.body)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload[1]["resource_ids"], [55, 56])
+        self.assertTrue(payload[1]["all_scoped_resources"])
+
+    def test_api_replace_role_sofa_grants_builds_backend_write_payload(self):
+        authz = build_authorization_context_from_user(
+            make_user(
+                user_id=7,
+                primary_role=make_role(21, "IT"),
+                sofa_authorization={"version": 1, "grants": [make_grant("roles.view")]},
+            )
+        )
+        captured = {}
+
+        async def fake_replace_role_sofa_grants(role_id, payload):
+            captured["role_id"] = role_id
+            captured["payload"] = payload
+            return {"grants": payload["grants"]}
+
+        with patch("app.routes.api.api_client.replace_role_sofa_grants", new=fake_replace_role_sofa_grants):
+            response = run_async(
+                api_replace_role_sofa_grants(
+                    21,
+                    {"grants": [{"permission": "tasks.backlog.view", "all_scoped_resources": False, "resource_ids": ["55", "56"]}]},
+                    current_user=authz,
+                )
+            )
+
+        payload = json.loads(response.body)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(captured["role_id"], 21)
+        self.assertEqual(captured["payload"]["initiator_user_id"], 7)
+        self.assertEqual(captured["payload"]["grants"][0]["resource_ids"], [55, 56])
+        self.assertEqual(payload["grants"][0]["permission"], "tasks.backlog.view")
 
 
 if __name__ == "__main__":
