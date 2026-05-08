@@ -305,6 +305,7 @@
 }
 
 .ui-table-card {
+    --table-header-surface: var(--table-header-bg);
     background: var(--ui-surface-card);
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-lg);
@@ -312,11 +313,17 @@
     overflow: hidden;
 }
 
+.ui-table-card-muted {
+    --table-header-surface: var(--table-header-muted-bg);
+}
+
 .ui-table-card .table-wrapper {
     margin-bottom: 0;
     background: transparent;
     box-shadow: none;
     border-radius: 0;
+    min-height: 0;
+    overflow: auto;
 }
 
 .ui-table-card table {
@@ -324,11 +331,15 @@
 }
 
 .ui-table-card thead {
-    background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, white));
+    background: var(--table-header-surface);
 }
 
-.ui-table-card-muted thead {
-    background: linear-gradient(135deg, #7d8ca8, #5f6d87);
+.ui-table-card thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--table-header-surface);
+    color: var(--text-inverse);
 }
 
 .ui-table-card tbody tr:hover {

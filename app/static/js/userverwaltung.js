@@ -11,7 +11,8 @@ const state = {
         secondaryRoleIds: [],
         includeInactive: false,
         openCategory: null
-    }
+    },
+    statusSortEnabled: false
 };
 
 const DOM = {};
@@ -493,6 +494,49 @@ function getSummaryStatus(user) {
     }
 
     return { code: normalized, label, className, count: 1, extraCount: 0, tooltip: label, source: "fallback" };
+}
+
+function getStatusSortPriority(user) {
+    const derivedStatuses = getNormalizedDerivedStatuses(user);
+
+    if (derivedStatuses.some(status => status.isOverdue || status.severity === "error")) {
+        return 0;
+    }
+
+    if (derivedStatuses.some(status => status.severity === "warning")) {
+        return 1;
+    }
+
+    if (derivedStatuses.length) {
+        return 2;
+    }
+
+    const fallbackStatus = normalizeValue(
+        user?.summary_status_code ||
+        user?.summary_status ||
+        (user?.is_active === false ? "inactive" : "active")
+    ).replace(/\s+/g, "_");
+
+    if (fallbackStatus === "inactive") {
+        return 3;
+    }
+
+    if (fallbackStatus.includes("warning") || fallbackStatus.includes("revocation") || fallbackStatus.includes("error")) {
+        return 1;
+    }
+
+    if (
+        fallbackStatus.includes("request") ||
+        fallbackStatus.includes("progress") ||
+        fallbackStatus.includes("pending") ||
+        fallbackStatus.includes("open") ||
+        fallbackStatus.includes("revoked") ||
+        (fallbackStatus && fallbackStatus !== "active")
+    ) {
+        return 2;
+    }
+
+    return 4;
 }
 
 function getSeverityBadgeClass(severity, isOverdue = false) {
@@ -1052,6 +1096,8 @@ const filterController = {
 const tableController = {
     async init() {
         this.bindSearch();
+        this.bindStatusSortToggle();
+        this.updateStatusSortToggle();
         await this.loadUsers();
     },
 
@@ -1071,12 +1117,25 @@ const tableController = {
     },
 
     getFilteredUsers() {
-        return sortUsersByName(
-            state.users
+        const users = state.users
             .filter(user => this.matchesSearch(user))
             .filter(user => this.matchesPrimaryRoles(user))
-            .filter(user => this.matchesSecondaryRoles(user))
-        );
+            .filter(user => this.matchesSecondaryRoles(user));
+
+        if (!state.statusSortEnabled) {
+            return sortUsersByName(users);
+        }
+
+        return [...users].sort((left, right) => {
+            const priorityDiff = getStatusSortPriority(left) - getStatusSortPriority(right);
+            if (priorityDiff !== 0) {
+                return priorityDiff;
+            }
+
+            const leftKey = `${left?.last_name || ""} ${left?.first_name || ""}`.trim();
+            const rightKey = `${right?.last_name || ""} ${right?.first_name || ""}`.trim();
+            return leftKey.localeCompare(rightKey, "de");
+        });
     },
 
     matchesSearch(user) {
@@ -1116,6 +1175,12 @@ const tableController = {
 
     render() {
         const users = this.getFilteredUsers();
+
+        if (DOM.usersVisibleCount) {
+            DOM.usersVisibleCount.textContent = `${users.length} Nutzer`;
+        }
+
+        this.updateStatusSortToggle();
 
         DOM.tableBody.innerHTML = users.length
             ? users.map(user => {
@@ -1170,6 +1235,24 @@ const tableController = {
             state.searchTerm = event.target.value || "";
             this.render();
         });
+    },
+
+    bindStatusSortToggle() {
+        DOM.usersStatusSortToggle?.addEventListener("click", () => {
+            state.statusSortEnabled = !state.statusSortEnabled;
+            this.render();
+        });
+    },
+
+    updateStatusSortToggle() {
+        if (!DOM.usersStatusSortToggle) {
+            return;
+        }
+
+        DOM.usersStatusSortToggle.setAttribute("aria-pressed", String(state.statusSortEnabled));
+        DOM.usersStatusSortToggle.textContent = state.statusSortEnabled
+            ? "Status priorisiert"
+            : "Status priorisieren";
     }
 };
 
@@ -2899,6 +2982,8 @@ function cacheDOM() {
     DOM.subfilterDropdown = document.getElementById("subfilter-dropdown");
     DOM.activeFilters = document.getElementById("active-filters");
     DOM.searchInput = document.getElementById("search-input");
+    DOM.usersVisibleCount = document.getElementById("users-visible-count");
+    DOM.usersStatusSortToggle = document.getElementById("users-status-sort-toggle");
     DOM.userTable = document.getElementById("user-table");
     DOM.tableBody = document.getElementById("user-table-body");
 

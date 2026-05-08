@@ -93,6 +93,17 @@
         </div>
 
         <div class="header-right">
+            <button
+                id="mobile-nav-toggle"
+                class="mobile-nav-toggle"
+                type="button"
+                aria-label="Navigation öffnen"
+                aria-expanded="false"
+                aria-controls="mobile-nav-panel">
+                <span class="mobile-nav-toggle-line" aria-hidden="true"></span>
+                <span class="mobile-nav-toggle-line" aria-hidden="true"></span>
+                <span class="mobile-nav-toggle-line" aria-hidden="true"></span>
+            </button>
             {% if user %}
                 <!-- Profile dropdown -->
                 <div class="profile-dropdown dropdown" id="nav-profile" data-nav-target="profile">
@@ -119,6 +130,40 @@
             </button>
         </div>
     </header>
+    <div class="mobile-nav-panel" id="mobile-nav-panel" aria-hidden="true">
+        {% if user %}
+            <nav class="mobile-nav-links" aria-label="Mobile Hauptnavigation">
+                <a href="/" class="mobile-nav-link" data-nav-target="dashboard">Dashboard</a>
+                <a href="/tasks" class="mobile-nav-link" data-nav-target="tasks">To-Dos</a>
+                <a href="/tools" class="mobile-nav-link" data-nav-target="tools">Tools &amp; Reports</a>
+
+                {% if authz.has_admin_access %}
+                    <div class="mobile-nav-group">
+                        <span class="mobile-nav-group-title">Admin</span>
+                        {% if "users" in authz.pages %}
+                            <a href="/users" class="mobile-nav-link" data-nav-target="users">Userverwaltung</a>
+                        {% endif %}
+                        {% if "systems" in authz.pages %}
+                            <a href="/systems" class="mobile-nav-link" data-nav-target="systems">Systemverwaltung</a>
+                        {% endif %}
+                        {% if "roles" in authz.pages %}
+                            <a href="/roles" class="mobile-nav-link" data-nav-target="roles">Rollenmanagement</a>
+                        {% endif %}
+                        {% if implemented and "iks" in authz.pages %}
+                            <a href="/iks" class="mobile-nav-link" data-nav-target="iks">Kontrollsystem</a>
+                        {% endif %}
+                        {% if "console" in authz.pages %}
+                            <a href="/console" class="mobile-nav-link" data-nav-target="console">Konsole</a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </nav>
+        {% else %}
+            <nav class="mobile-nav-links" aria-label="Mobile Login Navigation">
+                <a href="/login" class="mobile-nav-link" data-nav-target="login">Login</a>
+            </nav>
+        {% endif %}
+    </div>
 
     <main>
         <!-- Flash messages -->

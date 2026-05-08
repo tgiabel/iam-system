@@ -68,10 +68,12 @@
     background: transparent;
     box-shadow: none;
     border-radius: 0;
+    overflow: auto;
+    max-height: min(34rem, 60vh);
 }
 
 .roles-table-card thead {
-    background: linear-gradient(135deg, var(--color-primary), #5f82ed);
+    background: var(--table-header-bg);
 }
 
 .roles-table-card tbody tr:hover {

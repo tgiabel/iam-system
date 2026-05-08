@@ -80,7 +80,7 @@ table {
 }
 
 thead {
-    background-color: var(--color-primary);
+    background: var(--table-header-bg);
     color: var(--text-inverse);
 }
 

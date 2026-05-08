@@ -99,6 +99,20 @@
     gap: 1rem;
 }
 
+.process-section {
+    flex: 0 0 auto;
+}
+
+.process-section .ui-table-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.process-section .table-wrapper {
+    overflow: auto;
+    max-height: min(24rem, 40vh);
+}
+
 .task-strip {
     display: grid;
     grid-auto-flow: column;

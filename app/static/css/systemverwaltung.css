@@ -53,10 +53,12 @@
     background: transparent;
     box-shadow: none;
     border-radius: 0;
+    overflow: auto;
+    max-height: min(34rem, 60vh);
 }
 
 .systems-table-card thead {
-    background: linear-gradient(135deg, var(--color-primary), color-mix(in srgb, var(--color-primary) 70%, white));
+    background: var(--table-header-bg);
 }
 
 .systems-table-card tbody tr:hover {
