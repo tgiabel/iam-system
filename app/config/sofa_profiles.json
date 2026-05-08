@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "profiles": [
+    {
+      "key": "agent-supervisor",
+      "name": "Agent Supervisor",
+      "description": "Operative Steuerung mit Fokus auf Userprozesse, Konsole und rollenbezogene Teilverwaltung.",
+      "mapped_role_ids": [],
+      "mapped_role_names": [],
+      "default_grants": [
+        {
+          "permission": "dashboard.view"
+        },
+        {
+          "permission": "dashboard.calendar.view",
+          "resources": {
+            "event_types": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "tasks.view"
+        },
+        {
+          "permission": "tools.view"
+        },
+        {
+          "permission": "users.view"
+        },
+        {
+          "permission": "users.details.view"
+        },
+        {
+          "permission": "users.primary_role.request",
+          "resources": {
+            "target_roles": {
+              "all": true,
+              "ids": []
+            },
+            "assignable_roles": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "users.temporary_role.request",
+          "resources": {
+            "target_roles": {
+              "all": true,
+              "ids": []
+            },
+            "assignable_roles": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "users.role_revoke.request",
+          "resources": {
+            "target_roles": {
+              "all": true,
+              "ids": []
+            },
+            "assignable_roles": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "sofa_access.reset_password"
+        },
+        {
+          "permission": "roles.view"
+        },
+        {
+          "permission": "roles.manage"
+        },
+        {
+          "permission": "console.view"
+        }
+      ]
+    },
+    {
+      "key": "operational-admin",
+      "name": "Operational Admin",
+      "description": "Breite operative Administration mit vollem SOFA-Zugriffsmanagement.",
+      "mapped_role_ids": [],
+      "mapped_role_names": [],
+      "default_grants": [
+        {
+          "permission": "dashboard.view"
+        },
+        {
+          "permission": "dashboard.calendar.view",
+          "resources": {
+            "event_types": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "tasks.view"
+        },
+        {
+          "permission": "tools.view"
+        },
+        {
+          "permission": "users.view"
+        },
+        {
+          "permission": "users.details.view"
+        },
+        {
+          "permission": "users.primary_role.request",
+          "resources": {
+            "target_roles": {
+              "all": true,
+              "ids": []
+            },
+            "assignable_roles": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "users.temporary_role.request",
+          "resources": {
+            "target_roles": {
+              "all": true,
+              "ids": []
+            },
+            "assignable_roles": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "users.role_revoke.request",
+          "resources": {
+            "target_roles": {
+              "all": true,
+              "ids": []
+            },
+            "assignable_roles": {
+              "all": true,
+              "ids": []
+            }
+          }
+        },
+        {
+          "permission": "sofa_access.setup"
+        },
+        {
+          "permission": "sofa_access.reset_password"
+        },
+        {
+          "permission": "sofa_access.revoke"
+        },
+        {
+          "permission": "roles.view"
+        },
+        {
+          "permission": "systems.view"
+        },
+        {
+          "permission": "console.view"
+        }
+      ]
+    },
+    {
+      "key": "coach",
+      "name": "Coach",
+      "description": "Schulungsfokus mit eingeschraenktem Kalender- und Userverwaltungszugriff.",
+      "mapped_role_ids": [],
+      "mapped_role_names": [],
+      "default_grants": [
+        {
+          "permission": "dashboard.view"
+        },
+        {
+          "permission": "dashboard.pinboard.view",
+          "resources": {
+            "dashboard_widgets": {
+              "all": false,
+              "ids": [
+                "training_schedule"
+              ]
+            }
+          }
+        },
+        {
+          "permission": "dashboard.calendar.view",
+          "resources": {
+            "event_types": {
+              "all": false,
+              "ids": [
+                "training"
+              ]
+            }
+          }
+        },
+        {
+          "permission": "tasks.view"
+        },
+        {
+          "permission": "tools.view"
+        },
+        {
+          "permission": "users.view"
+        },
+        {
+          "permission": "users.training.schedule"
+        },
+        {
+          "permission": "roles.view"
+        }
+      ]
+    }
+  ]
+}
