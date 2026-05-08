@@ -58,26 +58,32 @@
                 </div>
         </section>
 
-        <div class="task-section">
+        <div class="task-section task-section-open">
             <div class="ui-section-header">
                 <div class="ui-section-heading">
                     <p class="ui-section-kicker">Offene Aufgaben</p>
                     <h3 class="ui-section-title">TODO</h3>
                     <p class="ui-section-copy">Alle aktuell verfügbaren Aufgaben.</p>
                 </div>
-                <span class="ui-count-pill" id="open-tasks-count">0</span>
+                <div class="task-section-actions">
+                    <button type="button" class="btn btn-secondary" id="open-tasks-bulk-assign">Alle übernehmen</button>
+                    <span class="ui-count-pill" id="open-tasks-count">0</span>
+                </div>
             </div>
             <div class="task-strip" id="open-tasks-slider"></div>
         </div>
 
-        <div class="task-section">
+        <div class="task-section task-section-progress">
             <div class="ui-section-header">
                 <div class="ui-section-heading">
                     <p class="ui-section-kicker">Meine Aufgaben</p>
                     <h3 class="ui-section-title">IN BEARBEITUNG</h3>
                     <p class="ui-section-copy">Aufgaben, die gerade von dir bearbeitet werden.</p>
                 </div>
-                <span class="ui-count-pill" id="my-tasks-count">0</span>
+                <div class="task-section-actions">
+                    <button type="button" class="btn btn-red" id="my-tasks-bulk-release">Alle freigeben</button>
+                    <span class="ui-count-pill" id="my-tasks-count">0</span>
+                </div>
             </div>
             <div class="task-strip" id="my-tasks-slider"></div>
         </div>

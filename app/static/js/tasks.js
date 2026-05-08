@@ -5,6 +5,7 @@ if (!window.taskOverlayInitialized) {
         initTaskWarningDialog();
         initTaskActionHandling();
         initTaskFilters();
+        initTaskBulkActions();
         loadInitialTaskData();
     });
     window.taskOverlayInitialized = true;
@@ -74,6 +75,12 @@ const taskViewState = {
         backlog: []
     },
     backlogLookup: {},
+    filteredBuckets: {
+        open: [],
+        blocked: [],
+        mine: [],
+        completed: []
+    },
     buckets: {
         open: [],
         blocked: [],
@@ -251,6 +258,23 @@ function formatHistoryAction(action) {
 
 function formatHistoryUser(entry) {
     return entry.user_id || entry.user_name || entry.username || "-";
+}
+
+function extractErrorMessage(detail, fallback) {
+    if (typeof detail === "string" && detail.trim()) {
+        return detail;
+    }
+
+    if (detail && typeof detail === "object") {
+        if (typeof detail.message === "string" && detail.message.trim()) {
+            return detail.message;
+        }
+        if (typeof detail.error === "string" && detail.error.trim()) {
+            return detail.error;
+        }
+    }
+
+    return fallback;
 }
 
 function normalizeBacklogId(value) {
@@ -739,6 +763,184 @@ function renderTaskActions(task) {
     }
 
     actionsEl.append(createActionButton("Erledigt", "complete", "primary", "task-complete-btn"));
+}
+
+async function requestTaskAssign(taskId) {
+    try {
+        const res = await fetch(`/api/tasks/${taskId}/assign?user_id=${window.currentUserId}`, {
+            method: "PATCH"
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            return {
+                ok: false,
+                status: res.status,
+                message: extractErrorMessage(
+                    data.detail || data.error,
+                    res.status === 409 ? "Task wurde bereits übernommen" : "Fehler beim Übernehmen des Tasks."
+                )
+            };
+        }
+
+        return { ok: true, data };
+    } catch (err) {
+        console.error("Assign Task Error:", err);
+        return {
+            ok: false,
+            status: 0,
+            message: "Fehler beim Übernehmen des Tasks."
+        };
+    }
+}
+
+async function requestTaskRelease(taskId) {
+    try {
+        const res = await fetch(`/api/tasks/${taskId}/assign`, {
+            method: "DELETE"
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            return {
+                ok: false,
+                status: res.status,
+                message: extractErrorMessage(data.detail || data.error, "Fehler beim Freigeben")
+            };
+        }
+
+        return { ok: true, data };
+    } catch (err) {
+        console.error("Release Task Error:", err);
+        return {
+            ok: false,
+            status: 0,
+            message: "Fehler beim Freigeben"
+        };
+    }
+}
+
+function setTaskBulkButtonState(button, isBusy, busyLabel) {
+    if (!button) {
+        return;
+    }
+
+    if (!button.dataset.defaultLabel) {
+        button.dataset.defaultLabel = button.textContent;
+    }
+
+    button.dataset.busy = isBusy ? "true" : "false";
+    button.disabled = isBusy;
+    button.textContent = isBusy ? busyLabel : button.dataset.defaultLabel;
+}
+
+function updateTaskBulkActionState(filteredBuckets = taskViewState.filteredBuckets) {
+    const openBulkButton = document.getElementById("open-tasks-bulk-assign");
+    const myBulkButton = document.getElementById("my-tasks-bulk-release");
+    const openBusy = openBulkButton?.dataset.busy === "true";
+    const mineBusy = myBulkButton?.dataset.busy === "true";
+
+    if (openBulkButton) {
+        openBulkButton.disabled = openBusy || !filteredBuckets.open.length;
+    }
+
+    if (myBulkButton) {
+        myBulkButton.disabled = mineBusy || !filteredBuckets.mine.length;
+    }
+}
+
+function buildBulkActionSummary(successCount, failedTasks, successLabel) {
+    if (!failedTasks.length) {
+        return {
+            type: "success",
+            message: `${successCount} ${successLabel}.`
+        };
+    }
+
+    const failureHint = failedTasks[0]?.message
+        ? ` Erste Meldung: ${failedTasks[0].message}`
+        : "";
+
+    if (!successCount) {
+        return {
+            type: "failure",
+            message: `Keine Aufgabe verarbeitet.${failureHint}`
+        };
+    }
+
+    return {
+        type: "failure",
+        message: `${successCount} ${successLabel}, ${failedTasks.length} fehlgeschlagen.${failureHint}`
+    };
+}
+
+async function handleBulkTaskAction({ buttonId, busyLabel, taskSelector, requestHandler, successLabel }) {
+    const button = document.getElementById(buttonId);
+    const tasks = taskSelector();
+
+    if (!button || !tasks.length) {
+        return;
+    }
+
+    setTaskBulkButtonState(button, true, busyLabel);
+
+    const failedTasks = [];
+    let successCount = 0;
+
+    try {
+        for (const task of tasks) {
+            const result = await requestHandler(task.task_id);
+            if (result.ok) {
+                successCount += 1;
+            } else {
+                failedTasks.push({
+                    taskId: task.task_id,
+                    message: result.message
+                });
+            }
+        }
+
+        await loadTasks();
+
+        const summary = buildBulkActionSummary(successCount, failedTasks, successLabel);
+        showFlash(summary.message, summary.type);
+    } finally {
+        setTaskBulkButtonState(button, false, busyLabel);
+        updateTaskBulkActionState(taskViewState.filteredBuckets);
+    }
+}
+
+function initTaskBulkActions() {
+    const openBulkButton = document.getElementById("open-tasks-bulk-assign");
+    const myBulkButton = document.getElementById("my-tasks-bulk-release");
+
+    if (openBulkButton && openBulkButton.dataset.bound !== "true") {
+        openBulkButton.dataset.bound = "true";
+        openBulkButton.addEventListener("click", async () => {
+            await handleBulkTaskAction({
+                buttonId: "open-tasks-bulk-assign",
+                busyLabel: "Übernehme...",
+                taskSelector: () => [...taskViewState.filteredBuckets.open],
+                requestHandler: requestTaskAssign,
+                successLabel: "Aufgaben übernommen"
+            });
+        });
+    }
+
+    if (myBulkButton && myBulkButton.dataset.bound !== "true") {
+        myBulkButton.dataset.bound = "true";
+        myBulkButton.addEventListener("click", async () => {
+            await handleBulkTaskAction({
+                buttonId: "my-tasks-bulk-release",
+                busyLabel: "Gebe frei...",
+                taskSelector: () => [...taskViewState.filteredBuckets.mine],
+                requestHandler: requestTaskRelease,
+                successLabel: "Aufgaben freigegeben"
+            });
+        });
+    }
+
+    updateTaskBulkActionState();
 }
 
 function openOverlay(elementId) {
@@ -1382,7 +1584,9 @@ function renderTaskBuckets(filteredBuckets) {
 
 function refreshTaskView() {
     const filteredBuckets = filterTaskBuckets();
+    taskViewState.filteredBuckets = filteredBuckets;
     renderTaskBuckets(filteredBuckets);
+    updateTaskBulkActionState(filteredBuckets);
 
     const visibleCount = Object.values(filteredBuckets).reduce((sum, tasks) => sum + tasks.length, 0);
     const totalCount = Object.values(taskViewState.buckets).reduce((sum, tasks) => sum + tasks.length, 0);
