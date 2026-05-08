@@ -1,6 +1,5 @@
 if (!window.taskOverlayInitialized) {
     document.addEventListener("DOMContentLoaded", () => {
-        initTabs();
         initTaskOverlay();
         initMailDialog();
         initTaskWarningDialog();
@@ -80,16 +79,6 @@ const taskViewState = {
         blocked: [],
         mine: [],
         completed: []
-    }
-};
-
-const processViewState = {
-    loaded: false,
-    loading: false,
-    error: null,
-    data: {
-        running_processes: [],
-        completed_processes: []
     }
 };
 
@@ -1009,38 +998,6 @@ async function openTaskOverlay(task) {
     await loadTaskHistory(task.task_id);
 }
 
-function initTabs() {
-    const tabs = document.querySelectorAll(".tasks-tab");
-    const tabPanels = document.querySelectorAll(".tasks-tab-panel");
-
-    function activateTab(target) {
-        tabs.forEach(item => {
-            const isActive = item.dataset.tab === target;
-            item.classList.toggle("active", isActive);
-            item.setAttribute("aria-selected", String(isActive));
-        });
-
-        tabPanels.forEach(panel => {
-            const isActive = panel.id === `tab-${target}`;
-            panel.classList.toggle("active", isActive);
-            panel.setAttribute("aria-hidden", String(!isActive));
-        });
-
-        if (target === "prozesse") {
-            loadProcesses();
-        }
-    }
-
-    tabs.forEach(tab => {
-        tab.addEventListener("click", () => {
-            activateTab(tab.dataset.tab);
-        });
-    });
-
-    const initiallyActive = document.querySelector(".tasks-tab.active")?.dataset.tab || "aufgaben";
-    activateTab(initiallyActive);
-}
-
 function initTaskOverlay() {
     const historyToggle = document.getElementById("history-toggle");
     historyToggle?.addEventListener("click", () => {
@@ -1390,189 +1347,6 @@ async function dispatchBot(task) {
     } catch (err) {
         console.error("Bot Dispatch Error:", err);
         showFlash("Fehler beim Dispatchen des Bots", "failure");
-    }
-}
-
-function getFirstArrayByKeys(data, keys) {
-    for (const key of keys) {
-        if (Array.isArray(data?.[key])) {
-            return data[key];
-        }
-    }
-    return [];
-}
-
-function extractProcessBuckets(data) {
-    const running = getFirstArrayByKeys(data, [
-        "running_processes",
-        "open_processes",
-        "active_processes",
-        "ongoing_processes"
-    ]);
-
-    const completed = getFirstArrayByKeys(data, [
-        "completed_processes",
-        "closed_processes",
-        "finished_processes"
-    ]);
-
-    if (running.length || completed.length) {
-        return { running, completed };
-    }
-
-    const allProcesses = getFirstArrayByKeys(data, ["processes"]);
-    if (!allProcesses.length) {
-        return { running: [], completed: [] };
-    }
-
-    return allProcesses.reduce((acc, process) => {
-        const completedAt = firstDefinedValue(process, PROCESS_KEYS.completedAt, null);
-        const status = String(process.status || "").toUpperCase();
-        const isCompleted = Boolean(completedAt) || ["COMPLETED", "DONE", "FINISHED", "CANCELLED"].includes(status);
-
-        if (isCompleted) {
-            acc.completed.push(process);
-        } else {
-            acc.running.push(process);
-        }
-        return acc;
-    }, { running: [], completed: [] });
-}
-
-function computeOpenTaskCount(process) {
-    const explicitCount = firstDefinedValue(process, PROCESS_KEYS.openTaskCount, null);
-    if (explicitCount !== null) {
-        return explicitCount;
-    }
-
-    if (Array.isArray(process.open_tasks)) {
-        return process.open_tasks.length;
-    }
-
-    if (Array.isArray(process.tasks)) {
-        return process.tasks.filter(task => !task.completed_at && task.status !== "COMPLETED").length;
-    }
-
-    return "-";
-}
-
-function renderProcessRow(process, isCompleted) {
-    const id = firstDefinedValue(process, PROCESS_KEYS.id);
-    const name = firstDefinedValue(process, PROCESS_KEYS.name);
-    const target = firstDefinedValue(process, PROCESS_KEYS.target);
-    const triggeredBy = firstDefinedValue(process, PROCESS_KEYS.triggeredBy);
-    const startedAt = formatDateTime(firstDefinedValue(process, PROCESS_KEYS.startedAt, null));
-
-    if (isCompleted) {
-        const completedAt = formatDateTime(firstDefinedValue(process, PROCESS_KEYS.completedAt, null));
-        return `
-            <tr>
-                <td>${escapeHtml(id)}</td>
-                <td>${escapeHtml(name)}</td>
-                <td>${escapeHtml(target)}</td>
-                <td>${escapeHtml(triggeredBy)}</td>
-                <td>${escapeHtml(startedAt)}</td>
-                <td>${escapeHtml(completedAt)}</td>
-            </tr>
-        `;
-    }
-
-    const openTaskCount = computeOpenTaskCount(process);
-    return `
-        <tr>
-            <td>${escapeHtml(id)}</td>
-            <td>${escapeHtml(name)}</td>
-            <td>${escapeHtml(target)}</td>
-            <td>${escapeHtml(triggeredBy)}</td>
-            <td>${escapeHtml(startedAt)}</td>
-            <td>${escapeHtml(openTaskCount)}</td>
-        </tr>
-    `;
-}
-
-function renderProcessStateRow(bodyId, message, variant = "empty") {
-    const body = document.getElementById(bodyId);
-    if (!body) {
-        return;
-    }
-
-    const stateClass = variant === "error"
-        ? "process-state-row process-state-error"
-        : "process-state-row";
-
-    body.innerHTML = `
-        <tr class="${stateClass}">
-            <td colspan="6">
-                <div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>
-            </td>
-        </tr>
-    `;
-}
-
-function renderProcessTable(bodyId, processes, isCompleted) {
-    const body = document.getElementById(bodyId);
-    if (!body) {
-        return;
-    }
-
-    if (!processes.length) {
-        renderProcessStateRow(
-            bodyId,
-            isCompleted ? "Keine abgeschlossenen Prozesse vorhanden." : "Keine laufenden Prozesse vorhanden."
-        );
-        return;
-    }
-
-    body.innerHTML = processes.map(process => renderProcessRow(process, isCompleted)).join("");
-}
-
-function renderProcessTables(data) {
-    const { running, completed } = extractProcessBuckets(data);
-    renderProcessTable("running-processes-body", running, false);
-    renderProcessTable("completed-processes-body", completed, true);
-}
-
-function renderProcessLoadingState() {
-    renderProcessStateRow("running-processes-body", "Lade laufende Prozesse...", "loading");
-    renderProcessStateRow("completed-processes-body", "Lade abgeschlossene Prozesse...", "loading");
-}
-
-function renderProcessErrorState(message) {
-    renderProcessStateRow("running-processes-body", message, "error");
-    renderProcessStateRow("completed-processes-body", message, "error");
-}
-
-async function loadProcesses(forceReload = false) {
-    if (processViewState.loading) {
-        return;
-    }
-
-    if (processViewState.loaded && !forceReload) {
-        renderProcessTables(processViewState.data);
-        return;
-    }
-
-    processViewState.loading = true;
-    processViewState.error = null;
-    renderProcessLoadingState();
-
-    try {
-        const res = await fetch("/api/processes/overview");
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "Fehler beim Laden der Prozesse.");
-        }
-
-        processViewState.loaded = true;
-        processViewState.data = data;
-        renderProcessTables(processViewState.data);
-    } catch (err) {
-        processViewState.error = err;
-        console.error("Prozess-Ladefehler:", err);
-        renderProcessErrorState("Prozessübersicht konnte nicht geladen werden.");
-    } finally {
-        processViewState.loading = false;
     }
 }
 

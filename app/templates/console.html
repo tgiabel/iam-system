@@ -54,6 +54,76 @@
         </div>
     </section>
 
+    <section class="ui-card console-process-panel" aria-labelledby="console-processes-title">
+        <div class="console-process-head">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Prozesse</p>
+                <h2 class="ui-section-title" id="console-processes-title">Laufende und abgeschlossene Prozesse</h2>
+                <p class="ui-section-copy">
+                    Zentrale Read-only-Übersicht für aktive Prozesse, ihre offenen Aufgaben und abgeschlossene Vorgänge.
+                </p>
+            </div>
+        </div>
+
+        <div class="console-process-grid">
+            <section class="console-process-card">
+                <div class="console-process-card-head">
+                    <span class="ui-section-kicker">Aktiv</span>
+                    <h3 class="ui-section-title">Laufende Prozesse</h3>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Prozess</th>
+                                <th>Für</th>
+                                <th>Ausgelöst von</th>
+                                <th>Prozessstart</th>
+                                <th>Offene Aufgaben</th>
+                            </tr>
+                        </thead>
+                        <tbody id="console-running-processes-body">
+                            <tr class="console-process-state-row">
+                                <td colspan="6">
+                                    <div class="ui-empty-state ui-empty-inline">Lade laufende Prozesse...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="console-process-card">
+                <div class="console-process-card-head">
+                    <span class="ui-section-kicker">Historie</span>
+                    <h3 class="ui-section-title">Abgeschlossene Prozesse</h3>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Prozess</th>
+                                <th>Für</th>
+                                <th>Ausgelöst von</th>
+                                <th>Prozessstart</th>
+                                <th>Prozessende</th>
+                            </tr>
+                        </thead>
+                        <tbody id="console-completed-processes-body">
+                            <tr class="console-process-state-row">
+                                <td colspan="6">
+                                    <div class="ui-empty-state ui-empty-inline">Lade abgeschlossene Prozesse...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </section>
+
     <section class="console-grid">
         <article class="ui-card console-panel">
             <div class="console-panel-head">
@@ -81,7 +151,7 @@
 
             <ul class="console-list">
                 <li>Systemzustände und Wartungsmeldungen aus Backend-Quellen einblenden.</li>
-                <li>Job- und Prozessübersichten für Admins zusammenführen.</li>
+                <li>Job- und weitere Betriebsübersichten für Admins zusammenführen.</li>
                 <li>Spätere Log- und Fehleransichten als eigene Konsole-Blöcke ergänzen.</li>
             </ul>
         </article>
