@@ -6,6 +6,7 @@ import json
 
 from fastapi import Cookie, Depends
 from fastapi.exceptions import HTTPException  # type: ignore
+from app.sofa_permissions import get_permission_definition, normalize_runtime_grants
 
 
 def _normalize_text(value: Any) -> str:
@@ -42,130 +43,15 @@ async def get_current_user_dep(
     return user
 
 
-POLICY_DEFINITIONS = {
-    "basic_user": {
-        "pages": set(),
-        "capabilities": set(),
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "none",
-        },
-    },
-    "people_admin": {
-        "pages": {"users"},
-        "capabilities": {
-            "onboarding.start",
-            "onboarding.external.start",
-            "training.schedule",
-            "primary_role.change",
-            "temporary_role.assign",
-            "skill.assign",
-            "skill.revoke",
-            "offboarding.start",
-        },
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "all",
-        },
-    },
-    "operations_admin": {
-        "pages": {"console", "users", "iks"},
-        "capabilities": {
-            "onboarding.start",
-            "onboarding.external.start",
-            "training.schedule",
-            "primary_role.change",
-            "temporary_role.assign",
-            "skill.assign",
-            "skill.revoke",
-            "offboarding.start",
-        },
-        "scopes": {
-            "tasks": "relevant_only",
-            "tools": "own_only",
-            "reports": "own_only",
-            "users": "all",
-        },
-    },
-    "it_admin": {
-        "pages": {"console", "users", "systems", "roles", "iks"},
-        "capabilities": {
-            "onboarding.start",
-            "onboarding.external.start",
-            "training.schedule",
-            "primary_role.change",
-            "temporary_role.assign",
-            "skill.assign",
-            "skill.revoke",
-            "offboarding.start",
-            "sofa_access.setup",
-            "sofa_access.reset",
-            "sofa_access.revoke",
-        },
-        "scopes": {
-            "tasks": "all",
-            "tools": "all",
-            "reports": "all",
-            "users": "all",
-        },
-    },
+DEFAULT_POLICY_KEY = "basic_user"
+DEFAULT_SCOPES = {
+    "tasks": "none",
+    "tools": "none",
+    "reports": "none",
+    "users": "none",
 }
 
-
-# Backlog-Sicht wird lokal aus den bereits auf Policies gemappten Rollen abgeleitet.
-# Weitere Zuordnungen koennen hier ergaenzt werden, sobald die fachlichen Backlog-IDs feststehen.
-TASK_BACKLOG_ACCESS_BY_POLICY = {
-    "basic_user": {
-        "all": False,
-        "backlog_ids": set(),
-    },
-    "people_admin": {
-        "all": False,
-        "backlog_ids": set(),
-    },
-    "operations_admin": {
-        "all": False,
-        "backlog_ids": set(),
-    },
-    "it_admin": {
-        "all": True,
-        "backlog_ids": [1,],
-    },
-}
-
-
-ROLE_POLICY_BY_ID = {
-    21: "it_admin",
-}
-
-
-# Compatibility fallback until the remaining role ids are wired explicitly.
-ROLE_POLICY_BY_NAME = {
-    "sd-it": "it_admin",
-    "it": "it_admin",
-    "sd-personal": "people_admin",
-    "personal": "people_admin",
-    "sd-vv-leitung": "people_admin",
-    "vv-leitung": "people_admin",
-    "sd-teamleiter": "operations_admin",
-    "teamleiter": "operations_admin",
-    "sd-produktionsleitung": "operations_admin",
-    "produktionsleitung": "operations_admin",
-    "sd-steuerung": "operations_admin",
-    "steuerung": "operations_admin",
-}
-
-
-SCOPE_PRIORITY = {
-    "none": 0,
-    "own_only": 1,
-    "relevant_only": 2,
-    "all": 3,
-}
+ADMIN_PAGE_KEYS = frozenset({"users", "systems", "roles", "iks", "console"})
 
 
 INACTIVE_ROLE_STATUSES = {
@@ -193,6 +79,8 @@ class AuthorizationContext:
     effective_role_ids: tuple[int, ...]
     effective_role_names: tuple[str, ...]
     effective_policy_keys: tuple[str, ...]
+    permission_keys: tuple[str, ...]
+    grants: tuple[dict[str, Any], ...]
     raw_user: dict[str, Any]
 
     def has_page(self, page_key: str) -> bool:
@@ -200,6 +88,9 @@ class AuthorizationContext:
 
     def has_capability(self, capability_key: str) -> bool:
         return capability_key in self.capabilities
+
+    def has_permission(self, permission_key: str) -> bool:
+        return permission_key in self.permission_keys
 
     def get_scope(self, scope_key: str, default: str = "none") -> str:
         return self.data_scopes.get(scope_key, default)
@@ -258,36 +149,20 @@ def _collect_effective_roles(user: dict[str, Any] | None) -> list[dict[str, Any]
     return effective_roles
 
 
-def _resolve_policy_key_for_role(role: dict[str, Any]) -> str | None:
-    role_id = _coerce_role_id(role.get("role_id"))
-    if role_id is not None and role_id in ROLE_POLICY_BY_ID:
-        return ROLE_POLICY_BY_ID[role_id]
-
-    role_name = _normalize_text(role.get("name") or role.get("role_name"))
-    return ROLE_POLICY_BY_NAME.get(role_name)
-
-
-def _merge_scopes(base_scopes: dict[str, str], additional_scopes: dict[str, str]) -> dict[str, str]:
-    merged = dict(base_scopes)
-    for scope_key, scope_value in additional_scopes.items():
-        current_priority = SCOPE_PRIORITY.get(merged.get(scope_key, "none"), -1)
-        next_priority = SCOPE_PRIORITY.get(scope_value, -1)
-        if next_priority > current_priority:
-            merged[scope_key] = scope_value
-    return merged
-
-
-def _resolve_task_backlog_access(policy_keys: list[str]) -> tuple[tuple[int, ...], bool]:
+def _resolve_task_backlog_access(grants: list[dict[str, Any]]) -> tuple[tuple[int, ...], bool]:
     visible_backlog_ids: set[int] = set()
     can_view_all = False
 
-    effective_policy_keys = policy_keys or ["basic_user"]
-    for policy_key in effective_policy_keys:
-        access_definition = TASK_BACKLOG_ACCESS_BY_POLICY.get(policy_key, {})
+    for grant in grants:
+        if str(grant.get("permission")) != "tasks.backlog.view":
+            continue
+
+        resources = grant.get("resources") or {}
+        access_definition = resources.get("task_backlog") or resources.get("task_backlogs") or {}
         if access_definition.get("all"):
             can_view_all = True
 
-        backlog_ids = access_definition.get("backlog_ids", set())
+        backlog_ids = access_definition.get("ids", [])
         for backlog_id in backlog_ids:
             if isinstance(backlog_id, int):
                 visible_backlog_ids.add(backlog_id)
@@ -295,42 +170,89 @@ def _resolve_task_backlog_access(policy_keys: list[str]) -> tuple[tuple[int, ...
     return tuple(sorted(visible_backlog_ids)), can_view_all
 
 
+def _resolve_scope_from_resource_grants(
+    grants: list[dict[str, Any]],
+    permission_key: str,
+    resource_key: str,
+) -> str:
+    has_permission = False
+    has_specific_ids = False
+
+    for grant in grants:
+        if str(grant.get("permission")) != permission_key:
+            continue
+
+        has_permission = True
+        resource_scope = (grant.get("resources") or {}).get(resource_key) or {}
+        if resource_scope.get("all"):
+            return "all"
+        if resource_scope.get("ids"):
+            has_specific_ids = True
+
+    if has_specific_ids:
+        return "own_only"
+    if has_permission:
+        return "all"
+    return "none"
+
+
+def _project_pages_and_capabilities(grants: list[dict[str, Any]]) -> tuple[set[str], set[str], tuple[str, ...]]:
+    pages: set[str] = set()
+    capabilities: set[str] = set()
+    permission_keys: list[str] = []
+    seen_permission_keys: set[str] = set()
+
+    for grant in grants:
+        permission_key = str(grant.get("permission") or "").strip()
+        if not permission_key:
+            continue
+
+        if permission_key not in seen_permission_keys:
+            seen_permission_keys.add(permission_key)
+            permission_keys.append(permission_key)
+
+        permission_definition = get_permission_definition(permission_key) or {}
+        legacy_mapping = permission_definition.get("legacy") or {}
+        if not isinstance(legacy_mapping, dict):
+            continue
+
+        page_key = str(legacy_mapping.get("page") or "").strip()
+        capability_key = str(legacy_mapping.get("capability") or "").strip()
+
+        if page_key:
+            pages.add(page_key)
+        if capability_key:
+            capabilities.add(capability_key)
+
+    return pages, capabilities, tuple(permission_keys)
+
+
 def build_authorization_context_from_user(user: dict[str, Any]) -> AuthorizationContext:
     primary_role = user.get("primary_role") or {}
     primary_role_id = _coerce_role_id(primary_role.get("role_id"))
-    primary_policy_key = _resolve_policy_key_for_role(primary_role) if isinstance(primary_role, dict) else None
 
     effective_roles = _collect_effective_roles(user)
-    effective_policy_keys: list[str] = []
-    seen_policy_keys: set[str] = set()
+    sofa_authorization = user.get("sofa_authorization") if isinstance(user.get("sofa_authorization"), dict) else {}
+    profile_keys = sofa_authorization.get("profile_keys") if isinstance(sofa_authorization, dict) else []
+    normalized_profile_keys = tuple(
+        str(profile_key).strip()
+        for profile_key in (profile_keys if isinstance(profile_keys, list) else [])
+        if str(profile_key).strip()
+    )
+    grants = normalize_runtime_grants((sofa_authorization or {}).get("grants"))
+    pages, capabilities, permission_keys = _project_pages_and_capabilities(grants)
 
-    pages: set[str] = set()
-    capabilities: set[str] = set()
-    data_scopes = dict(POLICY_DEFINITIONS["basic_user"]["scopes"])
+    role_key = normalized_profile_keys[0] if normalized_profile_keys else (DEFAULT_POLICY_KEY if not grants else "custom")
+    resolved_policy_keys = normalized_profile_keys or ((DEFAULT_POLICY_KEY,) if not grants else ("custom",))
+    visible_task_backlog_ids, can_view_all_task_backlogs = _resolve_task_backlog_access(grants)
 
-    for role in effective_roles:
-        policy_key = _resolve_policy_key_for_role(role)
-        if not policy_key or policy_key not in POLICY_DEFINITIONS:
-            continue
-
-        if policy_key not in seen_policy_keys:
-            seen_policy_keys.add(policy_key)
-            effective_policy_keys.append(policy_key)
-
-        policy = POLICY_DEFINITIONS[policy_key]
-        pages.update(policy["pages"])
-        capabilities.update(policy["capabilities"])
-        data_scopes = _merge_scopes(data_scopes, policy["scopes"])
-
-    if primary_policy_key and primary_policy_key in POLICY_DEFINITIONS:
-        role_key = primary_policy_key
-    elif effective_policy_keys:
-        role_key = effective_policy_keys[0]
-    else:
-        role_key = "basic_user"
-
-    debug_policy_keys = tuple(effective_policy_keys) or ("basic_user",)
-    visible_task_backlog_ids, can_view_all_task_backlogs = _resolve_task_backlog_access(effective_policy_keys)
+    data_scopes = dict(DEFAULT_SCOPES)
+    if "users" in pages:
+        data_scopes["users"] = "all"
+    if "tasks" in pages:
+        data_scopes["tasks"] = "all" if can_view_all_task_backlogs else ("relevant_only" if visible_task_backlog_ids else "none")
+    data_scopes["tools"] = _resolve_scope_from_resource_grants(grants, "tools.item.view", "tools")
+    data_scopes["reports"] = _resolve_scope_from_resource_grants(grants, "reports.item.view", "reports")
 
     return AuthorizationContext(
         user_id=user.get("user_id"),
@@ -345,7 +267,9 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
         can_view_all_task_backlogs=can_view_all_task_backlogs,
         effective_role_ids=tuple(role["role_id"] for role in effective_roles),
         effective_role_names=tuple(str(role["name"]) for role in effective_roles),
-        effective_policy_keys=debug_policy_keys,
+        effective_policy_keys=resolved_policy_keys,
+        permission_keys=permission_keys,
+        grants=tuple(grants),
         raw_user=user,
     )
 
@@ -428,6 +352,8 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
             "effective_role_ids": [],
             "effective_role_names": [],
             "effective_policy_keys": [],
+            "permission_keys": [],
+            "grants": [],
             "visible_task_backlog_ids": [],
             "can_view_all_task_backlogs": False,
             "has_admin_access": False,
@@ -443,7 +369,9 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
         "effective_role_ids": list(authz.effective_role_ids),
         "effective_role_names": list(authz.effective_role_names),
         "effective_policy_keys": list(authz.effective_policy_keys),
+        "permission_keys": list(authz.permission_keys),
+        "grants": list(authz.grants),
         "visible_task_backlog_ids": list(authz.visible_task_backlog_ids),
         "can_view_all_task_backlogs": authz.can_view_all_task_backlogs,
-        "has_admin_access": bool(authz.pages),
+        "has_admin_access": bool(authz.pages.intersection(ADMIN_PAGE_KEYS)),
     }

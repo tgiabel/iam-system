@@ -1,0 +1,388 @@
+{
+  "version": 1,
+  "resource_types": [
+    {
+      "key": "task_backlogs",
+      "label": "Task-Backlogs",
+      "description": "Backlogs, deren Tasks in SOFA sichtbar sein duerfen.",
+      "selection_source": {
+        "kind": "api",
+        "path": "/api/task_backlogs"
+      }
+    },
+    {
+      "key": "tools",
+      "label": "Tools",
+      "description": "Einzelne Tools, die in SOFA sichtbar sein duerfen.",
+      "selection_source": {
+        "kind": "static",
+        "options": []
+      }
+    },
+    {
+      "key": "reports",
+      "label": "Reports",
+      "description": "Einzelne Reports, die in SOFA sichtbar sein duerfen.",
+      "selection_source": {
+        "kind": "static",
+        "options": []
+      }
+    },
+    {
+      "key": "roles",
+      "label": "Rollen",
+      "description": "Rollen, die direkt von einer Permission betroffen sind.",
+      "selection_source": {
+        "kind": "api",
+        "path": "/api/roles/map"
+      }
+    },
+    {
+      "key": "target_roles",
+      "label": "Zielrollen",
+      "description": "Rollen, fuer deren Mitglieder eine Aktion beantragt werden darf.",
+      "selection_source": {
+        "kind": "api",
+        "path": "/api/roles/map"
+      }
+    },
+    {
+      "key": "assignable_roles",
+      "label": "Zuweisbare Rollen",
+      "description": "Rollen, die in einem Antrag zur Auswahl stehen duerfen.",
+      "selection_source": {
+        "kind": "api",
+        "path": "/api/roles/map"
+      }
+    },
+    {
+      "key": "systems",
+      "label": "Systeme",
+      "description": "Systeme, die in der Systemverwaltung bearbeitet werden duerfen.",
+      "selection_source": {
+        "kind": "api",
+        "path": "/api/systems/map"
+      }
+    },
+    {
+      "key": "event_types",
+      "label": "Eventtypen",
+      "description": "Eventtypen fuer Dashboard-Kalender und weitere Anzeigen.",
+      "selection_source": {
+        "kind": "static",
+        "options": [
+          {
+            "id": "all",
+            "label": "Alle Eventtypen"
+          },
+          {
+            "id": "training",
+            "label": "Schulung"
+          }
+        ]
+      }
+    },
+    {
+      "key": "sofa_actions",
+      "label": "SOFA-Aktionen",
+      "description": "SOFA-Benutzeraktionen in der Userverwaltung.",
+      "selection_source": {
+        "kind": "static",
+        "options": [
+          {
+            "id": "setup",
+            "label": "Zugang einrichten"
+          },
+          {
+            "id": "reset_password",
+            "label": "Passwort zuruecksetzen"
+          },
+          {
+            "id": "revoke",
+            "label": "Zugang entziehen"
+          }
+        ]
+      }
+    },
+    {
+      "key": "dashboard_widgets",
+      "label": "Dashboard-Widgets",
+      "description": "Inhalte, die auf der Pinnwand verfuegbar gemacht werden duerfen.",
+      "selection_source": {
+        "kind": "static",
+        "options": [
+          {
+            "id": "training_schedule",
+            "label": "Schulung planen"
+          }
+        ]
+      }
+    }
+  ],
+  "permissions": [
+    {
+      "key": "dashboard.view",
+      "label": "Dashboard anzeigen",
+      "category": "dashboard",
+      "description": "Erlaubt den Zugriff auf das SOFA-Dashboard."
+    },
+    {
+      "key": "dashboard.pinboard.view",
+      "label": "Pinnwand anzeigen",
+      "category": "dashboard",
+      "description": "Steuert, welche Widgets oder Inhalte auf der Pinnwand verfuegbar sind.",
+      "resource_types": [
+        "dashboard_widgets"
+      ]
+    },
+    {
+      "key": "dashboard.calendar.view",
+      "label": "Kalender anzeigen",
+      "category": "dashboard",
+      "description": "Steuert, welche Eventtypen im Dashboard-Kalender sichtbar sind.",
+      "resource_types": [
+        "event_types"
+      ]
+    },
+    {
+      "key": "tasks.view",
+      "label": "To-Dos anzeigen",
+      "category": "tasks",
+      "description": "Erlaubt den Zugriff auf die To-Do-Seite.",
+      "legacy": {
+        "page": "tasks"
+      }
+    },
+    {
+      "key": "tasks.backlog.view",
+      "label": "Task-Backlogs anzeigen",
+      "category": "tasks",
+      "description": "Steuert, welche Task-Backlogs sichtbar sind.",
+      "resource_types": [
+        "task_backlogs"
+      ]
+    },
+    {
+      "key": "tools.view",
+      "label": "Tools & Reports anzeigen",
+      "category": "tools",
+      "description": "Erlaubt den Zugriff auf die Tools-&-Reports-Seite.",
+      "legacy": {
+        "page": "tools"
+      }
+    },
+    {
+      "key": "tools.item.view",
+      "label": "Tools anzeigen",
+      "category": "tools",
+      "description": "Steuert, welche Tools auf der Seite sichtbar sind.",
+      "resource_types": [
+        "tools"
+      ]
+    },
+    {
+      "key": "reports.item.view",
+      "label": "Reports anzeigen",
+      "category": "tools",
+      "description": "Steuert, welche Reports auf der Seite sichtbar sind.",
+      "resource_types": [
+        "reports"
+      ]
+    },
+    {
+      "key": "users.view",
+      "label": "Userverwaltung anzeigen",
+      "category": "users",
+      "description": "Erlaubt den Zugriff auf die Userverwaltung.",
+      "legacy": {
+        "page": "users"
+      }
+    },
+    {
+      "key": "users.details.view",
+      "label": "Userdetails anzeigen",
+      "category": "users",
+      "description": "Erlaubt das Oeffnen der Detail-Sidebar in der Userverwaltung."
+    },
+    {
+      "key": "users.onboarding.start",
+      "label": "Onboarding starten",
+      "category": "users",
+      "description": "Erlaubt das Starten interner Onboarding-Prozesse.",
+      "legacy": {
+        "capability": "onboarding.start"
+      }
+    },
+    {
+      "key": "users.onboarding_external.start",
+      "label": "Externes Onboarding starten",
+      "category": "users",
+      "description": "Erlaubt das Starten externer Onboarding-Prozesse.",
+      "legacy": {
+        "capability": "onboarding.external.start"
+      }
+    },
+    {
+      "key": "users.primary_role.request",
+      "label": "Neue Rolle beantragen",
+      "category": "users",
+      "description": "Erlaubt das Beantragen einer neuen Haupt- oder Nebenrolle.",
+      "resource_types": [
+        "target_roles",
+        "assignable_roles"
+      ],
+      "legacy": {
+        "capability": "primary_role.change"
+      }
+    },
+    {
+      "key": "users.temporary_role.request",
+      "label": "Temporäre Rolle beantragen",
+      "category": "users",
+      "description": "Erlaubt das Beantragen temporaerer Rollen.",
+      "resource_types": [
+        "target_roles",
+        "assignable_roles"
+      ],
+      "legacy": {
+        "capability": "temporary_role.assign"
+      }
+    },
+    {
+      "key": "users.role_revoke.request",
+      "label": "Rolle entziehen",
+      "category": "users",
+      "description": "Erlaubt das Entziehen bestehender Rollen.",
+      "resource_types": [
+        "target_roles",
+        "assignable_roles"
+      ],
+      "legacy": {
+        "capability": "skill.revoke"
+      }
+    },
+    {
+      "key": "users.offboarding.start",
+      "label": "Offboarding starten",
+      "category": "users",
+      "description": "Erlaubt das Starten von Offboarding-Prozessen.",
+      "resource_types": [
+        "target_roles"
+      ],
+      "legacy": {
+        "capability": "offboarding.start"
+      }
+    },
+    {
+      "key": "users.training.schedule",
+      "label": "Schulung planen",
+      "category": "users",
+      "description": "Erlaubt das Planen von Schulungen fuer ausgewaehlte Personen und Rollen.",
+      "legacy": {
+        "capability": "training.schedule"
+      }
+    },
+    {
+      "key": "sofa_access.setup",
+      "label": "SOFA-Zugang einrichten",
+      "category": "users",
+      "description": "Erlaubt das Einrichten eines SOFA-Zugangs.",
+      "resource_types": [
+        "sofa_actions"
+      ],
+      "legacy": {
+        "capability": "sofa_access.setup"
+      }
+    },
+    {
+      "key": "sofa_access.reset_password",
+      "label": "SOFA-Passwort zuruecksetzen",
+      "category": "users",
+      "description": "Erlaubt das Zuruecksetzen eines SOFA-Passworts.",
+      "resource_types": [
+        "sofa_actions"
+      ],
+      "legacy": {
+        "capability": "sofa_access.reset"
+      }
+    },
+    {
+      "key": "sofa_access.revoke",
+      "label": "SOFA-Zugang entziehen",
+      "category": "users",
+      "description": "Erlaubt das Entziehen eines SOFA-Zugangs.",
+      "resource_types": [
+        "sofa_actions"
+      ],
+      "legacy": {
+        "capability": "sofa_access.revoke"
+      }
+    },
+    {
+      "key": "systems.view",
+      "label": "Systemverwaltung anzeigen",
+      "category": "systems",
+      "description": "Erlaubt den Zugriff auf die Systemverwaltung.",
+      "legacy": {
+        "page": "systems"
+      }
+    },
+    {
+      "key": "systems.create",
+      "label": "Systeme anlegen",
+      "category": "systems",
+      "description": "Erlaubt das Anlegen neuer Systeme."
+    },
+    {
+      "key": "systems.manage",
+      "label": "Systemdetails bearbeiten",
+      "category": "systems",
+      "description": "Steuert, welche Systeme bearbeitet werden duerfen.",
+      "resource_types": [
+        "systems"
+      ]
+    },
+    {
+      "key": "roles.view",
+      "label": "Rollenmanagement anzeigen",
+      "category": "roles",
+      "description": "Erlaubt den Zugriff auf das Rollenmanagement.",
+      "legacy": {
+        "page": "roles"
+      }
+    },
+    {
+      "key": "roles.create",
+      "label": "Rollen anlegen",
+      "category": "roles",
+      "description": "Erlaubt das Anlegen neuer Rollen."
+    },
+    {
+      "key": "roles.manage",
+      "label": "Rollen bearbeiten",
+      "category": "roles",
+      "description": "Steuert, welche Rollen bearbeitet und deren Ressourcen angepasst werden duerfen.",
+      "resource_types": [
+        "roles"
+      ]
+    },
+    {
+      "key": "console.view",
+      "label": "Konsole anzeigen",
+      "category": "console",
+      "description": "Erlaubt den Zugriff auf die Konsole.",
+      "legacy": {
+        "page": "console"
+      }
+    },
+    {
+      "key": "iks.view",
+      "label": "Kontrollsystem anzeigen",
+      "category": "misc",
+      "description": "Erlaubt den Zugriff auf IKS/Kontrollsystem.",
+      "legacy": {
+        "page": "iks"
+      }
+    }
+  ]
+}

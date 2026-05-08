@@ -1,11 +1,17 @@
+from __future__ import annotations
+
 from datetime import date
+import json
 
 import httpx  # type: ignore
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile  # type: ignore
+from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Request, UploadFile  # type: ignore
 from fastapi.responses import JSONResponse, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
 from app.authz import (
+    build_authorization_context_from_user,
+    get_authz_payload_for_template,
+    get_current_user,
     require_any_page_access,
     require_capability,
     require_login,
@@ -16,6 +22,7 @@ from app.routes.shared import (
     _build_template_context,
     _coerce_bool,
     _coerce_int,
+    _build_session_user_from_login,
     _error_content_from_response,
     _filter_processes_for_scope,
     _filter_tasks_for_scope,
@@ -28,9 +35,69 @@ from app.routes.shared import (
     _task_matches_target_user,
     templates,
 )
+from app.sofa_permissions import (
+    normalize_role_scoped_grants,
+)
 
 
 router = APIRouter(prefix="/api")
+
+
+def _request_uses_https(request: Request) -> bool:
+    forwarded_proto = request.headers.get("x-forwarded-proto", "")
+    if forwarded_proto:
+        primary_proto = forwarded_proto.split(",")[0].strip().lower()
+        return primary_proto == "https"
+    return request.url.scheme.lower() == "https"
+
+
+def _normalize_role_detail_payload(payload: dict | None) -> dict:
+    role_payload = dict(payload or {})
+    role_payload["sofa_grants"] = normalize_role_scoped_grants(role_payload.get("sofa_grants"))
+    role_payload["inherited_sofa_grants"] = normalize_role_scoped_grants(role_payload.get("inherited_sofa_grants"))
+    return role_payload
+
+
+def _normalize_catalog_payload(payload: dict | None) -> dict:
+    catalog = dict(payload or {})
+
+    permissions: list[dict] = []
+    for item in catalog.get("permissions") or []:
+        if not isinstance(item, dict):
+            continue
+        permissions.append(
+            {
+                "permission_key": str(item.get("permission_key") or item.get("permission") or "").strip(),
+                "label": str(item.get("label") or "").strip(),
+                "scope_resource_type_id": _coerce_int(item.get("scope_resource_type_id")),
+                "scope_resource_type_slug": str(item.get("scope_resource_type_slug") or "").strip(),
+                "scope_resource_type_name": str(item.get("scope_resource_type_name") or "").strip(),
+                "is_global_only": _coerce_bool(item.get("is_global_only"), default=False),
+                "sort_order": _coerce_int(item.get("sort_order")) or 0,
+            }
+        )
+
+    resources: list[dict] = []
+    for item in catalog.get("resources") or []:
+        if not isinstance(item, dict):
+            continue
+        resources.append(
+            {
+                "resource_id": _coerce_int(item.get("resource_id")),
+                "display_name": str(item.get("display_name") or "").strip(),
+                "technical_identifier": str(item.get("technical_identifier") or "").strip(),
+                "type_id": _coerce_int(item.get("type_id")),
+                "type_slug": str(item.get("type_slug") or "").strip(),
+                "type_name": str(item.get("type_name") or "").strip(),
+                "system_id": _coerce_int(item.get("system_id")),
+                "system_name": str(item.get("system_name") or "").strip(),
+            }
+        )
+
+    return {
+        "permissions": sorted(permissions, key=lambda item: (item["sort_order"], item["permission_key"])),
+        "resources": resources,
+    }
 
 
 @router.post("/tools/datex/convert")
@@ -72,6 +139,80 @@ async def convert_datex_file(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/sofa/permissions")
+async def api_sofa_permissions(current_user=Depends(require_page_access("roles"))):
+    try:
+        payload = await api_client.get_sofa_authorization_catalog()
+        return JSONResponse(content=_normalize_catalog_payload(payload))
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/session/authz")
+async def api_session_authz_refresh(request: Request, sofa_user: str | None = Cookie(default=None)):
+    try:
+        session_user = get_current_user(sofa_user)
+    except Exception:
+        session_user = None
+
+    if not isinstance(session_user, dict):
+        return JSONResponse(content={"detail": "Keine aktive Session vorhanden."}, status_code=401)
+
+    normalized_session_user = await _build_session_user_from_login(session_user)
+    session_user_id = _coerce_int(normalized_session_user.get("user_id"))
+    if session_user_id is None:
+        return JSONResponse(content={"detail": "Session konnte nicht eindeutig aufgeloest werden."}, status_code=401)
+
+    stale_authz = get_authz_payload_for_template(build_authorization_context_from_user(normalized_session_user))
+
+    try:
+        refreshed_user = await api_client.get_current_user(session_user_id)
+        normalized_user = await _build_session_user_from_login(refreshed_user)
+        refreshed_authz = get_authz_payload_for_template(build_authorization_context_from_user(normalized_user))
+
+        response = JSONResponse(
+            content={
+                "user": normalized_user,
+                "authz": refreshed_authz,
+                "refreshed": True,
+            }
+        )
+        response.set_cookie(
+            key="sofa_user",
+            value=json.dumps(normalized_user),
+            httponly=True,
+            max_age=3600 * 8,
+            samesite="lax",
+            secure=_request_uses_https(request),
+        )
+        return response
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content={
+                "detail": _error_content_from_response(exc.response).get("detail", "Berechtigungen konnten nicht aktualisiert werden."),
+                "user": normalized_session_user,
+                "authz": stale_authz,
+                "refreshed": False,
+            },
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(
+            content={
+                "detail": str(exc),
+                "user": normalized_session_user,
+                "authz": stale_authz,
+                "refreshed": False,
+            },
+            status_code=503,
+        )
 
 
 @router.get("/users")
@@ -165,7 +306,7 @@ async def api_events(current_user=Depends(require_page_access("console"))):
 
 
 @router.get("/task_backlogs")
-async def api_task_backlogs(current_user=Depends(require_login)):
+async def api_task_backlogs(current_user=Depends(require_any_page_access("tasks", "roles"))):
     try:
         backlogs = await api_client.get_task_backlogs()
         return JSONResponse(content=backlogs)
@@ -236,7 +377,7 @@ async def api_list_tasks(
     handling_type: str | None = None,
     assigned_to_user_id: int | None = None,
     process_id: int | None = None,
-    current_user=Depends(require_login),
+    current_user=Depends(require_page_access("tasks")),
 ):
     try:
         tasks = await api_client.list_tasks(
@@ -252,7 +393,7 @@ async def api_list_tasks(
 
 
 @router.patch("/tasks/{task_id}/assign")
-async def api_assign_task(task_id: int, user_id: int, current_user=Depends(require_login)):
+async def api_assign_task(task_id: int, user_id: int, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         if int(user_id) != int(current_user.user_id):
@@ -273,7 +414,7 @@ async def api_assign_task(task_id: int, user_id: int, current_user=Depends(requi
 
 
 @router.delete("/tasks/{task_id}/assign")
-async def api_unassign_task(task_id: int, current_user=Depends(require_login)):
+async def api_unassign_task(task_id: int, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         task = await api_client.unassign_task(task_id, current_user.user_id)
@@ -287,7 +428,7 @@ async def api_unassign_task(task_id: int, current_user=Depends(require_login)):
 
 
 @router.post("/tasks/{task_id}/complete")
-async def api_complete_task(task_id: int, payload: dict, current_user=Depends(require_login)):
+async def api_complete_task(task_id: int, payload: dict, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         user_id = current_user.user_id
@@ -304,7 +445,7 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(re
 
 
 @router.post("/tasks/dispatch_bot")
-async def api_dispatch_bot(payload: dict, current_user=Depends(require_login)):
+async def api_dispatch_bot(payload: dict, current_user=Depends(require_page_access("tasks"))):
     try:
         task_id = payload.get("task_id")
         await _get_relevant_task_or_raise(task_id, current_user)
@@ -319,7 +460,7 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(require_login)):
 
 
 @router.post("/tasks/{task_id}/send_mail")
-async def api_send_task_mail(task_id: int, payload: dict, current_user=Depends(require_login)):
+async def api_send_task_mail(task_id: int, payload: dict, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
         payload["initiator_user_id"] = current_user.user_id
@@ -505,7 +646,7 @@ async def api_start_ext_onboarding_process(
 
 
 @router.get("/tasks/overview")
-async def api_tasks_overview(current_user=Depends(require_login)):
+async def api_tasks_overview(current_user=Depends(require_page_access("tasks"))):
     try:
         user_id = current_user.user_id
         tasks = await api_client.get_task_overview(user_id)
@@ -522,7 +663,7 @@ async def api_tasks_overview(current_user=Depends(require_login)):
 
 
 @router.get("/processes/overview")
-async def api_processes_overview(current_user=Depends(require_login)):
+async def api_processes_overview(current_user=Depends(require_page_access("tasks"))):
     try:
         user_id = current_user.user_id
         processes = await api_client.get_process_overview(user_id)
@@ -553,7 +694,7 @@ async def api_get_mail_template(payload: dict, current_user=Depends(require_logi
 
 
 @router.get("/tasks/{task_id}/history")
-async def api_task_logs(task_id, current_user=Depends(require_login)):
+async def api_task_logs(task_id, current_user=Depends(require_page_access("tasks"))):
     try:
         await _get_relevant_task_or_raise(int(task_id), current_user)
         history = await api_client.get_task_logs(task_id)
@@ -728,10 +869,50 @@ async def api_role_map(current_user=Depends(require_any_page_access("roles", "us
 @router.get("/roles/{role_id}")
 async def api_get_role_detail(role_id: int, current_user=Depends(require_page_access("roles"))):
     try:
-        system_detail = await api_client.get_role_detail(role_id)
-        return JSONResponse(content=system_detail)
+        role_detail = await api_client.get_role_detail(role_id)
+        return JSONResponse(content=_normalize_role_detail_payload(role_detail))
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/roles/{role_id}/sofa-grants")
+async def api_get_role_sofa_grants(role_id: int, current_user=Depends(require_page_access("roles"))):
+    try:
+        grants = await api_client.get_role_sofa_grants(role_id)
+        return JSONResponse(content=normalize_role_scoped_grants(grants))
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/roles/{role_id}/sofa-grants")
+async def api_replace_role_sofa_grants(role_id: int, payload: dict, current_user=Depends(require_page_access("roles"))):
+    try:
+        request_payload = {
+            "initiator_user_id": current_user.user_id,
+            "grants": normalize_role_scoped_grants(payload.get("grants")),
+        }
+        result = await api_client.replace_role_sofa_grants(role_id, request_payload)
+        normalized_result = dict(result) if isinstance(result, dict) else {}
+
+        if isinstance(result, list):
+            normalized_result["grants"] = normalize_role_scoped_grants(result)
+        else:
+            normalized_result["grants"] = normalize_role_scoped_grants(
+                normalized_result.get("grants") if isinstance(normalized_result.get("grants"), list) else request_payload["grants"]
+            )
+        return JSONResponse(content=normalized_result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 

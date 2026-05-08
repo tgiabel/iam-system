@@ -1,0 +1,188 @@
+Frontend-Relevante Änderungen
+
+Für das Frontend ändern sich vor allem Payloads und API-Verträge, nicht die Grundidee der Rollenansicht.
+
+
+
+GET /access/users/me
+
+Liefert jetzt zusätzlich sofa_authorization.
+
+Shape:
+
+json
+
+
+
+{
+  "user_id": 575,
+  "primary_role": { "role_id": 21, "name": "IT" },
+  "secondary_roles": [],
+  "sofa_authorization": {
+    "version": 1,
+    "grants": [
+      { "permission": "users.view" },
+      {
+        "permission": "tasks.backlog.view",
+        "resources": {
+          "task_backlog": { "all": false, "ids": [7, 8] }
+        }
+      }
+    ]
+  }
+}
+
+
+
+Relevant in users.py (line 101) und user_service.py (line 124).
+
+
+
+
+GET /access/users/{user_id}/details
+
+Liefert ebenfalls sofa_authorization zusätzlich zu den bisherigen User-Details.
+
+Relevant in users.py (line 202).
+
+
+
+
+GET /access/roles/{role_id}
+
+Liefert jetzt zusätzlich:
+
+
+sofa_grants
+
+inherited_sofa_grants
+
+Damit kann das Frontend direkte vs. geerbte SOFA-Rechte getrennt anzeigen.
+
+Relevant in roles.py (line 75).
+
+
+
+
+
+Neue Endpunkte für SOFA-Berechtigungen:
+
+
+GET /access/sofa-authorization/catalog
+
+Liefert den Permission-Katalog plus verfügbare scopebare SOFA-Ressourcen.
+
+GET /access/roles/{role_id}/sofa-grants
+
+Liefert nur die direkten Grants einer Rolle.
+
+POST /access/roles/{role_id}/sofa-grants
+
+Ersetzt atomar alle direkten Grants einer Rolle.
+
+Relevant in sofa_authz_router.py (line 1) und role_router.py (line 1).
+
+
+
+
+
+Wichtige Payloads
+
+
+
+Katalog-Response:
+
+json
+
+
+
+{
+  "permissions": [
+    {
+      "permission_key": "tasks.backlog.view",
+      "label": "Backlog sehen",
+      "scope_resource_type_id": 101,
+      "scope_resource_type_slug": "TASK_BACKLOG",
+      "scope_resource_type_name": "Task Backlog",
+      "is_global_only": false,
+      "sort_order": 30
+    }
+  ],
+  "resources": [
+    {
+      "resource_id": 55,
+      "display_name": "Windows Queue",
+      "technical_identifier": "task_backlog:7",
+      "type_id": 101,
+      "type_slug": "TASK_BACKLOG",
+      "type_name": "Task Backlog",
+      "system_id": 999,
+      "system_name": "SOFA"
+    }
+  ]
+}
+
+
+
+
+
+
+Role-Grant-Write-Payload:
+
+json
+
+
+
+{
+  "initiator_user_id": 7,
+  "grants": [
+    {
+      "permission": "tasks.backlog.view",
+      "all_scoped_resources": false,
+      "resource_ids": [55, 56]
+    },
+    {
+      "permission": "users.view",
+      "all_scoped_resources": false,
+      "resource_ids": []
+    }
+  ]
+}
+
+
+
+
+
+
+Was das Frontend daraus ableiten sollte
+
+
+Keine role_id-Sonderlogik mehr für SOFA-Rechte.
+
+Rechteauswertung nur noch aus sofa_authorization.grants.
+
+Für scoped Permissions die resource_ids auswerten.
+
+task_backlog.view und task_backlog.notify sind getrennte Rechte.
+
+Rollen-UI sollte direkte und geerbte Grants separat darstellen.
+
+
+Praktisch für eure UI
+
+
+
+Für die Rollenmaske braucht ihr jetzt:
+
+GET /access/sofa-authorization/catalog
+GET /access/roles/{role_id}
+POST /access/roles/{role_id}/sofa-grants
+
+
+
+
+Für Runtime-Authorisierung im Frontend reicht in der Regel:
+
+GET /access/users/me
+lokale Prüfung auf permission
+optional Scope-Prüfung auf resources.task_backlog.ids bzw. all

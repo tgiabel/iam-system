@@ -99,6 +99,135 @@
     </section>
 
     {% if "roles" in authz.pages %}
+    <section
+        class="ui-card console-sofa-panel"
+        id="console-sofa-authorization"
+        aria-labelledby="console-sofa-title"
+        data-requires-page="roles"
+        data-authz-mode="hide">
+        <div class="console-sofa-head">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">SOFA</p>
+                <h2 class="ui-section-title" id="console-sofa-title">Berechtigungen pro Rolle</h2>
+                <p class="ui-section-copy">
+                    Zentrale Oberfläche für direkte und geerbte SOFA-Grants je Rolle. Bearbeitet werden nur direkte Grants.
+                </p>
+            </div>
+            <div class="console-sofa-head-actions">
+                <button type="button" class="btn btn-secondary" id="console-sofa-reload-btn" data-requires-page="roles">
+                    Neu laden
+                </button>
+                <button type="button" class="btn btn-primary" id="console-sofa-edit-btn" data-requires-page="roles">
+                    Direkte Grants bearbeiten
+                </button>
+            </div>
+        </div>
+
+        <div class="console-sofa-toolbar">
+            <div class="ui-field-group console-sofa-field">
+                <label for="console-sofa-role-select" class="ui-field-label">Rolle</label>
+                <select id="console-sofa-role-select" class="ui-input" data-requires-page="roles">
+                    <option value="">Rolle auswählen...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="console-sofa-feedback" id="console-sofa-feedback" role="status" aria-live="polite"></div>
+
+        <div class="console-sofa-summary" id="console-sofa-summary">
+            <div class="console-sofa-summary-card">
+                <span class="console-sofa-summary-label">Rolle</span>
+                <strong id="console-sofa-role-name">-</strong>
+                <span id="console-sofa-role-meta">Waehle eine Rolle fuer die Berechtigungsansicht.</span>
+            </div>
+            <div class="console-sofa-metric-grid">
+                <div class="console-sofa-metric-card">
+                    <span class="console-sofa-summary-label">Direkt</span>
+                    <strong id="console-sofa-direct-count">0</strong>
+                </div>
+                <div class="console-sofa-metric-card">
+                    <span class="console-sofa-summary-label">Geerbt</span>
+                    <strong id="console-sofa-inherited-count">0</strong>
+                </div>
+                <div class="console-sofa-metric-card">
+                    <span class="console-sofa-summary-label">Gesamt</span>
+                    <strong id="console-sofa-total-count">0</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="console-sofa-grid">
+            <section class="console-sofa-card">
+                <div class="console-sofa-card-head">
+                    <span class="ui-section-kicker">Editierbar</span>
+                    <h3 class="ui-section-title">Direkte Grants</h3>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Permission</th>
+                                <th>Bereich</th>
+                                <th>Scope</th>
+                                <th>Ressourcen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="console-sofa-direct-body">
+                            <tr><td colspan="4" class="console-sofa-empty">Bitte zuerst eine Rolle auswählen.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="console-sofa-card">
+                <div class="console-sofa-card-head">
+                    <span class="ui-section-kicker">Read-only</span>
+                    <h3 class="ui-section-title">Geerbte Grants</h3>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Permission</th>
+                                <th>Bereich</th>
+                                <th>Scope</th>
+                                <th>Ressourcen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="console-sofa-inherited-body">
+                            <tr><td colspan="4" class="console-sofa-empty">Bitte zuerst eine Rolle auswählen.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <div class="console-sofa-editor" id="console-sofa-editor" hidden>
+            <section class="console-sofa-card console-sofa-card-accent">
+                <div class="console-sofa-card-head">
+                    <span class="ui-section-kicker">Bearbeiten</span>
+                    <h3 class="ui-section-title">Direkte SOFA-Grants</h3>
+                </div>
+                <p class="ui-section-copy">
+                    Speichern ersetzt atomar alle direkten Grants der gewählten Rolle. Geerbte Grants bleiben unverändert.
+                </p>
+                <div id="console-sofa-grant-list" class="console-sofa-grant-list"></div>
+                <button type="button" class="btn btn-secondary" id="console-sofa-add-grant-btn" data-requires-page="roles">
+                    Permission hinzufügen
+                </button>
+            </section>
+
+            <div class="console-sofa-editor-actions">
+                <button type="button" class="btn btn-secondary" id="console-sofa-cancel-btn" data-requires-page="roles">
+                    Abbrechen
+                </button>
+                <button type="button" class="btn btn-primary" id="console-sofa-save-btn" data-requires-page="roles">
+                    SOFA-Berechtigungen speichern
+                </button>
+            </div>
+        </div>
+    </section>
+
     <section class="ui-card console-reevaluate-panel" aria-labelledby="console-reevaluate-title">
         <div class="console-reevaluate-head">
             <div class="ui-section-heading">

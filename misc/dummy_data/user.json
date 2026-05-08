@@ -11,6 +11,31 @@
         "role_type": "PRIMARY"
     },
     "secondary_roles": [],
+    "sofa_authorization": {
+        "version": 1,
+        "grants": [
+            {
+                "permission": "dashboard.view"
+            },
+            {
+                "permission": "tasks.view"
+            },
+            {
+                "permission": "tasks.backlog.view",
+                "resources": {
+                    "task_backlogs": {
+                        "all": false,
+                        "ids": [
+                            1
+                        ]
+                    }
+                }
+            },
+            {
+                "permission": "tools.view"
+            }
+        ]
+    },
     "accounts": [],
     "resources": [
         {

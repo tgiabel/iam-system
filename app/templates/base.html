@@ -58,8 +58,12 @@
 
                 {% if user %}
                     <!-- Nur eingeloggte User sehen diese Links -->
-                    <a href="/tasks" class="nav-link" data-nav-target="tasks">To-Dos</a>
-                    <a href="/tools" class="nav-link" data-nav-target="tools">Tools & Reports</a>
+                    {% if "tasks" in authz.pages %}
+                        <a href="/tasks" class="nav-link" data-nav-target="tasks">To-Dos</a>
+                    {% endif %}
+                    {% if "tools" in authz.pages %}
+                        <a href="/tools" class="nav-link" data-nav-target="tools">Tools & Reports</a>
+                    {% endif %}
 
                     <!-- Admin dropdown (click-to-toggle) -->
                     {% if authz.has_admin_access %}
@@ -134,8 +138,12 @@
         {% if user %}
             <nav class="mobile-nav-links" aria-label="Mobile Hauptnavigation">
                 <a href="/" class="mobile-nav-link" data-nav-target="dashboard">Dashboard</a>
-                <a href="/tasks" class="mobile-nav-link" data-nav-target="tasks">To-Dos</a>
-                <a href="/tools" class="mobile-nav-link" data-nav-target="tools">Tools &amp; Reports</a>
+                {% if "tasks" in authz.pages %}
+                    <a href="/tasks" class="mobile-nav-link" data-nav-target="tasks">To-Dos</a>
+                {% endif %}
+                {% if "tools" in authz.pages %}
+                    <a href="/tools" class="mobile-nav-link" data-nav-target="tools">Tools &amp; Reports</a>
+                {% endif %}
 
                 {% if authz.has_admin_access %}
                     <div class="mobile-nav-group">

@@ -283,6 +283,216 @@
         linear-gradient(135deg, var(--surface-card), var(--surface-soft) 52%, var(--surface-subtle));
 }
 
+.console-sofa-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.4rem;
+    background:
+        radial-gradient(circle at top right, rgba(var(--color-primary-rgb), 0.1), transparent 30%),
+        linear-gradient(135deg, var(--surface-card), var(--surface-soft) 52%, var(--surface-subtle));
+}
+
+.console-sofa-head,
+.console-sofa-toolbar,
+.console-sofa-head-actions,
+.console-sofa-editor-actions,
+.console-sofa-card-head {
+    display: flex;
+    gap: 1rem;
+}
+
+.console-sofa-head,
+.console-sofa-toolbar,
+.console-sofa-card-head {
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.console-sofa-head-actions,
+.console-sofa-editor-actions {
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.console-sofa-field {
+    flex: 1 1 24rem;
+    max-width: 28rem;
+}
+
+.console-sofa-feedback {
+    min-height: 1.5rem;
+    color: var(--text-muted);
+}
+
+.console-sofa-feedback.is-error {
+    color: var(--danger-text);
+}
+
+.console-sofa-feedback.is-success {
+    color: var(--text-default);
+}
+
+.console-sofa-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.console-sofa-summary-card,
+.console-sofa-metric-card,
+.console-sofa-card,
+.console-sofa-grant-row {
+    border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--surface-card) 96%, transparent);
+}
+
+.console-sofa-summary-card,
+.console-sofa-card,
+.console-sofa-grant-row {
+    padding: 1rem 1.1rem;
+}
+
+.console-sofa-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.console-sofa-summary-label {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.console-sofa-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.console-sofa-metric-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1rem;
+}
+
+.console-sofa-metric-card strong {
+    font-size: 1.65rem;
+    line-height: 1;
+}
+
+.console-sofa-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.console-sofa-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.console-sofa-card-accent {
+    border-style: dashed;
+}
+
+.console-sofa-card thead {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 88%, black), color-mix(in srgb, var(--surface-soft) 58%, black));
+}
+
+.console-sofa-card thead th {
+    color: var(--text-inverse);
+}
+
+.console-sofa-card tbody td {
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
+    color: var(--ui-text);
+    vertical-align: top;
+}
+
+.console-sofa-card tbody td:first-child,
+.console-sofa-card tbody td:nth-child(2) {
+    color: var(--ui-text-strong);
+}
+
+.console-sofa-empty {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.console-sofa-resource-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.console-sofa-resource-list .ui-chip {
+    margin: 0;
+}
+
+.console-sofa-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.console-sofa-grant-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.console-sofa-grant-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.console-sofa-grant-row-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.console-sofa-grant-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.console-sofa-scope-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.85rem;
+    border-radius: 14px;
+    border: 1px solid color-mix(in srgb, var(--border-color) 85%, transparent);
+    background: color-mix(in srgb, var(--surface-subtle) 82%, transparent);
+}
+
+.console-sofa-inline-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
+    color: var(--ui-text);
+}
+
+.console-sofa-help {
+    color: var(--text-muted);
+    font-size: 0.86rem;
+}
+
+.console-sofa-multi-select {
+    min-height: 7.5rem;
+}
+
 .console-reevaluate-head,
 .console-reevaluate-form,
 .console-reevaluate-actions,
@@ -558,6 +768,9 @@
 }
 
 @media (max-width: 1100px) {
+    .console-sofa-summary,
+    .console-sofa-grid,
+    .console-sofa-grant-grid,
     .console-reevaluate-count-grid,
     .console-calendar-grid,
     .console-link-grid,
@@ -567,16 +780,23 @@
 }
 
 @media (max-width: 900px) {
+    .console-sofa-head,
+    .console-sofa-toolbar,
+    .console-sofa-card-head,
     .console-reevaluate-form,
     .console-reevaluate-result-head,
     .console-reevaluate-user-head {
         flex-direction: column;
     }
 
+    .console-sofa-head-actions,
+    .console-sofa-editor-actions,
     .console-reevaluate-actions {
         width: 100%;
     }
 
+    .console-sofa-head-actions .btn,
+    .console-sofa-editor-actions .btn,
     .console-reevaluate-actions .btn {
         width: 100%;
     }
@@ -602,11 +822,13 @@
 
     .console-calendar,
     .console-hero,
+    .console-sofa-panel,
     .console-reevaluate-panel {
         flex-direction: column;
         padding: 1.3rem;
     }
 
+    .console-sofa-metric-grid,
     .console-reevaluate-count-grid,
     .console-calendar-grid,
     .console-link-grid,
