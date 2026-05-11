@@ -3,6 +3,8 @@ const wordTemplateState = {
     selectedTemplateId: null,
     selectedTemplate: null,
     selectedSchema: null,
+    latestDocumentId: null,
+    latestOutputFilename: null,
 };
 
 const wordTemplateDom = {};
@@ -43,6 +45,14 @@ const wordTemplateApi = {
     updateTemplate(templateId, payload) {
         return this.request(`/api/dataprocessing/word-templates/${encodeURIComponent(templateId)}`, {
             method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+    },
+
+    renderTemplate(templateId, payload) {
+        return this.request(`/api/dataprocessing/word-templates/${encodeURIComponent(templateId)}/render`, {
+            method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
@@ -208,6 +218,11 @@ const wordTemplateUi = {
         wordTemplateDom.renderStatus = document.getElementById("renderStatus");
         wordTemplateDom.renderMeta = document.getElementById("renderMeta");
         wordTemplateDom.renderEmptyState = document.getElementById("renderEmptyState");
+        wordTemplateDom.renderForm = document.getElementById("renderForm");
+        wordTemplateDom.renderFields = document.getElementById("renderFields");
+        wordTemplateDom.renderResult = document.getElementById("renderResult");
+        wordTemplateDom.renderSubmitButton = document.getElementById("renderSubmitButton");
+        wordTemplateDom.downloadDocumentButton = document.getElementById("downloadDocumentButton");
     },
 
     setStatus(element, tone, message) {
@@ -290,6 +305,8 @@ const wordTemplateUi = {
         wordTemplateState.selectedTemplateId = null;
         wordTemplateState.selectedTemplate = null;
         wordTemplateState.selectedSchema = null;
+        wordTemplateState.latestDocumentId = null;
+        wordTemplateState.latestOutputFilename = null;
 
         wordTemplateDom.templateUploadForm.reset();
         wordTemplateDom.templateSchemaInput.value = wordTemplateSchemaUtils.example();
@@ -317,6 +334,11 @@ const wordTemplateUi = {
                 "info",
                 "Nach Auswahl einer Vorlage wird aus dem gespeicherten Schema automatisch ein Formular erzeugt."
             );
+            wordTemplateDom.renderForm.hidden = true;
+            wordTemplateDom.renderEmptyState.hidden = false;
+            wordTemplateDom.renderResult.hidden = true;
+            wordTemplateDom.renderResult.innerHTML = "";
+            wordTemplateDom.downloadDocumentButton.disabled = true;
             wordTemplateDom.renderEmptyState.innerHTML = `
                 <strong>Render-Formular folgt</strong>
                 <p>Wähle oder erstelle zuerst eine Vorlage, damit die Felder aus <code>schema_json.fields</code> aufgebaut werden können.</p>
@@ -328,12 +350,94 @@ const wordTemplateUi = {
         this.setStatus(
             wordTemplateDom.renderStatus,
             "info",
-            "Die Vorlage ist geladen. Im nächsten Schritt wird daraus das dynamische Render-Formular aufgebaut."
+            "Die Vorlage ist geladen. Das Render-Formular wurde aus dem gespeicherten Schema erzeugt."
         );
-        wordTemplateDom.renderEmptyState.innerHTML = `
-            <strong>Vorlage geladen</strong>
-            <p>Das Schema wurde gelesen und validiert. Die eigentlichen Eingabefelder zum Rendern folgen im nächsten Commit.</p>
-        `;
+        this.buildRenderForm();
+    },
+
+    buildRenderForm() {
+        const schema = wordTemplateState.selectedSchema;
+        const renderFields = wordTemplateDom.renderFields;
+
+        wordTemplateState.latestDocumentId = null;
+        wordTemplateState.latestOutputFilename = null;
+        wordTemplateDom.downloadDocumentButton.disabled = true;
+        wordTemplateDom.renderResult.hidden = true;
+        wordTemplateDom.renderResult.innerHTML = "";
+        wordTemplateDom.renderFields.innerHTML = "";
+        wordTemplateDom.renderEmptyState.hidden = true;
+        wordTemplateDom.renderForm.hidden = false;
+
+        if (!schema || !Array.isArray(schema.fields) || !schema.fields.length) {
+            renderFields.innerHTML = `
+                <div class="word-template-empty-state">
+                    <strong>Keine Felder definiert</strong>
+                    <p>Die Vorlage enthält aktuell keine ausfüllbaren Schema-Felder. Das Dokument kann trotzdem direkt gerendert werden.</p>
+                </div>
+            `;
+            return;
+        }
+
+        schema.fields.forEach((field, index) => {
+            const wrapper = document.createElement("div");
+            wrapper.className = "word-template-render-field";
+
+            const fieldKey = String(field.key || "");
+            const fieldLabel = String(field.label || field.key || "Feld");
+            const placeholder = String(field.placeholder || "");
+            const requiredLabel = field.required ? "Pflichtfeld" : "Optional";
+            const description = `${placeholder || "Kein Platzhalter"} · ${requiredLabel}`;
+
+            if (field.type === "checkbox") {
+                const checkboxId = `render-field-${fieldKey}`;
+                const defaultValue = typeof field.default === "boolean" ? field.default : false;
+                wrapper.innerHTML = `
+                    <label for="${checkboxId}">${fieldLabel}</label>
+                    <p class="word-template-render-field-copy">${description}</p>
+                    <label class="word-template-checkbox-row" for="${checkboxId}">
+                        <input
+                            id="${checkboxId}"
+                            type="checkbox"
+                            data-render-field-index="${index}"
+                            data-render-field-type="checkbox"
+                            ${defaultValue ? "checked" : ""}>
+                        <span>${field.true_value || "Aktiv"}</span>
+                    </label>
+                `;
+                renderFields.appendChild(wrapper);
+                return;
+            }
+
+            const input = document.createElement("input");
+            input.type = "text";
+            input.className = "word-template-input";
+            input.id = `render-field-${fieldKey}`;
+            input.name = fieldKey;
+            input.placeholder = placeholder;
+            input.value = typeof field.default === "string" ? field.default : "";
+            input.dataset.renderFieldIndex = String(index);
+            input.dataset.renderFieldType = "text";
+
+            if (Number.isInteger(field.max_length)) {
+                input.maxLength = field.max_length;
+            }
+
+            wrapper.innerHTML = `
+                <label for="${input.id}">${fieldLabel}</label>
+                <p class="word-template-render-field-copy">${description}</p>
+            `;
+            wrapper.appendChild(input);
+            renderFields.appendChild(wrapper);
+        });
+    },
+
+    setRenderLoading(isLoading) {
+        if (!wordTemplateDom.renderSubmitButton) {
+            return;
+        }
+
+        wordTemplateDom.renderSubmitButton.disabled = isLoading;
+        wordTemplateDom.renderSubmitButton.textContent = isLoading ? "Dokument wird erzeugt..." : "Dokument rendern";
     },
 };
 
@@ -417,6 +521,49 @@ const wordTemplateHandlers = {
         return null;
     },
 
+    collectRenderValues() {
+        const schema = wordTemplateState.selectedSchema;
+        const values = {};
+
+        if (!schema || !Array.isArray(schema.fields)) {
+            return { values, error: null };
+        }
+
+        for (const [index, field] of schema.fields.entries()) {
+            const key = String(field.key || "");
+            if (!key) {
+                continue;
+            }
+
+            const input = wordTemplateDom.renderFields.querySelector(`[data-render-field-index="${index}"]`);
+            if (!input) {
+                return { values: null, error: `Das Eingabefeld für "${key}" konnte nicht gefunden werden.` };
+            }
+
+            if (field.type === "checkbox") {
+                values[key] = Boolean(input.checked);
+                continue;
+            }
+
+            const rawValue = String(input.value || "");
+            if (!rawValue && typeof field.default === "string") {
+                values[key] = field.default;
+            } else {
+                values[key] = rawValue;
+            }
+
+            if (!values[key] && field.required && field.default === undefined) {
+                return { values: null, error: `Das Pflichtfeld "${field.label || key}" muss ausgefüllt werden.` };
+            }
+
+            if (field.max_length && values[key].length > field.max_length) {
+                return { values: null, error: `Das Feld "${field.label || key}" überschreitet die maximale Länge von ${field.max_length}.` };
+            }
+        }
+
+        return { values, error: null };
+    },
+
     async handleSubmit(event) {
         event.preventDefault();
 
@@ -496,6 +643,60 @@ const wordTemplateHandlers = {
             wordTemplateUi.setSubmitLoading(false);
         }
     },
+
+    async handleRenderSubmit(event) {
+        event.preventDefault();
+
+        if (!wordTemplateState.selectedTemplateId) {
+            wordTemplateUi.setStatus(wordTemplateDom.renderStatus, "error", "Bitte wählen Sie zuerst eine gespeicherte Vorlage aus.");
+            return;
+        }
+
+        const { values, error } = this.collectRenderValues();
+        if (error) {
+            wordTemplateUi.setStatus(wordTemplateDom.renderStatus, "error", error);
+            return;
+        }
+
+        wordTemplateUi.setRenderLoading(true);
+
+        try {
+            const result = await wordTemplateApi.renderTemplate(wordTemplateState.selectedTemplateId, { values });
+            wordTemplateState.latestDocumentId = result.document_id;
+            wordTemplateState.latestOutputFilename = result.output_filename;
+            wordTemplateDom.downloadDocumentButton.disabled = !result.document_id;
+            wordTemplateDom.renderResult.hidden = false;
+            wordTemplateDom.renderResult.innerHTML = `
+                <strong>Dokument erfolgreich erzeugt</strong>
+                <div>Dateiname: <code>${wordTemplateFormatters.value(result.output_filename)}</code></div>
+                <div>Dokument-ID: <code>${wordTemplateFormatters.value(result.document_id)}</code></div>
+            `;
+            wordTemplateUi.setStatus(
+                wordTemplateDom.renderStatus,
+                "success",
+                `Die Vorlage wurde erfolgreich gerendert. Das Ergebnis kann jetzt als <code>.docx</code> heruntergeladen werden.`
+            );
+        } catch (renderError) {
+            wordTemplateDom.downloadDocumentButton.disabled = true;
+            wordTemplateDom.renderResult.hidden = true;
+            wordTemplateUi.setStatus(
+                wordTemplateDom.renderStatus,
+                "error",
+                renderError.message || "Das Dokument konnte nicht erzeugt werden."
+            );
+        } finally {
+            wordTemplateUi.setRenderLoading(false);
+        }
+    },
+
+    handleDownloadClick() {
+        if (!wordTemplateState.latestDocumentId) {
+            wordTemplateUi.setStatus(wordTemplateDom.renderStatus, "error", "Es steht noch kein generiertes Dokument zum Download bereit.");
+            return;
+        }
+
+        window.location.href = `/api/dataprocessing/word-documents/${encodeURIComponent(wordTemplateState.latestDocumentId)}/download`;
+    },
 };
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -508,5 +709,7 @@ document.addEventListener("DOMContentLoaded", () => {
     wordTemplateUi.resetForm();
     wordTemplateDom.templateUploadForm.addEventListener("submit", (event) => wordTemplateHandlers.handleSubmit(event));
     wordTemplateDom.templateResetButton.addEventListener("click", () => wordTemplateUi.resetForm());
+    wordTemplateDom.renderForm.addEventListener("submit", (event) => wordTemplateHandlers.handleRenderSubmit(event));
+    wordTemplateDom.downloadDocumentButton.addEventListener("click", () => wordTemplateHandlers.handleDownloadClick());
     wordTemplateHandlers.loadTemplates();
 });

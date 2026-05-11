@@ -231,6 +231,52 @@
     gap: 14px;
 }
 
+.word-template-render-field {
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid #dce7f5;
+    background: #fbfdff;
+}
+
+.word-template-render-field label {
+    display: block;
+    font-weight: 600;
+    color: #18314e;
+}
+
+.word-template-render-field-copy {
+    margin: 6px 0 0;
+    font-size: 0.9rem;
+    color: #617892;
+    line-height: 1.5;
+}
+
+.word-template-checkbox-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.word-template-checkbox-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.word-template-result-card {
+    padding: 16px;
+    border-radius: 16px;
+    border: 1px solid #cce8d2;
+    background: #eef9f1;
+    color: #1c5d38;
+    line-height: 1.5;
+}
+
+.word-template-result-card strong {
+    display: block;
+    margin-bottom: 6px;
+}
+
 .word-template-actions {
     display: flex;
     gap: 10px;
