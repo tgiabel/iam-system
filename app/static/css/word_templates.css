@@ -231,6 +231,31 @@
     gap: 14px;
 }
 
+.word-template-render-launcher {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.word-template-launcher-card {
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px solid #dce7f5;
+    background: linear-gradient(180deg, #ffffff 0%, #f4f8fd 100%);
+}
+
+.word-template-launcher-card strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #18314e;
+}
+
+.word-template-launcher-card p {
+    margin: 0;
+    color: #5d7390;
+    line-height: 1.55;
+}
+
 .word-template-render-field {
     padding: 14px 16px;
     border-radius: 16px;
@@ -277,6 +302,30 @@
     margin-bottom: 6px;
 }
 
+.word-template-modal {
+    width: min(1040px, 100%);
+}
+
+.word-template-prefill-row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.2fr) minmax(220px, 1fr) auto;
+    gap: 12px;
+    align-items: end;
+}
+
+.word-template-prefill-row .word-template-input {
+    margin-top: 0;
+}
+
+.word-template-prefill-search,
+.word-template-prefill-select {
+    min-height: 48px;
+}
+
+.word-template-prefill-select {
+    appearance: auto;
+}
+
 .word-template-actions {
     display: flex;
     gap: 10px;
@@ -301,5 +350,9 @@
 
     .word-template-panel {
         padding: 18px;
+    }
+
+    .word-template-prefill-row {
+        grid-template-columns: 1fr;
     }
 }

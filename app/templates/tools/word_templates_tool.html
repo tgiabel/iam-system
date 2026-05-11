@@ -112,29 +112,71 @@
             <div class="word-template-panel-header">
                 <div>
                     <p class="word-template-panel-kicker">Dokument erzeugen</p>
-                    <h3 id="template-render-title">Render-Vorschau</h3>
+                    <h3 id="template-render-title">Dokument-Workflow</h3>
                 </div>
-                <span class="word-template-panel-meta" id="renderMeta">Dynamisches Formular</span>
+                <span class="word-template-panel-meta" id="renderMeta">Dialog</span>
             </div>
 
             <div class="word-template-status word-template-status-info" id="renderStatus">
-                Nach Auswahl einer Vorlage wird aus dem gespeicherten Schema automatisch ein Formular erzeugt.
+                Nach Auswahl einer Vorlage wird ein Dialog geöffnet, in dem das Formular automatisch oder manuell ausgefüllt werden kann.
             </div>
 
             <div class="word-template-empty-state" id="renderEmptyState">
-                <strong>Render-Formular folgt</strong>
-                <p>Wähle oder erstelle zuerst eine Vorlage, damit die Felder aus <code>schema_json.fields</code> aufgebaut werden können.</p>
+                <strong>Vorlage wählen und Dialog öffnen</strong>
+                <p>Wähle oder erstelle zuerst eine Vorlage. Danach kann ein Dokument mit User-Autofill oder manueller Eingabe erstellt werden.</p>
             </div>
 
-            <form id="renderForm" class="word-template-form" hidden>
-                <div id="renderFields" class="word-template-render-fields"></div>
-                <div class="word-template-result-card" id="renderResult" hidden></div>
-                <div class="word-template-actions">
-                    <button type="submit" class="btn btn-primary" id="renderSubmitButton">Dokument rendern</button>
-                    <button type="button" class="btn btn-secondary" id="downloadDocumentButton" disabled>DOCX herunterladen</button>
+            <div class="word-template-render-launcher" id="renderLauncher" hidden>
+                <div class="word-template-launcher-card">
+                    <strong id="renderLauncherTitle">Keine Vorlage ausgewählt</strong>
+                    <p id="renderLauncherCopy">Der Dokument-Dialog erzeugt aus dem Schema ein HTML-Formular und kann es optional mit Userdaten vorbefüllen.</p>
                 </div>
-            </form>
+                <div class="word-template-actions">
+                    <button type="button" class="btn btn-primary" id="openRenderModalButton">Dokument erstellen</button>
+                </div>
+            </div>
         </section>
+    </div>
+
+    <div id="word-template-render-modal" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal word-template-modal" role="dialog" aria-modal="true" aria-labelledby="word-template-render-modal-title">
+            <div class="ui-modal-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Dokumente & Vorlagen</p>
+                    <h3 class="ui-section-title" id="word-template-render-modal-title">Dokument erstellen</h3>
+                    <p class="ui-section-copy" id="renderModalSubtitle">Wähle einen User zum Vorbefüllen oder trage die Werte direkt im Formular ein.</p>
+                </div>
+                <button type="button" class="ui-icon-button" id="closeRenderModalButton" aria-label="Dokument-Dialog schließen">&times;</button>
+            </div>
+
+            <div class="ui-modal-body">
+                <div class="word-template-status word-template-status-info" id="renderModalStatus">
+                    Das Formular kann manuell ausgefüllt oder mit Userdaten vorbefüllt werden.
+                </div>
+
+                <div class="word-template-prefill-row">
+                    <input
+                        id="renderUserSearchInput"
+                        class="word-template-input word-template-prefill-search"
+                        type="search"
+                        placeholder="User suchen nach Name, E-Mail, PNR oder RACF"
+                        autocomplete="off">
+                    <select id="renderUserSelect" class="word-template-input word-template-prefill-select">
+                        <option value="">User auswählen</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary" id="prefillTemplateButton">Vorlage automatisch ausfüllen</button>
+                </div>
+
+                <form id="renderModalForm" class="word-template-form">
+                    <div id="renderModalFields" class="word-template-render-fields"></div>
+                </form>
+            </div>
+
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelRenderModalButton">Abbrechen</button>
+                <button type="submit" class="btn btn-primary" id="renderModalSubmitButton" form="renderModalForm">DOCX erzeugen</button>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
