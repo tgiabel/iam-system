@@ -7,11 +7,128 @@
 
 {% block css %}
 <link rel="stylesheet" href="/static/css/tools.css">
+<link rel="stylesheet" href="/static/css/word_templates.css">
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2>Formularverwaltung</h2>
-    <p class="report-kicker">Die Oberfläche für Word-Vorlagen wird in den nächsten Commits vollständig aufgebaut.</p>
+<div class="container word-templates-page">
+    <section class="word-templates-hero">
+        <div class="word-templates-hero-copy">
+            <p class="report-kicker">Dokumente & Vorlagen</p>
+            <h2>Formularverwaltung</h2>
+            <p>Word-Vorlagen auf Basis von <code>.dotx</code> hochladen, Felder per JSON-Schema beschreiben und daraus neue <code>.docx</code>-Dokumente erzeugen.</p>
+        </div>
+        <div class="word-templates-hero-note">
+            <span class="ui-chip ui-chip-primary">V1</span>
+            <span class="ui-chip ui-chip-accent">JSON Schema</span>
+        </div>
+    </section>
+
+    <div class="word-templates-layout">
+        <section class="word-template-panel" aria-labelledby="templates-list-title">
+            <div class="word-template-panel-header">
+                <div>
+                    <p class="word-template-panel-kicker">Übersicht</p>
+                    <h3 id="templates-list-title">Vorlagenliste</h3>
+                </div>
+                <span class="word-template-panel-meta">Noch keine Daten geladen</span>
+            </div>
+
+            <div class="word-template-status word-template-status-info" id="templateListStatus">
+                Die vorhandenen Vorlagen werden im nächsten Schritt dynamisch geladen.
+            </div>
+
+            <div class="word-template-list" id="templateList">
+                <article class="word-template-list-item is-placeholder" aria-disabled="true">
+                    <div>
+                        <strong>Keine Vorlage ausgewählt</strong>
+                        <p>Nach dem Laden erscheinen hier bestehende Word-Templates mit Metadaten.</p>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="word-template-panel" aria-labelledby="template-manage-title">
+            <div class="word-template-panel-header">
+                <div>
+                    <p class="word-template-panel-kicker">Verwalten</p>
+                    <h3 id="template-manage-title">Vorlage anlegen & bearbeiten</h3>
+                </div>
+                <span class="word-template-panel-meta">Upload & Schema</span>
+            </div>
+
+            <div class="word-template-status word-template-status-info" id="templateEditStatus">
+                Name, Beschreibung, Schema und <code>.dotx</code>-Datei werden hier gepflegt.
+            </div>
+
+            <form id="templateUploadForm" class="word-template-form" enctype="multipart/form-data">
+                <div class="word-template-form-grid">
+                    <div class="form-group">
+                        <label for="templateNameInput">Name</label>
+                        <input id="templateNameInput" name="name" type="text" class="word-template-input" placeholder="z. B. Angebotsvorlage" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="templateFileInput">Vorlagendatei</label>
+                        <input id="templateFileInput" name="template_file" type="file" class="word-template-input" accept=".dotx" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="templateDescriptionInput">Beschreibung</label>
+                    <textarea id="templateDescriptionInput" name="description" class="word-template-textarea" rows="3" placeholder="Wofür wird diese Vorlage genutzt?"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="templateSchemaInput">Schema JSON</label>
+                    <textarea
+                        id="templateSchemaInput"
+                        name="schema_json"
+                        class="word-template-textarea word-template-codearea"
+                        rows="14"
+                        spellcheck="false"
+                        placeholder='{"version":1,"fields":[]}'
+                        required></textarea>
+                </div>
+
+                <div class="word-template-hint-card">
+                    <strong>Schema-Hinweis</strong>
+                    <p>Erwartet wird ein JSON mit <code>version: 1</code> und einem <code>fields</code>-Array aus <code>text</code>- oder <code>checkbox</code>-Feldern.</p>
+                </div>
+
+                <div class="word-template-actions">
+                    <button type="submit" class="btn btn-primary">Vorlage speichern</button>
+                    <button type="button" class="btn btn-secondary" id="templateResetButton">Formular zurücksetzen</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="word-template-panel" aria-labelledby="template-render-title">
+            <div class="word-template-panel-header">
+                <div>
+                    <p class="word-template-panel-kicker">Dokument erzeugen</p>
+                    <h3 id="template-render-title">Render-Vorschau</h3>
+                </div>
+                <span class="word-template-panel-meta">Dynamisches Formular</span>
+            </div>
+
+            <div class="word-template-status word-template-status-info" id="renderStatus">
+                Nach Auswahl einer Vorlage wird aus dem gespeicherten Schema automatisch ein Formular erzeugt.
+            </div>
+
+            <div class="word-template-empty-state" id="renderEmptyState">
+                <strong>Render-Formular folgt</strong>
+                <p>Wähle oder erstelle zuerst eine Vorlage, damit die Felder aus <code>schema_json.fields</code> aufgebaut werden können.</p>
+            </div>
+
+            <form id="renderForm" class="word-template-form" hidden>
+                <div id="renderFields" class="word-template-render-fields"></div>
+                <div class="word-template-actions">
+                    <button type="submit" class="btn btn-primary">Dokument rendern</button>
+                    <button type="button" class="btn btn-secondary" id="downloadDocumentButton" disabled>DOCX herunterladen</button>
+                </div>
+            </form>
+        </section>
+    </div>
 </div>
 {% endblock %}
