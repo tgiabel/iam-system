@@ -148,3 +148,11 @@ async def datex_tool(request: Request, authz=Depends(require_page_access("tools"
         "tools/datex_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
+
+
+@router.get("/tools/word-templates", response_class=HTMLResponse)
+async def word_templates_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+    return templates.TemplateResponse(
+        "tools/word_templates_tool.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
+    )
