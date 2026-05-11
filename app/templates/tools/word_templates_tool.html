@@ -10,6 +10,10 @@
 <link rel="stylesheet" href="/static/css/word_templates.css">
 {% endblock %}
 
+{% block scripts %}
+<script src="/static/js/tools/word_templates.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container word-templates-page">
     <section class="word-templates-hero">
@@ -31,7 +35,7 @@
                     <p class="word-template-panel-kicker">Übersicht</p>
                     <h3 id="templates-list-title">Vorlagenliste</h3>
                 </div>
-                <span class="word-template-panel-meta">Noch keine Daten geladen</span>
+                <span class="word-template-panel-meta" id="templateListMeta">Noch keine Daten geladen</span>
             </div>
 
             <div class="word-template-status word-template-status-info" id="templateListStatus">
@@ -54,7 +58,7 @@
                     <p class="word-template-panel-kicker">Verwalten</p>
                     <h3 id="template-manage-title">Vorlage anlegen & bearbeiten</h3>
                 </div>
-                <span class="word-template-panel-meta">Upload & Schema</span>
+                <span class="word-template-panel-meta" id="templateEditMeta">Upload & Schema</span>
             </div>
 
             <div class="word-template-status word-template-status-info" id="templateEditStatus">
@@ -71,6 +75,7 @@
                     <div class="form-group">
                         <label for="templateFileInput">Vorlagendatei</label>
                         <input id="templateFileInput" name="template_file" type="file" class="word-template-input" accept=".dotx" required>
+                        <p class="word-template-field-hint" id="templateFileHelp">Erlaubt ist ausschließlich eine <code>.dotx</code>-Datei.</p>
                     </div>
                 </div>
 
@@ -97,7 +102,7 @@
                 </div>
 
                 <div class="word-template-actions">
-                    <button type="submit" class="btn btn-primary">Vorlage speichern</button>
+                    <button type="submit" class="btn btn-primary" id="templateSubmitButton">Vorlage speichern</button>
                     <button type="button" class="btn btn-secondary" id="templateResetButton">Formular zurücksetzen</button>
                 </div>
             </form>
@@ -109,7 +114,7 @@
                     <p class="word-template-panel-kicker">Dokument erzeugen</p>
                     <h3 id="template-render-title">Render-Vorschau</h3>
                 </div>
-                <span class="word-template-panel-meta">Dynamisches Formular</span>
+                <span class="word-template-panel-meta" id="renderMeta">Dynamisches Formular</span>
             </div>
 
             <div class="word-template-status word-template-status-info" id="renderStatus">
