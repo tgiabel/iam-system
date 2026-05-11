@@ -342,6 +342,12 @@ class APIClient:
     async def render_word_template(self, template_id: str, payload: dict) -> dict:
         return await self._post(DATAPROCESSING_BASE_URL, f"/word-templates/{template_id}/render", payload=payload)
 
+    async def prefill_word_template(self, template_id: str, payload: dict) -> dict:
+        return await self._post(DATAPROCESSING_BASE_URL, f"/word-templates/{template_id}/prefill", payload=payload)
+
+    async def render_download_word_template(self, template_id: str, payload: dict) -> httpx.Response:
+        return await self._request("POST", DATAPROCESSING_BASE_URL, f"/word-templates/{template_id}/render-download", payload=payload)
+
     async def download_word_document(self, document_id: str) -> httpx.Response:
         return await self._request("GET", DATAPROCESSING_BASE_URL, f"/word-documents/{document_id}/download")
 

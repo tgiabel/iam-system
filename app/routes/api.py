@@ -156,6 +156,44 @@ async def api_list_word_templates(current_user=Depends(require_page_access("tool
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/dataprocessing/word-template-users")
+async def api_list_word_template_users(current_user=Depends(require_page_access("tools"))):
+    try:
+        users = await api_client.list_users(is_active=True)
+
+        normalized_users: list[dict] = []
+        for user in users or []:
+            if not isinstance(user, dict):
+                continue
+            normalized_users.append(
+                {
+                    "user_id": user.get("user_id"),
+                    "pnr": user.get("pnr"),
+                    "racf": user.get("racf"),
+                    "first_name": user.get("first_name"),
+                    "last_name": user.get("last_name"),
+                    "email": user.get("email"),
+                    "is_active": user.get("is_active", True),
+                }
+            )
+
+        normalized_users.sort(
+            key=lambda item: (
+                str(item.get("last_name") or "").strip().lower(),
+                str(item.get("first_name") or "").strip().lower(),
+                str(item.get("email") or "").strip().lower(),
+            )
+        )
+        return JSONResponse(content=normalized_users)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/dataprocessing/word-templates/{template_id}")
 async def api_get_word_template(template_id: str, current_user=Depends(require_page_access("tools"))):
     try:
@@ -219,6 +257,55 @@ async def api_render_word_template(template_id: str, payload: dict, current_user
     try:
         result = await api_client.render_word_template(template_id, payload)
         return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/word-templates/{template_id}/prefill")
+async def api_prefill_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+    try:
+        request_payload = {
+            "user_id": payload.get("user_id"),
+            "initiator_user_id": current_user.user_id,
+        }
+        result = await api_client.prefill_word_template(template_id, request_payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/word-templates/{template_id}/render-download")
+async def api_render_download_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+    try:
+        request_payload = {
+            "user_id": payload.get("user_id"),
+            "values": payload.get("values") or {},
+            "initiator_user_id": current_user.user_id,
+        }
+        response = await api_client.render_download_word_template(template_id, request_payload)
+        media_type = response.headers.get(
+            "content-type",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        content_disposition = response.headers.get(
+            "content-disposition",
+            f'attachment; filename="document-{template_id}.docx"',
+        )
+        return StreamingResponse(
+            BytesIO(response.content),
+            media_type=media_type,
+            headers={"Content-Disposition": content_disposition},
+        )
     except httpx.HTTPStatusError as exc:
         return JSONResponse(
             content=_error_content_from_response(exc.response),
