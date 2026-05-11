@@ -62,7 +62,7 @@ except ModuleNotFoundError:
 
             return register
 
-        get = post = delete = patch = _decorator
+        get = post = delete = patch = put = _decorator
 
     class Jinja2Templates:
         def __init__(self, directory=None):
