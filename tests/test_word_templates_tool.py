@@ -159,7 +159,10 @@ from app.routes.api import (
     api_download_word_document,
     api_get_word_template,
     api_list_word_templates,
+    api_list_word_template_users,
+    api_prefill_word_template,
     api_render_word_template,
+    api_render_download_word_template,
     api_update_word_template,
 )
 from app.routes.pages import word_templates_tool
@@ -245,6 +248,25 @@ class WordTemplatesApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(json_body(response), {"detail": "Template nicht gefunden"})
 
+    @patch("app.routes.api.api_client.list_users", new_callable=AsyncMock)
+    def test_list_word_template_users_returns_minimal_tool_payload(self, users_mock):
+        users_mock.return_value = [
+            {"user_id": 2, "first_name": "Berta", "last_name": "Zimmer", "email": "berta@example.org", "pnr": "2002", "racf": "bz", "is_active": True},
+            {"user_id": 1, "first_name": "Anna", "last_name": "Becker", "email": "anna@example.org", "pnr": "1001", "racf": "ab", "is_active": True},
+        ]
+
+        response = run_async(api_list_word_template_users(current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            json_body(response),
+            [
+                {"user_id": 1, "pnr": "1001", "racf": "ab", "first_name": "Anna", "last_name": "Becker", "email": "anna@example.org", "is_active": True},
+                {"user_id": 2, "pnr": "2002", "racf": "bz", "first_name": "Berta", "last_name": "Zimmer", "email": "berta@example.org", "is_active": True},
+            ],
+        )
+        users_mock.assert_awaited_once_with(is_active=True)
+
     @patch("app.routes.api.api_client.create_word_template", new_callable=AsyncMock)
     def test_create_template_forwards_multipart_payload(self, create_mock):
         create_mock.return_value = {"template_id": "tpl-2", "name": "Vertrag"}
@@ -309,6 +331,60 @@ class WordTemplatesApiTests(unittest.TestCase):
             },
         )
         render_mock.assert_awaited_once_with("tpl-9", {"values": {"kunde_name": "Acme GmbH", "agb_ok": True}})
+
+    @patch("app.routes.api.api_client.prefill_word_template", new_callable=AsyncMock)
+    def test_prefill_template_adds_initiator_user_id(self, prefill_mock):
+        prefill_mock.return_value = {
+            "template_id": "tpl-9",
+            "user_id": 77,
+            "fields": [{"key": "first_name", "label": "Vorname", "type": "text", "required": True, "value": "Anna"}],
+        }
+
+        response = run_async(
+            api_prefill_word_template(
+                "tpl-9",
+                {"user_id": 77},
+                current_user=self.current_user,
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            json_body(response),
+            {
+                "template_id": "tpl-9",
+                "user_id": 77,
+                "fields": [{"key": "first_name", "label": "Vorname", "type": "text", "required": True, "value": "Anna"}],
+            },
+        )
+        prefill_mock.assert_awaited_once_with(
+            "tpl-9",
+            {"user_id": 77, "initiator_user_id": self.current_user.user_id},
+        )
+
+    @patch("app.routes.api.api_client.render_download_word_template", new_callable=AsyncMock)
+    def test_render_download_streams_binary_docx_response(self, render_download_mock):
+        headers = {
+            "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "content-disposition": 'attachment; filename="formular.docx"',
+        }
+        render_download_mock.return_value = make_binary_response(b"docx-binary", headers)
+
+        response = run_async(
+            api_render_download_word_template(
+                "tpl-9",
+                {"user_id": 77, "values": {"first_name": "Anna"}},
+                current_user=self.current_user,
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.media_type, headers["content-type"])
+        self.assertEqual(response.headers.get("Content-Disposition"), headers["content-disposition"])
+        render_download_mock.assert_awaited_once_with(
+            "tpl-9",
+            {"user_id": 77, "values": {"first_name": "Anna"}, "initiator_user_id": self.current_user.user_id},
+        )
 
     @patch("app.routes.api.api_client.download_word_document", new_callable=AsyncMock)
     def test_download_template_streams_docx_response(self, download_mock):
