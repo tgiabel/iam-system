@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import date
+from io import BytesIO
 import json
 
 import httpx  # type: ignore
-from fastapi import APIRouter, Cookie, Depends, File, HTTPException, Request, UploadFile  # type: ignore
+from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Request, UploadFile  # type: ignore
 from fastapi.responses import JSONResponse, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
@@ -139,6 +140,118 @@ async def convert_datex_file(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.get("/dataprocessing/word-templates")
+async def api_list_word_templates(current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.list_word_templates()
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/dataprocessing/word-templates/{template_id}")
+async def api_get_word_template(template_id: str, current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.get_word_template(template_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/word-templates")
+async def api_create_word_template(
+    name: str = Form(...),
+    description: str = Form(""),
+    schema_json: str = Form(...),
+    template_file: UploadFile = File(...),
+    current_user=Depends(require_page_access("tools")),
+):
+    try:
+        template_content = await template_file.read()
+        result = await api_client.create_word_template(
+            name=name,
+            description=description,
+            schema_json=schema_json,
+            template_filename=template_file.filename or "template.dotx",
+            template_content=template_content,
+            template_content_type=template_file.content_type,
+        )
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+    finally:
+        await template_file.close()
+
+
+@router.put("/dataprocessing/word-templates/{template_id}")
+async def api_update_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.update_word_template(template_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/word-templates/{template_id}/render")
+async def api_render_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.render_word_template(template_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/dataprocessing/word-documents/{document_id}/download")
+async def api_download_word_document(document_id: str, current_user=Depends(require_page_access("tools"))):
+    try:
+        response = await api_client.download_word_document(document_id)
+        media_type = response.headers.get(
+            "content-type",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        content_disposition = response.headers.get(
+            "content-disposition",
+            f'attachment; filename="document-{document_id}.docx"',
+        )
+        return StreamingResponse(
+            BytesIO(response.content),
+            media_type=media_type,
+            headers={"Content-Disposition": content_disposition},
+        )
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
 @router.get("/sofa/permissions")

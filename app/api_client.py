@@ -9,6 +9,7 @@ ACCESS_BASE_URL = f"{BASE_URL}/access"
 SOFA_BASE_URL = f"{BASE_URL}/sofa"
 TICKETING_BASE_URL = f"{BASE_URL}/ticketing"
 MESSAGING_BASE_URL = f"{BASE_URL}/messaging"
+DATAPROCESSING_BASE_URL = f"{BASE_URL}/dataprocessing"
 
 
 class APIClient:
@@ -23,6 +24,8 @@ class APIClient:
         *,
         params: dict | None = None,
         payload: dict | None = None,
+        data: dict | None = None,
+        files: dict | None = None,
         headers: dict | None = None,
     ) -> httpx.Response:
         try:
@@ -32,6 +35,8 @@ class APIClient:
                     path,
                     params=params,
                     json=payload,
+                    data=data,
+                    files=files,
                     headers=headers,
                 )
                 response.raise_for_status()
@@ -47,6 +52,8 @@ class APIClient:
         *,
         params: dict | None = None,
         payload: dict | None = None,
+        data: dict | None = None,
+        files: dict | None = None,
         headers: dict | None = None,
     ) -> Any:
         response = await self._request(
@@ -55,6 +62,8 @@ class APIClient:
             path,
             params=params,
             payload=payload,
+            data=data,
+            files=files,
             headers=headers,
         )
         if not response.content:
@@ -66,6 +75,20 @@ class APIClient:
 
     async def _post(self, base_url: str, path: str, *, payload: dict | None = None, headers: dict | None = None) -> Any:
         return await self._request_json("POST", base_url, path, payload=payload, headers=headers)
+
+    async def _post_form(
+        self,
+        base_url: str,
+        path: str,
+        *,
+        data: dict | None = None,
+        files: dict | None = None,
+        headers: dict | None = None,
+    ) -> Any:
+        return await self._request_json("POST", base_url, path, data=data, files=files, headers=headers)
+
+    async def _put(self, base_url: str, path: str, *, payload: dict | None = None, headers: dict | None = None) -> Any:
+        return await self._request_json("PUT", base_url, path, payload=payload, headers=headers)
 
     async def _patch(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None) -> Any:
         return await self._request_json("PATCH", base_url, path, params=params, payload=payload)
@@ -281,6 +304,46 @@ class APIClient:
 
     async def dispatch_bot(self, task_id):
         return await self._post(SOFA_BASE_URL, f"/tasks/{task_id}/dispatch_bot", payload={"task_id": task_id})
+
+    # Dataprocessing
+    async def list_word_templates(self) -> list[dict]:
+        return await self._get(DATAPROCESSING_BASE_URL, "/word-templates/")
+
+    async def get_word_template(self, template_id: str) -> dict:
+        return await self._get(DATAPROCESSING_BASE_URL, f"/word-templates/{template_id}")
+
+    async def create_word_template(
+        self,
+        *,
+        name: str,
+        description: str,
+        schema_json: str,
+        template_filename: str,
+        template_content: bytes,
+        template_content_type: str | None = None,
+    ) -> dict:
+        files = {
+            "template_file": (
+                template_filename,
+                template_content,
+                template_content_type or "application/vnd.openxmlformats-officedocument.wordprocessingml.template",
+            )
+        }
+        data = {
+            "name": name,
+            "description": description,
+            "schema_json": schema_json,
+        }
+        return await self._post_form(DATAPROCESSING_BASE_URL, "/word-templates/", data=data, files=files)
+
+    async def update_word_template(self, template_id: str, payload: dict) -> dict:
+        return await self._put(DATAPROCESSING_BASE_URL, f"/word-templates/{template_id}", payload=payload)
+
+    async def render_word_template(self, template_id: str, payload: dict) -> dict:
+        return await self._post(DATAPROCESSING_BASE_URL, f"/word-templates/{template_id}/render", payload=payload)
+
+    async def download_word_document(self, document_id: str) -> httpx.Response:
+        return await self._request("GET", DATAPROCESSING_BASE_URL, f"/word-documents/{document_id}/download")
 
 
 api_client = APIClient()
