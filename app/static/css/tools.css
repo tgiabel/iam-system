@@ -51,8 +51,8 @@ select, input[type="date"] {
 .btn-secondary {
     padding: 10px 15px;
     background-color: #eef4ff;
-    color: #19416f;
-    border: 1px solid #bfd4f2;
+    color: var(--text-strong);
+    border: 1px solid var(--btn-secondary-border);
     cursor: pointer;
 }
 

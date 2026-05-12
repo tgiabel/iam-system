@@ -321,7 +321,7 @@ class APIClient:
             }.items()
             if value not in (None, "")
         }
-        return await self._get(DATAPROCESSING_BASE_URL, "/word-documents", params=params or None)
+        return await self._get(DATAPROCESSING_BASE_URL, "/word-documents/", params=params or None)
 
     async def create_word_template(
         self,
