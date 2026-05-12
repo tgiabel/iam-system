@@ -1,13 +1,19 @@
 const wordTemplateState = {
     templates: [],
+    allDocuments: [],
+    templateDocuments: [],
     selectedTemplateId: null,
     selectedTemplate: null,
     selectedSchema: null,
+    documentListMode: "all",
     users: [],
     userSearchTerm: "",
     selectedUserId: "",
     modalFields: [],
+    existingDocument: null,
+    templateModalMode: "create",
     isRenderModalOpen: false,
+    isTemplateModalOpen: false,
 };
 
 const wordTemplateDom = {};
@@ -40,6 +46,20 @@ function parseFilenameFromDisposition(dispositionHeader, fallbackName) {
     return fallbackName;
 }
 
+function buildQueryString(params = {}) {
+    const searchParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === "") {
+            return;
+        }
+        searchParams.set(key, String(value));
+    });
+
+    const query = searchParams.toString();
+    return query ? `?${query}` : "";
+}
+
 const wordTemplateApi = {
     async requestJson(url, options = {}) {
         const response = await fetch(url, options);
@@ -65,10 +85,10 @@ const wordTemplateApi = {
             const contentType = response.headers.get("content-type") || "";
             if (contentType.includes("application/json")) {
                 const payload = await response.json();
-                throw new Error(payload?.error || payload?.detail || "Die Datei konnte nicht erzeugt werden.");
+                throw new Error(payload?.error || payload?.detail || "Die Datei konnte nicht geladen werden.");
             }
 
-            throw new Error(await response.text() || "Die Datei konnte nicht erzeugt werden.");
+            throw new Error(await response.text() || "Die Datei konnte nicht geladen werden.");
         }
 
         const blob = await response.blob();
@@ -86,6 +106,10 @@ const wordTemplateApi = {
 
     getTemplate(templateId) {
         return this.requestJson(`/api/dataprocessing/word-templates/${encodeURIComponent(templateId)}`);
+    },
+
+    listDocuments(params = {}) {
+        return this.requestJson(`/api/dataprocessing/word-documents${buildQueryString(params)}`);
     },
 
     listTemplateUsers() {
@@ -123,6 +147,14 @@ const wordTemplateApi = {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             },
+            fallbackFilename
+        );
+    },
+
+    downloadDocument(documentId, fallbackFilename = "document.docx") {
+        return this.requestBlob(
+            `/api/dataprocessing/word-documents/${encodeURIComponent(documentId)}/download`,
+            {},
             fallbackFilename
         );
     },
@@ -278,12 +310,24 @@ const wordTemplateSchemaUtils = {
 
     buildModalFieldsFromSchema(schema) {
         const fields = Array.isArray(schema?.fields) ? schema.fields : [];
-        return fields.map(field => this.toModalField(field)).filter(Boolean);
+        return fields.map((field) => this.toModalField(field)).filter(Boolean);
     },
 
     buildModalFieldsFromPrefill(payload) {
         const fields = Array.isArray(payload?.fields) ? payload.fields : [];
-        return fields.map(field => this.toModalField(field)).filter(Boolean);
+        return fields.map((field) => this.toModalField(field)).filter(Boolean);
+    },
+
+    buildExistingDocument(payload) {
+        if (!payload?.existing_document_available || !payload?.existing_document_id) {
+            return null;
+        }
+
+        return {
+            documentId: String(payload.existing_document_id),
+            filename: payload.existing_document_filename || "",
+            createdAt: payload.existing_document_created_at || "",
+        };
     },
 };
 
@@ -327,16 +371,16 @@ const wordTemplateUi = {
         wordTemplateDom.templateList = document.getElementById("templateList");
         wordTemplateDom.templateListStatus = document.getElementById("templateListStatus");
         wordTemplateDom.templateListMeta = document.getElementById("templateListMeta");
-        wordTemplateDom.templateEditStatus = document.getElementById("templateEditStatus");
-        wordTemplateDom.templateEditMeta = document.getElementById("templateEditMeta");
-        wordTemplateDom.templateUploadForm = document.getElementById("templateUploadForm");
-        wordTemplateDom.templateNameInput = document.getElementById("templateNameInput");
-        wordTemplateDom.templateDescriptionInput = document.getElementById("templateDescriptionInput");
-        wordTemplateDom.templateSchemaInput = document.getElementById("templateSchemaInput");
-        wordTemplateDom.templateFileInput = document.getElementById("templateFileInput");
-        wordTemplateDom.templateFileHelp = document.getElementById("templateFileHelp");
-        wordTemplateDom.templateSubmitButton = document.getElementById("templateSubmitButton");
-        wordTemplateDom.templateResetButton = document.getElementById("templateResetButton");
+        wordTemplateDom.openTemplateCreateButton = document.getElementById("openTemplateCreateButton");
+
+        wordTemplateDom.documentList = document.getElementById("documentList");
+        wordTemplateDom.documentListStatus = document.getElementById("documentListStatus");
+        wordTemplateDom.documentListMeta = document.getElementById("documentListMeta");
+        wordTemplateDom.documentListContext = document.getElementById("documentListContext");
+        wordTemplateDom.documentModeAllButton = document.getElementById("documentModeAllButton");
+        wordTemplateDom.documentModeTemplateButton = document.getElementById("documentModeTemplateButton");
+        wordTemplateDom.openTemplateEditButton = document.getElementById("openTemplateEditButton");
+
         wordTemplateDom.renderStatus = document.getElementById("renderStatus");
         wordTemplateDom.renderMeta = document.getElementById("renderMeta");
         wordTemplateDom.renderEmptyState = document.getElementById("renderEmptyState");
@@ -345,10 +389,28 @@ const wordTemplateUi = {
         wordTemplateDom.renderLauncherCopy = document.getElementById("renderLauncherCopy");
         wordTemplateDom.openRenderModalButton = document.getElementById("openRenderModalButton");
 
+        wordTemplateDom.templateModalOverlay = document.getElementById("word-template-manage-modal");
+        wordTemplateDom.templateModalTitle = document.getElementById("word-template-manage-modal-title");
+        wordTemplateDom.templateModalSubtitle = document.getElementById("templateModalSubtitle");
+        wordTemplateDom.templateModalStatus = document.getElementById("templateModalStatus");
+        wordTemplateDom.templateModalForm = document.getElementById("templateModalForm");
+        wordTemplateDom.templateNameInput = document.getElementById("templateNameInput");
+        wordTemplateDom.templateDescriptionInput = document.getElementById("templateDescriptionInput");
+        wordTemplateDom.templateSchemaInput = document.getElementById("templateSchemaInput");
+        wordTemplateDom.templateFileInput = document.getElementById("templateFileInput");
+        wordTemplateDom.templateFileHelp = document.getElementById("templateFileHelp");
+        wordTemplateDom.templateSubmitButton = document.getElementById("templateSubmitButton");
+        wordTemplateDom.templateResetButton = document.getElementById("templateResetButton");
+        wordTemplateDom.closeTemplateModalButton = document.getElementById("closeTemplateModalButton");
+        wordTemplateDom.cancelTemplateModalButton = document.getElementById("cancelTemplateModalButton");
+
         wordTemplateDom.renderModalOverlay = document.getElementById("word-template-render-modal");
         wordTemplateDom.renderModalTitle = document.getElementById("word-template-render-modal-title");
         wordTemplateDom.renderModalSubtitle = document.getElementById("renderModalSubtitle");
         wordTemplateDom.renderModalStatus = document.getElementById("renderModalStatus");
+        wordTemplateDom.existingDocumentCard = document.getElementById("existingDocumentCard");
+        wordTemplateDom.existingDocumentCopy = document.getElementById("existingDocumentCopy");
+        wordTemplateDom.openExistingDocumentButton = document.getElementById("openExistingDocumentButton");
         wordTemplateDom.renderUserSearchInput = document.getElementById("renderUserSearchInput");
         wordTemplateDom.renderUserSelect = document.getElementById("renderUserSelect");
         wordTemplateDom.prefillTemplateButton = document.getElementById("prefillTemplateButton");
@@ -368,13 +430,11 @@ const wordTemplateUi = {
         element.innerHTML = message;
     },
 
-    setSubmitLoading(isLoading) {
-        if (!wordTemplateDom.templateSubmitButton) {
-            return;
-        }
-
+    setTemplateModalSubmitLoading(isLoading) {
         wordTemplateDom.templateSubmitButton.disabled = isLoading;
-        if (wordTemplateState.selectedTemplateId) {
+        wordTemplateDom.templateResetButton.disabled = isLoading;
+
+        if (wordTemplateState.templateModalMode === "edit") {
             wordTemplateDom.templateSubmitButton.textContent = isLoading ? "Vorlage wird aktualisiert..." : "Vorlage aktualisieren";
             return;
         }
@@ -382,10 +442,13 @@ const wordTemplateUi = {
         wordTemplateDom.templateSubmitButton.textContent = isLoading ? "Vorlage wird gespeichert..." : "Vorlage speichern";
     },
 
-    setModalActionLoading(isLoading, mode = "prefill") {
+    setRenderActionLoading(isLoading, mode = "prefill") {
         wordTemplateDom.prefillTemplateButton.disabled = isLoading;
         wordTemplateDom.renderModalSubmitButton.disabled = isLoading;
         wordTemplateDom.openRenderModalButton.disabled = isLoading;
+        if (wordTemplateDom.openExistingDocumentButton) {
+            wordTemplateDom.openExistingDocumentButton.disabled = isLoading;
+        }
 
         if (mode === "prefill") {
             wordTemplateDom.prefillTemplateButton.textContent = isLoading ? "Vorlage wird gefüllt..." : "Vorlage automatisch ausfüllen";
@@ -393,6 +456,17 @@ const wordTemplateUi = {
         }
 
         wordTemplateDom.renderModalSubmitButton.textContent = isLoading ? "DOCX wird erzeugt..." : "DOCX erzeugen";
+    },
+
+    downloadBlob(blob, filename) {
+        const blobUrl = URL.createObjectURL(blob);
+        const downloadLink = document.createElement("a");
+        downloadLink.href = blobUrl;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        downloadLink.remove();
+        URL.revokeObjectURL(blobUrl);
     },
 
     renderTemplateList() {
@@ -427,50 +501,155 @@ const wordTemplateUi = {
             button.innerHTML = `
                 <span class="word-template-list-title">${escapeHtml(wordTemplateFormatters.value(template.name))}</span>
                 <span class="word-template-list-copy">${escapeHtml(wordTemplateFormatters.value(template.description))}</span>
-                <span class="word-template-list-meta">${escapeHtml(wordTemplateFormatters.value(template.original_filename))} · aktualisiert ${escapeHtml(wordTemplateFormatters.dateTime(template.updated_at))}</span>
+                <span class="word-template-list-meta">${escapeHtml(wordTemplateFormatters.value(template.original_filename))} · aktualisiert ${escapeHtml(wordTemplateFormatters.dateTime(template.updated_at || template.created_at))}</span>
             `;
-
             button.addEventListener("click", () => wordTemplateHandlers.selectTemplate(template.template_id));
             list.appendChild(button);
         });
     },
 
-    populateManageForm(template, schema) {
+    renderDocumentModeButtons() {
+        const isTemplateMode = wordTemplateState.documentListMode === "template";
+        const hasTemplate = Boolean(wordTemplateState.selectedTemplateId);
+
+        wordTemplateDom.documentModeAllButton.classList.toggle("is-active", !isTemplateMode);
+        wordTemplateDom.documentModeTemplateButton.classList.toggle("is-active", isTemplateMode);
+        wordTemplateDom.documentModeTemplateButton.disabled = !hasTemplate;
+        wordTemplateDom.openTemplateEditButton.disabled = !hasTemplate;
+
+        if (!hasTemplate) {
+            wordTemplateDom.documentListContext.textContent = "Aktuell werden alle erzeugten Dokumente angezeigt.";
+            return;
+        }
+
+        const templateName = wordTemplateState.selectedTemplate?.name || `Vorlage ${wordTemplateState.selectedTemplateId}`;
+        if (isTemplateMode) {
+            wordTemplateDom.documentListContext.textContent = `Aktive Ansicht: Dokumente für "${templateName}".`;
+            return;
+        }
+
+        wordTemplateDom.documentListContext.textContent = `Aktive Vorlage: "${templateName}". Über den Toggle kannst du zwischen allen Dokumenten und dieser Vorlage wechseln.`;
+    },
+
+    renderDocumentList() {
+        const list = wordTemplateDom.documentList;
+        if (!list) {
+            return;
+        }
+
+        list.innerHTML = "";
+        const isTemplateMode = wordTemplateState.documentListMode === "template";
+        const selectedTemplateId = String(wordTemplateState.selectedTemplateId || "");
+        const rawDocuments = isTemplateMode ? wordTemplateState.templateDocuments : wordTemplateState.allDocuments;
+        const documents = isTemplateMode && selectedTemplateId
+            ? rawDocuments.filter((documentItem) => String(documentItem.template_id || "") === selectedTemplateId)
+            : rawDocuments;
+
+        wordTemplateDom.documentListMeta.textContent = `${documents.length} Dokument(e)`;
+
+        if (isTemplateMode && !selectedTemplateId) {
+            list.innerHTML = `
+                <article class="word-template-list-item is-placeholder" aria-disabled="true">
+                    <div>
+                        <strong>Keine Vorlage gewählt</strong>
+                        <p>Wähle zuerst links eine Vorlage aus, um nur deren Dokumente anzuzeigen.</p>
+                    </div>
+                </article>
+            `;
+            return;
+        }
+
+        if (!documents.length) {
+            list.innerHTML = `
+                <article class="word-template-list-item is-placeholder" aria-disabled="true">
+                    <div>
+                        <strong>Keine Dokumente gefunden</strong>
+                        <p>${isTemplateMode ? "Für die ausgewählte Vorlage wurden noch keine Dokumente erzeugt." : "Es wurden noch keine Dokumente erzeugt."}</p>
+                    </div>
+                </article>
+            `;
+            return;
+        }
+
+        documents.forEach((documentItem) => {
+            const article = document.createElement("article");
+            article.className = "word-template-list-item word-template-document-item";
+            article.innerHTML = `
+                <div class="word-template-document-header">
+                    <div>
+                        <strong>${escapeHtml(wordTemplateFormatters.value(documentItem.output_filename))}</strong>
+                        <p class="word-template-document-copy">${escapeHtml(wordTemplateFormatters.value(documentItem.template_name || documentItem.template_id))}</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-small">Download</button>
+                </div>
+                <p class="word-template-list-meta">Erstellt ${escapeHtml(wordTemplateFormatters.dateTime(documentItem.created_at))}</p>
+            `;
+
+            const downloadButton = article.querySelector("button");
+            downloadButton.addEventListener("click", () => wordTemplateHandlers.downloadDocument(documentItem.document_id, documentItem.output_filename));
+            article.addEventListener("click", (event) => {
+                if (event.target instanceof HTMLElement && event.target.closest("button")) {
+                    return;
+                }
+                wordTemplateHandlers.downloadDocument(documentItem.document_id, documentItem.output_filename);
+            });
+            list.appendChild(article);
+        });
+    },
+
+    prepareTemplateModalCreate() {
+        wordTemplateState.templateModalMode = "create";
+        wordTemplateDom.templateModalForm.reset();
+        wordTemplateDom.templateModalTitle.textContent = "Neue Vorlage anlegen";
+        wordTemplateDom.templateModalSubtitle.innerHTML = 'Name, Beschreibung, Schema und <code>.dotx</code>-Datei werden hier gepflegt.';
+        wordTemplateDom.templateSchemaInput.value = wordTemplateSchemaUtils.example();
+        wordTemplateDom.templateFileInput.value = "";
+        wordTemplateDom.templateFileInput.disabled = false;
+        wordTemplateDom.templateFileInput.required = true;
+        wordTemplateDom.templateSubmitButton.textContent = "Vorlage speichern";
+        wordTemplateDom.templateResetButton.textContent = "Formular zurücksetzen";
+        wordTemplateDom.templateFileHelp.innerHTML = 'Erlaubt ist ausschließlich eine <code>.dotx</code>-Datei.';
+        this.setStatus(
+            wordTemplateDom.templateModalStatus,
+            "info",
+            'Lege hier eine neue Word-Vorlage mit <code>.dotx</code>-Datei und JSON-Schema an.'
+        );
+    },
+
+    populateTemplateModalForEdit(template, schema) {
+        wordTemplateState.templateModalMode = "edit";
         wordTemplateDom.templateNameInput.value = template.name || "";
         wordTemplateDom.templateDescriptionInput.value = template.description || "";
         wordTemplateDom.templateSchemaInput.value = JSON.stringify(schema, null, 2);
         wordTemplateDom.templateFileInput.value = "";
-        wordTemplateDom.templateFileInput.required = false;
         wordTemplateDom.templateFileInput.disabled = true;
+        wordTemplateDom.templateFileInput.required = false;
+        wordTemplateDom.templateModalTitle.textContent = "Vorlage bearbeiten";
+        wordTemplateDom.templateModalSubtitle.innerHTML = `Bearbeite Metadaten und Schema der Vorlage <code>${escapeHtml(wordTemplateFormatters.value(template.template_id))}</code>.`;
         wordTemplateDom.templateSubmitButton.textContent = "Vorlage aktualisieren";
-        wordTemplateDom.templateResetButton.textContent = "Neue Vorlage vorbereiten";
+        wordTemplateDom.templateResetButton.textContent = "Änderungen verwerfen";
         wordTemplateDom.templateFileHelp.innerHTML = `Aktive Datei: <code>${escapeHtml(wordTemplateFormatters.value(template.original_filename))}</code>. Der Austausch der <code>.dotx</code>-Datei ist in V1 nicht vorgesehen.`;
-        wordTemplateDom.templateEditMeta.textContent = `Bearbeite ID ${template.template_id}`;
+        this.setStatus(
+            wordTemplateDom.templateModalStatus,
+            "info",
+            `Die Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(template.name))}</strong> kann jetzt angepasst werden.`
+        );
     },
 
-    resetManageForm() {
-        wordTemplateState.selectedTemplateId = null;
-        wordTemplateState.selectedTemplate = null;
-        wordTemplateState.selectedSchema = null;
-        wordTemplateState.modalFields = [];
-        wordTemplateState.selectedUserId = "";
+    openTemplateModal() {
+        wordTemplateDom.templateModalOverlay.classList.add("active");
+        wordTemplateDom.templateModalOverlay.setAttribute("aria-hidden", "false");
+        wordTemplateState.isTemplateModalOpen = true;
+        document.body.style.overflow = "hidden";
+    },
 
-        wordTemplateDom.templateUploadForm.reset();
-        wordTemplateDom.templateSchemaInput.value = wordTemplateSchemaUtils.example();
-        wordTemplateDom.templateFileInput.required = true;
-        wordTemplateDom.templateFileInput.disabled = false;
-        wordTemplateDom.templateSubmitButton.disabled = false;
-        wordTemplateDom.templateSubmitButton.textContent = "Vorlage speichern";
-        wordTemplateDom.templateResetButton.textContent = "Formular zurücksetzen";
-        wordTemplateDom.templateFileHelp.innerHTML = `Erlaubt ist ausschließlich eine <code>.dotx</code>-Datei.`;
-        wordTemplateDom.templateEditMeta.textContent = "Upload & Schema";
-        this.setStatus(
-            wordTemplateDom.templateEditStatus,
-            "info",
-            'Name, Beschreibung, Schema und <code>.dotx</code>-Datei werden hier gepflegt.'
-        );
-        this.syncRenderLauncher();
-        this.renderTemplateList();
+    closeTemplateModal() {
+        wordTemplateDom.templateModalOverlay.classList.remove("active");
+        wordTemplateDom.templateModalOverlay.setAttribute("aria-hidden", "true");
+        wordTemplateState.isTemplateModalOpen = false;
+        if (!wordTemplateState.isRenderModalOpen) {
+            document.body.style.overflow = "";
+        }
     },
 
     syncRenderLauncher() {
@@ -510,7 +689,23 @@ const wordTemplateUi = {
         wordTemplateDom.renderModalOverlay.classList.remove("active");
         wordTemplateDom.renderModalOverlay.setAttribute("aria-hidden", "true");
         wordTemplateState.isRenderModalOpen = false;
-        document.body.style.overflow = "";
+        if (!wordTemplateState.isTemplateModalOpen) {
+            document.body.style.overflow = "";
+        }
+    },
+
+    renderExistingDocumentCard() {
+        const existingDocument = wordTemplateState.existingDocument;
+        if (!existingDocument) {
+            wordTemplateDom.existingDocumentCard.hidden = true;
+            wordTemplateDom.existingDocumentCopy.textContent = "Für diesen Kontext existiert bereits eine letzte generierte Version.";
+            return;
+        }
+
+        const filename = wordTemplateFormatters.value(existingDocument.filename);
+        const createdAt = wordTemplateFormatters.dateTime(existingDocument.createdAt);
+        wordTemplateDom.existingDocumentCopy.textContent = `Es existiert bereits ${filename}. Erstellt am ${createdAt}.`;
+        wordTemplateDom.existingDocumentCard.hidden = false;
     },
 
     renderUserOptions() {
@@ -533,7 +728,10 @@ const wordTemplateUi = {
             select.appendChild(option);
         });
 
-        if (wordTemplateState.selectedUserId && !visibleUsers.some(user => String(user.user_id) === String(wordTemplateState.selectedUserId))) {
+        if (
+            wordTemplateState.selectedUserId
+            && !visibleUsers.some((user) => String(user.user_id) === String(wordTemplateState.selectedUserId))
+        ) {
             select.value = "";
         }
     },
@@ -572,11 +770,7 @@ const wordTemplateUi = {
                     <label for="${inputId}">${escapeHtml(field.label)}</label>
                     <p class="word-template-render-field-copy">${escapeHtml(metaParts.join(" · "))}</p>
                     <label class="word-template-checkbox-row" for="${inputId}">
-                        <input
-                            id="${inputId}"
-                            type="checkbox"
-                            data-modal-field-index="${index}"
-                            ${field.value ? "checked" : ""}>
+                        <input id="${inputId}" type="checkbox" data-modal-field-index="${index}" ${field.value ? "checked" : ""}>
                         <span>Wert setzen</span>
                     </label>
                 `;
@@ -614,19 +808,29 @@ const wordTemplateHandlers = {
             const templates = await wordTemplateApi.listTemplates();
             wordTemplateState.templates = Array.isArray(templates) ? templates : [];
             wordTemplateUi.renderTemplateList();
-
-            if (successMessage) {
-                wordTemplateUi.setStatus(wordTemplateDom.templateListStatus, "success", successMessage);
-            } else {
-                wordTemplateUi.setStatus(
-                    wordTemplateDom.templateListStatus,
-                    "info",
-                    `${wordTemplateState.templates.length} Vorlage(n) erfolgreich geladen.`
-                );
-            }
+            wordTemplateUi.setStatus(
+                wordTemplateDom.templateListStatus,
+                successMessage ? "success" : "info",
+                successMessage || `${wordTemplateState.templates.length} Vorlage(n) erfolgreich geladen.`
+            );
 
             if (selectTemplateId) {
                 await this.selectTemplate(selectTemplateId);
+                return;
+            }
+
+            if (
+                wordTemplateState.selectedTemplateId
+                && !wordTemplateState.templates.some((template) => String(template.template_id) === String(wordTemplateState.selectedTemplateId))
+            ) {
+                wordTemplateState.selectedTemplateId = null;
+                wordTemplateState.selectedTemplate = null;
+                wordTemplateState.selectedSchema = null;
+                wordTemplateState.documentListMode = "all";
+                wordTemplateUi.renderTemplateList();
+                wordTemplateUi.renderDocumentModeButtons();
+                wordTemplateUi.syncRenderLauncher();
+                await this.loadDocuments({ mode: "all" });
             }
         } catch (error) {
             wordTemplateUi.setStatus(
@@ -637,10 +841,58 @@ const wordTemplateHandlers = {
         }
     },
 
+    async loadDocuments(options = {}) {
+        const { mode = wordTemplateState.documentListMode, successMessage = "" } = options;
+        wordTemplateState.documentListMode = mode;
+        wordTemplateUi.renderDocumentModeButtons();
+
+        if (mode === "template" && !wordTemplateState.selectedTemplateId) {
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentListStatus,
+                "info",
+                "Wähle zuerst eine Vorlage aus, um nur die Dokumente dieser Vorlage anzuzeigen."
+            );
+            wordTemplateUi.renderDocumentList();
+            return;
+        }
+
+        wordTemplateUi.setStatus(wordTemplateDom.documentListStatus, "info", "Dokumente werden geladen...");
+
+        try {
+            const documents = await wordTemplateApi.listDocuments(
+                mode === "template"
+                    ? { template_id: wordTemplateState.selectedTemplateId }
+                    : {}
+            );
+            const normalizedDocuments = Array.isArray(documents) ? documents : [];
+
+            if (mode === "template") {
+                wordTemplateState.templateDocuments = normalizedDocuments;
+            } else {
+                wordTemplateState.allDocuments = normalizedDocuments;
+            }
+
+            wordTemplateUi.renderDocumentList();
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentListStatus,
+                successMessage ? "success" : "info",
+                successMessage || `${normalizedDocuments.length} Dokument(e) erfolgreich geladen.`
+            );
+        } catch (error) {
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentListStatus,
+                "error",
+                error.message || "Die Dokumentenliste konnte nicht geladen werden."
+            );
+            wordTemplateUi.renderDocumentList();
+        }
+    },
+
     async selectTemplate(templateId) {
         wordTemplateState.selectedTemplateId = String(templateId);
         wordTemplateUi.renderTemplateList();
-        wordTemplateUi.setStatus(wordTemplateDom.templateEditStatus, "info", "Vorlagendetails werden geladen...");
+        wordTemplateUi.renderDocumentModeButtons();
+        wordTemplateUi.setStatus(wordTemplateDom.renderStatus, "info", "Vorlagendetails werden geladen...");
 
         try {
             const template = await wordTemplateApi.getTemplate(templateId);
@@ -657,21 +909,69 @@ const wordTemplateHandlers = {
             wordTemplateState.selectedTemplate = template;
             wordTemplateState.selectedSchema = schema;
             wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromSchema(schema);
-            wordTemplateUi.populateManageForm(template, schema);
-            wordTemplateUi.setStatus(
-                wordTemplateDom.templateEditStatus,
-                "success",
-                `Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(template.name))}</strong> wurde geladen und kann jetzt bearbeitet werden.`
-            );
-            wordTemplateUi.syncRenderLauncher();
+            wordTemplateState.documentListMode = "template";
+
             wordTemplateUi.renderTemplateList();
+            wordTemplateUi.renderDocumentModeButtons();
+            wordTemplateUi.syncRenderLauncher();
+            await this.loadDocuments({
+                mode: "template",
+                successMessage: `Dokumente für <strong>${escapeHtml(wordTemplateFormatters.value(template.name))}</strong> wurden geladen.`,
+            });
         } catch (error) {
             wordTemplateUi.setStatus(
-                wordTemplateDom.templateEditStatus,
+                wordTemplateDom.renderStatus,
                 "error",
                 error.message || "Die Vorlage konnte nicht geladen werden."
             );
         }
+    },
+
+    setDocumentMode(mode) {
+        if (mode === "template" && !wordTemplateState.selectedTemplateId) {
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentListStatus,
+                "error",
+                "Bitte wählen Sie zuerst eine Vorlage aus."
+            );
+            return;
+        }
+
+        this.loadDocuments({ mode });
+    },
+
+    openCreateTemplateModal() {
+        wordTemplateUi.prepareTemplateModalCreate();
+        wordTemplateUi.openTemplateModal();
+        wordTemplateDom.templateNameInput.focus();
+    },
+
+    openEditTemplateModal() {
+        if (!wordTemplateState.selectedTemplate || !wordTemplateState.selectedSchema) {
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentListStatus,
+                "error",
+                "Bitte wählen Sie zuerst eine Vorlage aus, bevor Sie sie bearbeiten."
+            );
+            return;
+        }
+
+        wordTemplateUi.populateTemplateModalForEdit(wordTemplateState.selectedTemplate, wordTemplateState.selectedSchema);
+        wordTemplateUi.openTemplateModal();
+        wordTemplateDom.templateNameInput.focus();
+    },
+
+    closeTemplateModal() {
+        wordTemplateUi.closeTemplateModal();
+    },
+
+    resetTemplateModal() {
+        if (wordTemplateState.templateModalMode === "edit" && wordTemplateState.selectedTemplate && wordTemplateState.selectedSchema) {
+            wordTemplateUi.populateTemplateModalForEdit(wordTemplateState.selectedTemplate, wordTemplateState.selectedSchema);
+            return;
+        }
+
+        wordTemplateUi.prepareTemplateModalCreate();
     },
 
     validateCreateFile(file) {
@@ -686,7 +986,7 @@ const wordTemplateHandlers = {
         return null;
     },
 
-    async handleManageSubmit(event) {
+    async handleTemplateModalSubmit(event) {
         event.preventDefault();
 
         const name = wordTemplateDom.templateNameInput.value.trim();
@@ -695,39 +995,35 @@ const wordTemplateHandlers = {
         const { schema, error: parseError } = wordTemplateSchemaUtils.parse(rawSchema);
 
         if (parseError) {
-            wordTemplateUi.setStatus(wordTemplateDom.templateEditStatus, "error", parseError);
+            wordTemplateUi.setStatus(wordTemplateDom.templateModalStatus, "error", parseError);
             return;
         }
 
         const validationError = wordTemplateSchemaUtils.validate(schema);
         if (validationError) {
-            wordTemplateUi.setStatus(wordTemplateDom.templateEditStatus, "error", validationError);
+            wordTemplateUi.setStatus(wordTemplateDom.templateModalStatus, "error", validationError);
             return;
         }
 
         if (!name) {
-            wordTemplateUi.setStatus(wordTemplateDom.templateEditStatus, "error", "Der Vorlagenname ist erforderlich.");
+            wordTemplateUi.setStatus(wordTemplateDom.templateModalStatus, "error", "Der Vorlagenname ist erforderlich.");
             return;
         }
 
-        wordTemplateUi.setSubmitLoading(true);
+        wordTemplateUi.setTemplateModalSubmitLoading(true);
 
         try {
-            if (wordTemplateState.selectedTemplateId) {
+            if (wordTemplateState.templateModalMode === "edit" && wordTemplateState.selectedTemplateId) {
                 const updated = await wordTemplateApi.updateTemplate(wordTemplateState.selectedTemplateId, {
                     name,
                     description,
                     schema,
                 });
 
-                wordTemplateUi.setStatus(
-                    wordTemplateDom.templateEditStatus,
-                    "success",
-                    `Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(updated.name || name))}</strong> wurde aktualisiert.`
-                );
+                wordTemplateUi.closeTemplateModal();
                 await this.loadTemplates({
                     selectTemplateId: updated.template_id || wordTemplateState.selectedTemplateId,
-                    successMessage: "Vorlagenliste wurde nach dem Update aktualisiert.",
+                    successMessage: `Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(updated.name || name))}</strong> wurde aktualisiert.`,
                 });
                 return;
             }
@@ -735,7 +1031,7 @@ const wordTemplateHandlers = {
             const file = wordTemplateDom.templateFileInput.files?.[0];
             const fileError = this.validateCreateFile(file);
             if (fileError) {
-                wordTemplateUi.setStatus(wordTemplateDom.templateEditStatus, "error", fileError);
+                wordTemplateUi.setStatus(wordTemplateDom.templateModalStatus, "error", fileError);
                 return;
             }
 
@@ -746,23 +1042,19 @@ const wordTemplateHandlers = {
             formData.append("template_file", file);
 
             const created = await wordTemplateApi.createTemplate(formData);
-            wordTemplateUi.setStatus(
-                wordTemplateDom.templateEditStatus,
-                "success",
-                `Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(created.name || name))}</strong> wurde angelegt.`
-            );
+            wordTemplateUi.closeTemplateModal();
             await this.loadTemplates({
                 selectTemplateId: created.template_id,
-                successMessage: "Vorlagenliste wurde nach dem Upload aktualisiert.",
+                successMessage: `Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(created.name || name))}</strong> wurde angelegt.`,
             });
         } catch (error) {
             wordTemplateUi.setStatus(
-                wordTemplateDom.templateEditStatus,
+                wordTemplateDom.templateModalStatus,
                 "error",
                 error.message || "Die Vorlage konnte nicht gespeichert werden."
             );
         } finally {
-            wordTemplateUi.setSubmitLoading(false);
+            wordTemplateUi.setTemplateModalSubmitLoading(false);
         }
     },
 
@@ -788,8 +1080,8 @@ const wordTemplateHandlers = {
             return filteredUsers;
         }
 
-        const selected = allUsers.find(user => String(user.user_id) === String(wordTemplateState.selectedUserId));
-        if (!selected || filteredUsers.some(user => String(user.user_id) === String(selected.user_id))) {
+        const selected = allUsers.find((user) => String(user.user_id) === String(wordTemplateState.selectedUserId));
+        if (!selected || filteredUsers.some((user) => String(user.user_id) === String(selected.user_id))) {
             return filteredUsers;
         }
 
@@ -831,10 +1123,12 @@ const wordTemplateHandlers = {
         wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromSchema(wordTemplateState.selectedSchema);
         wordTemplateState.selectedUserId = "";
         wordTemplateState.userSearchTerm = "";
+        wordTemplateState.existingDocument = null;
 
         wordTemplateDom.renderModalTitle.textContent = wordTemplateState.selectedTemplate.name || "Dokument erstellen";
         wordTemplateDom.renderModalSubtitle.textContent = "Wähle einen User zum Vorbefüllen oder trage die Werte direkt im Formular ein.";
         wordTemplateDom.renderUserSearchInput.value = "";
+        wordTemplateUi.renderExistingDocumentCard();
         wordTemplateUi.renderUserOptions();
         wordTemplateUi.renderModalFields();
         wordTemplateUi.setStatus(
@@ -862,18 +1156,22 @@ const wordTemplateHandlers = {
             return;
         }
 
-        wordTemplateUi.setModalActionLoading(true, "prefill");
+        wordTemplateUi.setRenderActionLoading(true, "prefill");
 
         try {
             const payload = await wordTemplateApi.prefillTemplate(wordTemplateState.selectedTemplateId, {
                 user_id: wordTemplateState.selectedUserId,
             });
             wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromPrefill(payload);
+            wordTemplateState.existingDocument = wordTemplateSchemaUtils.buildExistingDocument(payload);
+            wordTemplateUi.renderExistingDocumentCard();
             wordTemplateUi.renderModalFields();
             wordTemplateUi.setStatus(
                 wordTemplateDom.renderModalStatus,
                 "success",
-                "Die Vorlage wurde mit den verfügbaren Userdaten vorbefüllt. Alle sichtbaren Felder können vor dem Download noch angepasst werden."
+                wordTemplateState.existingDocument
+                    ? "Die Vorlage wurde vorbefüllt. Zusätzlich steht die letzte bereits generierte Version direkt zum Öffnen bereit."
+                    : "Die Vorlage wurde mit den verfügbaren Userdaten vorbefüllt. Alle sichtbaren Felder können vor dem Download noch angepasst werden."
             );
         } catch (error) {
             wordTemplateUi.setStatus(
@@ -882,7 +1180,7 @@ const wordTemplateHandlers = {
                 error.message || "Die Vorlage konnte nicht automatisch ausgefüllt werden."
             );
         } finally {
-            wordTemplateUi.setModalActionLoading(false, "prefill");
+            wordTemplateUi.setRenderActionLoading(false, "prefill");
         }
     },
 
@@ -929,7 +1227,7 @@ const wordTemplateHandlers = {
             return;
         }
 
-        wordTemplateUi.setModalActionLoading(true, "render");
+        wordTemplateUi.setRenderActionLoading(true, "render");
 
         try {
             const fallbackFilename = `${(wordTemplateState.selectedTemplate?.name || "dokument").replace(/\s+/g, "-").toLowerCase()}.docx`;
@@ -938,20 +1236,16 @@ const wordTemplateHandlers = {
                 values,
             }, fallbackFilename);
 
-            const blobUrl = URL.createObjectURL(blob);
-            const downloadLink = document.createElement("a");
-            downloadLink.href = blobUrl;
-            downloadLink.download = filename;
-            document.body.appendChild(downloadLink);
-            downloadLink.click();
-            downloadLink.remove();
-            URL.revokeObjectURL(blobUrl);
-
+            wordTemplateUi.downloadBlob(blob, filename);
             wordTemplateUi.setStatus(
                 wordTemplateDom.renderModalStatus,
                 "success",
                 `Das Dokument wurde erfolgreich erzeugt. Der Download für <code>${escapeHtml(filename)}</code> wurde gestartet.`
             );
+            await this.loadDocuments({
+                mode: wordTemplateState.documentListMode,
+                successMessage: "Die Dokumentenliste wurde nach dem Rendern aktualisiert.",
+            });
         } catch (error) {
             wordTemplateUi.setStatus(
                 wordTemplateDom.renderModalStatus,
@@ -959,7 +1253,23 @@ const wordTemplateHandlers = {
                 error.message || "Das Dokument konnte nicht erzeugt werden."
             );
         } finally {
-            wordTemplateUi.setModalActionLoading(false, "render");
+            wordTemplateUi.setRenderActionLoading(false, "render");
+        }
+    },
+
+    async downloadDocument(documentId, fallbackFilename = "document.docx") {
+        try {
+            const { blob, filename } = await wordTemplateApi.downloadDocument(documentId, fallbackFilename);
+            wordTemplateUi.downloadBlob(blob, filename);
+        } catch (error) {
+            const targetStatus = wordTemplateState.isRenderModalOpen
+                ? wordTemplateDom.renderModalStatus
+                : wordTemplateDom.documentListStatus;
+            wordTemplateUi.setStatus(
+                targetStatus,
+                "error",
+                error.message || "Das Dokument konnte nicht heruntergeladen werden."
+            );
         }
     },
 
@@ -972,15 +1282,29 @@ const wordTemplateHandlers = {
         wordTemplateState.selectedUserId = String(event.target.value || "");
     },
 
-    handleModalOverlayClick(event) {
+    handleOverlayClick(event) {
         if (event.target === wordTemplateDom.renderModalOverlay) {
             this.closeRenderModal();
+            return;
+        }
+
+        if (event.target === wordTemplateDom.templateModalOverlay) {
+            this.closeTemplateModal();
         }
     },
 
     handleKeydown(event) {
-        if (event.key === "Escape" && wordTemplateState.isRenderModalOpen) {
+        if (event.key !== "Escape") {
+            return;
+        }
+
+        if (wordTemplateState.isRenderModalOpen) {
             this.closeRenderModal();
+            return;
+        }
+
+        if (wordTemplateState.isTemplateModalOpen) {
+            this.closeTemplateModal();
         }
     },
 };
@@ -988,21 +1312,44 @@ const wordTemplateHandlers = {
 document.addEventListener("DOMContentLoaded", () => {
     wordTemplateUi.cacheDom();
 
-    if (!wordTemplateDom.templateUploadForm) {
+    if (!wordTemplateDom.templateModalForm) {
         return;
     }
 
-    wordTemplateUi.resetManageForm();
-    wordTemplateDom.templateUploadForm.addEventListener("submit", (event) => wordTemplateHandlers.handleManageSubmit(event));
-    wordTemplateDom.templateResetButton.addEventListener("click", () => wordTemplateUi.resetManageForm());
+    wordTemplateUi.prepareTemplateModalCreate();
+    wordTemplateUi.renderDocumentModeButtons();
+    wordTemplateUi.syncRenderLauncher();
+
+    wordTemplateDom.openTemplateCreateButton.addEventListener("click", () => wordTemplateHandlers.openCreateTemplateModal());
+    wordTemplateDom.openTemplateEditButton.addEventListener("click", () => wordTemplateHandlers.openEditTemplateModal());
+    wordTemplateDom.templateModalForm.addEventListener("submit", (event) => wordTemplateHandlers.handleTemplateModalSubmit(event));
+    wordTemplateDom.templateResetButton.addEventListener("click", () => wordTemplateHandlers.resetTemplateModal());
+    wordTemplateDom.closeTemplateModalButton.addEventListener("click", () => wordTemplateHandlers.closeTemplateModal());
+    wordTemplateDom.cancelTemplateModalButton.addEventListener("click", () => wordTemplateHandlers.closeTemplateModal());
+
+    wordTemplateDom.documentModeAllButton.addEventListener("click", () => wordTemplateHandlers.setDocumentMode("all"));
+    wordTemplateDom.documentModeTemplateButton.addEventListener("click", () => wordTemplateHandlers.setDocumentMode("template"));
+
     wordTemplateDom.openRenderModalButton.addEventListener("click", () => wordTemplateHandlers.openRenderModal());
     wordTemplateDom.closeRenderModalButton.addEventListener("click", () => wordTemplateHandlers.closeRenderModal());
     wordTemplateDom.cancelRenderModalButton.addEventListener("click", () => wordTemplateHandlers.closeRenderModal());
+    wordTemplateDom.openExistingDocumentButton.addEventListener("click", () => {
+        if (wordTemplateState.existingDocument?.documentId) {
+            wordTemplateHandlers.downloadDocument(
+                wordTemplateState.existingDocument.documentId,
+                wordTemplateState.existingDocument.filename || "bestehende-version.docx"
+            );
+        }
+    });
     wordTemplateDom.prefillTemplateButton.addEventListener("click", () => wordTemplateHandlers.handlePrefillClick());
     wordTemplateDom.renderModalForm.addEventListener("submit", (event) => wordTemplateHandlers.handleRenderModalSubmit(event));
     wordTemplateDom.renderUserSearchInput.addEventListener("input", (event) => wordTemplateHandlers.handleUserSearchInput(event));
     wordTemplateDom.renderUserSelect.addEventListener("change", (event) => wordTemplateHandlers.handleUserSelectionChange(event));
-    wordTemplateDom.renderModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleModalOverlayClick(event));
+
+    wordTemplateDom.renderModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
+    wordTemplateDom.templateModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
     document.addEventListener("keydown", (event) => wordTemplateHandlers.handleKeydown(event));
+
     wordTemplateHandlers.loadTemplates();
+    wordTemplateHandlers.loadDocuments({ mode: "all" });
 });

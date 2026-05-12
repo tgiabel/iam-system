@@ -158,6 +158,7 @@ from app.routes.api import (
     api_create_word_template,
     api_download_word_document,
     api_get_word_template,
+    api_list_word_documents,
     api_list_word_templates,
     api_list_word_template_users,
     api_prefill_word_template,
@@ -267,6 +268,41 @@ class WordTemplatesApiTests(unittest.TestCase):
         )
         users_mock.assert_awaited_once_with(is_active=True)
 
+    @patch("app.routes.api.api_client.list_word_documents", new_callable=AsyncMock)
+    def test_list_word_documents_forwards_optional_filters(self, list_mock):
+        list_mock.return_value = [
+            {
+                "document_id": "doc-1",
+                "template_id": "tpl-3",
+                "template_name": "Angebot",
+                "target_user_id": 77,
+                "initiator_user_id": 42,
+                "output_filename": "angebot.docx",
+                "created_at": "2026-05-12T10:20:00Z",
+            }
+        ]
+
+        response = run_async(
+            api_list_word_documents(
+                template_id="tpl-3",
+                user_id="77",
+                current_user=self.current_user,
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json_body(response), list_mock.return_value)
+        list_mock.assert_awaited_once_with(template_id="tpl-3", user_id="77")
+
+    @patch("app.routes.api.api_client.list_word_documents", new_callable=AsyncMock)
+    def test_list_word_documents_propagates_http_error(self, list_mock):
+        list_mock.side_effect = make_http_error(400, {"detail": "ungueltiger Filter"})
+
+        response = run_async(api_list_word_documents(current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(json_body(response), {"detail": "ungueltiger Filter"})
+
     @patch("app.routes.api.api_client.create_word_template", new_callable=AsyncMock)
     def test_create_template_forwards_multipart_payload(self, create_mock):
         create_mock.return_value = {"template_id": "tpl-2", "name": "Vertrag"}
@@ -337,6 +373,10 @@ class WordTemplatesApiTests(unittest.TestCase):
         prefill_mock.return_value = {
             "template_id": "tpl-9",
             "user_id": 77,
+            "existing_document_available": True,
+            "existing_document_id": "doc-77",
+            "existing_document_filename": "formular-letzte-version.docx",
+            "existing_document_created_at": "2026-05-12T09:45:00Z",
             "fields": [{"key": "first_name", "label": "Vorname", "type": "text", "required": True, "value": "Anna"}],
         }
 
@@ -354,6 +394,10 @@ class WordTemplatesApiTests(unittest.TestCase):
             {
                 "template_id": "tpl-9",
                 "user_id": 77,
+                "existing_document_available": True,
+                "existing_document_id": "doc-77",
+                "existing_document_filename": "formular-letzte-version.docx",
+                "existing_document_created_at": "2026-05-12T09:45:00Z",
                 "fields": [{"key": "first_name", "label": "Vorname", "type": "text", "required": True, "value": "Anna"}],
             },
         )

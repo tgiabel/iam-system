@@ -312,6 +312,17 @@ class APIClient:
     async def get_word_template(self, template_id: str) -> dict:
         return await self._get(DATAPROCESSING_BASE_URL, f"/word-templates/{template_id}")
 
+    async def list_word_documents(self, *, template_id: str | None = None, user_id: str | None = None) -> list[dict]:
+        params = {
+            key: value
+            for key, value in {
+                "template_id": template_id,
+                "user_id": user_id,
+            }.items()
+            if value not in (None, "")
+        }
+        return await self._get(DATAPROCESSING_BASE_URL, "/word-documents", params=params or None)
+
     async def create_word_template(
         self,
         *,

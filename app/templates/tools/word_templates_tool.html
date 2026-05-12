@@ -35,77 +35,61 @@
                     <p class="word-template-panel-kicker">Übersicht</p>
                     <h3 id="templates-list-title">Vorlagenliste</h3>
                 </div>
-                <span class="word-template-panel-meta" id="templateListMeta">Noch keine Daten geladen</span>
+                <div class="word-template-inline-actions">
+                    <span class="word-template-panel-meta" id="templateListMeta">Noch keine Daten geladen</span>
+                    <button type="button" class="btn btn-secondary" id="openTemplateCreateButton">Neue Vorlage</button>
+                </div>
             </div>
 
             <div class="word-template-status word-template-status-info" id="templateListStatus">
-                Die vorhandenen Vorlagen werden im nächsten Schritt dynamisch geladen.
+                Die vorhandenen Vorlagen werden dynamisch geladen.
             </div>
 
-            <div class="word-template-list" id="templateList">
-                <article class="word-template-list-item is-placeholder" aria-disabled="true">
-                    <div>
-                        <strong>Keine Vorlage ausgewählt</strong>
-                        <p>Nach dem Laden erscheinen hier bestehende Word-Templates mit Metadaten.</p>
-                    </div>
-                </article>
+            <div class="word-template-panel-scroll">
+                <div class="word-template-list" id="templateList">
+                    <article class="word-template-list-item is-placeholder" aria-disabled="true">
+                        <div>
+                            <strong>Keine Vorlage ausgewählt</strong>
+                            <p>Nach dem Laden erscheinen hier bestehende Word-Templates mit Metadaten.</p>
+                        </div>
+                    </article>
+                </div>
             </div>
         </section>
 
-        <section class="word-template-panel" aria-labelledby="template-manage-title">
+        <section class="word-template-panel" aria-labelledby="document-list-title">
             <div class="word-template-panel-header">
                 <div>
-                    <p class="word-template-panel-kicker">Verwalten</p>
-                    <h3 id="template-manage-title">Vorlage anlegen & bearbeiten</h3>
+                    <p class="word-template-panel-kicker">Dokumente</p>
+                    <h3 id="document-list-title">Generierte Dokumente</h3>
                 </div>
-                <span class="word-template-panel-meta" id="templateEditMeta">Upload & Schema</span>
+                <span class="word-template-panel-meta" id="documentListMeta">Noch keine Daten geladen</span>
             </div>
 
-            <div class="word-template-status word-template-status-info" id="templateEditStatus">
-                Name, Beschreibung, Schema und <code>.dotx</code>-Datei werden hier gepflegt.
+            <div class="word-template-toolbar">
+                <div class="word-template-toggle" role="tablist" aria-label="Dokumentenansicht umschalten">
+                    <button type="button" class="word-template-toggle-button is-active" id="documentModeAllButton">Alle Dokumente</button>
+                    <button type="button" class="word-template-toggle-button" id="documentModeTemplateButton">Diese Vorlage</button>
+                </div>
+                <button type="button" class="btn btn-secondary" id="openTemplateEditButton" disabled>Vorlage bearbeiten</button>
             </div>
 
-            <form id="templateUploadForm" class="word-template-form" enctype="multipart/form-data">
-                <div class="word-template-form-grid">
-                    <div class="form-group">
-                        <label for="templateNameInput">Name</label>
-                        <input id="templateNameInput" name="name" type="text" class="word-template-input" placeholder="z. B. Angebotsvorlage" required>
-                    </div>
+            <p class="word-template-context" id="documentListContext">Aktuell werden alle erzeugten Dokumente angezeigt.</p>
 
-                    <div class="form-group">
-                        <label for="templateFileInput">Vorlagendatei</label>
-                        <input id="templateFileInput" name="template_file" type="file" class="word-template-input" accept=".dotx" required>
-                        <p class="word-template-field-hint" id="templateFileHelp">Erlaubt ist ausschließlich eine <code>.dotx</code>-Datei.</p>
-                    </div>
-                </div>
+            <div class="word-template-status word-template-status-info" id="documentListStatus">
+                Die Dokumentenliste wird dynamisch geladen.
+            </div>
 
-                <div class="form-group">
-                    <label for="templateDescriptionInput">Beschreibung</label>
-                    <textarea id="templateDescriptionInput" name="description" class="word-template-textarea" rows="3" placeholder="Wofür wird diese Vorlage genutzt?"></textarea>
+            <div class="word-template-panel-scroll">
+                <div class="word-template-document-list" id="documentList">
+                    <article class="word-template-list-item is-placeholder" aria-disabled="true">
+                        <div>
+                            <strong>Keine Dokumente geladen</strong>
+                            <p>Nach dem Laden werden hier erzeugte Dokumente mit direktem Download angezeigt.</p>
+                        </div>
+                    </article>
                 </div>
-
-                <div class="form-group">
-                    <label for="templateSchemaInput">Schema JSON</label>
-                    <textarea
-                        id="templateSchemaInput"
-                        name="schema_json"
-                        class="word-template-textarea word-template-codearea"
-                        rows="14"
-                        spellcheck="false"
-                        placeholder='{"version":1,"fields":[]}'
-                        required></textarea>
-                </div>
-
-                <div class="word-template-hint-card">
-                    <strong>Schema-Hinweis</strong>
-                    <p>Erwartet wird ein JSON mit <code>version: 1</code> und einem <code>fields</code>-Array aus <code>text</code>- oder <code>checkbox</code>-Feldern.</p>
-                </div>
-
-                <div class="word-template-actions">
-                    <button type="submit" class="btn btn-primary" id="templateSubmitButton">Vorlage speichern</button>
-                    <button type="button" class="btn btn-secondary" id="templateResetButton">Formular zurücksetzen</button>
-                </div>
-            </form>
+            </div>
         </section>
 
         <section class="word-template-panel" aria-labelledby="template-render-title">
@@ -117,25 +101,89 @@
                 <span class="word-template-panel-meta" id="renderMeta">Dialog</span>
             </div>
 
-            <div class="word-template-status word-template-status-info" id="renderStatus">
-                Nach Auswahl einer Vorlage wird ein Dialog geöffnet, in dem das Formular automatisch oder manuell ausgefüllt werden kann.
-            </div>
-
-            <div class="word-template-empty-state" id="renderEmptyState">
-                <strong>Vorlage wählen und Dialog öffnen</strong>
-                <p>Wähle oder erstelle zuerst eine Vorlage. Danach kann ein Dokument mit User-Autofill oder manueller Eingabe erstellt werden.</p>
-            </div>
-
-            <div class="word-template-render-launcher" id="renderLauncher" hidden>
-                <div class="word-template-launcher-card">
-                    <strong id="renderLauncherTitle">Keine Vorlage ausgewählt</strong>
-                    <p id="renderLauncherCopy">Der Dokument-Dialog erzeugt aus dem Schema ein HTML-Formular und kann es optional mit Userdaten vorbefüllen.</p>
+            <div class="word-template-panel-scroll">
+                <div class="word-template-status word-template-status-info" id="renderStatus">
+                    Nach Auswahl einer Vorlage wird ein Dialog geöffnet, in dem das Formular automatisch oder manuell ausgefüllt werden kann.
                 </div>
-                <div class="word-template-actions">
-                    <button type="button" class="btn btn-primary" id="openRenderModalButton">Dokument erstellen</button>
+
+                <div class="word-template-empty-state" id="renderEmptyState">
+                    <strong>Vorlage wählen und Dialog öffnen</strong>
+                    <p>Wähle oder erstelle zuerst eine Vorlage. Danach kann ein Dokument mit User-Autofill oder manueller Eingabe erstellt werden.</p>
+                </div>
+
+                <div class="word-template-render-launcher" id="renderLauncher" hidden>
+                    <div class="word-template-launcher-card">
+                        <strong id="renderLauncherTitle">Keine Vorlage ausgewählt</strong>
+                        <p id="renderLauncherCopy">Der Dokument-Dialog erzeugt aus dem Schema ein HTML-Formular und kann es optional mit Userdaten vorbefüllen.</p>
+                    </div>
+                    <div class="word-template-actions">
+                        <button type="button" class="btn btn-primary" id="openRenderModalButton">Dokument erstellen</button>
+                    </div>
                 </div>
             </div>
         </section>
+    </div>
+
+    <div id="word-template-manage-modal" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal word-template-manage-modal" role="dialog" aria-modal="true" aria-labelledby="word-template-manage-modal-title">
+            <div class="ui-modal-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Dokumente & Vorlagen</p>
+                    <h3 class="ui-section-title" id="word-template-manage-modal-title">Vorlage anlegen</h3>
+                    <p class="ui-section-copy" id="templateModalSubtitle">Name, Beschreibung, Schema und <code>.dotx</code>-Datei werden hier gepflegt.</p>
+                </div>
+                <button type="button" class="ui-icon-button" id="closeTemplateModalButton" aria-label="Vorlagen-Dialog schließen">&times;</button>
+            </div>
+
+            <div class="ui-modal-body">
+                <div class="word-template-status word-template-status-info" id="templateModalStatus">
+                    Name, Beschreibung, Schema und <code>.dotx</code>-Datei werden hier gepflegt.
+                </div>
+
+                <form id="templateModalForm" class="word-template-form" enctype="multipart/form-data">
+                    <div class="word-template-form-grid">
+                        <div class="form-group">
+                            <label for="templateNameInput">Name</label>
+                            <input id="templateNameInput" name="name" type="text" class="word-template-input" placeholder="z. B. Angebotsvorlage" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="templateFileInput">Vorlagendatei</label>
+                            <input id="templateFileInput" name="template_file" type="file" class="word-template-input" accept=".dotx" required>
+                            <p class="word-template-field-hint" id="templateFileHelp">Erlaubt ist ausschließlich eine <code>.dotx</code>-Datei.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="templateDescriptionInput">Beschreibung</label>
+                        <textarea id="templateDescriptionInput" name="description" class="word-template-textarea" rows="3" placeholder="Wofür wird diese Vorlage genutzt?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="templateSchemaInput">Schema JSON</label>
+                        <textarea
+                            id="templateSchemaInput"
+                            name="schema_json"
+                            class="word-template-textarea word-template-codearea"
+                            rows="14"
+                            spellcheck="false"
+                            placeholder='{"version":1,"fields":[]}'
+                            required></textarea>
+                    </div>
+                </form>
+
+                <div class="word-template-hint-card">
+                    <strong>Schema-Hinweis</strong>
+                    <p>Erwartet wird ein JSON mit <code>version: 1</code> und einem <code>fields</code>-Array aus <code>text</code>- oder <code>checkbox</code>-Feldern.</p>
+                </div>
+            </div>
+
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelTemplateModalButton">Abbrechen</button>
+                <button type="button" class="btn btn-secondary" id="templateResetButton">Formular zurücksetzen</button>
+                <button type="submit" class="btn btn-primary" id="templateSubmitButton" form="templateModalForm">Vorlage speichern</button>
+            </div>
+        </div>
     </div>
 
     <div id="word-template-render-modal" class="ui-modal-overlay" aria-hidden="true">
@@ -152,6 +200,14 @@
             <div class="ui-modal-body">
                 <div class="word-template-status word-template-status-info" id="renderModalStatus">
                     Das Formular kann manuell ausgefüllt oder mit Userdaten vorbefüllt werden.
+                </div>
+
+                <div class="word-template-result-card" id="existingDocumentCard" hidden>
+                    <strong>Bereits generierte Version gefunden</strong>
+                    <p id="existingDocumentCopy">Für diesen Kontext existiert bereits eine letzte generierte Version.</p>
+                    <div class="word-template-actions">
+                        <button type="button" class="btn btn-secondary" id="openExistingDocumentButton">Letzte generierte Version öffnen</button>
+                    </div>
                 </div>
 
                 <div class="word-template-prefill-row">

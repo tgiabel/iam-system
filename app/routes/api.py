@@ -208,6 +208,24 @@ async def api_get_word_template(template_id: str, current_user=Depends(require_p
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/dataprocessing/word-documents")
+async def api_list_word_documents(
+    template_id: str | None = None,
+    user_id: str | None = None,
+    current_user=Depends(require_page_access("tools")),
+):
+    try:
+        result = await api_client.list_word_documents(template_id=template_id, user_id=user_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.post("/dataprocessing/word-templates")
 async def api_create_word_template(
     name: str = Form(...),
