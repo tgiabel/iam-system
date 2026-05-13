@@ -580,19 +580,16 @@ const wordTemplateUi = {
                         <strong>${escapeHtml(wordTemplateFormatters.value(documentItem.output_filename))}</strong>
                         <p class="word-template-document-copy">${escapeHtml(wordTemplateFormatters.value(documentItem.template_name || documentItem.template_id))}</p>
                     </div>
-                    <button type="button" class="btn btn-secondary btn-small">Download</button>
+                </div>
+                <div class="word-template-document-actions">
+                    <button type="button" class="btn btn-secondary" data-document-action="download">Download</button>
+                    <button type="button" class="btn btn-red" data-document-action="delete">Löschen</button>
                 </div>
                 <p class="word-template-list-meta">Erstellt ${escapeHtml(wordTemplateFormatters.dateTime(documentItem.created_at))}</p>
             `;
 
-            const downloadButton = article.querySelector("button");
+            const downloadButton = article.querySelector('[data-document-action="download"]');
             downloadButton.addEventListener("click", () => wordTemplateHandlers.downloadDocument(documentItem.document_id, documentItem.output_filename));
-            article.addEventListener("click", (event) => {
-                if (event.target instanceof HTMLElement && event.target.closest("button")) {
-                    return;
-                }
-                wordTemplateHandlers.downloadDocument(documentItem.document_id, documentItem.output_filename);
-            });
             list.appendChild(article);
         });
     },
