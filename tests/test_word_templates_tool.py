@@ -156,6 +156,7 @@ except ModuleNotFoundError:
 
 from app.routes.api import (
     api_create_word_template,
+    api_delete_word_document,
     api_download_word_document,
     api_get_word_template,
     api_list_word_documents,
@@ -444,6 +445,45 @@ class WordTemplatesApiTests(unittest.TestCase):
         self.assertEqual(response.media_type, headers["content-type"])
         self.assertEqual(response.headers.get("Content-Disposition"), headers["content-disposition"])
         download_mock.assert_awaited_once_with("doc-1")
+
+    @patch("app.routes.api.api_client.delete_word_document", new_callable=AsyncMock)
+    def test_delete_word_document_returns_backend_confirmation(self, delete_mock):
+        delete_mock.return_value = {
+            "document_id": "doc-1",
+            "deleted": True,
+            "output_filename": "angebot.docx",
+        }
+
+        response = run_async(api_delete_word_document("doc-1", current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            json_body(response),
+            {
+                "document_id": "doc-1",
+                "deleted": True,
+                "output_filename": "angebot.docx",
+            },
+        )
+        delete_mock.assert_awaited_once_with("doc-1")
+
+    @patch("app.routes.api.api_client.delete_word_document", new_callable=AsyncMock)
+    def test_delete_word_document_propagates_not_found(self, delete_mock):
+        delete_mock.side_effect = make_http_error(404, {"detail": "Dokument nicht gefunden"})
+
+        response = run_async(api_delete_word_document("doc-missing", current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(json_body(response), {"detail": "Dokument nicht gefunden"})
+
+    @patch("app.routes.api.api_client.delete_word_document", new_callable=AsyncMock)
+    def test_delete_word_document_returns_500_for_unexpected_errors(self, delete_mock):
+        delete_mock.side_effect = Exception("boom")
+
+        response = run_async(api_delete_word_document("doc-1", current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(json_body(response), {"error": "boom"})
 
     @patch("app.routes.api.api_client.list_word_templates", new_callable=AsyncMock)
     def test_list_templates_returns_500_for_unexpected_errors(self, list_mock):
