@@ -359,6 +359,20 @@ async def api_download_word_document(document_id: str, current_user=Depends(requ
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.delete("/dataprocessing/word-documents/{document_id}")
+async def api_delete_word_document(document_id: str, current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.delete_word_document(document_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/sofa/permissions")
 async def api_sofa_permissions(current_user=Depends(require_page_access("roles"))):
     try:

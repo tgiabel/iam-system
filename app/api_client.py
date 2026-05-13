@@ -362,5 +362,8 @@ class APIClient:
     async def download_word_document(self, document_id: str) -> httpx.Response:
         return await self._request("GET", DATAPROCESSING_BASE_URL, f"/word-documents/{document_id}/download")
 
+    async def delete_word_document(self, document_id: str) -> dict:
+        return await self._delete(DATAPROCESSING_BASE_URL, f"/word-documents/{document_id}")
+
 
 api_client = APIClient()
