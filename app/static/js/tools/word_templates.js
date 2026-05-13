@@ -11,9 +11,11 @@ const wordTemplateState = {
     selectedUserId: "",
     modalFields: [],
     existingDocument: null,
+    pendingDeleteDocument: null,
     templateModalMode: "create",
     isRenderModalOpen: false,
     isTemplateModalOpen: false,
+    isDeleteModalOpen: false,
 };
 
 const wordTemplateDom = {};
@@ -157,6 +159,12 @@ const wordTemplateApi = {
             {},
             fallbackFilename
         );
+    },
+
+    deleteDocument(documentId) {
+        return this.requestJson(`/api/dataprocessing/word-documents/${encodeURIComponent(documentId)}`, {
+            method: "DELETE",
+        });
     },
 };
 
@@ -419,6 +427,14 @@ const wordTemplateUi = {
         wordTemplateDom.renderModalSubmitButton = document.getElementById("renderModalSubmitButton");
         wordTemplateDom.closeRenderModalButton = document.getElementById("closeRenderModalButton");
         wordTemplateDom.cancelRenderModalButton = document.getElementById("cancelRenderModalButton");
+
+        wordTemplateDom.deleteModalOverlay = document.getElementById("word-document-delete-modal");
+        wordTemplateDom.documentDeleteStatus = document.getElementById("documentDeleteStatus");
+        wordTemplateDom.documentDeleteName = document.getElementById("documentDeleteName");
+        wordTemplateDom.documentDeleteMeta = document.getElementById("documentDeleteMeta");
+        wordTemplateDom.closeDocumentDeleteModalButton = document.getElementById("closeDocumentDeleteModalButton");
+        wordTemplateDom.cancelDocumentDeleteModalButton = document.getElementById("cancelDocumentDeleteModalButton");
+        wordTemplateDom.confirmDocumentDeleteButton = document.getElementById("confirmDocumentDeleteButton");
     },
 
     setStatus(element, tone, message) {
@@ -456,6 +472,13 @@ const wordTemplateUi = {
         }
 
         wordTemplateDom.renderModalSubmitButton.textContent = isLoading ? "DOCX wird erzeugt..." : "DOCX erzeugen";
+    },
+
+    setDeleteActionLoading(isLoading) {
+        wordTemplateDom.confirmDocumentDeleteButton.disabled = isLoading;
+        wordTemplateDom.cancelDocumentDeleteModalButton.disabled = isLoading;
+        wordTemplateDom.closeDocumentDeleteModalButton.disabled = isLoading;
+        wordTemplateDom.confirmDocumentDeleteButton.textContent = isLoading ? "Dokument wird gelöscht..." : "Dokument löschen";
     },
 
     downloadBlob(blob, filename) {
@@ -589,7 +612,9 @@ const wordTemplateUi = {
             `;
 
             const downloadButton = article.querySelector('[data-document-action="download"]');
+            const deleteButton = article.querySelector('[data-document-action="delete"]');
             downloadButton.addEventListener("click", () => wordTemplateHandlers.downloadDocument(documentItem.document_id, documentItem.output_filename));
+            deleteButton.addEventListener("click", () => wordTemplateHandlers.openDeleteDocumentModal(documentItem));
             list.appendChild(article);
         });
     },
@@ -644,7 +669,7 @@ const wordTemplateUi = {
         wordTemplateDom.templateModalOverlay.classList.remove("active");
         wordTemplateDom.templateModalOverlay.setAttribute("aria-hidden", "true");
         wordTemplateState.isTemplateModalOpen = false;
-        if (!wordTemplateState.isRenderModalOpen) {
+        if (!wordTemplateState.isRenderModalOpen && !wordTemplateState.isDeleteModalOpen) {
             document.body.style.overflow = "";
         }
     },
@@ -686,7 +711,35 @@ const wordTemplateUi = {
         wordTemplateDom.renderModalOverlay.classList.remove("active");
         wordTemplateDom.renderModalOverlay.setAttribute("aria-hidden", "true");
         wordTemplateState.isRenderModalOpen = false;
-        if (!wordTemplateState.isTemplateModalOpen) {
+        if (!wordTemplateState.isTemplateModalOpen && !wordTemplateState.isDeleteModalOpen) {
+            document.body.style.overflow = "";
+        }
+    },
+
+    renderDeleteDocumentModal() {
+        const documentItem = wordTemplateState.pendingDeleteDocument;
+        if (!documentItem) {
+            wordTemplateDom.documentDeleteName.textContent = "Kein Dokument ausgewählt";
+            wordTemplateDom.documentDeleteMeta.textContent = "Nach Auswahl eines Dokuments werden Dateiname, Vorlage und Erstellzeitpunkt hier angezeigt.";
+            return;
+        }
+
+        wordTemplateDom.documentDeleteName.textContent = wordTemplateFormatters.value(documentItem.output_filename);
+        wordTemplateDom.documentDeleteMeta.textContent = `${wordTemplateFormatters.value(documentItem.template_name || documentItem.template_id)} · erstellt ${wordTemplateFormatters.dateTime(documentItem.created_at)}`;
+    },
+
+    openDeleteModal() {
+        wordTemplateDom.deleteModalOverlay.classList.add("active");
+        wordTemplateDom.deleteModalOverlay.setAttribute("aria-hidden", "false");
+        wordTemplateState.isDeleteModalOpen = true;
+        document.body.style.overflow = "hidden";
+    },
+
+    closeDeleteModal() {
+        wordTemplateDom.deleteModalOverlay.classList.remove("active");
+        wordTemplateDom.deleteModalOverlay.setAttribute("aria-hidden", "true");
+        wordTemplateState.isDeleteModalOpen = false;
+        if (!wordTemplateState.isTemplateModalOpen && !wordTemplateState.isRenderModalOpen) {
             document.body.style.overflow = "";
         }
     },
@@ -960,6 +1013,23 @@ const wordTemplateHandlers = {
 
     closeTemplateModal() {
         wordTemplateUi.closeTemplateModal();
+    },
+
+    openDeleteDocumentModal(documentItem) {
+        wordTemplateState.pendingDeleteDocument = documentItem || null;
+        wordTemplateUi.renderDeleteDocumentModal();
+        wordTemplateUi.setStatus(
+            wordTemplateDom.documentDeleteStatus,
+            "info",
+            "Prüfe die Dokumentdaten und bestätige das Löschen nur, wenn die Datei nicht mehr benötigt wird."
+        );
+        wordTemplateUi.openDeleteModal();
+    },
+
+    closeDeleteDocumentModal() {
+        wordTemplateState.pendingDeleteDocument = null;
+        wordTemplateUi.closeDeleteModal();
+        wordTemplateUi.renderDeleteDocumentModal();
     },
 
     resetTemplateModal() {
@@ -1254,6 +1324,21 @@ const wordTemplateHandlers = {
         }
     },
 
+    removeDocumentFromState(documentId) {
+        const normalizedDocumentId = String(documentId);
+        wordTemplateState.allDocuments = wordTemplateState.allDocuments.filter(
+            (documentItem) => String(documentItem.document_id) !== normalizedDocumentId
+        );
+        wordTemplateState.templateDocuments = wordTemplateState.templateDocuments.filter(
+            (documentItem) => String(documentItem.document_id) !== normalizedDocumentId
+        );
+
+        if (String(wordTemplateState.existingDocument?.documentId || "") === normalizedDocumentId) {
+            wordTemplateState.existingDocument = null;
+            wordTemplateUi.renderExistingDocumentCard();
+        }
+    },
+
     async downloadDocument(documentId, fallbackFilename = "document.docx") {
         try {
             const { blob, filename } = await wordTemplateApi.downloadDocument(documentId, fallbackFilename);
@@ -1267,6 +1352,40 @@ const wordTemplateHandlers = {
                 "error",
                 error.message || "Das Dokument konnte nicht heruntergeladen werden."
             );
+        }
+    },
+
+    async handleDeleteDocumentConfirm() {
+        const documentItem = wordTemplateState.pendingDeleteDocument;
+        if (!documentItem?.document_id) {
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentDeleteStatus,
+                "error",
+                "Es wurde kein Dokument zum Löschen ausgewählt."
+            );
+            return;
+        }
+
+        wordTemplateUi.setDeleteActionLoading(true);
+
+        try {
+            const payload = await wordTemplateApi.deleteDocument(documentItem.document_id);
+            this.removeDocumentFromState(documentItem.document_id);
+            wordTemplateUi.renderDocumentList();
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentListStatus,
+                "success",
+                `Dokument <strong>${escapeHtml(wordTemplateFormatters.value(payload.output_filename || documentItem.output_filename))}</strong> wurde gelöscht.`
+            );
+            this.closeDeleteDocumentModal();
+        } catch (error) {
+            wordTemplateUi.setStatus(
+                wordTemplateDom.documentDeleteStatus,
+                "error",
+                error.message || "Das Dokument konnte nicht gelöscht werden."
+            );
+        } finally {
+            wordTemplateUi.setDeleteActionLoading(false);
         }
     },
 
@@ -1287,6 +1406,11 @@ const wordTemplateHandlers = {
 
         if (event.target === wordTemplateDom.templateModalOverlay) {
             this.closeTemplateModal();
+            return;
+        }
+
+        if (event.target === wordTemplateDom.deleteModalOverlay) {
+            this.closeDeleteDocumentModal();
         }
     },
 
@@ -1297,6 +1421,11 @@ const wordTemplateHandlers = {
 
         if (wordTemplateState.isRenderModalOpen) {
             this.closeRenderModal();
+            return;
+        }
+
+        if (wordTemplateState.isDeleteModalOpen) {
+            this.closeDeleteDocumentModal();
             return;
         }
 
@@ -1342,9 +1471,13 @@ document.addEventListener("DOMContentLoaded", () => {
     wordTemplateDom.renderModalForm.addEventListener("submit", (event) => wordTemplateHandlers.handleRenderModalSubmit(event));
     wordTemplateDom.renderUserSearchInput.addEventListener("input", (event) => wordTemplateHandlers.handleUserSearchInput(event));
     wordTemplateDom.renderUserSelect.addEventListener("change", (event) => wordTemplateHandlers.handleUserSelectionChange(event));
+    wordTemplateDom.closeDocumentDeleteModalButton.addEventListener("click", () => wordTemplateHandlers.closeDeleteDocumentModal());
+    wordTemplateDom.cancelDocumentDeleteModalButton.addEventListener("click", () => wordTemplateHandlers.closeDeleteDocumentModal());
+    wordTemplateDom.confirmDocumentDeleteButton.addEventListener("click", () => wordTemplateHandlers.handleDeleteDocumentConfirm());
 
     wordTemplateDom.renderModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
     wordTemplateDom.templateModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
+    wordTemplateDom.deleteModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
     document.addEventListener("keydown", (event) => wordTemplateHandlers.handleKeydown(event));
 
     wordTemplateHandlers.loadTemplates();
