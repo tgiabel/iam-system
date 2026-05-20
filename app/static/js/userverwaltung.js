@@ -1251,8 +1251,8 @@ const tableController = {
 
         DOM.usersStatusSortToggle.setAttribute("aria-pressed", String(state.statusSortEnabled));
         DOM.usersStatusSortToggle.textContent = state.statusSortEnabled
-            ? "Status priorisiert"
-            : "Status priorisieren";
+            ? "Sortierung aufheben"
+            : "Nach Status sortieren";
     }
 };
 

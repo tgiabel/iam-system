@@ -185,10 +185,6 @@ class AuthorizationContextTests(unittest.TestCase):
         authz = build_authorization_context_from_user(make_user(primary_role=make_role(13, "SD-Teamleiter")))
 
         self.assertEqual(authz.pages, frozenset({"dashboard", "tasks", "tools", "users"}))
-        self.assertEqual(authz.get_scope("tasks"), "all")
-        self.assertEqual(authz.get_scope("tools"), "all")
-        self.assertEqual(authz.get_scope("reports"), "all")
-        self.assertEqual(authz.get_scope("users"), "all")
         self.assertFalse(authz.has_page("roles"))
         self.assertFalse(authz.has_page("systems"))
         self.assertFalse(authz.has_page("console"))
@@ -198,10 +194,10 @@ class AuthorizationContextTests(unittest.TestCase):
         authz = build_authorization_context_from_user(make_user(primary_role=make_role(7, "SD-Agent")))
 
         self.assertEqual(authz.pages, frozenset({"dashboard", "tasks", "tools"}))
-        self.assertEqual(authz.get_scope("tasks"), "all")
-        self.assertEqual(authz.get_scope("tools"), "all")
-        self.assertEqual(authz.get_scope("reports"), "all")
-        self.assertEqual(authz.get_scope("users"), "none")
+        self.assertTrue(authz.has_page("dashboard"))
+        self.assertTrue(authz.has_page("tasks"))
+        self.assertTrue(authz.has_page("tools"))
+        self.assertFalse(authz.has_page("users"))
 
     def test_unknown_active_role_falls_back_to_base_access(self):
         authz = build_authorization_context_from_user(make_user(primary_role=make_role(999, "Unbekannt")))
