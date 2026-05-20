@@ -18,7 +18,7 @@ const state = {
 const DOM = {};
 
 function getAuthz() {
-    return window.currentAuthz || { pages: [], capabilities: [], scopes: {} };
+    return window.currentAuthz || { pages: [], has_admin_access: false };
 }
 
 function hasUsersPageAccess() {

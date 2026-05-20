@@ -212,17 +212,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getCurrentAuthz() {
-        return window.currentAuthz || { pages: [], capabilities: [], scopes: {} };
+        return window.currentAuthz || { pages: [], has_admin_access: false };
     }
 
     function hasPageAccess(pageKey) {
         const pages = getCurrentAuthz().pages;
         return Array.isArray(pages) && pages.includes(pageKey);
-    }
-
-    function hasCapability(capabilityKey) {
-        const capabilities = getCurrentAuthz().capabilities;
-        return Array.isArray(capabilities) && capabilities.includes(capabilityKey);
     }
 
     function parseRequirementList(rawValue) {

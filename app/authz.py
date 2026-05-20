@@ -67,41 +67,16 @@ MID_ACCESS_ROLE_NAMES = frozenset({
 
 @dataclass(frozen=True)
 class AuthorizationContext:
-    """Authorization context: primary role determines page access only."""
+    """Authorization context: primary role determines page access."""
     user_id: int | None
     pnr: str
     primary_role_name: str
     primary_role_id: int | None
-    role_key: str
     pages: frozenset[str]
-    effective_role_ids: tuple[int, ...]
-    effective_role_names: tuple[str, ...]
-    effective_policy_keys: tuple[str, ...]
     raw_user: dict[str, Any]
-
-    # Compat: empty values, not used anymore
-    capabilities: frozenset[str] = frozenset()
-    permission_keys: tuple[str, ...] = ()
-    grants: tuple[dict[str, Any], ...] = ()
-    data_scopes: dict[str, str] = None
-    visible_task_backlog_ids: tuple[int, ...] = ()
-    can_view_all_task_backlogs: bool = False
-
-    def __post_init__(self):
-        if self.data_scopes is None:
-            object.__setattr__(self, "data_scopes", {})
 
     def has_page(self, page_key: str) -> bool:
         return page_key in self.pages
-
-    def has_capability(self, capability_key: str) -> bool:
-        return capability_key in self.capabilities
-
-    def has_permission(self, permission_key: str) -> bool:
-        return permission_key in self.permission_keys
-
-    def get_scope(self, scope_key: str, default: str = "none") -> str:
-        return self.data_scopes.get(scope_key, default)
 
     def has_admin_access(self) -> bool:
         admin_pages = frozenset({"systems", "roles", "iks", "console"})
@@ -141,30 +116,14 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
     primary_role_name = str(primary_role.get("name") or primary_role.get("role_name") or "")
 
     pages = _resolve_pages_for_primary_role(primary_role_id, primary_role_name)
-    role_key = _normalize_role_slug(primary_role_name) or "basic_user"
-
-    # Only primary role; secondary roles ignored for page access
-    effective_role_ids = (primary_role_id,) if primary_role_id is not None else ()
-    effective_role_names = (primary_role_name,) if primary_role_name else ()
 
     return AuthorizationContext(
         user_id=user.get("user_id"),
         pnr=str(user.get("pnr") or "").strip(),
         primary_role_name=primary_role_name,
         primary_role_id=primary_role_id,
-        role_key=role_key,
         pages=pages,
-        effective_role_ids=effective_role_ids,
-        effective_role_names=effective_role_names,
-        effective_policy_keys=(role_key,),
         raw_user=user,
-        # Compat: always empty
-        capabilities=frozenset(),
-        permission_keys=(),
-        grants=(),
-        data_scopes={},
-        visible_task_backlog_ids=(),
-        can_view_all_task_backlogs=False,
     )
 
 
@@ -222,38 +181,14 @@ def require_any_page_access(*page_keys: str, redirect_to: str | None = None):
 
 
 def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[str, Any]:
-    """Provide authorization context for templates. Minimal structure."""
+    """Provide authorization context for templates: pages and admin access only."""
     if not authz:
         return {
             "pages": [],
-            "capabilities": [],
-            "scopes": {},
-            "primary_role_name": "",
-            "primary_role_id": None,
-            "role_key": "",
-            "effective_role_ids": [],
-            "effective_role_names": [],
-            "effective_policy_keys": [],
-            "permission_keys": [],
-            "grants": [],
-            "visible_task_backlog_ids": [],
-            "can_view_all_task_backlogs": False,
             "has_admin_access": False,
         }
 
     return {
         "pages": sorted(authz.pages),
-        "capabilities": [],  # Always empty
-        "scopes": {},  # Always empty
-        "primary_role_name": authz.primary_role_name,
-        "primary_role_id": authz.primary_role_id,
-        "role_key": authz.role_key,
-        "effective_role_ids": list(authz.effective_role_ids),
-        "effective_role_names": list(authz.effective_role_names),
-        "effective_policy_keys": list(authz.effective_policy_keys),
-        "permission_keys": [],  # Always empty
-        "grants": [],  # Always empty
-        "visible_task_backlog_ids": [],  # Always empty
-        "can_view_all_task_backlogs": False,  # Always false
         "has_admin_access": authz.has_admin_access(),
     }

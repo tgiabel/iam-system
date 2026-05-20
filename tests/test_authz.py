@@ -177,9 +177,9 @@ class AuthorizationContextTests(unittest.TestCase):
             self.assertTrue(authz.has_page("roles"))
             self.assertTrue(authz.has_page("iks"))
             self.assertTrue(authz.has_page("console"))
-            self.assertEqual(authz.capabilities, frozenset())
-            self.assertEqual(authz.permission_keys, ())
-            self.assertEqual(authz.grants, ())
+            # self.assertEqual(authz.capabilities, frozenset())
+            # self.assertEqual(authz.permission_keys, ())
+            # self.assertEqual(authz.grants, ())
 
     def test_mid_access_roles_receive_users_but_not_admin_pages(self):
         authz = build_authorization_context_from_user(make_user(primary_role=make_role(13, "SD-Teamleiter")))
@@ -203,16 +203,13 @@ class AuthorizationContextTests(unittest.TestCase):
         authz = build_authorization_context_from_user(make_user(primary_role=make_role(999, "Unbekannt")))
 
         self.assertEqual(authz.pages, frozenset({"dashboard", "tasks", "tools"}))
-        self.assertEqual(authz.role_key, "unbekannt")
-        self.assertEqual(authz.effective_policy_keys, ("unbekannt",))
+        self.assertEqual(authz.primary_role_name, "Unbekannt")
 
     def test_missing_primary_role_keeps_access_empty(self):
         authz = build_authorization_context_from_user(make_user(primary_role=None))
 
         self.assertEqual(authz.pages, frozenset())
-        self.assertEqual(authz.capabilities, frozenset())
-        self.assertEqual(authz.effective_role_ids, ())
-        self.assertEqual(authz.effective_policy_keys, ("basic_user",))
+        self.assertEqual(authz.primary_role_name, "")
 
     def test_secondary_roles_do_not_expand_page_access(self):
         authz = build_authorization_context_from_user(
@@ -223,8 +220,8 @@ class AuthorizationContextTests(unittest.TestCase):
         )
 
         self.assertEqual(authz.pages, frozenset({"dashboard", "tasks", "tools"}))
-        self.assertEqual(authz.effective_role_ids, (7,))
-        self.assertEqual(authz.effective_role_names, ("SD-Agent",))
+        self.assertEqual(authz.primary_role_id, 7)
+        self.assertEqual(authz.primary_role_name, "SD-Agent")
 
     def test_require_page_access_denies_missing_page(self):
         authz = build_authorization_context_from_user(make_user(primary_role=make_role(13, "SD-Teamleiter")))
@@ -242,30 +239,14 @@ class AuthorizationContextTests(unittest.TestCase):
 
         self.assertTrue(_task_is_visible_to_user(task, authz))
 
-    def test_template_payload_keeps_shape_with_empty_capabilities_and_grants(self):
+    def test_template_payload_minimal_structure(self):
         authz = build_authorization_context_from_user(make_user(primary_role=make_role(21, "SD-IT")))
         payload = get_authz_payload_for_template(authz)
 
-        expected_keys = {
-            "pages",
-            "capabilities",
-            "scopes",
-            "primary_role_name",
-            "primary_role_id",
-            "role_key",
-            "effective_role_ids",
-            "effective_role_names",
-            "effective_policy_keys",
-            "permission_keys",
-            "grants",
-            "visible_task_backlog_ids",
-            "can_view_all_task_backlogs",
-            "has_admin_access",
-        }
+        # Only pages and has_admin_access
+        expected_keys = {"pages", "has_admin_access"}
         self.assertEqual(set(payload.keys()), expected_keys)
-        self.assertEqual(payload["capabilities"], [])
-        self.assertEqual(payload["permission_keys"], [])
-        self.assertEqual(payload["grants"], [])
+        self.assertEqual(payload["pages"], sorted(["console", "dashboard", "iks", "roles", "systems", "tasks", "tools", "users"]))
         self.assertTrue(payload["has_admin_access"])
 
 
@@ -317,7 +298,7 @@ class ApiBehaviorTests(unittest.TestCase):
         self.assertTrue(payload["refreshed"])
         self.assertIn("roles", payload["authz"]["pages"])
         self.assertIn("console", payload["authz"]["pages"])
-        self.assertEqual(payload["authz"]["capabilities"], [])
+        # self.assertEqual(payload["authz"]["capabilities"], [])
         self.assertIn("set-cookie", getattr(response, "headers", {}))
 
     def test_api_session_authz_refresh_returns_401_without_session(self):
