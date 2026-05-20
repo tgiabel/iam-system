@@ -51,12 +51,6 @@ FULL_ACCESS_PAGES = frozenset(("dashboard", "tasks", "tools", "users", "systems"
 POWER_USER_PAGES = frozenset(("dashboard", "tasks", "tools", "users"))
 BASE_PAGES = frozenset(("dashboard", "tasks", "tools"))
 
-ROLE_PAGE_MAPPING = {
-    "full": FULL_ACCESS_PAGES,
-    "power": POWER_USER_PAGES,
-    "base": BASE_PAGES,
-}
-
 # Full access: by role_id or normalized role name
 FULL_ACCESS_ROLE_IDS = frozenset({19, 21})
 FULL_ACCESS_ROLE_NAMES = frozenset({"sd-it", "sd-vv-leitung", "it", "verwaltung-und-vertrieb-leitung"})
@@ -225,17 +219,6 @@ def require_any_page_access(*page_keys: str, redirect_to: str | None = None):
     return dependency
 
 
-def require_capability(capability_key: str, redirect_to: str | None = None):
-    """Deprecated: page-based authorization only."""
-    async def dependency(
-        authz: AuthorizationContext = Depends(build_authorization_context),
-    ) -> AuthorizationContext:
-        _forbidden(
-            detail=f"Capability-based access not supported; use require_page_access.",
-            code="capability_denied",
-            redirect_to=redirect_to,
-        )
-    return dependency
 
 
 def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[str, Any]:
