@@ -6,7 +6,6 @@ import json
 
 from fastapi import Cookie, Depends
 from fastapi.exceptions import HTTPException  # type: ignore
-from app.sofa_permissions import get_permission_definition, normalize_runtime_grants
 
 
 def _normalize_text(value: Any) -> str:
@@ -50,6 +49,9 @@ DEFAULT_SCOPES = {
     "reports": "none",
     "users": "none",
 }
+ALL_PAGE_KEYS = ("dashboard", "tasks", "tools", "users", "systems", "roles", "iks", "console")
+POWER_USER_PAGE_KEYS = ("dashboard", "tasks", "tools", "users")
+BASE_PAGE_KEYS = ("dashboard", "tasks", "tools")
 
 ADMIN_PAGE_KEYS = frozenset({"users", "systems", "roles", "iks", "console"})
 
@@ -62,6 +64,28 @@ INACTIVE_ROLE_STATUSES = {
     "disabled",
     "expired",
 }
+
+FULL_ACCESS_ROLE_IDS = frozenset({19, 21})
+MID_ACCESS_ROLE_IDS = frozenset({13})
+FULL_ACCESS_ROLE_NAMES = frozenset({"sd-it", "sd-vv-leitung", "it", "verwaltung & vertrieb leitung"})
+MID_ACCESS_ROLE_NAMES = frozenset(
+    {
+        "sd-teamleiter",
+        "sd-produktionsleitung",
+        "sd-akademie-leitung",
+        "sd-personal",
+        "sd-steuerung",
+        "sd-controlling",
+        "sd-produktmanagement",
+        "teamleiter",
+        "produktionsleitung",
+        "akademie-leitung",
+        "personal",
+        "steuerung",
+        "controlling",
+        "produktmanagement",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -96,23 +120,6 @@ class AuthorizationContext:
         return self.data_scopes.get(scope_key, default)
 
 
-def _iter_user_roles(user: dict[str, Any] | None):
-    if not isinstance(user, dict):
-        return
-
-    primary_role = user.get("primary_role")
-    if isinstance(primary_role, dict):
-        yield primary_role
-
-    for field_name in ("secondary_roles", "role_assignments", "roles"):
-        roles = user.get(field_name) or []
-        if not isinstance(roles, list):
-            continue
-        for role in roles:
-            if isinstance(role, dict):
-                yield role
-
-
 def _role_is_active(role: dict[str, Any]) -> bool:
     if _is_explicit_false(role.get("is_active")):
         return False
@@ -127,149 +134,86 @@ def _role_is_active(role: dict[str, Any]) -> bool:
 
 
 def _collect_effective_roles(user: dict[str, Any] | None) -> list[dict[str, Any]]:
-    effective_roles: list[dict[str, Any]] = []
-    seen_role_ids: set[int] = set()
+    if not isinstance(user, dict):
+        return []
 
-    for role in _iter_user_roles(user):
-        if not _role_is_active(role):
-            continue
+    primary_role = user.get("primary_role")
+    if not isinstance(primary_role, dict) or not _role_is_active(primary_role):
+        return []
 
-        role_id = _coerce_role_id(role.get("role_id", role.get("id")))
-        if role_id is None or role_id in seen_role_ids:
-            continue
+    role_id = _coerce_role_id(primary_role.get("role_id", primary_role.get("id")))
+    if role_id is None:
+        return []
 
-        seen_role_ids.add(role_id)
-        effective_roles.append(
-            {
-                "role_id": role_id,
-                "name": str(role.get("name") or role.get("role_name") or f"Rolle #{role_id}"),
-            }
-        )
-
-    return effective_roles
+    return [
+        {
+            "role_id": role_id,
+            "name": str(primary_role.get("name") or primary_role.get("role_name") or f"Rolle #{role_id}"),
+        }
+    ]
 
 
-def _resolve_task_backlog_access(grants: list[dict[str, Any]]) -> tuple[tuple[int, ...], bool]:
-    visible_backlog_ids: set[int] = set()
-    can_view_all = False
-
-    for grant in grants:
-        if str(grant.get("permission")) != "tasks.backlog.view":
-            continue
-
-        resources = grant.get("resources") or {}
-        access_definition = resources.get("task_backlog") or resources.get("task_backlogs") or {}
-        if access_definition.get("all"):
-            can_view_all = True
-
-        backlog_ids = access_definition.get("ids", [])
-        for backlog_id in backlog_ids:
-            if isinstance(backlog_id, int):
-                visible_backlog_ids.add(backlog_id)
-
-    return tuple(sorted(visible_backlog_ids)), can_view_all
+def _normalize_role_slug(role_name: Any) -> str:
+    normalized = str(role_name or "").strip().lower()
+    for source, target in {
+        "ä": "ae",
+        "ö": "oe",
+        "ü": "ue",
+        "ß": "ss",
+        "&": "und",
+        "/": "-",
+    }.items():
+        normalized = normalized.replace(source, target)
+    return "-".join(part for part in normalized.replace("_", " ").split() if part)
 
 
-def _resolve_scope_from_resource_grants(
-    grants: list[dict[str, Any]],
-    permission_key: str,
-    resource_key: str,
-) -> str:
-    has_permission = False
-    has_specific_ids = False
+def _resolve_pages_for_primary_role(primary_role_id: int | None, primary_role_name: str) -> frozenset[str]:
+    role_slug = _normalize_role_slug(primary_role_name)
 
-    for grant in grants:
-        if str(grant.get("permission")) != permission_key:
-            continue
-
-        has_permission = True
-        resource_scope = (grant.get("resources") or {}).get(resource_key) or {}
-        if resource_scope.get("all"):
-            return "all"
-        if resource_scope.get("ids"):
-            has_specific_ids = True
-
-    if has_specific_ids:
-        return "own_only"
-    if has_permission:
-        return "all"
-    return "none"
-
-
-def _project_pages_and_capabilities(grants: list[dict[str, Any]]) -> tuple[set[str], set[str], tuple[str, ...]]:
-    pages: set[str] = set()
-    capabilities: set[str] = set()
-    permission_keys: list[str] = []
-    seen_permission_keys: set[str] = set()
-
-    for grant in grants:
-        permission_key = str(grant.get("permission") or "").strip()
-        if not permission_key:
-            continue
-
-        if permission_key not in seen_permission_keys:
-            seen_permission_keys.add(permission_key)
-            permission_keys.append(permission_key)
-
-        permission_definition = get_permission_definition(permission_key) or {}
-        legacy_mapping = permission_definition.get("legacy") or {}
-        if not isinstance(legacy_mapping, dict):
-            continue
-
-        page_key = str(legacy_mapping.get("page") or "").strip()
-        capability_key = str(legacy_mapping.get("capability") or "").strip()
-
-        if page_key:
-            pages.add(page_key)
-        if capability_key:
-            capabilities.add(capability_key)
-
-    return pages, capabilities, tuple(permission_keys)
+    if primary_role_id in FULL_ACCESS_ROLE_IDS or role_slug in FULL_ACCESS_ROLE_NAMES:
+        return frozenset(ALL_PAGE_KEYS)
+    if primary_role_id in MID_ACCESS_ROLE_IDS or role_slug in MID_ACCESS_ROLE_NAMES:
+        return frozenset(POWER_USER_PAGE_KEYS)
+    if primary_role_id is not None:
+        return frozenset(BASE_PAGE_KEYS)
+    return frozenset()
 
 
 def build_authorization_context_from_user(user: dict[str, Any]) -> AuthorizationContext:
     primary_role = user.get("primary_role") or {}
     primary_role_id = _coerce_role_id(primary_role.get("role_id"))
+    primary_role_name = str(primary_role.get("name") or "")
 
     effective_roles = _collect_effective_roles(user)
-    sofa_authorization = user.get("sofa_authorization") if isinstance(user.get("sofa_authorization"), dict) else {}
-    profile_keys = sofa_authorization.get("profile_keys") if isinstance(sofa_authorization, dict) else []
-    normalized_profile_keys = tuple(
-        str(profile_key).strip()
-        for profile_key in (profile_keys if isinstance(profile_keys, list) else [])
-        if str(profile_key).strip()
-    )
-    grants = normalize_runtime_grants((sofa_authorization or {}).get("grants"))
-    pages, capabilities, permission_keys = _project_pages_and_capabilities(grants)
-
-    role_key = normalized_profile_keys[0] if normalized_profile_keys else (DEFAULT_POLICY_KEY if not grants else "custom")
-    resolved_policy_keys = normalized_profile_keys or ((DEFAULT_POLICY_KEY,) if not grants else ("custom",))
-    visible_task_backlog_ids, can_view_all_task_backlogs = _resolve_task_backlog_access(grants)
+    pages = _resolve_pages_for_primary_role(primary_role_id, primary_role_name)
+    role_key = _normalize_role_slug(primary_role_name) or DEFAULT_POLICY_KEY
+    resolved_policy_keys = (role_key,)
 
     data_scopes = dict(DEFAULT_SCOPES)
+    if "tasks" in pages:
+        data_scopes["tasks"] = "all"
+    if "tools" in pages:
+        data_scopes["tools"] = "all"
+        data_scopes["reports"] = "all"
     if "users" in pages:
         data_scopes["users"] = "all"
-    if "tasks" in pages:
-        data_scopes["tasks"] = "all" if can_view_all_task_backlogs else ("relevant_only" if visible_task_backlog_ids else "none")
-    data_scopes["tools"] = _resolve_scope_from_resource_grants(grants, "tools.item.view", "tools")
-    data_scopes["reports"] = _resolve_scope_from_resource_grants(grants, "reports.item.view", "reports")
 
     return AuthorizationContext(
         user_id=user.get("user_id"),
         pnr=str(user.get("pnr") or "").strip(),
-        primary_role_name=str(primary_role.get("name") or ""),
+        primary_role_name=primary_role_name,
         primary_role_id=primary_role_id,
         role_key=role_key,
-        pages=frozenset(pages),
-        capabilities=frozenset(capabilities),
+        pages=pages,
+        capabilities=frozenset(),
         data_scopes=data_scopes,
-        visible_task_backlog_ids=visible_task_backlog_ids,
-        can_view_all_task_backlogs=can_view_all_task_backlogs,
+        visible_task_backlog_ids=(),
+        can_view_all_task_backlogs=False,
         effective_role_ids=tuple(role["role_id"] for role in effective_roles),
         effective_role_names=tuple(str(role["name"]) for role in effective_roles),
         effective_policy_keys=resolved_policy_keys,
-        permission_keys=permission_keys,
-        grants=tuple(grants),
+        permission_keys=(),
+        grants=(),
         raw_user=user,
     )
 

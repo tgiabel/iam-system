@@ -135,7 +135,7 @@ async def iks(request: Request, authz=Depends(require_page_access("iks", redirec
 
 
 @router.get("/tools/iks", response_class=HTMLResponse)
-async def iks_tool(request: Request, authz=Depends(require_page_access("iks", redirect_to="/"))):
+async def iks_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
     return templates.TemplateResponse(
         "tools/iks_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),

@@ -251,13 +251,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function applyAuthzDomState() {
-        document.querySelectorAll("[data-requires-page], [data-requires-capability]").forEach(element => {
+        document.querySelectorAll("[data-requires-page]").forEach(element => {
             const requiredPages = parseRequirementList(element.dataset.requiresPage);
-            const requiredCapabilities = parseRequirementList(element.dataset.requiresCapability);
-
             const pageAllowed = !requiredPages.length || requiredPages.some(hasPageAccess);
-            const capabilityAllowed = !requiredCapabilities.length || requiredCapabilities.some(hasCapability);
-            setAuthzElementState(element, pageAllowed && capabilityAllowed);
+            setAuthzElementState(element, pageAllowed);
         });
     }
 

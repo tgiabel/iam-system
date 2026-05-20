@@ -62,41 +62,6 @@ const api = {
         return data;
     },
 
-    async getSofaPermissionCatalog() {
-        if (STATE.sofaCatalog) return STATE.sofaCatalog;
-
-        const res = await fetch("/api/sofa/permissions");
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "SOFA-Permission-Katalog konnte nicht geladen werden");
-        }
-
-        STATE.sofaCatalog = data;
-        return data;
-    },
-
-    async getRoleSofaGrants(roleId) {
-        const res = await fetch(`/api/roles/${roleId}/sofa-grants`);
-        const data = await res.json().catch(() => ([]));
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "SOFA-Grants konnten nicht geladen werden");
-        }
-        return Array.isArray(data) ? data : [];
-    },
-
-    async replaceRoleSofaGrants(roleId, grants) {
-        const res = await fetch(`/api/roles/${roleId}/sofa-grants`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ grants })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "SOFA-Grants konnten nicht gespeichert werden");
-        }
-        return data;
-    },
-
     async addResourcesToRole(roleId, resourceIds) {
         const res = await fetch(`/api/roles/${roleId}/resources`, {
             method: "POST",
@@ -211,22 +176,6 @@ function fillRoleInfo() {
     setText("role-status-text", formatRoleStatus(getRoleStatusValue()));
     setText("role-parent-text", role.parent_role_name || "-");
     setText("role-description-text", role.description || "-");
-    fillSofaSummary();
-}
-
-function fillSofaSummary() {
-    const directGrantCount = Array.isArray(role?.sofa_grants) ? role.sofa_grants.length : 0;
-    const inheritedGrantCount = Array.isArray(role?.inherited_sofa_grants) ? role.inherited_sofa_grants.length : 0;
-
-    if (DOM.roleSofaDirectCount) {
-        DOM.roleSofaDirectCount.textContent = `${directGrantCount} direkte Grants`;
-    }
-    if (DOM.roleSofaInheritedCount) {
-        DOM.roleSofaInheritedCount.textContent = `${inheritedGrantCount} geerbte Grants`;
-    }
-    if (DOM.roleSofaTotalCount) {
-        DOM.roleSofaTotalCount.textContent = `${directGrantCount + inheritedGrantCount} gesamt`;
-    }
 }
 
 function setText(id, value) {
@@ -290,11 +239,11 @@ function getSofaResourceById(resourceId) {
 }
 
 function getRoleSofaGrants() {
-    return Array.isArray(role?.sofa_grants) ? role.sofa_grants : [];
+    return [];
 }
 
 function getInheritedRoleSofaGrants() {
-    return Array.isArray(role?.inherited_sofa_grants) ? role.inherited_sofa_grants : [];
+    return [];
 }
 
 function formatPermissionArea(permissionKey) {
@@ -536,20 +485,7 @@ function renderSofaGrantEditor(grants) {
 }
 
 async function openSofaGrantEditor() {
-    DOM.editSofaBtn.disabled = true;
-
-    try {
-        const grants = await api.getRoleSofaGrants(role.role_id);
-        role.sofa_grants = grants;
-        STATE.isEditingSofa = true;
-        DOM.sofaGrantEditor.style.display = "flex";
-        renderSofaGrantEditor(grants);
-    } catch (err) {
-        console.error("SOFA-Grants konnten nicht geladen werden:", err);
-        showFlash(err.message || "SOFA-Grants konnten nicht geladen werden", "failure");
-    } finally {
-        DOM.editSofaBtn.disabled = false;
-    }
+    STATE.isEditingSofa = false;
 }
 
 function closeSofaGrantEditor() {
@@ -809,28 +745,7 @@ async function saveRoleEdit() {
 }
 
 async function saveSofaGrantEdit() {
-    const sofaGrants = collectSofaGrantPayload();
-
-    DOM.saveSofaGrantsBtn.disabled = true;
-
-    try {
-        const result = await api.replaceRoleSofaGrants(role.role_id, sofaGrants);
-        const persistedGrants = Array.isArray(result?.grants) ? result.grants : sofaGrants;
-
-        role = {
-            ...role,
-            sofa_grants: persistedGrants
-        };
-
-        renderSofaPermissions();
-        closeSofaGrantEditor();
-        showFlash("SOFA-Berechtigungen gespeichert", "success");
-    } catch (err) {
-        console.error("Speichern der SOFA-Berechtigungen fehlgeschlagen:", err);
-        showFlash(err.message || "SOFA-Berechtigungen konnten nicht gespeichert werden", "failure");
-    } finally {
-        DOM.saveSofaGrantsBtn.disabled = false;
-    }
+    closeSofaGrantEditor();
 }
 
 //------------------------------------------------

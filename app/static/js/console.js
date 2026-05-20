@@ -1012,11 +1012,11 @@ function getSofaResourceById(resourceId) {
 }
 
 function getDirectSofaGrants() {
-    return Array.isArray(consoleState.sofa.roleDetail?.sofa_grants) ? consoleState.sofa.roleDetail.sofa_grants : [];
+    return [];
 }
 
 function getInheritedSofaGrants() {
-    return Array.isArray(consoleState.sofa.roleDetail?.inherited_sofa_grants) ? consoleState.sofa.roleDetail.inherited_sofa_grants : [];
+    return [];
 }
 
 function formatPermissionArea(permissionKey) {
@@ -1206,75 +1206,19 @@ function renderSofaRoleOptions() {
 }
 
 async function ensureSofaCatalogLoaded() {
-    if (consoleState.sofa.catalog) {
-        return consoleState.sofa.catalog;
-    }
-
-    const data = await fetchJson("/api/sofa/permissions", {}, {});
-    consoleState.sofa.catalog = data;
-    return data;
+    return { permissions: [], resources: [] };
 }
 
 async function loadRolesForSofa() {
-    if (!consoleDOM.sofaRoleSelect || !hasSofaAuthorizationAccess()) {
-        return;
-    }
-
-    consoleState.sofa.loadingRoles = true;
-    updateSofaButtons();
-    setSofaFeedback("Rollen werden geladen...");
-
-    try {
-        consoleState.sofa.roles = await fetchRoleOverviewList();
-        renderSofaRoleOptions();
-        setSofaFeedback(
-            consoleState.sofa.roles.length
-                ? "Waehle eine Rolle fuer die SOFA-Berechtigungsansicht."
-                : "Es sind keine Rollen verfuegbar.",
-            consoleState.sofa.roles.length ? "is-success" : ""
-        );
-    } catch (error) {
-        console.error("SOFA-Rollen konnten nicht geladen werden", error);
-        consoleState.sofa.roles = [];
-        renderSofaRoleOptions();
-        setSofaFeedback(error instanceof Error ? error.message : "Rollen konnten nicht geladen werden.", "is-error");
-    } finally {
-        consoleState.sofa.loadingRoles = false;
-        updateSofaButtons();
-    }
+    consoleState.sofa.roles = [];
+    renderSofaRoleOptions();
 }
 
 async function loadSofaRoleDetail(roleId) {
-    if (!roleId || !hasSofaAuthorizationAccess()) {
-        consoleState.sofa.roleDetail = null;
-        renderSofaOverview();
-        updateSofaButtons();
-        return;
-    }
-
-    consoleState.sofa.loadingDetail = true;
+    void roleId;
+    consoleState.sofa.roleDetail = null;
+    renderSofaOverview();
     updateSofaButtons();
-    setSofaFeedback("SOFA-Berechtigungen werden geladen...");
-
-    try {
-        await ensureSofaCatalogLoaded();
-        const detail = await fetchJson(`/api/roles/${encodeURIComponent(roleId)}`, {}, {});
-        consoleState.sofa.roleDetail = detail;
-        renderSofaOverview();
-        setSofaFeedback("SOFA-Berechtigungen geladen.", "is-success");
-
-        if (consoleState.sofa.editing) {
-            renderSofaGrantEditor(getDirectSofaGrants());
-        }
-    } catch (error) {
-        console.error("SOFA-Detaildaten konnten nicht geladen werden", error);
-        consoleState.sofa.roleDetail = null;
-        renderSofaOverview();
-        setSofaFeedback(error instanceof Error ? error.message : "SOFA-Berechtigungen konnten nicht geladen werden.", "is-error");
-    } finally {
-        consoleState.sofa.loadingDetail = false;
-        updateSofaButtons();
-    }
 }
 
 function createSofaGrantEditorRow(grant = null) {
@@ -1444,34 +1388,9 @@ function collectSofaGrantPayload() {
 }
 
 async function saveSofaGrantEditor() {
-    if (!consoleState.sofa.selectedRoleId) {
-        showFlash("Bitte zuerst eine Rolle auswaehlen.", "failure");
-        return;
-    }
-
-    const payload = { grants: collectSofaGrantPayload() };
-    consoleState.sofa.saving = true;
-    updateSofaButtons();
-
-    try {
-        await fetchJson(`/api/roles/${encodeURIComponent(consoleState.sofa.selectedRoleId)}/sofa-grants`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        }, {});
-
-        await loadSofaRoleDetail(consoleState.sofa.selectedRoleId);
-        closeSofaGrantEditor();
-        setSofaFeedback("SOFA-Berechtigungen gespeichert.", "is-success");
-        showFlash("SOFA-Berechtigungen gespeichert", "success");
-    } catch (error) {
-        console.error("SOFA-Berechtigungen konnten nicht gespeichert werden", error);
-        setSofaFeedback(error instanceof Error ? error.message : "SOFA-Berechtigungen konnten nicht gespeichert werden.", "is-error");
-        showFlash(error instanceof Error ? error.message : "SOFA-Berechtigungen konnten nicht gespeichert werden.", "failure");
-    } finally {
-        consoleState.sofa.saving = false;
-        updateSofaButtons();
-    }
+    consoleState.sofa.saving = false;
+    closeSofaGrantEditor();
+    setSofaFeedback("Die SOFA-Grant-Verwaltung ist nicht mehr aktiv.");
 }
 
 function bindSofaControls() {

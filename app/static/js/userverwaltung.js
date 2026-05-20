@@ -21,9 +21,9 @@ function getAuthz() {
     return window.currentAuthz || { pages: [], capabilities: [], scopes: {} };
 }
 
-function hasCapability(capability) {
+function hasUsersPageAccess() {
     const authz = getAuthz();
-    return Array.isArray(authz.capabilities) && authz.capabilities.includes(capability);
+    return Array.isArray(authz.pages) && authz.pages.includes("users");
 }
 
 const STATUS_LABELS = {
@@ -1362,9 +1362,9 @@ const sidebarController = {
 
     renderSofaAccessActions(user) {
         const hasSofaAccess = Boolean(user.has_sofa_access);
-        const canSetup = hasCapability("sofa_access.setup");
-        const canReset = hasCapability("sofa_access.reset");
-        const canRevoke = hasCapability("sofa_access.revoke");
+        const canSetup = hasUsersPageAccess();
+        const canReset = hasUsersPageAccess();
+        const canRevoke = hasUsersPageAccess();
 
         DOM.sofaAccessStatus.textContent = hasSofaAccess
             ? "SOFA Zugriff ist eingerichtet und kann hier direkt verwaltet werden."

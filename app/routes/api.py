@@ -14,7 +14,6 @@ from app.authz import (
     get_authz_payload_for_template,
     get_current_user,
     require_any_page_access,
-    require_capability,
     require_login,
     require_page_access,
 )
@@ -36,9 +35,6 @@ from app.routes.shared import (
     _task_matches_target_user,
     templates,
 )
-from app.sofa_permissions import (
-    normalize_role_scoped_grants,
-)
 
 
 router = APIRouter(prefix="/api")
@@ -50,55 +46,6 @@ def _request_uses_https(request: Request) -> bool:
         primary_proto = forwarded_proto.split(",")[0].strip().lower()
         return primary_proto == "https"
     return request.url.scheme.lower() == "https"
-
-
-def _normalize_role_detail_payload(payload: dict | None) -> dict:
-    role_payload = dict(payload or {})
-    role_payload["sofa_grants"] = normalize_role_scoped_grants(role_payload.get("sofa_grants"))
-    role_payload["inherited_sofa_grants"] = normalize_role_scoped_grants(role_payload.get("inherited_sofa_grants"))
-    return role_payload
-
-
-def _normalize_catalog_payload(payload: dict | None) -> dict:
-    catalog = dict(payload or {})
-
-    permissions: list[dict] = []
-    for item in catalog.get("permissions") or []:
-        if not isinstance(item, dict):
-            continue
-        permissions.append(
-            {
-                "permission_key": str(item.get("permission_key") or item.get("permission") or "").strip(),
-                "label": str(item.get("label") or "").strip(),
-                "scope_resource_type_id": _coerce_int(item.get("scope_resource_type_id")),
-                "scope_resource_type_slug": str(item.get("scope_resource_type_slug") or "").strip(),
-                "scope_resource_type_name": str(item.get("scope_resource_type_name") or "").strip(),
-                "is_global_only": _coerce_bool(item.get("is_global_only"), default=False),
-                "sort_order": _coerce_int(item.get("sort_order")) or 0,
-            }
-        )
-
-    resources: list[dict] = []
-    for item in catalog.get("resources") or []:
-        if not isinstance(item, dict):
-            continue
-        resources.append(
-            {
-                "resource_id": _coerce_int(item.get("resource_id")),
-                "display_name": str(item.get("display_name") or "").strip(),
-                "technical_identifier": str(item.get("technical_identifier") or "").strip(),
-                "type_id": _coerce_int(item.get("type_id")),
-                "type_slug": str(item.get("type_slug") or "").strip(),
-                "type_name": str(item.get("type_name") or "").strip(),
-                "system_id": _coerce_int(item.get("system_id")),
-                "system_name": str(item.get("system_name") or "").strip(),
-            }
-        )
-
-    return {
-        "permissions": sorted(permissions, key=lambda item: (item["sort_order"], item["permission_key"])),
-        "resources": resources,
-    }
 
 
 @router.post("/tools/datex/convert")
@@ -373,20 +320,6 @@ async def api_delete_word_document(document_id: str, current_user=Depends(requir
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
-@router.get("/sofa/permissions")
-async def api_sofa_permissions(current_user=Depends(require_page_access("roles"))):
-    try:
-        payload = await api_client.get_sofa_authorization_catalog()
-        return JSONResponse(content=_normalize_catalog_payload(payload))
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
 @router.get("/session/authz")
 async def api_session_authz_refresh(request: Request, sofa_user: str | None = Cookie(default=None)):
     try:
@@ -454,8 +387,6 @@ async def api_users(
 ):
     try:
         users = await api_client.list_users(is_active=is_active)
-        if current_user.get_scope("users") == "none":
-            return JSONResponse(content=[])
         return JSONResponse(content=users)
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
@@ -552,7 +483,7 @@ async def api_task_backlogs(current_user=Depends(require_any_page_access("tasks"
 
 
 @router.post("/users/{user_id}/sofa-access/setup")
-async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(require_capability("sofa_access.setup"))):
+async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(require_page_access("users"))):
     try:
         request_payload = {
             "password": payload.get("password"),
@@ -567,7 +498,7 @@ async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=D
 
 
 @router.post("/users/{user_id}/sofa-access/reset-password")
-async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user=Depends(require_capability("sofa_access.reset"))):
+async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user=Depends(require_page_access("users"))):
     try:
         request_payload = {
             "password": payload.get("password"),
@@ -582,7 +513,7 @@ async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user
 
 
 @router.post("/users/{user_id}/sofa-access/revoke")
-async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require_capability("sofa_access.revoke"))):
+async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require_page_access("users"))):
     try:
         request_payload = {"initiator_user_id": current_user.user_id}
         result = await api_client.revoke_user_sofa_access(user_id, request_payload)
@@ -751,7 +682,7 @@ async def api_change_own_password(payload: dict, current_user=Depends(require_lo
 @router.post("/processes/onboarding/lookup")
 async def api_lookup_onboarding_candidate(
     payload: dict,
-    current_user=Depends(require_capability("onboarding.start")),
+    current_user=Depends(require_page_access("users")),
 ):
     pnr = str(payload.get("pnr") or "").strip()
     if not pnr:
@@ -774,7 +705,7 @@ async def api_lookup_onboarding_candidate(
 @router.post("/processes/onboarding")
 async def api_start_onboarding_process(
     payload: dict,
-    current_user=Depends(require_capability("onboarding.start")),
+    current_user=Depends(require_page_access("users")),
 ):
     mode = str(payload.get("mode") or "").strip().lower()
     confirmed = bool(payload.get("confirmed"))
@@ -862,7 +793,7 @@ async def api_start_onboarding_process(
 @router.post("/processes/onboarding-ext")
 async def api_start_ext_onboarding_process(
     payload: dict,
-    current_user=Depends(require_capability("onboarding.external.start")),
+    current_user=Depends(require_page_access("users")),
 ):
     try:
         payload["initiator_user_id"] = current_user.user_id
@@ -1102,49 +1033,9 @@ async def api_role_map(current_user=Depends(require_any_page_access("roles", "us
 async def api_get_role_detail(role_id: int, current_user=Depends(require_page_access("roles"))):
     try:
         role_detail = await api_client.get_role_detail(role_id)
-        return JSONResponse(content=_normalize_role_detail_payload(role_detail))
+        return JSONResponse(content=role_detail)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@router.get("/roles/{role_id}/sofa-grants")
-async def api_get_role_sofa_grants(role_id: int, current_user=Depends(require_page_access("roles"))):
-    try:
-        grants = await api_client.get_role_sofa_grants(role_id)
-        return JSONResponse(content=normalize_role_scoped_grants(grants))
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@router.post("/roles/{role_id}/sofa-grants")
-async def api_replace_role_sofa_grants(role_id: int, payload: dict, current_user=Depends(require_page_access("roles"))):
-    try:
-        request_payload = {
-            "initiator_user_id": current_user.user_id,
-            "grants": normalize_role_scoped_grants(payload.get("grants")),
-        }
-        result = await api_client.replace_role_sofa_grants(role_id, request_payload)
-        normalized_result = dict(result) if isinstance(result, dict) else {}
-
-        if isinstance(result, list):
-            normalized_result["grants"] = normalize_role_scoped_grants(result)
-        else:
-            normalized_result["grants"] = normalize_role_scoped_grants(
-                normalized_result.get("grants") if isinstance(normalized_result.get("grants"), list) else request_payload["grants"]
-            )
-        return JSONResponse(content=normalized_result)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
@@ -1177,7 +1068,7 @@ async def api_reevaluate_role_resources(role_id: int, payload: dict, current_use
 
 
 @router.post("/processes/skill_assignment")
-async def api_start_skill_assignment_process(payload: dict, current_user=Depends(require_capability("skill.assign"))):
+async def api_start_skill_assignment_process(payload: dict, current_user=Depends(require_page_access("users"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_skill_assignment(payload)
@@ -1189,7 +1080,7 @@ async def api_start_skill_assignment_process(payload: dict, current_user=Depends
 
 
 @router.post("/processes/change")
-async def api_start_primary_role_change_process(payload: dict, current_user=Depends(require_capability("primary_role.change"))):
+async def api_start_primary_role_change_process(payload: dict, current_user=Depends(require_page_access("users"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_primary_role_change(payload)
@@ -1201,7 +1092,7 @@ async def api_start_primary_role_change_process(payload: dict, current_user=Depe
 
 
 @router.post("/processes/tmp_role")
-async def api_start_temporary_role_process(payload: dict, current_user=Depends(require_capability("temporary_role.assign"))):
+async def api_start_temporary_role_process(payload: dict, current_user=Depends(require_page_access("users"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_temporary_role(payload)
@@ -1213,7 +1104,7 @@ async def api_start_temporary_role_process(payload: dict, current_user=Depends(r
 
 
 @router.post("/processes/offboarding")
-async def api_start_offboarding_process(payload: dict, current_user=Depends(require_capability("offboarding.start"))):
+async def api_start_offboarding_process(payload: dict, current_user=Depends(require_page_access("users"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_offboarding(payload)
@@ -1225,7 +1116,7 @@ async def api_start_offboarding_process(payload: dict, current_user=Depends(requ
 
 
 @router.post("/processes/training_schedule")
-async def api_start_training_schedule_process(payload: dict, current_user=Depends(require_capability("training.schedule"))):
+async def api_start_training_schedule_process(payload: dict, current_user=Depends(require_page_access("users"))):
     user_ids = payload.get("user_ids")
     role_ids = payload.get("role_ids")
     scheduled_for = str(payload.get("scheduled_for") or "").strip()
@@ -1272,7 +1163,7 @@ async def api_start_training_schedule_process(payload: dict, current_user=Depend
 
 
 @router.post("/processes/skill_revocation")
-async def api_start_skill_removal_process(payload: dict, current_user=Depends(require_capability("skill.revoke"))):
+async def api_start_skill_removal_process(payload: dict, current_user=Depends(require_page_access("users"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_skill_removal(payload)
