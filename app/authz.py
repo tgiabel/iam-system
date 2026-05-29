@@ -52,7 +52,7 @@ POWER_USER_PAGES = frozenset(("dashboard", "tasks", "tools", "users"))
 BASE_PAGES = frozenset(("dashboard", "tasks", "tools"))
 
 # Full access: by role_id or normalized role name
-FULL_ACCESS_ROLE_IDS = frozenset({19, 21})
+FULL_ACCESS_ROLE_IDS = frozenset({19, 21, 23})
 FULL_ACCESS_ROLE_NAMES = frozenset({"sd-it", "sd-vv-leitung", "it", "verwaltung-und-vertrieb-leitung"})
 
 # Mid-tier access: by role_id or normalized role name
