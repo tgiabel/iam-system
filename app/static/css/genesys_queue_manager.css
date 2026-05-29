@@ -1,0 +1,474 @@
+.queue-manager-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.queue-manager-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 28px;
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(var(--color-primary-rgb), 0.10), transparent 34%),
+        linear-gradient(135deg, var(--surface-subtle) 0%, var(--surface-soft) 100%);
+}
+
+.queue-manager-hero-copy {
+    max-width: 760px;
+}
+
+.queue-manager-hero-copy h2 {
+    margin: 0 0 10px;
+}
+
+.queue-manager-hero-copy p:last-child {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.queue-manager-hero-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.queue-manager-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.queue-manager-chip-primary {
+    color: var(--color-primary);
+    background: var(--accent-bg);
+}
+
+.queue-manager-chip-accent {
+    color: var(--status-green-text);
+    background: var(--status-green-bg);
+}
+
+.queue-manager-chip-neutral {
+    color: var(--text-muted);
+    background: var(--surface-muted);
+}
+
+/* ── Queue Strip ─────────────────────────────────── */
+
+.queue-manager-strip-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px 20px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+}
+
+.queue-manager-strip-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.queue-manager-strip-filter {
+    flex: none;
+    width: 240px;
+}
+
+.queue-manager-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+    scroll-snap-type: x proximity;
+}
+
+.queue-manager-strip-item {
+    flex: none;
+    max-width: 220px;
+    padding: 8px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--surface-card);
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-strong);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    scroll-snap-align: start;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.queue-manager-strip-item:hover,
+.queue-manager-strip-item:focus-visible {
+    border-color: var(--border-strong);
+    background: var(--surface-soft);
+    outline: none;
+}
+
+.queue-manager-strip-item.is-active {
+    border-color: var(--color-primary);
+    background: var(--surface-soft);
+    color: var(--color-primary);
+}
+
+.queue-manager-strip-item[hidden] {
+    display: none;
+}
+
+/* ── Scroll containers ───────────────────────────── */
+
+.queue-manager-scroll-area {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+}
+
+.queue-manager-member-scroll    { max-height: 360px; }
+.queue-manager-results-scroll   { max-height: 220px; }
+.queue-manager-userqueue-scroll { max-height: 380px; }
+
+/* ── Layout ──────────────────────────────────────── */
+
+.queue-manager-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+}
+
+.queue-manager-panel,
+.queue-manager-card {
+    border: 1px solid var(--border-color);
+    border-radius: 22px;
+    background: var(--surface-card);
+}
+
+.queue-manager-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 22px;
+    min-width: 0;
+}
+
+.queue-manager-panel-header,
+.queue-manager-card-header,
+.queue-manager-selection-card,
+.queue-manager-inline-actions,
+.queue-manager-search-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.queue-manager-panel-header h3,
+.queue-manager-card-header h4 {
+    margin: 0;
+}
+
+.queue-manager-panel-kicker,
+.queue-manager-card-kicker {
+    margin: 0 0 6px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+}
+
+.queue-manager-panel-meta,
+.queue-manager-card-meta,
+.queue-manager-selection-summary {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+}
+
+.queue-manager-global-status,
+.queue-manager-status {
+    border-radius: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    font-size: 0.95rem;
+}
+
+.queue-manager-status-info {
+    background: rgba(var(--color-primary-rgb), 0.07);
+    border-color: rgba(var(--color-primary-rgb), 0.22);
+    color: var(--text-default);
+}
+
+.queue-manager-status-success {
+    background: var(--status-green-bg);
+    border-color: rgba(42, 122, 46, 0.28);
+    color: var(--status-green-text);
+}
+
+.queue-manager-status-error {
+    background: var(--status-red-bg);
+    border-color: rgba(182, 27, 0, 0.24);
+    color: var(--status-red-text);
+}
+
+/* ── Search results & user queue list ────────────── */
+
+.queue-manager-search-result-top,
+.queue-manager-user-queue-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.queue-manager-search-result-title {
+    margin: 0;
+    font-weight: 700;
+    color: var(--text-strong);
+}
+
+.queue-manager-search-result-meta,
+.queue-manager-user-queue-meta {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+    font-size: 0.92rem;
+}
+
+.queue-manager-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.queue-manager-pill-joined {
+    color: var(--status-green-text);
+    background: var(--status-green-bg);
+}
+
+.queue-manager-pill-not-joined {
+    color: var(--status-orange-text);
+    background: var(--status-orange-bg);
+}
+
+.queue-manager-search-results,
+.queue-manager-user-queues {
+    display: grid;
+    gap: 12px;
+}
+
+.queue-manager-search-result,
+.queue-manager-user-queue-item {
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    background: var(--surface-raised);
+}
+
+.queue-manager-search-result-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.queue-manager-checkbox-row,
+.queue-manager-toggle-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+/* ── Selected queue card ─────────────────────────── */
+
+.queue-manager-selection-card,
+.queue-manager-card {
+    padding: 18px;
+}
+
+.queue-manager-selection-copy p {
+    margin: 6px 0 0;
+    color: var(--text-muted);
+}
+
+.queue-manager-bulk-grid {
+    display: grid;
+    gap: 20px;
+}
+
+/* ── Selected user card (compact) ────────────────── */
+
+.queue-manager-selected-user-card {
+    padding: 12px 16px;
+}
+
+.queue-manager-selected-user-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* ── Member table ────────────────────────────────── */
+
+.queue-manager-member-table-wrap {
+    overflow-x: auto;
+}
+
+.queue-manager-member-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.queue-manager-member-table th,
+.queue-manager-member-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+    vertical-align: top;
+}
+
+.queue-manager-member-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-card);
+    z-index: 1;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.queue-manager-member-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* ── Empty states ────────────────────────────────── */
+
+.queue-manager-empty-card,
+.queue-manager-empty-table {
+    padding: 18px;
+    border: 1px dashed var(--border-color);
+    border-radius: 16px;
+    color: var(--text-muted);
+    background: var(--surface-muted);
+}
+
+.queue-manager-empty-card strong {
+    display: block;
+    color: var(--text-strong);
+    margin-bottom: 6px;
+}
+
+.queue-manager-empty-card p {
+    margin: 0;
+}
+
+/* ── User detail grid ────────────────────────────── */
+
+.queue-manager-user-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+}
+
+.queue-manager-detail-item {
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-color);
+}
+
+.queue-manager-detail-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.queue-manager-detail-value {
+    color: var(--text-strong);
+    font-weight: 600;
+    word-break: break-word;
+}
+
+/* ── Inputs ──────────────────────────────────────── */
+
+.queue-manager-input {
+    flex: 1 1 280px;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    background: var(--input-bg);
+    color: var(--text-default);
+    box-sizing: border-box;
+}
+
+.queue-manager-input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.queue-manager-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Responsive ──────────────────────────────────── */
+
+@media (max-width: 1080px) {
+    .queue-manager-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .queue-manager-hero {
+        padding: 22px;
+    }
+
+    .queue-manager-panel,
+    .queue-manager-card {
+        padding: 16px;
+    }
+
+    .queue-manager-strip-filter {
+        width: 100%;
+    }
+
+    .queue-manager-member-table th:nth-child(3),
+    .queue-manager-member-table td:nth-child(3) {
+        display: none;
+    }
+}

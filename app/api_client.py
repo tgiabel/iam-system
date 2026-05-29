@@ -10,6 +10,8 @@ SOFA_BASE_URL = f"{BASE_URL}/sofa"
 TICKETING_BASE_URL = f"{BASE_URL}/ticketing"
 MESSAGING_BASE_URL = f"{BASE_URL}/messaging"
 DATAPROCESSING_BASE_URL = f"{BASE_URL}/dataprocessing"
+Q_MANAGER_BASE_URL = f"{BASE_URL}/q-manager"
+STOERUNG_BASE_URL = BASE_URL
 
 
 class APIClient:
@@ -90,8 +92,8 @@ class APIClient:
     async def _put(self, base_url: str, path: str, *, payload: dict | None = None, headers: dict | None = None) -> Any:
         return await self._request_json("PUT", base_url, path, payload=payload, headers=headers)
 
-    async def _patch(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None) -> Any:
-        return await self._request_json("PATCH", base_url, path, params=params, payload=payload)
+    async def _patch(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None, headers: dict | None = None) -> Any:
+        return await self._request_json("PATCH", base_url, path, params=params, payload=payload, headers=headers)
 
     async def _delete(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None) -> Any:
         return await self._request_json("DELETE", base_url, path, params=params, payload=payload)
@@ -364,6 +366,67 @@ class APIClient:
 
     async def delete_word_document(self, document_id: str) -> dict:
         return await self._delete(DATAPROCESSING_BASE_URL, f"/word-documents/{document_id}")
+
+    # Q-Manager
+    async def list_qmanager_queues(self) -> dict:
+        return await self._get(Q_MANAGER_BASE_URL, "/queues/all")
+
+    async def list_qmanager_queue_members(self, queue_id: str) -> dict:
+        return await self._get(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members")
+
+    async def add_qmanager_queue_members(self, queue_id: str, payload: dict) -> dict:
+        return await self._post(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members", payload=payload)
+
+    async def remove_qmanager_queue_members(self, queue_id: str, payload: dict) -> dict:
+        return await self._post(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members/remove", payload=payload)
+
+    async def delete_qmanager_queue_member(self, queue_id: str, member_id: str) -> dict:
+        return await self._delete(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members/{member_id}")
+
+    async def search_qmanager_users(self, query: str) -> Any:
+        return await self._get(Q_MANAGER_BASE_URL, "/users/search", params={"q": query})
+
+    async def get_qmanager_user(self, user_id: str) -> dict:
+        return await self._get(Q_MANAGER_BASE_URL, f"/users/{user_id}")
+
+    async def list_qmanager_user_queues(self, user_id: str) -> dict:
+        return await self._get(Q_MANAGER_BASE_URL, f"/users/{user_id}/queues")
+
+    async def update_qmanager_user_queues(self, user_id: str, payload: dict) -> dict:
+        return await self._patch(Q_MANAGER_BASE_URL, f"/users/{user_id}/queues", payload=payload)
+
+    # Störungsprotokoll
+    def _stoerung_headers(self, authz: Any) -> dict:
+        return {
+            "X-User-Id": str(authz.user_id or ""),
+            "X-User-Pnr": str(authz.pnr or ""),
+            "X-User-Role": str(authz.primary_role_name or ""),
+        }
+
+    async def list_incidents(self, authz: Any, status_filter: str | None = None) -> list[dict]:
+        params = {"status_filter": status_filter} if status_filter else None
+        return await self._get(STOERUNG_BASE_URL, "/incidents", params=params, headers=self._stoerung_headers(authz))
+
+    async def list_active_incidents(self, authz: Any) -> list[dict]:
+        return await self._get(STOERUNG_BASE_URL, "/incidents/active", headers=self._stoerung_headers(authz))
+
+    async def get_incident(self, authz: Any, incident_id: str) -> dict:
+        return await self._get(STOERUNG_BASE_URL, f"/incidents/{incident_id}", headers=self._stoerung_headers(authz))
+
+    async def create_incident(self, authz: Any, payload: dict) -> dict:
+        return await self._post(STOERUNG_BASE_URL, "/incidents", payload=payload, headers=self._stoerung_headers(authz))
+
+    async def update_incident_status(self, authz: Any, incident_id: str, status: str) -> dict:
+        return await self._patch(STOERUNG_BASE_URL, f"/incidents/{incident_id}/status", payload={"status": status}, headers=self._stoerung_headers(authz))
+
+    async def append_incident_entry(self, authz: Any, incident_id: str, content: str) -> dict:
+        return await self._post(STOERUNG_BASE_URL, f"/incidents/{incident_id}/entries", payload={"content": content}, headers=self._stoerung_headers(authz))
+
+    async def close_incident(self, authz: Any, incident_id: str, payload: dict) -> dict:
+        return await self._post(STOERUNG_BASE_URL, f"/incidents/{incident_id}/close", payload=payload, headers=self._stoerung_headers(authz))
+
+    async def update_incident_contributors(self, authz: Any, incident_id: str, payload: dict) -> dict:
+        return await self._patch(STOERUNG_BASE_URL, f"/incidents/{incident_id}/contributors", payload=payload, headers=self._stoerung_headers(authz))
 
 
 api_client = APIClient()

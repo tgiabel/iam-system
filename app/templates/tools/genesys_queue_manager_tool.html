@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tools & Reports" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/tools.css">
+<link rel="stylesheet" href="/static/css/genesys_queue_manager.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/tools/genesys_queue_manager.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container queue-manager-page">
+    <section class="queue-manager-hero">
+        <div class="queue-manager-hero-copy">
+            <p class="report-kicker">Produktionssteuerung</p>
+            <h2>Genesys Queue Manager</h2>
+            <p>Queues, Mitglieder und individuelle Zuordnungen zentral verwalten. Die Seite kombiniert queue-zentrierte Pflege mit user-zentrierter Mitgliedschaftssteuerung.</p>
+        </div>
+        <div class="queue-manager-hero-chips">
+            <span class="queue-manager-chip queue-manager-chip-primary">Queues</span>
+            <span class="queue-manager-chip queue-manager-chip-accent">Bulk Actions</span>
+            <span class="queue-manager-chip queue-manager-chip-neutral">Genesys</span>
+        </div>
+    </section>
+
+    <div class="queue-manager-global-status queue-manager-status queue-manager-status-info" id="globalStatus" role="status" aria-live="polite">
+        Lade Queue- und Userdaten für den Queue Manager.
+    </div>
+
+    <div class="queue-manager-strip-wrap">
+        <div class="queue-manager-strip-filter-row">
+            <label for="queueStripFilter" class="queue-manager-sr-only">Queues filtern</label>
+            <input id="queueStripFilter" class="queue-manager-input queue-manager-strip-filter" type="search" placeholder="Queue filtern…">
+            <span class="queue-manager-panel-meta" id="queueMeta">Keine Queue ausgewählt</span>
+        </div>
+        <div class="queue-manager-strip" id="queueStrip" role="list">
+            <span class="queue-manager-panel-meta">Queues werden geladen…</span>
+        </div>
+    </div>
+
+    <div class="queue-manager-layout">
+        <section class="queue-manager-panel" aria-labelledby="queue-workspace-title">
+            <div class="queue-manager-panel-header">
+                <div>
+                    <p class="queue-manager-panel-kicker">Queue-zentriert</p>
+                    <h3 id="queue-workspace-title">Queue Workspace</h3>
+                </div>
+            </div>
+
+            <div class="queue-manager-status queue-manager-status-info" id="queueStatus" role="status" aria-live="polite">
+                Wähle eine Queue aus dem Strip, um Mitglieder zu verwalten.
+            </div>
+
+            <div class="queue-manager-selection-card" id="selectedQueueCard" hidden>
+                <div class="queue-manager-selection-copy">
+                    <strong id="selectedQueueTitle">Keine Queue ausgewählt</strong>
+                    <p id="selectedQueueSubtitle">Sobald eine Queue aktiv ist, werden Mitglieder und verfügbare Aktionen hier sichtbar.</p>
+                </div>
+                <button type="button" class="btn btn-secondary" id="refreshQueueMembersButton" disabled>Mitglieder neu laden</button>
+            </div>
+
+            <div class="queue-manager-bulk-grid">
+                <section class="queue-manager-card" aria-labelledby="queue-add-users-title">
+                    <div class="queue-manager-card-header">
+                        <div>
+                            <p class="queue-manager-card-kicker">Mitglieder hinzufügen</p>
+                            <h4 id="queue-add-users-title">User zur Queue hinzufügen</h4>
+                        </div>
+                    </div>
+
+                    <div class="queue-manager-search-row">
+                        <label for="queueUserSearchInput" class="queue-manager-sr-only">User suchen (Name, E-Mail, PNR, RACF oder ID)</label>
+                        <input id="queueUserSearchInput" class="queue-manager-input" type="search" placeholder="Nach Name, E-Mail, PNR, RACF oder ID suchen">
+                        <button type="button" class="btn btn-secondary" id="queueUserSearchButton">User suchen</button>
+                    </div>
+
+                    <div class="queue-manager-scroll-area queue-manager-results-scroll queue-manager-search-results" id="queueUserSearchResults">
+                        <div class="queue-manager-empty-card">
+                            <strong>Noch keine Suche gestartet</strong>
+                            <p>Treffer werden hier angezeigt und können für Bulk Add ausgewählt werden.</p>
+                        </div>
+                    </div>
+
+                    <div class="queue-manager-selection-summary" id="queueAddSelectionSummary">Keine User für Bulk Add ausgewählt.</div>
+
+                    <div class="queue-manager-inline-actions">
+                        <button type="button" class="btn btn-secondary" id="clearQueueAddSelectionButton" disabled>Auswahl leeren</button>
+                        <button type="button" class="btn btn-primary" id="addQueueMembersButton" disabled>Ausgewählte User hinzufügen</button>
+                    </div>
+                </section>
+
+                <section class="queue-manager-card" aria-labelledby="queue-members-title">
+                    <div class="queue-manager-card-header">
+                        <div>
+                            <p class="queue-manager-card-kicker">Mitglieder</p>
+                            <h4 id="queue-members-title">Queue-Mitglieder</h4>
+                        </div>
+                        <span class="queue-manager-card-meta" id="memberListMeta">Noch keine Daten geladen</span>
+                    </div>
+
+                    <div class="queue-manager-inline-actions">
+                        <button type="button" class="btn btn-secondary" id="removeSelectedMembersButton" disabled>Markierte Mitglieder entfernen</button>
+                        <button type="button" class="btn btn-secondary" id="clearMemberSelectionButton" disabled>Markierung leeren</button>
+                    </div>
+
+                    <div class="queue-manager-scroll-area queue-manager-member-scroll queue-manager-member-table-wrap">
+                        <table class="queue-manager-member-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Auswahl</th>
+                                    <th scope="col">Mitglied</th>
+                                    <th scope="col">Member ID</th>
+                                    <th scope="col">Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="memberTableBody">
+                                <tr>
+                                    <td colspan="4">
+                                        <div class="queue-manager-empty-table">Nach Auswahl einer Queue werden hier Mitglieder geladen.</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </section>
+
+        <section class="queue-manager-panel" aria-labelledby="user-workspace-title">
+            <div class="queue-manager-panel-header">
+                <div>
+                    <p class="queue-manager-panel-kicker">User-zentriert</p>
+                    <h3 id="user-workspace-title">User Workspace</h3>
+                </div>
+                <span class="queue-manager-panel-meta" id="userMeta">Kein User ausgewählt</span>
+            </div>
+
+            <div class="queue-manager-status queue-manager-status-info" id="userStatus" role="status" aria-live="polite">
+                Suche einen User, um bestehende Queue-Zuordnungen gezielt zu prüfen und anzupassen.
+            </div>
+
+            <section class="queue-manager-card">
+                <div class="queue-manager-card-header">
+                    <div>
+                        <p class="queue-manager-card-kicker">Usersuche</p>
+                        <h4>User finden</h4>
+                    </div>
+                </div>
+
+                <div class="queue-manager-search-row">
+                    <label for="userSearchInput" class="queue-manager-sr-only">User suchen (Name, E-Mail, PNR, RACF oder ID)</label>
+                    <input id="userSearchInput" class="queue-manager-input" type="search" placeholder="Name, E-Mail, PNR, RACF oder ID">
+                    <button type="button" class="btn btn-secondary" id="userSearchButton">Suchen</button>
+                </div>
+
+                <div class="queue-manager-scroll-area queue-manager-results-scroll queue-manager-search-results" id="userSearchResults">
+                    <div class="queue-manager-empty-card">
+                        <strong>Keine Suchtreffer</strong>
+                        <p>Nach einer Suche erscheinen hier passende User zur Auswahl.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="queue-manager-card queue-manager-selected-user-card" id="selectedUserCard" hidden>
+                <div class="queue-manager-selected-user-row">
+                    <strong id="selectedUserTitle">Kein User ausgewählt</strong>
+                    <button type="button" class="btn btn-secondary" id="refreshUserQueuesButton" disabled>Neu laden</button>
+                </div>
+                <div id="selectedUserDetails"></div>
+            </section>
+
+            <section class="queue-manager-card" aria-labelledby="user-queues-title">
+                <div class="queue-manager-card-header">
+                    <div>
+                        <p class="queue-manager-card-kicker">Mitgliedschaften</p>
+                        <h4 id="user-queues-title">Queues des Users</h4>
+                    </div>
+                    <span class="queue-manager-card-meta" id="userQueueMeta">Noch keine Daten geladen</span>
+                </div>
+
+                <div class="queue-manager-search-row">
+                    <label for="userQueueFilter" class="queue-manager-sr-only">Queue-Mitgliedschaften filtern</label>
+                    <input id="userQueueFilter" class="queue-manager-input" type="search" placeholder="Queues filtern…">
+                </div>
+
+                <div class="queue-manager-inline-actions">
+                    <button type="button" class="btn btn-secondary" id="resetUserQueueSelectionButton" disabled>Änderungen verwerfen</button>
+                    <button type="button" class="btn btn-primary" id="saveUserQueuesButton" disabled>Änderungen speichern</button>
+                </div>
+
+                <div class="queue-manager-scroll-area queue-manager-userqueue-scroll queue-manager-user-queues" id="userQueuesList">
+                    <div class="queue-manager-empty-card">
+                        <strong>Kein User aktiv</strong>
+                        <p>Nach Auswahl eines Users werden hier alle Queues samt Join-Status angezeigt.</p>
+                    </div>
+                </div>
+            </section>
+        </section>
+    </div>
+</div>
+{% endblock %}

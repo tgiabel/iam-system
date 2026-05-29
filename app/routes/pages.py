@@ -156,3 +156,34 @@ async def word_templates_tool(request: Request, authz=Depends(require_page_acces
         "tools/word_templates_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
+
+@router.get("/tools/genesys-queue-manager", response_class=HTMLResponse)
+async def genesys_queue_manager_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+    return templates.TemplateResponse(
+        "tools/genesys_queue_manager_tool.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
+    )
+
+
+@router.get("/tools/stoerungsprotokoll", response_class=HTMLResponse)
+async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+    try:
+        incidents = await api_client.list_incidents(authz)
+    except Exception:
+        incidents = []
+    return templates.TemplateResponse(
+        "tools/stoerungsprotokoll_tool.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz, incidents=incidents),
+    )
+
+
+@router.get("/tools/stoerungsprotokoll/{incident_id}", response_class=HTMLResponse)
+async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=Depends(require_page_access("tools", redirect_to="/tools/stoerungsprotokoll"))):
+    try:
+        incident = await api_client.get_incident(authz, incident_id)
+    except Exception:
+        incident = None
+    return templates.TemplateResponse(
+        "tools/stoerungsprotokoll_detail.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz, incident=incident),
+    )

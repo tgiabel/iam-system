@@ -320,6 +320,148 @@ async def api_delete_word_document(document_id: str, current_user=Depends(requir
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/q-manager/queues/all")
+async def api_list_qmanager_queues(current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.list_qmanager_queues()
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/q-manager/queues/{queue_id}/members")
+async def api_list_qmanager_queue_members(queue_id: str, current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.list_qmanager_queue_members(queue_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/q-manager/queues/{queue_id}/members")
+async def api_add_qmanager_queue_members(
+    queue_id: str,
+    payload: dict,
+    current_user=Depends(require_page_access("tools")),
+):
+    try:
+        result = await api_client.add_qmanager_queue_members(queue_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/q-manager/queues/{queue_id}/members/remove")
+async def api_remove_qmanager_queue_members(
+    queue_id: str,
+    payload: dict,
+    current_user=Depends(require_page_access("tools")),
+):
+    try:
+        result = await api_client.remove_qmanager_queue_members(queue_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.delete("/q-manager/queues/{queue_id}/members/{member_id}")
+async def api_delete_qmanager_queue_member(
+    queue_id: str,
+    member_id: str,
+    current_user=Depends(require_page_access("tools")),
+):
+    try:
+        result = await api_client.delete_qmanager_queue_member(queue_id, member_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/q-manager/users/search")
+async def api_search_qmanager_users(q: str = "", current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.search_qmanager_users(q)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/q-manager/users/{user_id}")
+async def api_get_qmanager_user(user_id: str, current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.get_qmanager_user(user_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/q-manager/users/{user_id}/queues")
+async def api_list_qmanager_user_queues(user_id: str, current_user=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.list_qmanager_user_queues(user_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.patch("/q-manager/users/{user_id}/queues")
+async def api_update_qmanager_user_queues(
+    user_id: str,
+    payload: dict,
+    current_user=Depends(require_page_access("tools")),
+):
+    try:
+        result = await api_client.update_qmanager_user_queues(user_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/session/authz")
 async def api_session_authz_refresh(request: Request, sofa_user: str | None = Cookie(default=None)):
     try:
@@ -1219,5 +1361,118 @@ async def api_remove_resources_from_role(role_id: int, resource_ids: dict, curre
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+# Störungsprotokoll
+
+@router.get("/stoerung/incidents")
+async def api_list_incidents(status_filter: str | None = None, authz=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.list_incidents(authz, status_filter=status_filter)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/stoerung/incidents/active")
+async def api_list_active_incidents(authz=Depends(require_login)):
+    try:
+        result = await api_client.list_active_incidents(authz)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/stoerung/incidents/{incident_id}")
+async def api_get_incident(incident_id: str, authz=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.get_incident(authz, incident_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/stoerung/incidents")
+async def api_create_incident(payload: dict, authz=Depends(require_page_access("tools"))):
+    try:
+        description = payload.get("description") or None
+        payload.setdefault("contributor_roles", [])
+        if authz.primary_role_name and authz.primary_role_name not in payload["contributor_roles"]:
+            payload["contributor_roles"].append(authz.primary_role_name)
+        payload.setdefault("contributor_user_ids", [])
+        result = await api_client.create_incident(authz, payload)
+        if description and result.get("id"):
+            try:
+                await api_client.append_incident_entry(
+                    authz, str(result["id"]), f"Störung erfasst: {description}"
+                )
+            except Exception:
+                pass
+        return JSONResponse(content=result, status_code=201)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.patch("/stoerung/incidents/{incident_id}/status")
+async def api_update_incident_status(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.update_incident_status(authz, incident_id, payload["status"])
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/stoerung/incidents/{incident_id}/entries")
+async def api_append_incident_entry(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.append_incident_entry(authz, incident_id, payload["content"])
+        return JSONResponse(content=result, status_code=201)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/stoerung/incidents/{incident_id}/close")
+async def api_close_incident(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.close_incident(authz, incident_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.patch("/stoerung/incidents/{incident_id}/contributors")
+async def api_update_incident_contributors(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.update_incident_contributors(authz, incident_id, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/stoerung/roles")
+async def api_stoerung_roles(authz=Depends(require_page_access("tools"))):
+    try:
+        result = await api_client.get_role_map()
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
