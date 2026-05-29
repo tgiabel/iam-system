@@ -2,6 +2,7 @@ const state = {
     users: [],
     systemMap: null,
     roleMap: null,
+    resourceMap: null,
     currentUserDetail: null,
     currentUserActivity: null,
     activeUserTab: "details",
@@ -138,6 +139,22 @@ const api = {
 
         state.roleMap = await res.json();
         return state.roleMap;
+    },
+
+    async getRoleResources(roleId) {
+        const res = await fetch(`/api/roles/${roleId}/resources`);
+        if (!res.ok) throw new Error("Rollenressourcen konnten nicht geladen werden");
+        return res.json();
+    },
+
+    async getResourceMap() {
+        if (state.resourceMap) {
+            return state.resourceMap;
+        }
+        const res = await fetch("/api/resources/map");
+        if (!res.ok) throw new Error("Resource Map konnte nicht geladen werden");
+        state.resourceMap = await res.json();
+        return state.resourceMap;
     },
 
     async lookupOnboardingCandidate(pnr) {
@@ -843,27 +860,10 @@ function getSortedRoleAssignments(detail) {
 }
 
 function getUserResources(detail) {
-    const roleResources = getRoleAssignments(detail).flatMap(role =>
-        (Array.isArray(role.resources) ? role.resources : []).map(resource => ({
-            ...resource,
-            source_role_name: role.name,
-            assignment_status: resource.assignment_status || resource.status || resource.lifecycle_status || role.assignment_status || "active"
-        }))
-    );
-
-    const accountResources = (Array.isArray(detail?.accounts) ? detail.accounts : []).map(account => ({
-        system_id: account.system_id,
-        system_name: getSystemName(account),
-        technical_identifier: account.account_identifier,
-        display_name: account.account_identifier,
-        assignment_status: account.assignment_status || "active"
+    return (Array.isArray(detail?.resources) ? detail.resources : []).map(r => ({
+        ...r,
+        assignment_status: r.assignment_status || "active"
     }));
-
-    return dedupeBy([...roleResources, ...accountResources], resource => [
-        resource.system_id ?? resource.system_name ?? "system",
-        getResourceIdentifier(resource),
-        getResourceDisplayName(resource)
-    ].join("|"));
 }
 
 function groupResourcesBySystem(resources) {
@@ -1288,6 +1288,31 @@ const sidebarController = {
                 api.getSystemMap().catch(() => state.systemMap || {})
             ]);
 
+            const roles = getRoleAssignments(detail);
+            const [roleResourceEntries, resourceMap] = await Promise.all([
+                Promise.all(
+                    roles.map(async role => {
+                        try {
+                            const res = await api.getRoleResources(role.role_id);
+                            return [role.role_id, Array.isArray(res) ? res : []];
+                        } catch {
+                            return [role.role_id, []];
+                        }
+                    })
+                ),
+                api.getResourceMap().catch(() => ({}))
+            ]);
+
+            detail._roleResourcesMap = Object.fromEntries(
+                roleResourceEntries.map(([roleId, resources]) => [
+                    roleId,
+                    resources.map(r => {
+                        const meta = resourceMap[r.resource_id] || {};
+                        return { ...meta, ...r };
+                    })
+                ])
+            );
+
             state.currentUserDetail = detail;
             state.currentUserActivity = activity;
             await this.render(detail, activity);
@@ -1352,7 +1377,7 @@ const sidebarController = {
         }
 
         this.renderDerivedStatuses(user);
-        await this.renderAccounts(user.accounts || []);
+        await this.renderAccounts(user.accounts || [], user);
         this.renderSofaAccessActions(user);
         this.renderRoles(user);
         this.renderResources(user);
@@ -1437,16 +1462,24 @@ const sidebarController = {
         `).join("");
     },
 
-    async renderAccounts(accounts = []) {
+    async renderAccounts(accounts = [], detail = null) {
         const items = Array.isArray(accounts) ? accounts : [];
-        DOM.userAccountsCount.textContent = String(items.length);
 
-        if (!items.length) {
+        const accResources = (Array.isArray(detail?.resources) ? detail.resources : []).filter(r => r.type_id === 1);
+        const accountedSystemIds = new Set(items.map(a => a.system_id));
+        const missingAccounts = accResources.filter(r => !accountedSystemIds.has(r.system_id));
+
+        const totalExpected = items.length + missingAccounts.length;
+        DOM.userAccountsCount.textContent = missingAccounts.length
+            ? `${items.length} / ${totalExpected}`
+            : String(items.length);
+
+        if (!items.length && !missingAccounts.length) {
             DOM.sidebarAccounts.innerHTML = renderEmptyState("Keine Accounts vorhanden.");
             return;
         }
 
-        DOM.sidebarAccounts.innerHTML = items.map(account => {
+        const existingRows = items.map(account => {
             const system = state.systemMap?.[account.system_id]?.name || account.system_name || `System #${account.system_id}`;
             return `
                 <div class="user-account-item">
@@ -1457,7 +1490,22 @@ const sidebarController = {
                     <span class="users-status-badge users-status-active">${escapeHtml(humanizeToken(account.assignment_status || "active"))}</span>
                 </div>
             `;
-        }).join("");
+        });
+
+        const missingRows = missingAccounts.map(resource => {
+            const system = state.systemMap?.[resource.system_id]?.name || resource.system_name || `System #${resource.system_id}`;
+            return `
+                <div class="user-account-item">
+                    <div class="user-account-main">
+                        <span class="user-account-id">${escapeHtml(resource.display_name || resource.technical_identifier || "-")}</span>
+                        <span class="user-account-system">${escapeHtml(system)}</span>
+                    </div>
+                    <span class="users-status-badge users-status-warning">Fehlt</span>
+                </div>
+            `;
+        });
+
+        DOM.sidebarAccounts.innerHTML = [...existingRows, ...missingRows].join("");
     },
 
     renderRoles(detail) {
@@ -1468,11 +1516,17 @@ const sidebarController = {
             return;
         }
 
+        const assignedResourceIds = new Set(
+            (Array.isArray(detail?.resources) ? detail.resources : []).map(r => r.resource_id)
+        );
+
         DOM.sidebarRoles.innerHTML = roles.map((role, index) => {
             const assignmentStatus = getAssignmentStatus(role);
             const roleTypeLabel = role.is_primary ? "Hauptrolle / Funktion" : (normalizeValue(role.role_type) === "secondary" ? "Nebenrolle" : humanizeToken(role.role_type || "Rolle"));
-            const resources = Array.isArray(role.resources) ? role.resources : [];
+            const packageResources = Array.isArray(detail?._roleResourcesMap?.[role.role_id]) ? detail._roleResourcesMap[role.role_id] : [];
+            const assignedCount = packageResources.filter(r => assignedResourceIds.has(r.resource_id)).length;
             const bodyId = `role-body-${role.role_id}-${index}`;
+            const countLabel = packageResources.length ? `${assignedCount} / ${packageResources.length} zugewiesen` : "Keine Ressourcen";
 
             return `
                 <article class="user-role-card">
@@ -1482,28 +1536,30 @@ const sidebarController = {
                             <div class="user-role-subline">
                                 <span class="ui-chip ${role.is_primary ? "ui-chip-primary" : "ui-chip-neutral"}">${escapeHtml(roleTypeLabel)}</span>
                                 <span class="users-status-badge ${escapeHtml(assignmentStatus.className)}">${escapeHtml(assignmentStatus.label)}</span>
-                                <span class="ui-chip ui-chip-neutral">${resources.length} Ressourcen</span>
+                                <span class="ui-chip ui-chip-neutral">${escapeHtml(countLabel)}</span>
                             </div>
                         </div>
                         <span class="user-role-chevron">›</span>
                     </button>
                     <div class="user-role-body" id="${escapeHtml(bodyId)}" ${role.is_primary ? "" : "hidden"}>
-                        ${resources.length ? `
+                        ${packageResources.length ? `
                             <div class="user-resource-list">
-                                ${resources.map(resource => {
-                                    const resourceStatus = getAssignmentStatus(resource);
+                                ${packageResources.map(resource => {
+                                    const isAssigned = assignedResourceIds.has(resource.resource_id);
+                                    const badgeClass = isAssigned ? "users-status-active" : "users-status-warning";
+                                    const badgeLabel = isAssigned ? "Zugewiesen" : "Fehlt";
                                     return `
                                         <div class="user-resource-row">
                                             <div class="user-resource-main">
-                                                <span class="user-resource-identifier" title="${escapeHtml(getResourceDisplayName(resource))}">${escapeHtml(getResourceIdentifier(resource))}</span>
-                                                <span class="user-resource-system">${escapeHtml(getSystemName(resource))}</span>
+                                                <span class="user-resource-identifier" title="${escapeHtml(resource.technical_identifier || "")}">${escapeHtml(resource.display_name || resource.technical_identifier || `#${resource.resource_id}`)}</span>
+                                                <span class="user-resource-system">${escapeHtml(resource.system_name || "")}</span>
                                             </div>
-                                            <span class="users-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
+                                            <span class="users-status-badge ${badgeClass}">${badgeLabel}</span>
                                         </div>
                                     `;
                                 }).join("")}
                             </div>
-                        ` : renderEmptyState("Für diese Rolle sind keine Ressourcen vorhanden.")}
+                        ` : renderEmptyState("Für diese Rolle sind keine Ressourcen definiert.")}
                     </div>
                 </article>
             `;

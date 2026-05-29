@@ -667,7 +667,7 @@ async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require
 
 
 @router.get("/roles/{role_id}/resources")
-async def api_role_resources(role_id: int, current_user=Depends(require_page_access("roles"))):
+async def api_role_resources(role_id: int, current_user=Depends(require_any_page_access("roles", "users"))):
     try:
         resources = await api_client.get_role_resources(role_id)
         return JSONResponse(content=resources)
@@ -1078,6 +1078,29 @@ async def api_get_system_resources(system_id: int, current_user=Depends(require_
         return JSONResponse(content=system_detail)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/resources/map")
+async def api_resource_map(current_user=Depends(require_any_page_access("systems", "users", "roles"))):
+    try:
+        resources = await api_client.list_resources()
+        resource_map = {
+            r["resource_id"]: {
+                "display_name": r.get("display_name"),
+                "technical_identifier": r.get("technical_identifier"),
+                "system_name": r.get("system_name"),
+                "system_id": r.get("system_id"),
+                "type_id": r.get("type_id"),
+                "type_name": r.get("type_name"),
+            }
+            for r in resources
+            if "resource_id" in r
+        }
+        return JSONResponse(content=resource_map)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
