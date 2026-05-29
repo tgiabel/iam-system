@@ -207,14 +207,10 @@ function cacheDOM(){
         },
         BOT: {
             ASSIGNMENT: {
-                bot: document.getElementById("res-bot-name-assignment"),
-                action: document.getElementById("res-bot-action-assignment"),
-                data: document.getElementById("res-bot-data-assignment")
+                meta: document.getElementById("res-bot-meta-assignment")
             },
             REVOCATION: {
-                bot: document.getElementById("res-bot-name-revocation"),
-                action: document.getElementById("res-bot-action-revocation"),
-                data: document.getElementById("res-bot-data-revocation")
+                meta: document.getElementById("res-bot-meta-revocation")
             }
         }
     };
@@ -700,6 +696,10 @@ async function saveResource(){
     const meta = buildMetaPayload(handlingType);
     let success = false;
 
+    if (meta === null) {
+        return;
+    }
+
     if(STATE.currentResource){
         success = await api.updateResource(
             STATE.currentResource.resource_id,
@@ -947,9 +947,7 @@ function resetMetaFields() {
     });
 
     Object.values(DOM.metaFields.BOT).forEach(fields => {
-        fields.bot.value = "";
-        fields.action.value = "";
-        fields.data.value = "";
+        fields.meta.value = "";
     });
 
     fillRecipientOptions();
@@ -981,11 +979,7 @@ function fillMetaFieldsForHandling(handlingType, resource) {
         }
 
         if (handlingType === "BOT") {
-            formFields.bot.value = metaEntry.meta.bot || "";
-            formFields.action.value = metaEntry.meta.action || "";
-            formFields.data.value = typeof metaEntry.meta.data === "object"
-                ? JSON.stringify(metaEntry.meta.data)
-                : (metaEntry.meta.data || "");
+            formFields.meta.value = extractBotMetaEditorValue(metaEntry.meta);
         }
     });
 }
@@ -1022,12 +1016,19 @@ function buildMetaPayload(handlingType) {
 
     const newMeta = TASK_TYPES.map(taskType => {
         const meta = buildMetaForTaskType(handlingType, taskType);
+        if (meta === null) {
+            return null;
+        }
         return {
             handling_type: handlingType,
             task_type: taskType,
             meta
         };
     });
+
+    if (newMeta.some(entry => entry === null)) {
+        return null;
+    }
 
     return [...existingMeta, ...newMeta];
 }
@@ -1047,14 +1048,61 @@ function buildMetaForTaskType(handlingType, taskType) {
     }
 
     if (handlingType === "BOT") {
-        return {
-            bot: fields.bot.value.trim(),
-            action: fields.action.value.trim(),
-            data: fields.data.value.trim()
-        };
+        return parseBotMetaEditorValue(fields.meta.value, taskType);
     }
 
     return {};
+}
+
+function extractBotMetaEditorValue(meta) {
+    if (!meta || typeof meta !== "object") {
+        return "";
+    }
+
+    const legacyMeta = meta.data;
+    if (Object.prototype.hasOwnProperty.call(meta, "data")) {
+        if (typeof legacyMeta === "string") {
+            return legacyMeta;
+        }
+
+        if (legacyMeta && typeof legacyMeta === "object") {
+            return JSON.stringify(legacyMeta, null, 2);
+        }
+
+        return "";
+    }
+
+    return Object.keys(meta).length > 0 ? JSON.stringify(meta, null, 2) : "";
+}
+
+function parseBotMetaEditorValue(value, taskType) {
+    const normalized = String(value || "").trim();
+    if (!normalized) {
+        return {};
+    }
+
+    try {
+        const parsed = JSON.parse(normalized);
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error("BOT-Meta muss ein JSON-Objekt sein.");
+        }
+        return parsed;
+    } catch (error) {
+        showFlash(`BOT-Meta für ${formatTaskTypeLabel(taskType)} ist kein gültiges JSON-Objekt.`, "failure");
+        return null;
+    }
+}
+
+function formatTaskTypeLabel(taskType) {
+    if (taskType === "ASSIGNMENT") {
+        return "Zuweisung";
+    }
+
+    if (taskType === "REVOCATION") {
+        return "Löschung";
+    }
+
+    return taskType || "den Vorgang";
 }
 
 function getExternalRecipientValue(meta) {
