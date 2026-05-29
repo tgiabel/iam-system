@@ -1,0 +1,501 @@
+/* ── Shared page layout ───────────────────────────── */
+
+.stoerung-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Wider container for detail page */
+.container-stoerung-detail {
+    max-width: 1440px;
+    margin: 40px auto;
+    padding: 20px;
+}
+
+/* ── Hero ─────────────────────────────────────────── */
+
+.stoerung-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding: 28px;
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top right, rgba(var(--color-primary-rgb), 0.10), transparent 34%),
+        linear-gradient(135deg, var(--surface-subtle) 0%, var(--surface-soft) 100%);
+}
+
+.stoerung-hero-copy {
+    max-width: 720px;
+}
+
+.stoerung-hero-copy h2 {
+    margin: 0 0 10px;
+}
+
+.stoerung-hero-copy p:last-child {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+.stoerung-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+/* ── Section panels ───────────────────────────────── */
+
+.stoerung-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.stoerung-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.stoerung-section-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+/* ── Status chips ─────────────────────────────────── */
+
+.stoerung-chip-aktiv {
+    color: var(--status-red-text);
+    background: var(--status-red-bg);
+}
+
+.stoerung-chip-in_bearbeitung {
+    color: var(--status-orange-text);
+    background: var(--status-orange-bg);
+}
+
+.stoerung-chip-behoben {
+    color: var(--status-green-text);
+    background: var(--status-green-bg);
+}
+
+.stoerung-chip-geschlossen {
+    color: var(--text-muted);
+    background: var(--surface-muted);
+}
+
+/* ── Severity chips ───────────────────────────────── */
+
+.stoerung-chip-kritisch {
+    color: var(--status-red-text);
+    background: var(--status-red-bg);
+    font-weight: 700;
+}
+
+.stoerung-chip-hoch {
+    color: var(--status-orange-text);
+    background: var(--status-orange-bg);
+}
+
+.stoerung-chip-mittel {
+    color: var(--color-primary);
+    background: var(--accent-bg);
+}
+
+.stoerung-chip-niedrig {
+    color: var(--text-muted);
+    background: var(--surface-muted);
+}
+
+/* ── Active incidents banner ──────────────────────── */
+
+.stoerung-active-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px 24px;
+    border: 1.5px solid rgba(182, 27, 0, 0.35);
+    border-radius: 20px;
+    background: var(--status-red-bg);
+}
+
+.stoerung-active-banner-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stoerung-active-banner-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--status-red-text);
+}
+
+.stoerung-active-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.stoerung-active-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: var(--surface-card);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--text-default);
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.stoerung-active-card:hover {
+    border-color: rgba(var(--color-primary-rgb), 0.35);
+    box-shadow: var(--shadow-soft);
+}
+
+.stoerung-active-card-title {
+    flex: 1;
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.stoerung-active-card-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+.stoerung-active-card-arrow {
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* ── Incidents table ──────────────────────────────── */
+
+.stoerung-table-wrap {
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--surface-card);
+}
+
+.stoerung-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.stoerung-table thead th {
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: var(--surface-muted);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.stoerung-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.stoerung-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.stoerung-table tbody tr:hover {
+    background: var(--surface-soft);
+}
+
+.stoerung-table td {
+    padding: 13px 16px;
+    color: var(--text-default);
+    vertical-align: middle;
+}
+
+.stoerung-table-title {
+    font-weight: 600;
+}
+
+.stoerung-table-meta {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.stoerung-table-arrow {
+    color: var(--text-muted);
+    text-align: right;
+}
+
+/* ── Empty state ──────────────────────────────────── */
+
+.stoerung-empty {
+    padding: 28px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-color);
+    border-radius: 16px;
+    background: var(--surface-muted);
+    font-size: 0.9rem;
+}
+
+/* ── Detail page ──────────────────────────────────── */
+
+.stoerung-detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0 0;
+}
+
+.stoerung-detail-meta-item {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+}
+
+.stoerung-detail-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+}
+
+.stoerung-detail-controls-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* ── Protocol log ─────────────────────────────────── */
+
+.stoerung-log-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    background: var(--surface-card);
+    overflow: hidden;
+}
+
+.stoerung-log-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--surface-muted);
+}
+
+.stoerung-log-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.stoerung-log-stream {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: 520px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) transparent;
+    padding: 4px 0;
+}
+
+.stoerung-log-entry {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.1s;
+}
+
+.stoerung-log-entry:last-child {
+    border-bottom: none;
+}
+
+.stoerung-log-entry:hover {
+    background: var(--surface-soft);
+}
+
+.stoerung-log-entry-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.stoerung-log-entry-author {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-strong);
+}
+
+.stoerung-log-entry-role {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.stoerung-log-entry-time {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-left: auto;
+}
+
+.stoerung-log-entry-content {
+    font-size: 0.9rem;
+    color: var(--text-default);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.stoerung-log-empty {
+    padding: 32px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+}
+
+/* ── Append form (sticky bottom) ─────────────────── */
+
+.stoerung-append-panel {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--surface-page);
+    border: 1px solid var(--border-color);
+    border-top: 2px solid var(--border-color);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.07);
+}
+
+.stoerung-append-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.stoerung-append-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ── Contributors modal ───────────────────────────── */
+
+.stoerung-contributors-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 32px;
+}
+
+.stoerung-contributors-add-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.stoerung-contributors-add-row .ui-input {
+    flex: 1;
+}
+
+/* ── Close modal ──────────────────────────────────── */
+
+.stoerung-close-modal .ui-modal {
+    max-width: 520px;
+}
+
+/* ── Closed archive banner ────────────────────────── */
+
+.stoerung-archived-notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    background: var(--surface-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+}
+
+.stoerung-archived-notice strong {
+    color: var(--text-default);
+}
+
+/* ── Status feed: submitted indicator ────────────── */
+
+.stoerung-sending {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+/* ── Responsive ───────────────────────────────────── */
+
+@media (max-width: 1080px) {
+    .stoerung-hero {
+        flex-direction: column;
+    }
+
+    .stoerung-hero-actions {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 720px) {
+    .stoerung-hero {
+        padding: 20px;
+    }
+
+    .stoerung-table thead th:nth-child(n+4),
+    .stoerung-table td:nth-child(n+4) {
+        display: none;
+    }
+
+    .stoerung-active-card-meta {
+        display: none;
+    }
+
+    .stoerung-log-stream {
+        max-height: 340px;
+    }
+}

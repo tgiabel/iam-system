@@ -119,7 +119,7 @@
                     <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
                         <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1">Account</button>
                         <button type="button" role="menuitem" class="subnav-item" data-profile-modal-trigger="password-change-modal">Passwort ändern</button>
-                        <button type="button" role="menuitem" class="subnav-item is-danger" data-profile-modal-trigger="report-problem-modal">Problem melden</button>
+                        <button type="button" role="menuitem" class="subnav-item is-danger" data-profile-modal-trigger="stoerung-melden-modal">Störung melden</button>
                         <a href="/logout" role="menuitem" class="subnav-item is-danger">Logout</a>
                     </div>
                 </div>
@@ -244,55 +244,54 @@
         </div>
 
         <div
-            id="report-problem-modal"
+            id="stoerung-melden-modal"
             class="ui-modal-overlay profile-modal-overlay"
-            data-base-modal="report-problem"
+            data-base-modal="stoerung-melden"
             aria-hidden="true">
-            <div class="ui-modal ui-modal-compact profile-modal" role="dialog" aria-modal="true" aria-labelledby="report-problem-title">
+            <div class="ui-modal ui-modal-compact profile-modal" role="dialog" aria-modal="true" aria-labelledby="stoerung-melden-title">
                 <div class="ui-modal-header">
                     <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Profil</p>
-                        <h3 id="report-problem-title">Problem melden</h3>
-                        <p class="ui-section-copy">Frontend-Sammelmaske für Rückmeldungen. Versand und Persistenz folgen in einem späteren Schritt.</p>
+                        <p class="ui-section-kicker">Betrieb</p>
+                        <h3 id="stoerung-melden-title">Störung melden</h3>
+                        <p class="ui-section-copy">Lege ein neues Störungsprotokoll an. Nach dem Erstellen kannst du sofort Updates hinzufügen.</p>
                     </div>
-                    <button type="button" class="ui-icon-button" data-modal-close="report-problem-modal" aria-label="Problem-Dialog schließen">&times;</button>
+                    <button type="button" class="ui-icon-button" data-modal-close="stoerung-melden-modal" aria-label="Störungsdialog schließen">&times;</button>
                 </div>
 
-                <form id="report-problem-form" class="profile-modal-form">
+                <form id="stoerung-quick-form" class="profile-modal-form">
                     <div class="ui-modal-body">
+
                         <div class="ui-field-group">
-                            <label for="problem-subject-input" class="ui-field-label">Betreff</label>
-                            <input id="problem-subject-input" name="subject" class="ui-input" type="text" placeholder="Kurze Zusammenfassung" required>
+                            <label for="stoerung-title-input" class="ui-field-label">Titel <span aria-hidden="true">*</span></label>
+                            <input id="stoerung-title-input" name="title" class="ui-input" type="text" placeholder="Kurze Bezeichnung der Störung" required autocomplete="off">
                         </div>
 
                         <div class="ui-field-group">
-                            <label for="problem-category-input" class="ui-field-label">Kategorie</label>
-                            <select id="problem-category-input" name="category" class="ui-input">
-                                <option value="ui">UI / Oberfläche</option>
-                                <option value="prozess">Prozess / Ablauf</option>
-                                <option value="daten">Daten / Inhalte</option>
-                                <option value="sonstiges">Sonstiges</option>
+                            <label for="stoerung-severity-input" class="ui-field-label">Schweregrad <span aria-hidden="true">*</span></label>
+                            <select id="stoerung-severity-input" name="severity" class="ui-input" required>
+                                <option value="niedrig">Niedrig</option>
+                                <option value="mittel" selected>Mittel</option>
+                                <option value="hoch">Hoch</option>
+                                <option value="kritisch">Kritisch</option>
                             </select>
                         </div>
 
                         <div class="ui-field-group">
-                            <label for="problem-description-input" class="ui-field-label">Beschreibung</label>
-                            <textarea id="problem-description-input" name="description" class="ui-textarea" rows="7" placeholder="Was ist passiert, was wurde erwartet, und auf welcher Seite trat es auf?" required></textarea>
+                            <label for="stoerung-description-input" class="ui-field-label">Erste Beschreibung <span class="ui-field-label-optional">(optional)</span></label>
+                            <textarea id="stoerung-description-input" name="description" class="ui-textarea" rows="4" placeholder="Was ist passiert? Welche Systeme oder Abläufe sind betroffen?"></textarea>
                         </div>
 
                         <div class="ui-field-group">
-                            <label for="problem-contact-input" class="ui-field-label">Kontakt für Rückfragen</label>
-                            <input id="problem-contact-input" name="contact" class="ui-input" type="text" value="{{ user.email or user.pnr or '' }}" placeholder="E-Mail, PNR oder Name">
+                            <label for="stoerung-system-input" class="ui-field-label">Betroffenes System <span class="ui-field-label-optional">(optional)</span></label>
+                            <input id="stoerung-system-input" name="system_name" class="ui-input" type="text" placeholder="z.B. Genesys, SAP, Netzwerk…" autocomplete="off">
                         </div>
 
-                        <p class="profile-modal-note">
-                            Dieses Modal ist vorerst rein frontendseitig. Die Eingaben werden noch nicht gespeichert oder versendet.
-                        </p>
+                        <p id="stoerung-quick-error" class="profile-modal-note" style="display:none; color: var(--status-red-text);" role="alert"></p>
                     </div>
 
                     <div class="ui-modal-footer">
-                        <button type="button" class="btn btn-secondary" data-modal-close="report-problem-modal">Abbrechen</button>
-                        <button type="submit" class="btn btn-primary">Meldung vormerken</button>
+                        <button type="button" class="btn btn-secondary" data-modal-close="stoerung-melden-modal">Abbrechen</button>
+                        <button type="submit" id="stoerung-quick-submit" class="btn btn-primary">Störung erfassen</button>
                     </div>
                 </form>
             </div>

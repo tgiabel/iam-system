@@ -10,6 +10,16 @@
 {% block content %}
 <div class="page-container dashboard-page">
     {% if user %}
+        <div id="dashboard-stoerung-banner" hidden
+             style="align-items:center; gap:14px; padding:14px 20px; border:1.5px solid rgba(182,27,0,0.35); border-radius:18px; background:var(--status-red-bg); margin-bottom:0;">
+            <span style="font-size:1.1rem;color:var(--status-red-text);">⚠</span>
+            <div style="flex:1;">
+                <strong style="color:var(--status-red-text); font-size:0.9rem;">Aktive Betriebsstörung</strong>
+                <span id="dashboard-stoerung-count" style="color:var(--status-red-text); font-size:0.85rem; margin-left:6px;"></span>
+            </div>
+            <a href="/tools/stoerungsprotokoll" class="btn btn-red" style="font-size:0.85rem; padding:8px 14px;">Zum Störungsprotokoll</a>
+        </div>
+
         <section class="dashboard-private" data-dashboard-private>
             <div class="ui-section-header dashboard-section-header">
                 <div class="ui-section-heading">

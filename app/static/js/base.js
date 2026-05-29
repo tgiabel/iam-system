@@ -16,8 +16,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const passwordChangeModal = document.getElementById("password-change-modal");
     const passwordChangeForm = document.getElementById("password-change-form");
     const passwordChangeSubmit = document.getElementById("password-change-submit");
-    const reportProblemModal = document.getElementById("report-problem-modal");
-    const reportProblemForm = document.getElementById("report-problem-form");
+    const stoerungMeldenModal = document.getElementById("stoerung-melden-modal");
+    const stoerungQuickForm = document.getElementById("stoerung-quick-form");
     const themeToggleButton = document.getElementById("theme-toggle-button");
     const themeToggleIcon = document.getElementById("theme-toggle-icon");
     const themes = [
@@ -113,8 +113,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (overlay.id === "password-change-modal") {
             passwordChangeForm?.reset();
         }
-        if (overlay.id === "report-problem-modal") {
-            reportProblemForm?.reset();
+        if (overlay.id === "stoerung-melden-modal") {
+            stoerungQuickForm?.reset();
+            const errEl = document.getElementById("stoerung-quick-error");
+            if (errEl) errEl.style.display = "none";
         }
         updateBodyScrollLock();
     }
@@ -497,18 +499,56 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    reportProblemForm?.addEventListener("submit", event => {
+    stoerungQuickForm?.addEventListener("submit", async event => {
         event.preventDefault();
 
-        const subject = document.getElementById("problem-subject-input")?.value?.trim() || "";
-        const description = document.getElementById("problem-description-input")?.value?.trim() || "";
+        const titleInput = document.getElementById("stoerung-title-input");
+        const severityInput = document.getElementById("stoerung-severity-input");
+        const descriptionInput = document.getElementById("stoerung-description-input");
+        const systemInput = document.getElementById("stoerung-system-input");
+        const errorEl = document.getElementById("stoerung-quick-error");
+        const submitBtn = document.getElementById("stoerung-quick-submit");
 
-        if (!subject || !description) {
-            showFlash("Bitte Betreff und Beschreibung ausfüllen.", "failure");
+        const title = titleInput?.value?.trim() || "";
+        if (!title) {
+            if (errorEl) { errorEl.textContent = "Bitte einen Titel angeben."; errorEl.style.display = ""; }
             return;
         }
-        closeModal(reportProblemModal);
-        showFlash("Problemhinweis vorgemerkt. Versand folgt in einem späteren Schritt.", "success");
+        if (errorEl) errorEl.style.display = "none";
+
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Wird erstellt…"; }
+
+        try {
+            const payload = {
+                title,
+                severity: severityInput?.value || "mittel",
+                description: descriptionInput?.value?.trim() || null,
+                system_name: systemInput?.value?.trim() || null,
+            };
+            if (!payload.description) delete payload.description;
+            if (!payload.system_name) delete payload.system_name;
+
+            const response = await fetch("/api/stoerung/incidents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const msg = data?.detail || data?.error || "Fehler beim Erstellen der Störung.";
+                if (errorEl) { errorEl.textContent = msg; errorEl.style.display = ""; }
+                return;
+            }
+
+            closeModal(stoerungMeldenModal);
+            stoerungQuickForm?.reset();
+            window.location.href = `/tools/stoerungsprotokoll/${data.id}`;
+        } catch (err) {
+            if (errorEl) { errorEl.textContent = "Netzwerkfehler. Bitte erneut versuchen."; errorEl.style.display = ""; }
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Störung erfassen"; }
+        }
     });
 
     markActiveNavigation();

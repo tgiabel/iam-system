@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tools & Reports" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/tools.css">
+<link rel="stylesheet" href="/static/css/stoerungsprotokoll.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/tools/stoerungsprotokoll.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container stoerung-page">
+
+    <section class="stoerung-hero">
+        <div class="stoerung-hero-copy">
+            <p class="report-kicker">Betriebsmanagement</p>
+            <h2>Störungsprotokoll</h2>
+            <p>Betriebliche Störungen erfassen, verfolgen und archivieren. Aktive Protokolle können von berechtigten Beteiligten mit Updates befüllt werden.</p>
+        </div>
+        <div class="stoerung-hero-actions">
+            <span class="ui-chip ui-chip-primary">Störungen</span>
+            <span class="ui-chip ui-chip-neutral">Protokoll</span>
+            <button type="button" class="btn btn-primary" id="openCreateBtn">+ Neue Störung</button>
+        </div>
+    </section>
+
+    {% set active = incidents | selectattr("status", "ne", "geschlossen") | list %}
+    {% set closed = incidents | selectattr("status", "equalto", "geschlossen") | list %}
+
+    {% if active %}
+    <section class="stoerung-section" aria-label="Aktive Störungen">
+        <div class="stoerung-section-head">
+            <span class="stoerung-section-title">Aktive Störungen</span>
+            <span class="ui-chip stoerung-chip-aktiv">{{ active | length }} aktiv</span>
+        </div>
+        <div class="stoerung-active-banner">
+            <div class="stoerung-active-banner-head">
+                <span class="stoerung-active-banner-label">⚠ Laufende Betriebsstörungen</span>
+            </div>
+            <div class="stoerung-active-cards">
+                {% for inc in active %}
+                <a href="/tools/stoerungsprotokoll/{{ inc.id }}" class="stoerung-active-card">
+                    <span class="ui-chip ui-chip-sm stoerung-chip-{{ inc.status }}">{{ inc.status | replace("_", " ") | title }}</span>
+                    <span class="ui-chip ui-chip-sm stoerung-chip-{{ inc.severity }}">{{ inc.severity | title }}</span>
+                    <span class="stoerung-active-card-title">{{ inc.title }}</span>
+                    <span class="stoerung-active-card-meta">{{ inc.created_by_name }} &middot; {{ inc.entry_count }} Einträge</span>
+                    <span class="stoerung-active-card-arrow">→</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="stoerung-section" aria-label="Alle Störungen">
+        <div class="stoerung-section-head">
+            <span class="stoerung-section-title">Alle Störungen</span>
+            <span class="ui-chip ui-chip-neutral">{{ incidents | length }} gesamt</span>
+        </div>
+
+        {% if incidents %}
+        <div class="stoerung-table-wrap">
+            <table class="stoerung-table" role="grid">
+                <thead>
+                    <tr>
+                        <th scope="col">Titel</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Schweregrad</th>
+                        <th scope="col">Erstellt von</th>
+                        <th scope="col">Erstellt am</th>
+                        <th scope="col">Einträge</th>
+                        <th scope="col" aria-label="Öffnen"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inc in incidents %}
+                    <tr data-href="/tools/stoerungsprotokoll/{{ inc.id }}" class="stoerung-table-row" tabindex="0" role="row">
+                        <td class="stoerung-table-title">{{ inc.title }}</td>
+                        <td><span class="ui-chip ui-chip-sm stoerung-chip-{{ inc.status }}">{{ inc.status | replace("_", " ") | title }}</span></td>
+                        <td><span class="ui-chip ui-chip-sm stoerung-chip-{{ inc.severity }}">{{ inc.severity | title }}</span></td>
+                        <td class="stoerung-table-meta">{{ inc.created_by_name }}</td>
+                        <td class="stoerung-table-meta">{{ inc.created_at[:10] if inc.created_at else "–" }}</td>
+                        <td class="stoerung-table-meta">{{ inc.entry_count }}</td>
+                        <td class="stoerung-table-arrow">→</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="stoerung-empty">
+            Noch keine Störungen erfasst. Klicke auf „+ Neue Störung", um das erste Protokoll anzulegen.
+        </div>
+        {% endif %}
+    </section>
+
+</div>
+
+<!-- Create modal -->
+<div id="stoerung-create-modal" class="ui-modal-overlay stoerung-create-modal-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="stoerung-create-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Neu</p>
+                <h3 id="stoerung-create-title">Störung erfassen</h3>
+                <p class="ui-section-copy">Lege ein neues Störungsprotokoll an. Du kannst nach dem Erstellen sofort Updates hinzufügen.</p>
+            </div>
+            <button type="button" class="ui-icon-button" id="closeCreateModal" aria-label="Dialog schließen">&times;</button>
+        </div>
+
+        <form id="stoerung-create-form">
+            <div class="ui-modal-body">
+
+                <div class="ui-field-group">
+                    <label for="create-title-input" class="ui-field-label">Titel <span aria-hidden="true">*</span></label>
+                    <input id="create-title-input" name="title" class="ui-input" type="text" placeholder="Kurze Bezeichnung der Störung" required autocomplete="off">
+                </div>
+
+                <div class="ui-field-group">
+                    <label for="create-severity-input" class="ui-field-label">Schweregrad <span aria-hidden="true">*</span></label>
+                    <select id="create-severity-input" name="severity" class="ui-input" required>
+                        <option value="niedrig">Niedrig</option>
+                        <option value="mittel" selected>Mittel</option>
+                        <option value="hoch">Hoch</option>
+                        <option value="kritisch">Kritisch</option>
+                    </select>
+                </div>
+
+                <div class="ui-field-group">
+                    <label for="create-description-input" class="ui-field-label">Erste Beschreibung <span class="ui-field-label-optional">(optional)</span></label>
+                    <textarea id="create-description-input" name="description" class="ui-textarea" rows="4" placeholder="Was ist passiert? Welche Systeme oder Abläufe sind betroffen?"></textarea>
+                </div>
+
+                <div class="ui-field-group">
+                    <label for="create-system-input" class="ui-field-label">Betroffenes System <span class="ui-field-label-optional">(optional)</span></label>
+                    <input id="create-system-input" name="system_name" class="ui-input" type="text" placeholder="z.B. Genesys, SAP, Netzwerk…" autocomplete="off">
+                </div>
+
+                <div id="create-error" class="stoerung-empty" style="display:none;" role="alert"></div>
+
+            </div>
+
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelCreateBtn">Abbrechen</button>
+                <button type="submit" class="btn btn-primary" id="createSubmitBtn">Störung erfassen</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

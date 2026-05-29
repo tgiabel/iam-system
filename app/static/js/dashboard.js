@@ -12,6 +12,7 @@ function initDashboard() {
     }
 
     loadDashboardMetrics();
+    loadActiveIncidentsBanner();
 }
 
 function setDashboardText(id, value) {
@@ -62,6 +63,30 @@ function getCurrentMonthCompletedTasks(tasks) {
         }
         return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
     });
+}
+
+async function loadActiveIncidentsBanner() {
+    const banner = document.getElementById("dashboard-stoerung-banner");
+    const countEl = document.getElementById("dashboard-stoerung-count");
+    if (!banner) return;
+
+    try {
+        const response = await fetch("/api/stoerung/incidents/active");
+        if (!response.ok) return;
+        const data = await response.json().catch(() => []);
+        const incidents = Array.isArray(data) ? data : [];
+        if (incidents.length === 0) return;
+
+        if (countEl) {
+            countEl.textContent = incidents.length === 1
+                ? "(1 aktive Störung)"
+                : `(${incidents.length} aktive Störungen)`;
+        }
+        banner.hidden = false;
+        banner.style.display = "flex";
+    } catch (_) {
+        // silent – banner stays hidden
+    }
 }
 
 async function loadDashboardMetrics() {

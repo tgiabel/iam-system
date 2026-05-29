@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% set page_title = "Störungsprotokoll" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools/stoerungsprotokoll" %}
+{% set sub_page_back_label = "Zurück zur Störungsübersicht" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/tools.css">
+<link rel="stylesheet" href="/static/css/stoerungsprotokoll.css">
+{% endblock %}
+
+{% block scripts %}
+<script>
+    window.STOERUNG_INCIDENT_ID = "{{ incident.id if incident else '' }}";
+    window.STOERUNG_INITIAL = {{ incident | tojson if incident else 'null' }};
+</script>
+<script src="/static/js/tools/stoerungsprotokoll_detail.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-stoerung-detail stoerung-page">
+
+    {% if not incident %}
+    <div class="stoerung-empty">
+        Störung nicht gefunden oder nicht zugänglich.
+        <a href="/tools/stoerungsprotokoll" class="dashboard-inline-link">Zurück zur Übersicht</a>
+    </div>
+    {% else %}
+
+    <!-- Hero -->
+    <section class="stoerung-hero">
+        <div class="stoerung-hero-copy">
+            <p class="report-kicker">Störungsprotokoll #{{ incident.id }}</p>
+            <h2 id="stoerung-detail-title">{{ incident.title }}</h2>
+            <div class="stoerung-detail-meta">
+                <span class="ui-chip stoerung-chip-{{ incident.status }}" id="stoerung-status-chip">
+                    {{ incident.status | replace("_", " ") | title }}
+                </span>
+                <span class="ui-chip stoerung-chip-{{ incident.severity }}">{{ incident.severity | title }}</span>
+                <span class="stoerung-detail-meta-item">
+                    Erstellt von <strong>{{ incident.created_by_name }}</strong>
+                    ({{ incident.created_by_role_name }})
+                </span>
+                <span class="stoerung-detail-meta-item">
+                    am {{ incident.created_at[:10] if incident.created_at else "–" }}
+                </span>
+            </div>
+        </div>
+        <div class="stoerung-hero-actions">
+            {% if incident.can_close and incident.status != "geschlossen" %}
+            <button type="button" class="btn btn-secondary" id="openContributorsBtn">Berechtigte verwalten</button>
+            <button type="button" class="btn btn-red" id="openCloseModalBtn">Störung schließen</button>
+            {% endif %}
+        </div>
+    </section>
+
+    <!-- Archived notice -->
+    {% if incident.status == "geschlossen" %}
+    <div class="stoerung-archived-notice">
+        <span>📁</span>
+        <span>Geschlossen am <strong>{{ incident.closed_at[:10] if incident.closed_at else "–" }}</strong> — archiviert, nicht mehr bearbeitbar.</span>
+    </div>
+    {% if incident.closing_note or incident.root_cause or incident.resolution_summary %}
+    <div class="stoerung-log-panel">
+        <div class="stoerung-log-head">
+            <span class="stoerung-log-title">Abschlussprotokoll</span>
+        </div>
+        <div class="stoerung-log-entry">
+            {% if incident.root_cause %}
+            <div class="stoerung-log-entry-header"><span class="stoerung-log-entry-author">Ursache</span></div>
+            <div class="stoerung-log-entry-content">{{ incident.root_cause }}</div>
+            {% endif %}
+            {% if incident.resolution_summary %}
+            <div class="stoerung-log-entry-header" style="margin-top:10px;"><span class="stoerung-log-entry-author">Behebungsmaßnahme</span></div>
+            <div class="stoerung-log-entry-content">{{ incident.resolution_summary }}</div>
+            {% endif %}
+            {% if incident.closing_note %}
+            <div class="stoerung-log-entry-header" style="margin-top:10px;"><span class="stoerung-log-entry-author">Abschlussbemerkung</span></div>
+            <div class="stoerung-log-entry-content">{{ incident.closing_note }}</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    <!-- Controls: status change -->
+    {% if incident.can_contribute and incident.status != "geschlossen" %}
+    <div class="stoerung-detail-controls">
+        <span class="stoerung-detail-controls-label">Status:</span>
+        <select id="statusSelect" class="ui-input" style="width: auto; min-width: 180px;">
+            <option value="aktiv" {% if incident.status == "aktiv" %}selected{% endif %}>Aktiv</option>
+            <option value="in_bearbeitung" {% if incident.status == "in_bearbeitung" %}selected{% endif %}>In Bearbeitung</option>
+            <option value="behoben" {% if incident.status == "behoben" %}selected{% endif %}>Behoben</option>
+        </select>
+        <button type="button" class="btn btn-secondary" id="updateStatusBtn">Übernehmen</button>
+        <span id="statusFeedback" class="stoerung-detail-meta-item" aria-live="polite"></span>
+    </div>
+    {% endif %}
+
+    <!-- Protocol log -->
+    <section class="stoerung-section" aria-label="Protokoll-Einträge">
+        <div class="stoerung-section-head">
+            <span class="stoerung-section-title">Protokoll</span>
+            <span class="ui-chip ui-chip-neutral" id="entryCountChip">{{ incident.entries | length }} Einträge</span>
+        </div>
+
+        <div class="stoerung-log-panel">
+            <div class="stoerung-log-head">
+                <span class="stoerung-log-title">Live-Protokoll</span>
+                {% if incident.status != "geschlossen" %}
+                <button type="button" class="btn btn-secondary" id="refreshLogBtn" style="font-size:0.8rem; padding:6px 12px;">↻ Aktualisieren</button>
+                {% endif %}
+            </div>
+            <div class="stoerung-log-stream" id="logStream" aria-live="polite" aria-label="Protokoll-Einträge">
+                {% if incident.entries %}
+                    {% for entry in incident.entries %}
+                    <div class="stoerung-log-entry" data-entry-id="{{ entry.id }}">
+                        <div class="stoerung-log-entry-header">
+                            <span class="stoerung-log-entry-author">{{ entry.author_name }}</span>
+                            <span class="stoerung-log-entry-role">{{ entry.author_role_name }}</span>
+                            <span class="stoerung-log-entry-time">{{ entry.created_at[:16] | replace("T", " ") if entry.created_at else "–" }}</span>
+                        </div>
+                        <div class="stoerung-log-entry-content">{{ entry.content }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="stoerung-log-empty">Noch keine Protokolleinträge.</div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Append form (sticky bottom, only if can_contribute and not closed) -->
+    {% if incident.can_contribute and incident.status != "geschlossen" %}
+    <section class="stoerung-append-panel" aria-label="Eintrag hinzufügen">
+        <span class="stoerung-append-label">Eintrag hinzufügen</span>
+        <form id="appendForm">
+            <div class="ui-field-group" style="margin-bottom: 10px;">
+                <textarea
+                    id="appendContent"
+                    name="content"
+                    class="ui-textarea"
+                    rows="2"
+                    placeholder="Update, Beobachtung oder Maßnahme…"
+                    required></textarea>
+            </div>
+            <div class="stoerung-append-actions">
+                <span id="appendFeedback" class="stoerung-detail-meta-item" aria-live="polite"></span>
+                <button type="submit" class="btn btn-primary" id="appendSubmitBtn">Eintrag senden</button>
+            </div>
+        </form>
+    </section>
+    {% endif %}
+
+    <!-- ── Modals ── -->
+
+    {% if incident.can_close and incident.status != "geschlossen" %}
+
+    <!-- Contributors modal -->
+    <div id="stoerung-contributors-modal" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="contributors-modal-title">
+            <div class="ui-modal-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Zugang</p>
+                    <h3 id="contributors-modal-title">Berechtigte verwalten</h3>
+                    <p class="ui-section-copy">Welche Rollen dürfen Einträge ins Protokoll schreiben. Deine Rolle ist immer eingeschlossen.</p>
+                </div>
+                <button type="button" class="ui-icon-button" id="contributorsModalCloseBtn" aria-label="Dialog schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body">
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Aktuelle Berechtigte</label>
+                    <div class="stoerung-contributors-chip-list" id="contributorsChipList">
+                        {% for role in incident.contributor_roles %}
+                        <span class="ui-chip ui-chip-primary stoerung-contributor-chip" data-role="{{ role }}">{{ role }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="ui-field-group">
+                    <label for="contributorRoleSelect" class="ui-field-label">Rolle hinzufügen</label>
+                    <div class="stoerung-contributors-add-row">
+                        <select id="contributorRoleSelect" class="ui-input">
+                            <option value="">Wird geladen…</option>
+                        </select>
+                        <button type="button" class="btn btn-primary" id="addContributorBtn">Hinzufügen</button>
+                    </div>
+                </div>
+                <div id="contributorsFeedback" class="stoerung-detail-meta-item" aria-live="polite"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Close modal -->
+    <div id="stoerung-close-modal" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="close-modal-title">
+            <div class="ui-modal-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Abschluss</p>
+                    <h3 id="close-modal-title">Störung schließen</h3>
+                    <p class="ui-section-copy">Das Protokoll wird archiviert und kann danach nicht mehr bearbeitet werden.</p>
+                </div>
+                <button type="button" class="ui-icon-button" id="closeModalCloseBtn" aria-label="Dialog schließen">&times;</button>
+            </div>
+            <form id="closeIncidentForm">
+                <div class="ui-modal-body">
+                    <div class="ui-field-group">
+                        <label for="closeNoteInput" class="ui-field-label">Abschlussbemerkung <span aria-hidden="true">*</span></label>
+                        <textarea id="closeNoteInput" name="closing_note" class="ui-textarea" rows="3" placeholder="Wie wurde die Störung abgeschlossen?" required></textarea>
+                    </div>
+                    <div class="ui-field-group">
+                        <label for="closeRootCauseInput" class="ui-field-label">Ursache <span class="ui-field-label-optional">(optional)</span></label>
+                        <textarea id="closeRootCauseInput" name="root_cause" class="ui-textarea" rows="2" placeholder="Was war die Ursache?"></textarea>
+                    </div>
+                    <div class="ui-field-group">
+                        <label for="closeResolutionInput" class="ui-field-label">Behebungsmaßnahme <span class="ui-field-label-optional">(optional)</span></label>
+                        <textarea id="closeResolutionInput" name="resolution_summary" class="ui-textarea" rows="2" placeholder="Wie wurde die Störung behoben?"></textarea>
+                    </div>
+                    <p id="close-error" style="display:none; color:var(--status-red-text); font-size:0.85rem;" role="alert"></p>
+                </div>
+                <div class="ui-modal-footer">
+                    <button type="button" class="btn btn-secondary" id="cancelCloseBtn">Abbrechen</button>
+                    <button type="submit" class="btn btn-red" id="closeSubmitBtn">Störung schließen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% endif %}
+
+    {% endif %}{# end if incident #}
+</div>
+{% endblock %}
