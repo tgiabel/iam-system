@@ -100,6 +100,9 @@
     --btn-red-hover-bg: linear-gradient(180deg, #ffd0ca 0%, #ffb3a7 100%);
     --btn-red-border: rgba(188, 74, 61, 0.24);
     --btn-red-text: #8d2117;
+
+    /* Components */
+    --fileinput-preview-text: #fff;
 }
 
 html[data-theme="dark"] {
@@ -165,6 +168,7 @@ html[data-theme="dark"] {
     --btn-red-hover-bg: linear-gradient(180deg, #a34747 0%, #7e2c2c 100%);
     --btn-red-border: rgba(255, 159, 159, 0.24);
     --btn-red-text: #ffe5e5;
+    --fileinput-preview-text: 0 12px 28px rgba(4, 10, 22, 0.45);
 }
 
 html[data-theme="servodata"] {
@@ -236,6 +240,7 @@ html[data-theme="servodata"] {
     --btn-red-hover-bg: linear-gradient(180deg, #a34747 0%, #7e2c2c 100%);
     --btn-red-border: rgba(255, 159, 159, 0.24);
     --btn-red-text: #ffe5e5;
+    --fileinput-preview-text: 0 12px 28px rgba(4, 10, 22, 0.45);
 }
 
 /* =========================

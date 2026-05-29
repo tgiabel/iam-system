@@ -102,10 +102,11 @@ select, input[type="date"] {
 }
 
 .report-meta-item {
+    margin-top: 24px;
     padding: 14px;
     border-radius: 14px;
-    background: #ffffff;
-    border: 1px solid #e1eaf5;
+    background: var(--header-bg);
+    border: 1px solid var(--header-border);
 }
 
 .report-meta-label {
@@ -118,7 +119,7 @@ select, input[type="date"] {
 }
 
 .report-meta-value {
-    color: #1f2f40;
+    color: var(--fileinput-preview-text);
     font-weight: 600;
     word-break: break-word;
 }
@@ -150,7 +151,7 @@ select, input[type="date"] {
 }
 
 .process-toggle:hover {
-    background: #f7fbff;
+    background: var(--header-surface);
 }
 
 .process-main {
@@ -161,11 +162,11 @@ select, input[type="date"] {
 
 .process-title {
     font-weight: 700;
-    color: #19324d;
+    color: var(--btn-secondary-border);
 }
 
 .process-subtitle {
-    color: #5f7389;
+    color: var(--footer-text);
     font-size: 0.95rem;
 }
 
