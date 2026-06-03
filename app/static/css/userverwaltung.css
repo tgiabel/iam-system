@@ -342,8 +342,8 @@
 }
 
 .users-status-sort-toggle[aria-pressed="true"] {
-    background: var(--btn-primary-bg);
-    border-color: var(--btn-primary-border);
+    background: var(--btn-red-bg);
+    border-color: var(--btn-red-border);
     color: var(--text-inverse);
 }
 

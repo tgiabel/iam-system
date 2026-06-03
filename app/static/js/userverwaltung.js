@@ -1479,8 +1479,14 @@ const sidebarController = {
             return;
         }
 
+        const resourceById = Object.fromEntries(accResources.map(r => [r.resource_id, r]));
+
         const existingRows = items.map(account => {
-            const system = state.systemMap?.[account.system_id]?.name || account.system_name || `System #${account.system_id}`;
+            const resource = account.resource_id != null ? resourceById[account.resource_id] : null;
+            const label = resource
+                ? (resource.display_name || resource.technical_identifier || null)
+                : null;
+            const system = label || state.systemMap?.[account.system_id]?.name || account.system_name || `System #${account.system_id}`;
             return `
                 <div class="user-account-item">
                     <div class="user-account-main">
@@ -2317,7 +2323,7 @@ const trainingModalController = {
 
     getRoleOptions() {
         return Object.entries(state.roleMap || {})
-            .filter(([, role]) => role.type === "SECONDARY")
+            .filter(([, role]) => role.type === "SECONDARY" && normalizeValue(role.name).startsWith("skill"))
             .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .map(([id, role]) => ({
                 role_id: String(id),
@@ -2477,14 +2483,14 @@ const trainingModalController = {
 
                 <section class="training-panel">
                     <div class="training-panel-header">
-                        <h4 class="training-panel-title">Nebenrollen auswählen</h4>
+                        <h4 class="training-panel-title">Skills auswählen</h4>
                         <span class="training-selection-count">${escapeHtml(this.state.selectedRoleIds.size)}</span>
                     </div>
                     <input
                         type="search"
                         id="training-role-search"
                         class="ui-input training-selection-search"
-                        placeholder="Suche nach Nebenrolle"
+                        placeholder="Suche nach Skill"
                         value="${escapeHtml(this.state.roleSearchTerm)}"
                     >
                     <div class="training-selection-list" id="training-role-selection-list">
@@ -2497,10 +2503,10 @@ const trainingModalController = {
                                 >
                                 <span class="training-selection-main">
                                     <span class="training-selection-title">${escapeHtml(role.name)}</span>
-                                    <span class="training-selection-meta">Nebenrolle aus der zentralen Rollenliste</span>
+                                    <span class="training-selection-meta">Skill aus der zentralen Rollenliste</span>
                                 </span>
                             </label>
-                        `).join("") : renderEmptyState("Keine Nebenrollen für die Suche gefunden.")}
+                        `).join("") : renderEmptyState("Keine Skills für die Suche gefunden.")}
                     </div>
                 </section>
             </div>
@@ -2519,7 +2525,7 @@ const trainingModalController = {
                     </div>
                     <div class="training-selection-summary">
                         ${this.renderSummaryChips(selectedUsers.map(buildUserLabel), "Keine User ausgewählt")}
-                        ${this.renderSummaryChips(selectedRoles.map(role => role.name), "Keine Nebenrollen ausgewählt")}
+                        ${this.renderSummaryChips(selectedRoles.map(role => role.name), "Keine Skills ausgewählt")}
                     </div>
                 </div>
                 <p class="training-submit-note">Der Prozess wird bereits über den finalen BFF-Endpunkt ausgelöst. Solange das Backend noch fehlt, bleibt der Dialog nach dem 501-Hinweis geöffnet.</p>
@@ -2581,7 +2587,7 @@ const trainingModalController = {
 
         document.getElementById("training-submit-btn")?.addEventListener("click", async () => {
             if (!this.state.selectedUserIds.size || !this.state.selectedRoleIds.size || !this.state.scheduledFor) {
-                showFlash("Bitte mindestens einen User, eine Nebenrolle und ein Schulungsdatum auswählen", "failure");
+                showFlash("Bitte mindestens einen User, einen Skill und ein Schulungsdatum auswählen", "failure");
                 return;
             }
 

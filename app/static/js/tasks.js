@@ -105,7 +105,7 @@ const taskWarningState = {
 const api = {
     async getTaskBacklogs() {
         try {
-            const res = await fetch("/api/task_backlogs");
+            const res = await fetch("/api/backlogs");
             const data = await res.json();
 
             if (!res.ok) {
@@ -277,18 +277,18 @@ function extractErrorMessage(detail, fallback) {
     return fallback;
 }
 
-function normalizeBacklogId(value) {
+function normalizeBacklogIdentifier(value) {
     if (value === null || value === undefined || value === "") {
         return null;
     }
 
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? numericValue : null;
+    const normalized = String(value).trim();
+    return normalized || null;
 }
 
 function getTaskBacklogFilterKey(task) {
-    const backlogId = normalizeBacklogId(task?.backlog_id);
-    return backlogId === null ? NO_BACKLOG_FILTER_VALUE : String(backlogId);
+    const identifier = normalizeBacklogIdentifier(task?.backlog_identifier);
+    return identifier === null ? NO_BACKLOG_FILTER_VALUE : identifier;
 }
 
 function formatBacklogFilterValue(backlogValue) {
@@ -727,7 +727,7 @@ function renderTaskActions(task) {
     if (!isMine) {
         formEl.innerHTML = `
             <div class="task-form-note">
-                Diese Aufgabe wird aktuell bereits bearbeitet. Verlauf und Stammdaten bleiben weiterhin sichtbar.
+                Bearbeitung aktuell nicht möglich – diese Aufgabe ist blockiert.
             </div>
         `;
         return;
@@ -1688,15 +1688,14 @@ async function loadTaskBacklogs() {
     taskViewState.backlogLookup = {};
 
     backlogs.forEach(backlog => {
-        const backlogId = normalizeBacklogId(backlog?.backlog_id);
-        if (backlogId === null) {
+        const identifier = normalizeBacklogIdentifier(backlog?.technical_identifier);
+        if (identifier === null) {
             return;
         }
 
-        taskViewState.backlogLookup[String(backlogId)] = {
-            backlog_id: backlogId,
-            slug: String(backlog.slug || "").trim(),
-            name: String(backlog.name || backlog.slug || `Backlog ${backlogId}`).trim()
+        taskViewState.backlogLookup[identifier] = {
+            backlog_identifier: identifier,
+            name: String(backlog.display_name || identifier).trim()
         };
     });
 
