@@ -20,10 +20,10 @@
                     </p>
                 </div>
                 <div class="users-header-actions">
-                    {% if "SOFA-FN-TRNG" in authz.functions %}
+                    {% if "SOFA-FN-TRNG" in authz.permissions %}
                     <button type="button" class="btn btn-secondary users-onboard-btn" id="training-action-btn">Schulung planen</button>
                     {% endif %}
-                    {% if "SOFA-FN-ONB" in authz.functions %}
+                    {% if "SOFA-FN-ONB" in authz.permissions %}
                     <button type="button" class="btn btn-primary users-onboard-btn" id="onboard-action-btn">Onboarding</button>
                     {% endif %}
                 </div>
@@ -189,7 +189,7 @@
                 </div>
 
                 <div class="user-action-panels">
-                    {% if "SOFA-FN-ACC" in authz.functions %}
+                    {% if "SOFA-FN-ACC" in authz.permissions %}
                     <article class="ui-card user-detail-card">
                         <div class="user-detail-card-header">
                             <h3>SOFA-Aktionen</h3>
@@ -199,7 +199,7 @@
                     </article>
                     {% endif %}
 
-                    {% if "SOFA-FN-OFFB" in authz.functions %}
+                    {% if "SOFA-FN-OFFB" in authz.permissions %}
                     <article class="ui-card user-detail-card">
                         <div class="user-detail-card-header">
                             <h3>Offboarding</h3>
@@ -223,14 +223,14 @@
                     </div>
                     <p class="user-action-copy">Rollenbezogene Aktionen direkt im Kontext der aktuellen Zuweisungen starten.</p>
                     <div class="user-action-group">
-                        {% if "SOFA-FN-ROLE" in authz.functions %}
+                        {% if "SOFA-FN-ROLE" in authz.permissions %}
                         <button type="button" class="btn btn-primary" id="primary-role-change-action-btn">Funktion wechseln</button>
                         {% endif %}
-                        {% if "SOFA-FN-TRNG" in authz.functions %}
+                        {% if "SOFA-FN-TRNG" in authz.permissions %}
                         <button type="button" class="btn btn-secondary" id="detail-training-action-btn">Schulung planen</button>
                         {% endif %}
                         <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
-                        {% if "SOFA-FN-TMPR" in authz.functions %}
+                        {% if "SOFA-FN-TMPR" in authz.permissions %}
                         <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
                         {% endif %}
                         <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>

@@ -7,9 +7,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 
 from app.api_client import api_client
 from app.authz import (
-    require_any_page_access,
+    require_any_permission,
     require_login,
-    require_page_access,
+    require_permission,
     get_current_user,
 )
 from app.routes.shared import _build_session_user_from_login, _build_template_context, templates
@@ -73,22 +73,22 @@ def logout(request: Request):
 
 
 @router.get("/tasks", response_class=HTMLResponse)
-def tasks(request: Request, authz=Depends(require_page_access("tasks", redirect_to="/"))):
+def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", redirect_to="/"))):
     return templates.TemplateResponse("tasks.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
 @router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_any_page_access("iks", "datex", "form", "gq", "slog", redirect_to="/"))):
+def tools(request: Request, authz=Depends(require_any_permission("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-SLOG", redirect_to="/"))):
     return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
 @router.get("/console", response_class=HTMLResponse)
-def console(request: Request, authz=Depends(require_page_access("console", redirect_to="/"))):
+def console(request: Request, authz=Depends(require_permission("SOFA-PAGE-CNSL", redirect_to="/"))):
     return templates.TemplateResponse("console.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
 @router.get("/users", response_class=HTMLResponse)
-async def users(request: Request, authz=Depends(require_page_access("users", redirect_to="/"))):
+async def users(request: Request, authz=Depends(require_permission("SOFA-PAGE-USER", redirect_to="/"))):
     return templates.TemplateResponse(
         "userverwaltung.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -96,7 +96,7 @@ async def users(request: Request, authz=Depends(require_page_access("users", red
 
 
 @router.get("/systems", response_class=HTMLResponse)
-async def systems(request: Request, authz=Depends(require_page_access("systems", redirect_to="/"))):
+async def systems(request: Request, authz=Depends(require_permission("SOFA-PAGE-SYS", redirect_to="/"))):
     return templates.TemplateResponse(
         "systemverwaltung.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -104,7 +104,7 @@ async def systems(request: Request, authz=Depends(require_page_access("systems",
 
 
 @router.get("/systems/{system_id}", response_class=HTMLResponse)
-async def system_details(request: Request, system_id: str, authz=Depends(require_page_access("systems", redirect_to="/"))):
+async def system_details(request: Request, system_id: str, authz=Depends(require_permission("SOFA-PAGE-SYS", redirect_to="/"))):
     return templates.TemplateResponse(
         "systemdetails.html",
         _build_template_context(request, user=authz.raw_user, authz=authz, system_id=system_id),
@@ -112,7 +112,7 @@ async def system_details(request: Request, system_id: str, authz=Depends(require
 
 
 @router.get("/roles", response_class=HTMLResponse)
-async def roles(request: Request, authz=Depends(require_page_access("roles", redirect_to="/"))):
+async def roles(request: Request, authz=Depends(require_permission("SOFA-PAGE-ROLE", redirect_to="/"))):
     return templates.TemplateResponse(
         "rollenmanagement.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -120,7 +120,7 @@ async def roles(request: Request, authz=Depends(require_page_access("roles", red
 
 
 @router.get("/roles/{role_id}", response_class=HTMLResponse)
-async def role_details(request: Request, role_id: str, authz=Depends(require_page_access("roles", redirect_to="/"))):
+async def role_details(request: Request, role_id: str, authz=Depends(require_permission("SOFA-PAGE-ROLE", redirect_to="/"))):
     return templates.TemplateResponse(
         "rollendetails.html",
         _build_template_context(request, user=authz.raw_user, authz=authz, role_id=role_id),
@@ -133,7 +133,7 @@ async def iks(request: Request):
 
 
 @router.get("/tools/iks", response_class=HTMLResponse)
-async def iks_tool(request: Request, authz=Depends(require_page_access("iks", redirect_to="/tools"))):
+async def iks_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-IKS", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/iks_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -141,7 +141,7 @@ async def iks_tool(request: Request, authz=Depends(require_page_access("iks", re
 
 
 @router.get("/tools/datex", response_class=HTMLResponse)
-async def datex_tool(request: Request, authz=Depends(require_page_access("datex", redirect_to="/tools"))):
+async def datex_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-DATX", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/datex_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -149,14 +149,14 @@ async def datex_tool(request: Request, authz=Depends(require_page_access("datex"
 
 
 @router.get("/tools/word-templates", response_class=HTMLResponse)
-async def word_templates_tool(request: Request, authz=Depends(require_page_access("form", redirect_to="/tools"))):
+async def word_templates_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-FORM", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/word_templates_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 @router.get("/tools/genesys-queue-manager", response_class=HTMLResponse)
-async def genesys_queue_manager_tool(request: Request, authz=Depends(require_page_access("gq", redirect_to="/tools"))):
+async def genesys_queue_manager_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-GQ", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/genesys_queue_manager_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -164,7 +164,7 @@ async def genesys_queue_manager_tool(request: Request, authz=Depends(require_pag
 
 
 @router.get("/tools/stoerungsprotokoll", response_class=HTMLResponse)
-async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_page_access("slog", redirect_to="/tools"))):
+async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-SLOG", redirect_to="/tools"))):
     try:
         incidents = await api_client.list_incidents(authz)
     except Exception:
@@ -176,7 +176,7 @@ async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_page_a
 
 
 @router.get("/tools/stoerungsprotokoll/{incident_id}", response_class=HTMLResponse)
-async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=Depends(require_page_access("slog", redirect_to="/tools/stoerungsprotokoll"))):
+async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=Depends(require_permission("SOFA-TOOL-SLOG", redirect_to="/tools/stoerungsprotokoll"))):
     try:
         incident = await api_client.get_incident(authz, incident_id)
     except Exception:

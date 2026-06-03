@@ -58,10 +58,10 @@
 
                 {% if user %}
                     <!-- Nur eingeloggte User sehen diese Links -->
-                    {% if "tasks" in authz.pages %}
+                    {% if "SOFA-PAGE-TODO" in authz.permissions %}
                         <a href="/tasks" class="nav-link" data-nav-target="tasks">To-Dos</a>
                     {% endif %}
-                    {% if "tools" in authz.pages %}
+                    {% if authz.has_any_tool %}
                         <a href="/tools" class="nav-link" data-nav-target="tools">Tools & Reports</a>
                     {% endif %}
 
@@ -74,19 +74,19 @@
                                 <span class="nav-caret" aria-hidden="true">▾</span>
                             </button>
                             <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
-                                {% if "users" in authz.pages %}
+                                {% if "SOFA-PAGE-USER" in authz.permissions %}
                                     <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users">Userverwaltung</a>
                                 {% endif %}
-                                {% if "systems" in authz.pages %}
+                                {% if "SOFA-PAGE-SYS" in authz.permissions %}
                                     <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems">Systemverwaltung</a>
                                 {% endif %}
-                                {% if "roles" in authz.pages %}
+                                {% if "SOFA-PAGE-ROLE" in authz.permissions %}
                                     <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
                                 {% endif %}
-                                {% if implemented and "iks" in authz.pages %}
+                                {% if implemented and "SOFA-TOOL-IKS" in authz.permissions %}
                                     <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks">Kontrollsystem</a>
                                 {% endif %}
-                                {% if "console" in authz.pages %}
+                                {% if "SOFA-PAGE-CNSL" in authz.permissions %}
                                     <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console">Konsole</a>
                                 {% endif %}
                             </div>
@@ -138,29 +138,29 @@
         {% if user %}
             <nav class="mobile-nav-links" aria-label="Mobile Hauptnavigation">
                 <a href="/" class="mobile-nav-link" data-nav-target="dashboard">Dashboard</a>
-                {% if "tasks" in authz.pages %}
+                {% if "SOFA-PAGE-TODO" in authz.permissions %}
                     <a href="/tasks" class="mobile-nav-link" data-nav-target="tasks">To-Dos</a>
                 {% endif %}
-                {% if "tools" in authz.pages %}
+                {% if authz.has_any_tool %}
                     <a href="/tools" class="mobile-nav-link" data-nav-target="tools">Tools &amp; Reports</a>
                 {% endif %}
 
                 {% if authz.has_admin_access %}
                     <div class="mobile-nav-group">
                         <span class="mobile-nav-group-title">Admin</span>
-                        {% if "users" in authz.pages %}
+                        {% if "SOFA-PAGE-USER" in authz.permissions %}
                             <a href="/users" class="mobile-nav-link" data-nav-target="users">Userverwaltung</a>
                         {% endif %}
-                        {% if "systems" in authz.pages %}
+                        {% if "SOFA-PAGE-SYS" in authz.permissions %}
                             <a href="/systems" class="mobile-nav-link" data-nav-target="systems">Systemverwaltung</a>
                         {% endif %}
-                        {% if "roles" in authz.pages %}
+                        {% if "SOFA-PAGE-ROLE" in authz.permissions %}
                             <a href="/roles" class="mobile-nav-link" data-nav-target="roles">Rollenmanagement</a>
                         {% endif %}
-                        {% if implemented and "iks" in authz.pages %}
+                        {% if implemented and "SOFA-TOOL-IKS" in authz.permissions %}
                             <a href="/iks" class="mobile-nav-link" data-nav-target="iks">Kontrollsystem</a>
                         {% endif %}
-                        {% if "console" in authz.pages %}
+                        {% if "SOFA-PAGE-CNSL" in authz.permissions %}
                             <a href="/console" class="mobile-nav-link" data-nav-target="console">Konsole</a>
                         {% endif %}
                     </div>

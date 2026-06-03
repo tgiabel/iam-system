@@ -1,3 +1,9 @@
+function hasPerm(identifier) {
+    const perms = window.currentAuthz?.permissions ?? [];
+    const cat = identifier.split("-")[1];
+    return perms.includes(identifier) || (cat ? perms.includes(`SOFA-${cat}-ALL`) : false);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const AUTHZ_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
     const root = document.documentElement;
@@ -214,12 +220,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getCurrentAuthz() {
-        return window.currentAuthz || { pages: [], has_admin_access: false };
+        return window.currentAuthz || { permissions: [], has_admin_access: false, has_any_tool: false };
     }
 
-    function hasPageAccess(pageKey) {
-        const pages = getCurrentAuthz().pages;
-        return Array.isArray(pages) && pages.includes(pageKey);
+    function hasPageAccess(sofaIdentifier) {
+        return hasPerm(sofaIdentifier);
     }
 
     function parseRequirementList(rawValue) {
@@ -258,13 +263,12 @@ document.addEventListener("DOMContentLoaded", () => {
     function getRequiredPageForPath(pathname) {
         const currentPath = normalizePath(pathname);
         const pageTargets = [
-            { page: "tasks", path: "/tasks" },
-            { page: "tools", path: "/tools" },
-            { page: "console", path: "/console" },
-            { page: "users", path: "/users" },
-            { page: "systems", path: "/systems" },
-            { page: "roles", path: "/roles" },
-            { page: "iks", path: "/iks" }
+            { page: "SOFA-PAGE-TODO", path: "/tasks" },
+            { page: "SOFA-PAGE-CNSL", path: "/console" },
+            { page: "SOFA-PAGE-USER", path: "/users" },
+            { page: "SOFA-PAGE-SYS", path: "/systems" },
+            { page: "SOFA-PAGE-ROLE", path: "/roles" },
+            { page: "SOFA-TOOL-IKS", path: "/iks" },
         ];
         return pageTargets.find(target => pathMatches(currentPath, target.path))?.page || null;
     }

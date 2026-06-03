@@ -8,36 +8,6 @@ from fastapi import Cookie, Depends
 from fastapi.exceptions import HTTPException  # type: ignore
 
 
-PERMISSION_MAP: dict[str, str] = {
-    "tasks":        "SOFA-PAGE-TODO",
-    "users":        "SOFA-PAGE-USER",
-    "systems":      "SOFA-PAGE-SYS",
-    "roles":        "SOFA-PAGE-ROLE",
-    "console":      "SOFA-PAGE-CNSL",
-    "form":         "SOFA-TOOL-FORM",
-    "datex":        "SOFA-TOOL-DATX",
-    "iks":          "SOFA-TOOL-IKS",
-    "gq":           "SOFA-TOOL-GQ",
-    "slog":         "SOFA-TOOL-SLOG",
-    "onboarding":   "SOFA-FN-ONB",
-    "offboarding":  "SOFA-FN-OFFB",
-    "training":     "SOFA-FN-TRNG",
-    "tmprole":      "SOFA-FN-TMPR",
-    "rolechange":   "SOFA-FN-ROLE",
-    "access_setup": "SOFA-FN-ACC",
-}
-
-ALL_TOOL_IDENTIFIERS: frozenset[str] = frozenset({
-    "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-DATX", "SOFA-TOOL-IKS", "SOFA-TOOL-SLOG",
-})
-ALL_FN_IDENTIFIERS: frozenset[str] = frozenset({
-    "SOFA-FN-ONB", "SOFA-FN-OFFB", "SOFA-FN-TRNG", "SOFA-FN-TMPR", "SOFA-FN-ROLE", "SOFA-FN-ACC",
-})
-ALL_BKLG_IDENTIFIERS: frozenset[str] = frozenset({
-    "SOFA-BKLG-IT", "SOFA-BKLG-AKAD", "SOFA-BKLG-STRG", "SOFA-BKLG-PROD",
-})
-
-
 def get_current_user(sofa_user: str | None):
     if sofa_user:
         return json.loads(sofa_user)
@@ -72,12 +42,14 @@ class AuthorizationContext:
             return f"SOFA-{parts[1]}-ALL" in self.permissions
         return False
 
-    def has_page(self, short_key: str) -> bool:
-        sofa_id = PERMISSION_MAP.get(short_key)
-        return self.has_permission(sofa_id) if sofa_id else False
-
     def has_admin_access(self) -> bool:
         return any(self.has_permission(p) for p in ("SOFA-PAGE-USER", "SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"))
+
+    def has_any_tool(self) -> bool:
+        return any(
+            self.has_permission(p) for p in self.permissions
+            if p.startswith("SOFA-TOOL-")
+        ) or "SOFA-TOOL-ALL" in self.permissions
 
 
 def _extract_identifiers(items: list[dict] | None) -> frozenset[str]:
@@ -133,17 +105,16 @@ def _forbidden(detail: str, code: str, redirect_to: str | None = None):
     )
 
 
-def require_page_access(short_key: str, redirect_to: str | None = None):
-    sofa_identifier = PERMISSION_MAP.get(short_key)
-    if sofa_identifier is None:
-        raise ValueError(f"Unknown permission key: {short_key!r}")
+def require_permission(sofa_identifier: str, redirect_to: str | None = None):
+    if not sofa_identifier.startswith("SOFA-"):
+        raise ValueError(f"Invalid SOFA identifier: {sofa_identifier!r}")
 
     async def dependency(
         authz: AuthorizationContext = Depends(build_authorization_context),
     ) -> AuthorizationContext:
         if not authz.has_permission(sofa_identifier):
             _forbidden(
-                detail=f"Kein Zugriff auf '{short_key}'.",
+                detail=f"Kein Zugriff auf '{sofa_identifier}'.",
                 code="page_access_denied",
                 redirect_to=redirect_to,
             )
@@ -152,65 +123,39 @@ def require_page_access(short_key: str, redirect_to: str | None = None):
     return dependency
 
 
-def require_any_page_access(*short_keys: str, redirect_to: str | None = None):
-    resolved: list[str] = []
-    for key in short_keys:
-        sofa_id = PERMISSION_MAP.get(key)
-        if sofa_id is None:
-            raise ValueError(f"Unknown permission key: {key!r}")
-        resolved.append(sofa_id)
+def require_any_permission(*sofa_identifiers: str, redirect_to: str | None = None):
+    for identifier in sofa_identifiers:
+        if not identifier.startswith("SOFA-"):
+            raise ValueError(f"Invalid SOFA identifier: {identifier!r}")
 
     async def dependency(
         authz: AuthorizationContext = Depends(build_authorization_context),
     ) -> AuthorizationContext:
-        if not any(authz.has_permission(sofa_id) for sofa_id in resolved):
+        if not any(authz.has_permission(sid) for sid in sofa_identifiers):
             _forbidden(
-                detail=f"Kein Zugriff auf '{', '.join(short_keys)}'.",
+                detail=f"Kein Zugriff auf '{', '.join(sofa_identifiers)}'.",
                 code="page_access_denied",
                 redirect_to=redirect_to,
             )
         return authz
 
     return dependency
-
-
-def _expand_category(permissions: frozenset[str], prefix: str, all_identifiers: frozenset[str]) -> list[str]:
-    """Return explicit identifier list, expanding SOFA-<CAT>-ALL to all known members."""
-    if f"SOFA-{prefix}-ALL" in permissions:
-        return sorted(all_identifiers)
-    return sorted(p for p in permissions if p.startswith(f"SOFA-{prefix}-") and not p.endswith("-ALL"))
 
 
 def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[str, Any]:
     if not authz:
         return {
-            "pages": [],
-            "tools": [],
-            "functions": [],
+            "permissions": [],
             "backlogs": [],
             "has_admin_access": False,
             "has_all_backlog_access": False,
+            "has_any_tool": False,
         }
 
-    # Build short-key pages list (backward compat with JS + base.html)
-    granted_pages = sorted(
-        key for key, sofa_id in PERMISSION_MAP.items()
-        if authz.has_permission(sofa_id)
-    )
-
-    tools = _expand_category(authz.permissions, "TOOL", ALL_TOOL_IDENTIFIERS)
-    functions = _expand_category(authz.permissions, "FN", ALL_FN_IDENTIFIERS)
-
-    if authz.has_all_backlog_access:
-        backlogs = sorted(ALL_BKLG_IDENTIFIERS)
-    else:
-        backlogs = sorted(b for b in authz.accessible_backlogs if b != "SOFA-BKLG-ALL")
-
     return {
-        "pages": granted_pages,
-        "tools": tools,
-        "functions": functions,
-        "backlogs": backlogs,
+        "permissions": sorted(authz.permissions),
+        "backlogs": sorted(b for b in authz.accessible_backlogs if b != "SOFA-BKLG-ALL"),
         "has_admin_access": authz.has_admin_access(),
         "has_all_backlog_access": authz.has_all_backlog_access,
+        "has_any_tool": authz.has_any_tool(),
     }

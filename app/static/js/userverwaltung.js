@@ -19,12 +19,11 @@ const state = {
 const DOM = {};
 
 function getAuthz() {
-    return window.currentAuthz || { pages: [], has_admin_access: false };
+    return window.currentAuthz || { permissions: [], has_admin_access: false };
 }
 
 function hasUsersPageAccess() {
-    const authz = getAuthz();
-    return Array.isArray(authz.pages) && authz.pages.includes("users");
+    return hasPerm("SOFA-PAGE-USER");
 }
 
 const STATUS_LABELS = {

@@ -46,14 +46,10 @@ except ModuleNotFoundError:
 
 from app.authz import (
     AuthorizationContext,
-    ALL_TOOL_IDENTIFIERS,
-    ALL_FN_IDENTIFIERS,
-    ALL_BKLG_IDENTIFIERS,
-    PERMISSION_MAP,
     build_authorization_context_from_user,
     get_authz_payload_for_template,
-    require_page_access,
-    require_any_page_access,
+    require_permission,
+    require_any_permission,
 )
 
 
@@ -171,6 +167,12 @@ class TestHasPermission(unittest.TestCase):
         self.assertTrue(authz.has_permission("SOFA-FN-ACC"))
         self.assertFalse(authz.has_permission("SOFA-TOOL-GQ"))
 
+    def test_page_all_grant(self):
+        authz = self._make_authz(permissions=("SOFA-PAGE-ALL",))
+        self.assertTrue(authz.has_permission("SOFA-PAGE-TODO"))
+        self.assertTrue(authz.has_permission("SOFA-PAGE-CNSL"))
+        self.assertFalse(authz.has_permission("SOFA-TOOL-GQ"))
+
     def test_has_admin_access_true(self):
         authz = self._make_authz(permissions=("SOFA-PAGE-USER",))
         self.assertTrue(authz.has_admin_access())
@@ -183,17 +185,20 @@ class TestHasPermission(unittest.TestCase):
         authz = self._make_authz(permissions=("SOFA-PAGE-ALL",))
         self.assertTrue(authz.has_admin_access())
 
-    def test_has_page_short_key(self):
+    def test_has_any_tool_true(self):
+        authz = self._make_authz(permissions=("SOFA-TOOL-GQ",))
+        self.assertTrue(authz.has_any_tool())
+
+    def test_has_any_tool_via_all(self):
+        authz = self._make_authz(permissions=("SOFA-TOOL-ALL",))
+        self.assertTrue(authz.has_any_tool())
+
+    def test_has_any_tool_false(self):
         authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
-        self.assertTrue(authz.has_page("tasks"))
-        self.assertFalse(authz.has_page("users"))
-
-    def test_has_page_unknown_key(self):
-        authz = self._make_authz()
-        self.assertFalse(authz.has_page("nonexistent"))
+        self.assertFalse(authz.has_any_tool())
 
 
-class TestRequirePageAccess(unittest.TestCase):
+class TestRequirePermission(unittest.TestCase):
 
     def _run(self, coro):
         return asyncio.get_event_loop().run_until_complete(coro)
@@ -209,60 +214,13 @@ class TestRequirePageAccess(unittest.TestCase):
             raw_user={},
         )
 
-    def test_unknown_key_raises_at_creation(self):
+    def test_invalid_identifier_raises_at_creation(self):
         with self.assertRaises(ValueError):
-            require_page_access("nonexistent_key_xyz")
+            require_permission("nonexistent_key_xyz")
 
-    def test_access_granted(self):
-        dep = require_page_access("tasks")
-        authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
-        result = self._run(dep.__wrapped__(authz) if hasattr(dep, "__wrapped__") else self._call_dep(dep, authz))
-        self.assertEqual(result, authz)
-
-    def _call_dep(self, dep, authz):
-        import inspect
-        fn = dep
-        sig = inspect.signature(fn)
-        return fn(authz)
-
-    def test_access_denied(self):
-        dep = require_page_access("users")
-        authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
-
-        async def run():
-            inner = list(dep.__closure__[1].cell_contents.__code__.co_consts if hasattr(dep, "__closure__") else [])
-            # Call the inner dependency function directly
-            for attr in ("dependency", "__wrapped__"):
-                if hasattr(dep, attr):
-                    return await getattr(dep, attr)(authz)
-            # Fallback: call the returned coroutine function
-            return await dep(authz)
-
-        # We just need to verify it raises HTTPException
-        # Extract the inner dependency function from the closure
-        closure = dep.__closure__ or []
-        inner_fn = None
-        for cell in closure:
-            try:
-                val = cell.cell_contents
-                if callable(val) and asyncio.iscoroutinefunction(val):
-                    inner_fn = val
-                    break
-            except ValueError:
-                continue
-
-        if inner_fn:
-            with self.assertRaises(HTTPException) as ctx:
-                self._run(inner_fn(authz))
-            self.assertEqual(ctx.exception.status_code, 403)
-
-    def test_access_granted_via_category_all(self):
-        dep = require_page_access("gq")
-        authz = self._make_authz(permissions=("SOFA-TOOL-ALL",))
-        inner_fn = self._extract_inner(dep)
-        if inner_fn:
-            result = self._run(inner_fn(authz))
-            self.assertEqual(result, authz)
+    def test_invalid_identifier_any_raises_at_creation(self):
+        with self.assertRaises(ValueError):
+            require_any_permission("SOFA-PAGE-TODO", "invalid_key")
 
     def _extract_inner(self, dep):
         for cell in (dep.__closure__ or []):
@@ -273,6 +231,48 @@ class TestRequirePageAccess(unittest.TestCase):
             except ValueError:
                 continue
         return None
+
+    def test_access_granted(self):
+        dep = require_permission("SOFA-PAGE-TODO")
+        authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
+        inner_fn = self._extract_inner(dep)
+        if inner_fn:
+            result = self._run(inner_fn(authz))
+            self.assertEqual(result, authz)
+
+    def test_access_denied(self):
+        dep = require_permission("SOFA-PAGE-USER")
+        authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
+        inner_fn = self._extract_inner(dep)
+        if inner_fn:
+            with self.assertRaises(HTTPException) as ctx:
+                self._run(inner_fn(authz))
+            self.assertEqual(ctx.exception.status_code, 403)
+
+    def test_access_granted_via_category_all(self):
+        dep = require_permission("SOFA-TOOL-GQ")
+        authz = self._make_authz(permissions=("SOFA-TOOL-ALL",))
+        inner_fn = self._extract_inner(dep)
+        if inner_fn:
+            result = self._run(inner_fn(authz))
+            self.assertEqual(result, authz)
+
+    def test_require_any_granted_partial(self):
+        dep = require_any_permission("SOFA-PAGE-TODO", "SOFA-PAGE-ROLE")
+        authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
+        inner_fn = self._extract_inner(dep)
+        if inner_fn:
+            result = self._run(inner_fn(authz))
+            self.assertEqual(result, authz)
+
+    def test_require_any_denied(self):
+        dep = require_any_permission("SOFA-PAGE-TODO", "SOFA-PAGE-ROLE")
+        authz = self._make_authz(permissions=("SOFA-PAGE-CNSL",))
+        inner_fn = self._extract_inner(dep)
+        if inner_fn:
+            with self.assertRaises(HTTPException) as ctx:
+                self._run(inner_fn(authz))
+            self.assertEqual(ctx.exception.status_code, 403)
 
 
 class TestGetAuthzPayloadForTemplate(unittest.TestCase):
@@ -290,38 +290,23 @@ class TestGetAuthzPayloadForTemplate(unittest.TestCase):
 
     def test_none_returns_empty(self):
         payload = get_authz_payload_for_template(None)
-        self.assertEqual(payload["pages"], [])
-        self.assertEqual(payload["tools"], [])
-        self.assertEqual(payload["functions"], [])
+        self.assertEqual(payload["permissions"], [])
         self.assertEqual(payload["backlogs"], [])
         self.assertFalse(payload["has_admin_access"])
         self.assertFalse(payload["has_all_backlog_access"])
+        self.assertFalse(payload["has_any_tool"])
 
-    def test_pages_as_short_keys(self):
+    def test_permissions_listed(self):
         authz = self._make_authz(permissions=("SOFA-PAGE-TODO", "SOFA-PAGE-USER"))
         payload = get_authz_payload_for_template(authz)
-        self.assertIn("tasks", payload["pages"])
-        self.assertIn("users", payload["pages"])
-        self.assertNotIn("systems", payload["pages"])
+        self.assertIn("SOFA-PAGE-TODO", payload["permissions"])
+        self.assertIn("SOFA-PAGE-USER", payload["permissions"])
+        self.assertNotIn("SOFA-PAGE-SYS", payload["permissions"])
 
-    def test_tools_listed(self):
-        authz = self._make_authz(permissions=("SOFA-TOOL-GQ", "SOFA-TOOL-DATX"))
-        payload = get_authz_payload_for_template(authz)
-        self.assertIn("SOFA-TOOL-GQ", payload["tools"])
-        self.assertIn("SOFA-TOOL-DATX", payload["tools"])
-        self.assertNotIn("SOFA-TOOL-FORM", payload["tools"])
-
-    def test_tool_all_expands(self):
+    def test_wildcard_permissions_passed_through(self):
         authz = self._make_authz(permissions=("SOFA-TOOL-ALL",))
         payload = get_authz_payload_for_template(authz)
-        for identifier in ALL_TOOL_IDENTIFIERS:
-            self.assertIn(identifier, payload["tools"])
-
-    def test_fn_all_expands(self):
-        authz = self._make_authz(permissions=("SOFA-FN-ALL",))
-        payload = get_authz_payload_for_template(authz)
-        for identifier in ALL_FN_IDENTIFIERS:
-            self.assertIn(identifier, payload["functions"])
+        self.assertIn("SOFA-TOOL-ALL", payload["permissions"])
 
     def test_backlogs_specific(self):
         authz = self._make_authz(backlogs=("SOFA-BKLG-IT", "SOFA-BKLG-AKAD"))
@@ -330,11 +315,15 @@ class TestGetAuthzPayloadForTemplate(unittest.TestCase):
         self.assertIn("SOFA-BKLG-AKAD", payload["backlogs"])
         self.assertNotIn("SOFA-BKLG-ALL", payload["backlogs"])
 
-    def test_has_all_backlog_expands_backlogs(self):
-        authz = self._make_authz(has_all_backlog_access=True)
+    def test_bklg_all_filtered_from_backlogs(self):
+        authz = self._make_authz(
+            backlogs=("SOFA-BKLG-ALL", "SOFA-BKLG-IT", "SOFA-BKLG-AKAD"),
+            has_all_backlog_access=True,
+        )
         payload = get_authz_payload_for_template(authz)
-        for identifier in ALL_BKLG_IDENTIFIERS:
-            self.assertIn(identifier, payload["backlogs"])
+        self.assertIn("SOFA-BKLG-IT", payload["backlogs"])
+        self.assertIn("SOFA-BKLG-AKAD", payload["backlogs"])
+        self.assertNotIn("SOFA-BKLG-ALL", payload["backlogs"])
         self.assertTrue(payload["has_all_backlog_access"])
 
     def test_has_admin_access_true(self):
@@ -342,30 +331,25 @@ class TestGetAuthzPayloadForTemplate(unittest.TestCase):
         payload = get_authz_payload_for_template(authz)
         self.assertTrue(payload["has_admin_access"])
 
-    def test_console_and_roles_share_identifier(self):
-        authz = self._make_authz(permissions=("SOFA-PAGE-ROLE",))
+    def test_has_any_tool_true(self):
+        authz = self._make_authz(permissions=("SOFA-TOOL-GQ",))
         payload = get_authz_payload_for_template(authz)
-        self.assertIn("roles", payload["pages"])
-        self.assertIn("console", payload["pages"])
+        self.assertTrue(payload["has_any_tool"])
 
-    def test_tool_short_keys_appear_in_pages(self):
-        authz = self._make_authz(permissions=("SOFA-TOOL-GQ", "SOFA-TOOL-SLOG"))
+    def test_has_any_tool_via_all(self):
+        authz = self._make_authz(permissions=("SOFA-TOOL-ALL",))
         payload = get_authz_payload_for_template(authz)
-        self.assertIn("gq", payload["pages"])
-        self.assertIn("slog", payload["pages"])
+        self.assertTrue(payload["has_any_tool"])
 
+    def test_has_any_tool_false(self):
+        authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
+        payload = get_authz_payload_for_template(authz)
+        self.assertFalse(payload["has_any_tool"])
 
-class TestPermissionMap(unittest.TestCase):
-
-    def test_all_short_keys_map_to_sofa_identifiers(self):
-        for key, identifier in PERMISSION_MAP.items():
-            self.assertTrue(identifier.startswith("SOFA-"), f"{key} maps to non-SOFA identifier: {identifier}")
-
-    def test_required_keys_present(self):
-        required = {"tasks", "users", "systems", "roles", "console", "form", "datex", "iks", "gq", "slog",
-                    "onboarding", "offboarding", "training", "tmprole", "rolechange", "access_setup"}
-        for key in required:
-            self.assertIn(key, PERMISSION_MAP, f"Missing key: {key}")
+    def test_permissions_sorted(self):
+        authz = self._make_authz(permissions=("SOFA-TOOL-GQ", "SOFA-PAGE-TODO", "SOFA-FN-ONB"))
+        payload = get_authz_payload_for_template(authz)
+        self.assertEqual(payload["permissions"], sorted(payload["permissions"]))
 
 
 if __name__ == "__main__":

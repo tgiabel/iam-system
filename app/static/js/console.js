@@ -637,8 +637,7 @@ async function loadProcesses(forceReload = false) {
 }
 
 function hasRoleReevaluationAccess() {
-    const pages = window.currentAuthz?.pages;
-    return Array.isArray(pages) && pages.includes("roles");
+    return hasPerm("SOFA-PAGE-ROLE");
 }
 
 function setRoleReevaluationFeedback(message = "", stateClass = "") {
@@ -967,8 +966,7 @@ function bindRoleReevaluationControls() {
 }
 
 function hasSofaAuthorizationAccess() {
-    const pages = window.currentAuthz?.pages;
-    return Array.isArray(pages) && pages.includes("console") && pages.includes("roles");
+    return hasPerm("SOFA-PAGE-CNSL") && hasPerm("SOFA-PAGE-ROLE");
 }
 
 function setSofaFeedback(message = "", stateClass = "") {
