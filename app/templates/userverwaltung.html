@@ -20,8 +20,12 @@
                     </p>
                 </div>
                 <div class="users-header-actions">
+                    {% if "SOFA-FN-TRNG" in authz.functions %}
                     <button type="button" class="btn btn-secondary users-onboard-btn" id="training-action-btn">Schulung planen</button>
+                    {% endif %}
+                    {% if "SOFA-FN-ONB" in authz.functions %}
                     <button type="button" class="btn btn-primary users-onboard-btn" id="onboard-action-btn">Onboarding</button>
+                    {% endif %}
                 </div>
             </div>
 
@@ -185,6 +189,7 @@
                 </div>
 
                 <div class="user-action-panels">
+                    {% if "SOFA-FN-ACC" in authz.functions %}
                     <article class="ui-card user-detail-card">
                         <div class="user-detail-card-header">
                             <h3>SOFA-Aktionen</h3>
@@ -192,7 +197,9 @@
                         <p id="sofa-access-status" class="user-action-copy">Status wird geladen…</p>
                         <div id="sofa-access-actions" class="user-action-group"></div>
                     </article>
+                    {% endif %}
 
+                    {% if "SOFA-FN-OFFB" in authz.functions %}
                     <article class="ui-card user-detail-card">
                         <div class="user-detail-card-header">
                             <h3>Offboarding</h3>
@@ -202,6 +209,7 @@
                             <button type="button" class="btn btn-red" id="offboard-action-btn">Offboarding starten</button>
                         </div>
                     </article>
+                    {% endif %}
                 </div>
             </section>
 
@@ -215,10 +223,16 @@
                     </div>
                     <p class="user-action-copy">Rollenbezogene Aktionen direkt im Kontext der aktuellen Zuweisungen starten.</p>
                     <div class="user-action-group">
+                        {% if "SOFA-FN-ROLE" in authz.functions %}
                         <button type="button" class="btn btn-primary" id="primary-role-change-action-btn">Funktion wechseln</button>
+                        {% endif %}
+                        {% if "SOFA-FN-TRNG" in authz.functions %}
                         <button type="button" class="btn btn-secondary" id="detail-training-action-btn">Schulung planen</button>
+                        {% endif %}
                         <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
+                        {% if "SOFA-FN-TMPR" in authz.functions %}
                         <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
+                        {% endif %}
                         <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>
                     </div>
                 </article>

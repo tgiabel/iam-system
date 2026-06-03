@@ -112,19 +112,32 @@ def _is_canonical_session_user(user_data: dict | None) -> bool:
 
 
 async def _build_session_user_from_login(login_payload: dict) -> dict:
+    # If sofa_permissions already present, preserve them without a backend call
+    if login_payload.get("sofa_permissions") is not None:
+        return _normalize_session_user(login_payload)
+
     if _is_canonical_session_user(login_payload):
-        return _normalize_session_user(login_payload)
+        normalized = _normalize_session_user(login_payload)
+    else:
+        user_id = _coerce_int(login_payload.get("user_id"))
+        if user_id is None:
+            return _normalize_session_user(login_payload)
+        try:
+            current_user = await api_client.get_current_user(user_id)
+        except Exception:
+            return _normalize_session_user(login_payload)
+        normalized = _normalize_session_user(current_user)
 
-    user_id = _coerce_int(login_payload.get("user_id"))
-    if user_id is None:
-        return _normalize_session_user(login_payload)
+    user_id = _coerce_int(normalized.get("user_id"))
+    if user_id is not None:
+        try:
+            normalized["sofa_permissions"] = await api_client.get_sofa_me(user_id)
+        except Exception:
+            normalized["sofa_permissions"] = {}
+    else:
+        normalized["sofa_permissions"] = {}
 
-    try:
-        current_user = await api_client.get_current_user(user_id)
-    except Exception:
-        return _normalize_session_user(login_payload)
-
-    return _normalize_session_user(current_user)
+    return normalized
 
 
 def _task_matches_target_user(task: dict, user_id: int, user_detail: dict) -> bool:
@@ -241,12 +254,21 @@ def _normalize_events_payload(payload) -> list[dict]:
     return [_normalize_event_record(event) for event in _extract_event_records(payload)]
 
 
-def _get_task_backlog_id(task: dict) -> int | None:
-    return _coerce_int(_first_defined_value(task, ["backlog_id"]))
+def _get_task_backlog_identifier(task: dict) -> str | None:
+    value = _first_defined_value(task, ["backlog_identifier"])
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    return normalized if normalized else None
 
 
 def _task_backlog_is_visible_to_user(task: dict, authz: AuthorizationContext) -> bool:
-    return authz.has_page("tasks")
+    if authz.has_all_backlog_access:
+        return True
+    identifier = _get_task_backlog_identifier(task)
+    if identifier is None:
+        return authz.has_permission("SOFA-PAGE-TODO")
+    return identifier in authz.accessible_backlogs
 
 
 def _build_template_context(
@@ -255,7 +277,9 @@ def _build_template_context(
     authz: AuthorizationContext | None = None,
     **extra,
 ) -> dict:
-    resolved_authz = authz or (build_authorization_context_from_user(user) if user else None)
+    resolved_authz = authz or (
+        build_authorization_context_from_user(user, user.get("sofa_permissions")) if user else None
+    )
     context = {
         "request": request,
         "user": user,
@@ -323,7 +347,7 @@ def _process_is_relevant_to_user(process: dict, authz: AuthorizationContext) -> 
 
 
 def _filter_processes_for_scope(processes: list[dict], authz: AuthorizationContext) -> list[dict]:
-    if not authz.has_page("tasks"):
+    if not authz.has_permission("SOFA-PAGE-TODO"):
         return []
     return processes
 

@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 
 from app.api_client import api_client
 from app.authz import (
+    require_any_page_access,
     require_login,
     require_page_access,
     get_current_user,
@@ -77,7 +78,7 @@ def tasks(request: Request, authz=Depends(require_page_access("tasks", redirect_
 
 
 @router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+def tools(request: Request, authz=Depends(require_any_page_access("iks", "datex", "form", "gq", "slog", redirect_to="/"))):
     return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
@@ -126,16 +127,13 @@ async def role_details(request: Request, role_id: str, authz=Depends(require_pag
     )
 
 
-@router.get("/iks", response_class=HTMLResponse)
-async def iks(request: Request, authz=Depends(require_page_access("iks", redirect_to="/"))):
-    return templates.TemplateResponse(
-        "iks.html",
-        _build_template_context(request, user=authz.raw_user, authz=authz),
-    )
+@router.get("/iks")
+async def iks(request: Request):
+    return RedirectResponse(url="/tools/iks", status_code=308)
 
 
 @router.get("/tools/iks", response_class=HTMLResponse)
-async def iks_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+async def iks_tool(request: Request, authz=Depends(require_page_access("iks", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/iks_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -143,7 +141,7 @@ async def iks_tool(request: Request, authz=Depends(require_page_access("tools", 
 
 
 @router.get("/tools/datex", response_class=HTMLResponse)
-async def datex_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+async def datex_tool(request: Request, authz=Depends(require_page_access("datex", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/datex_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -151,14 +149,14 @@ async def datex_tool(request: Request, authz=Depends(require_page_access("tools"
 
 
 @router.get("/tools/word-templates", response_class=HTMLResponse)
-async def word_templates_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+async def word_templates_tool(request: Request, authz=Depends(require_page_access("form", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/word_templates_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 @router.get("/tools/genesys-queue-manager", response_class=HTMLResponse)
-async def genesys_queue_manager_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+async def genesys_queue_manager_tool(request: Request, authz=Depends(require_page_access("gq", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/genesys_queue_manager_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -166,7 +164,7 @@ async def genesys_queue_manager_tool(request: Request, authz=Depends(require_pag
 
 
 @router.get("/tools/stoerungsprotokoll", response_class=HTMLResponse)
-async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_page_access("tools", redirect_to="/"))):
+async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_page_access("slog", redirect_to="/tools"))):
     try:
         incidents = await api_client.list_incidents(authz)
     except Exception:
@@ -178,7 +176,7 @@ async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_page_a
 
 
 @router.get("/tools/stoerungsprotokoll/{incident_id}", response_class=HTMLResponse)
-async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=Depends(require_page_access("tools", redirect_to="/tools/stoerungsprotokoll"))):
+async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=Depends(require_page_access("slog", redirect_to="/tools/stoerungsprotokoll"))):
     try:
         incident = await api_client.get_incident(authz, incident_id)
     except Exception:

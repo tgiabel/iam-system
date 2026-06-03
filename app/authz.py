@@ -8,27 +8,34 @@ from fastapi import Cookie, Depends
 from fastapi.exceptions import HTTPException  # type: ignore
 
 
-def _coerce_role_id(value: Any) -> int | None:
-    if value is None:
-        return None
-    try:
-        return int(str(value).strip())
-    except (TypeError, ValueError):
-        return None
+PERMISSION_MAP: dict[str, str] = {
+    "tasks":        "SOFA-PAGE-TODO",
+    "users":        "SOFA-PAGE-USER",
+    "systems":      "SOFA-PAGE-SYS",
+    "roles":        "SOFA-PAGE-ROLE",
+    "console":      "SOFA-PAGE-CNSL",
+    "form":         "SOFA-TOOL-FORM",
+    "datex":        "SOFA-TOOL-DATX",
+    "iks":          "SOFA-TOOL-IKS",
+    "gq":           "SOFA-TOOL-GQ",
+    "slog":         "SOFA-TOOL-SLOG",
+    "onboarding":   "SOFA-FN-ONB",
+    "offboarding":  "SOFA-FN-OFFB",
+    "training":     "SOFA-FN-TRNG",
+    "tmprole":      "SOFA-FN-TMPR",
+    "rolechange":   "SOFA-FN-ROLE",
+    "access_setup": "SOFA-FN-ACC",
+}
 
-
-def _normalize_role_slug(role_name: Any) -> str:
-    normalized = str(role_name or "").strip().lower()
-    for source, target in {
-        "ä": "ae",
-        "ö": "oe",
-        "ü": "ue",
-        "ß": "ss",
-        "&": "und",
-        "/": "-",
-    }.items():
-        normalized = normalized.replace(source, target)
-    return "-".join(part for part in normalized.replace("_", " ").split() if part)
+ALL_TOOL_IDENTIFIERS: frozenset[str] = frozenset({
+    "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-DATX", "SOFA-TOOL-IKS", "SOFA-TOOL-SLOG",
+})
+ALL_FN_IDENTIFIERS: frozenset[str] = frozenset({
+    "SOFA-FN-ONB", "SOFA-FN-OFFB", "SOFA-FN-TRNG", "SOFA-FN-TMPR", "SOFA-FN-ROLE", "SOFA-FN-ACC",
+})
+ALL_BKLG_IDENTIFIERS: frozenset[str] = frozenset({
+    "SOFA-BKLG-IT", "SOFA-BKLG-AKAD", "SOFA-BKLG-STRG", "SOFA-BKLG-PROD",
+})
 
 
 def get_current_user(sofa_user: str | None):
@@ -46,83 +53,61 @@ async def get_current_user_dep(
     return user
 
 
-# Role-to-pages mapping: primary_role_id or normalized role_name -> frozenset of accessible pages
-FULL_ACCESS_PAGES = frozenset(("dashboard", "tasks", "tools", "users", "systems", "roles", "iks", "console"))
-POWER_USER_PAGES = frozenset(("dashboard", "tasks", "tools", "users"))
-BASE_PAGES = frozenset(("dashboard", "tasks", "tools"))
-
-# Full access: by role_id or normalized role name
-FULL_ACCESS_ROLE_IDS = frozenset({19, 21, 23})
-FULL_ACCESS_ROLE_NAMES = frozenset({"sd-it", "sd-vv-leitung", "it", "verwaltung-und-vertrieb-leitung"})
-
-# Mid-tier access: by role_id or normalized role name
-MID_ACCESS_ROLE_IDS = frozenset({13})
-MID_ACCESS_ROLE_NAMES = frozenset({
-    "sd-teamleiter", "sd-produktionsleitung", "sd-akademie-leitung", "sd-personal",
-    "sd-steuerung", "sd-controlling", "sd-produktmanagement",
-    "teamleiter", "produktionsleitung", "akademie-leitung", "personal",
-    "steuerung", "controlling", "produktmanagement",
-})
-
-
 @dataclass(frozen=True)
 class AuthorizationContext:
-    """Authorization context: primary role determines page access."""
+    """Authorization context: permissions derived directly from backend /sofa/me response."""
     user_id: int | None
     pnr: str
     primary_role_name: str
-    primary_role_id: int | None
-    pages: frozenset[str]
+    permissions: frozenset[str]
+    accessible_backlogs: frozenset[str]
+    has_all_backlog_access: bool
     raw_user: dict[str, Any]
 
-    def has_page(self, page_key: str) -> bool:
-        return page_key in self.pages
+    def has_permission(self, sofa_identifier: str) -> bool:
+        if sofa_identifier in self.permissions:
+            return True
+        parts = sofa_identifier.split("-", 2)
+        if len(parts) >= 2:
+            return f"SOFA-{parts[1]}-ALL" in self.permissions
+        return False
+
+    def has_page(self, short_key: str) -> bool:
+        sofa_id = PERMISSION_MAP.get(short_key)
+        return self.has_permission(sofa_id) if sofa_id else False
 
     def has_admin_access(self) -> bool:
-        admin_pages = frozenset({"systems", "roles", "iks", "console"})
-        return bool(self.pages.intersection(admin_pages))
+        return any(self.has_permission(p) for p in ("SOFA-PAGE-USER", "SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"))
 
 
-def _resolve_pages_for_primary_role(
-    primary_role_id: int | None,
-    primary_role_name: str
-) -> frozenset[str]:
-    """Map primary role to accessible pages. No fallbacks or scopes."""
-    if primary_role_id in FULL_ACCESS_ROLE_IDS:
-        return FULL_ACCESS_PAGES
-    
-    role_slug = _normalize_role_slug(primary_role_name)
-    if role_slug in FULL_ACCESS_ROLE_NAMES:
-        return FULL_ACCESS_PAGES
-    
-    if primary_role_id in MID_ACCESS_ROLE_IDS:
-        return POWER_USER_PAGES
-    
-    if role_slug in MID_ACCESS_ROLE_NAMES:
-        return POWER_USER_PAGES
-    
-    # Default: base pages for any known role
-    if primary_role_id is not None or primary_role_name:
-        return BASE_PAGES
-    
-    # No role: no access
-    return frozenset()
+def _extract_identifiers(items: list[dict] | None) -> frozenset[str]:
+    if not items:
+        return frozenset()
+    return frozenset(item["identifier"] for item in items if item.get("identifier"))
 
 
-def build_authorization_context_from_user(user: dict[str, Any]) -> AuthorizationContext:
-    """Build authorization context from primary role only."""
+def build_authorization_context_from_user(
+    user: dict[str, Any],
+    sofa_permissions: dict[str, Any] | None = None,
+) -> AuthorizationContext:
     primary_role = user.get("primary_role") or {}
-    primary_role_id = _coerce_role_id(primary_role.get("role_id", primary_role.get("id")))
     primary_role_name = str(primary_role.get("name") or primary_role.get("role_name") or "")
 
-    pages = _resolve_pages_for_primary_role(primary_role_id, primary_role_name)
+    perms = sofa_permissions or {}
+    permissions: set[str] = set()
+    for key in ("accessible_pages", "accessible_functions", "accessible_tools", "accessible_reports"):
+        permissions.update(_extract_identifiers(perms.get(key)))
+
+    accessible_backlogs = _extract_identifiers(perms.get("accessible_backlogs"))
+    has_all_backlog_access = bool(perms.get("has_all_backlog_access")) or "SOFA-BKLG-ALL" in accessible_backlogs
 
     return AuthorizationContext(
         user_id=user.get("user_id"),
         pnr=str(user.get("pnr") or "").strip(),
         primary_role_name=primary_role_name,
-        primary_role_id=primary_role_id,
-        pages=pages,
+        permissions=frozenset(permissions),
+        accessible_backlogs=accessible_backlogs,
+        has_all_backlog_access=has_all_backlog_access,
         raw_user=user,
     )
 
@@ -130,7 +115,7 @@ def build_authorization_context_from_user(user: dict[str, Any]) -> Authorization
 async def build_authorization_context(
     user: dict[str, Any] = Depends(get_current_user_dep),
 ) -> AuthorizationContext:
-    return build_authorization_context_from_user(user)
+    return build_authorization_context_from_user(user, user.get("sofa_permissions"))
 
 
 async def require_login(
@@ -148,13 +133,17 @@ def _forbidden(detail: str, code: str, redirect_to: str | None = None):
     )
 
 
-def require_page_access(page_key: str, redirect_to: str | None = None):
+def require_page_access(short_key: str, redirect_to: str | None = None):
+    sofa_identifier = PERMISSION_MAP.get(short_key)
+    if sofa_identifier is None:
+        raise ValueError(f"Unknown permission key: {short_key!r}")
+
     async def dependency(
         authz: AuthorizationContext = Depends(build_authorization_context),
     ) -> AuthorizationContext:
-        if not authz.has_page(page_key):
+        if not authz.has_permission(sofa_identifier):
             _forbidden(
-                detail=f"Kein Zugriff auf Seite '{page_key}'.",
+                detail=f"Kein Zugriff auf '{short_key}'.",
                 code="page_access_denied",
                 redirect_to=redirect_to,
             )
@@ -163,13 +152,20 @@ def require_page_access(page_key: str, redirect_to: str | None = None):
     return dependency
 
 
-def require_any_page_access(*page_keys: str, redirect_to: str | None = None):
+def require_any_page_access(*short_keys: str, redirect_to: str | None = None):
+    resolved: list[str] = []
+    for key in short_keys:
+        sofa_id = PERMISSION_MAP.get(key)
+        if sofa_id is None:
+            raise ValueError(f"Unknown permission key: {key!r}")
+        resolved.append(sofa_id)
+
     async def dependency(
         authz: AuthorizationContext = Depends(build_authorization_context),
     ) -> AuthorizationContext:
-        if not any(authz.has_page(page_key) for page_key in page_keys):
+        if not any(authz.has_permission(sofa_id) for sofa_id in resolved):
             _forbidden(
-                detail=f"Kein Zugriff auf Seiten {', '.join(page_keys)}.",
+                detail=f"Kein Zugriff auf '{', '.join(short_keys)}'.",
                 code="page_access_denied",
                 redirect_to=redirect_to,
             )
@@ -178,17 +174,43 @@ def require_any_page_access(*page_keys: str, redirect_to: str | None = None):
     return dependency
 
 
+def _expand_category(permissions: frozenset[str], prefix: str, all_identifiers: frozenset[str]) -> list[str]:
+    """Return explicit identifier list, expanding SOFA-<CAT>-ALL to all known members."""
+    if f"SOFA-{prefix}-ALL" in permissions:
+        return sorted(all_identifiers)
+    return sorted(p for p in permissions if p.startswith(f"SOFA-{prefix}-") and not p.endswith("-ALL"))
 
 
 def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[str, Any]:
-    """Provide authorization context for templates: pages and admin access only."""
     if not authz:
         return {
             "pages": [],
+            "tools": [],
+            "functions": [],
+            "backlogs": [],
             "has_admin_access": False,
+            "has_all_backlog_access": False,
         }
 
+    # Build short-key pages list (backward compat with JS + base.html)
+    granted_pages = sorted(
+        key for key, sofa_id in PERMISSION_MAP.items()
+        if authz.has_permission(sofa_id)
+    )
+
+    tools = _expand_category(authz.permissions, "TOOL", ALL_TOOL_IDENTIFIERS)
+    functions = _expand_category(authz.permissions, "FN", ALL_FN_IDENTIFIERS)
+
+    if authz.has_all_backlog_access:
+        backlogs = sorted(ALL_BKLG_IDENTIFIERS)
+    else:
+        backlogs = sorted(b for b in authz.accessible_backlogs if b != "SOFA-BKLG-ALL")
+
     return {
-        "pages": sorted(authz.pages),
+        "pages": granted_pages,
+        "tools": tools,
+        "functions": functions,
+        "backlogs": backlogs,
         "has_admin_access": authz.has_admin_access(),
+        "has_all_backlog_access": authz.has_all_backlog_access,
     }

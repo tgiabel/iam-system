@@ -105,6 +105,9 @@ class APIClient:
     async def get_current_user(self, user_id: int) -> dict:
         return await self._get(ACCESS_BASE_URL, "/users/me", headers={"X-User-Id": str(user_id)})
 
+    async def get_sofa_me(self, user_id: int) -> dict:
+        return await self._get(SOFA_BASE_URL, "/me", headers={"X-User-Id": str(user_id)})
+
     async def list_users(self, is_active: bool | None = None) -> list[dict]:
         params = {"is_active": is_active} if is_active is not None else None
         return await self._get(ACCESS_BASE_URL, "/users/", params=params)
@@ -191,8 +194,8 @@ class APIClient:
     async def get_events(self) -> list[dict]:
         return await self._get(SOFA_BASE_URL, "/events")
 
-    async def get_task_backlogs(self) -> list[dict]:
-        return await self._get(SOFA_BASE_URL, "/task_backlogs/")
+    async def get_backlogs(self) -> list[dict]:
+        return await self._get(SOFA_BASE_URL, "/backlogs/")
 
     async def setup_user_sofa_access(self, user_id: int, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, f"/users/{user_id}/sofa-access/setup", payload=payload)

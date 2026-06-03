@@ -44,6 +44,7 @@
                 </div>
 
                 <div class="overview-card-grid">
+                    {% if "SOFA-TOOL-FORM" in authz.tools %}
                     <a href="/tools/word-templates" class="overview-card overview-card-link">
                         <div class="overview-card-top">
                             <div class="overview-card-icon-wrap">
@@ -65,7 +66,9 @@
                             <span class="overview-card-cta">Tool öffnen</span>
                         </div>
                     </a>
+                    {% endif %}
 
+                    {% if "SOFA-TOOL-DATX" in authz.tools %}
                     <a href="/tools/datex" class="overview-card overview-card-link">
                         <div class="overview-card-top">
                             <div class="overview-card-icon-wrap">
@@ -87,7 +90,9 @@
                             <span class="overview-card-cta">Tool öffnen</span>
                         </div>
                     </a>
+                    {% endif %}
 
+                    {% if "SOFA-TOOL-IKS" in authz.tools %}
                     <a href="/tools/iks" class="overview-card overview-card-link">
                         <div class="overview-card-top">
                             <div class="overview-card-icon-wrap">
@@ -109,7 +114,9 @@
                             <span class="overview-card-cta">Tool öffnen</span>
                         </div>
                     </a>
+                    {% endif %}
 
+                    {% if "SOFA-TOOL-GQ" in authz.tools %}
                     <a href="/tools/genesys-queue-manager" class="overview-card overview-card-link">
                         <div class="overview-card-top">
                             <div class="overview-card-icon-wrap">
@@ -131,7 +138,9 @@
                             <span class="overview-card-cta">Tool öffnen</span>
                         </div>
                     </a>
+                    {% endif %}
 
+                    {% if "SOFA-TOOL-SLOG" in authz.tools %}
                     <a href="/tools/stoerungsprotokoll" class="overview-card overview-card-link">
                         <div class="overview-card-top">
                             <div class="overview-card-icon-wrap">
@@ -153,6 +162,7 @@
                             <span class="overview-card-cta">Tool öffnen</span>
                         </div>
                     </a>
+                    {% endif %}
                 </div>
             </div>
         </section>

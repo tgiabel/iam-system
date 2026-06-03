@@ -52,7 +52,7 @@ def _request_uses_https(request: Request) -> bool:
 async def convert_datex_file(
     request: Request,
     datfile: UploadFile = File(...),
-    authz=Depends(require_login),
+    authz=Depends(require_page_access("datex")),
 ):
     try:
         if not datfile.filename:
@@ -90,7 +90,7 @@ async def convert_datex_file(
 
 
 @router.get("/dataprocessing/word-templates")
-async def api_list_word_templates(current_user=Depends(require_page_access("tools"))):
+async def api_list_word_templates(current_user=Depends(require_page_access("form"))):
     try:
         result = await api_client.list_word_templates()
         return JSONResponse(content=result)
@@ -104,7 +104,7 @@ async def api_list_word_templates(current_user=Depends(require_page_access("tool
 
 
 @router.get("/dataprocessing/word-template-users")
-async def api_list_word_template_users(current_user=Depends(require_page_access("tools"))):
+async def api_list_word_template_users(current_user=Depends(require_page_access("form"))):
     try:
         users = await api_client.list_users(is_active=True)
 
@@ -142,7 +142,7 @@ async def api_list_word_template_users(current_user=Depends(require_page_access(
 
 
 @router.get("/dataprocessing/word-templates/{template_id}")
-async def api_get_word_template(template_id: str, current_user=Depends(require_page_access("tools"))):
+async def api_get_word_template(template_id: str, current_user=Depends(require_page_access("form"))):
     try:
         result = await api_client.get_word_template(template_id)
         return JSONResponse(content=result)
@@ -159,7 +159,7 @@ async def api_get_word_template(template_id: str, current_user=Depends(require_p
 async def api_list_word_documents(
     template_id: str | None = None,
     user_id: str | None = None,
-    current_user=Depends(require_page_access("tools")),
+    current_user=Depends(require_page_access("form")),
 ):
     try:
         result = await api_client.list_word_documents(template_id=template_id, user_id=user_id)
@@ -179,7 +179,7 @@ async def api_create_word_template(
     description: str = Form(""),
     schema_json: str = Form(...),
     template_file: UploadFile = File(...),
-    current_user=Depends(require_page_access("tools")),
+    current_user=Depends(require_page_access("form")),
 ):
     try:
         template_content = await template_file.read()
@@ -204,7 +204,7 @@ async def api_create_word_template(
 
 
 @router.put("/dataprocessing/word-templates/{template_id}")
-async def api_update_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+async def api_update_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("form"))):
     try:
         result = await api_client.update_word_template(template_id, payload)
         return JSONResponse(content=result)
@@ -218,7 +218,7 @@ async def api_update_word_template(template_id: str, payload: dict, current_user
 
 
 @router.post("/dataprocessing/word-templates/{template_id}/render")
-async def api_render_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+async def api_render_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("form"))):
     try:
         result = await api_client.render_word_template(template_id, payload)
         return JSONResponse(content=result)
@@ -232,7 +232,7 @@ async def api_render_word_template(template_id: str, payload: dict, current_user
 
 
 @router.post("/dataprocessing/word-templates/{template_id}/prefill")
-async def api_prefill_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+async def api_prefill_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("form"))):
     try:
         request_payload = {
             "user_id": payload.get("user_id"),
@@ -250,7 +250,7 @@ async def api_prefill_word_template(template_id: str, payload: dict, current_use
 
 
 @router.post("/dataprocessing/word-templates/{template_id}/render-download")
-async def api_render_download_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("tools"))):
+async def api_render_download_word_template(template_id: str, payload: dict, current_user=Depends(require_page_access("form"))):
     try:
         request_payload = {
             "user_id": payload.get("user_id"),
@@ -281,7 +281,7 @@ async def api_render_download_word_template(template_id: str, payload: dict, cur
 
 
 @router.get("/dataprocessing/word-documents/{document_id}/download")
-async def api_download_word_document(document_id: str, current_user=Depends(require_page_access("tools"))):
+async def api_download_word_document(document_id: str, current_user=Depends(require_page_access("form"))):
     try:
         response = await api_client.download_word_document(document_id)
         media_type = response.headers.get(
@@ -307,7 +307,7 @@ async def api_download_word_document(document_id: str, current_user=Depends(requ
 
 
 @router.delete("/dataprocessing/word-documents/{document_id}")
-async def api_delete_word_document(document_id: str, current_user=Depends(require_page_access("tools"))):
+async def api_delete_word_document(document_id: str, current_user=Depends(require_page_access("form"))):
     try:
         result = await api_client.delete_word_document(document_id)
         return JSONResponse(content=result)
@@ -321,7 +321,7 @@ async def api_delete_word_document(document_id: str, current_user=Depends(requir
 
 
 @router.get("/q-manager/queues/all")
-async def api_list_qmanager_queues(current_user=Depends(require_page_access("tools"))):
+async def api_list_qmanager_queues(current_user=Depends(require_page_access("gq"))):
     try:
         result = await api_client.list_qmanager_queues()
         return JSONResponse(content=result)
@@ -335,7 +335,7 @@ async def api_list_qmanager_queues(current_user=Depends(require_page_access("too
 
 
 @router.get("/q-manager/queues/{queue_id}/members")
-async def api_list_qmanager_queue_members(queue_id: str, current_user=Depends(require_page_access("tools"))):
+async def api_list_qmanager_queue_members(queue_id: str, current_user=Depends(require_page_access("gq"))):
     try:
         result = await api_client.list_qmanager_queue_members(queue_id)
         return JSONResponse(content=result)
@@ -352,7 +352,7 @@ async def api_list_qmanager_queue_members(queue_id: str, current_user=Depends(re
 async def api_add_qmanager_queue_members(
     queue_id: str,
     payload: dict,
-    current_user=Depends(require_page_access("tools")),
+    current_user=Depends(require_page_access("gq")),
 ):
     try:
         result = await api_client.add_qmanager_queue_members(queue_id, payload)
@@ -370,7 +370,7 @@ async def api_add_qmanager_queue_members(
 async def api_remove_qmanager_queue_members(
     queue_id: str,
     payload: dict,
-    current_user=Depends(require_page_access("tools")),
+    current_user=Depends(require_page_access("gq")),
 ):
     try:
         result = await api_client.remove_qmanager_queue_members(queue_id, payload)
@@ -388,7 +388,7 @@ async def api_remove_qmanager_queue_members(
 async def api_delete_qmanager_queue_member(
     queue_id: str,
     member_id: str,
-    current_user=Depends(require_page_access("tools")),
+    current_user=Depends(require_page_access("gq")),
 ):
     try:
         result = await api_client.delete_qmanager_queue_member(queue_id, member_id)
@@ -403,7 +403,7 @@ async def api_delete_qmanager_queue_member(
 
 
 @router.get("/q-manager/users/search")
-async def api_search_qmanager_users(q: str = "", current_user=Depends(require_page_access("tools"))):
+async def api_search_qmanager_users(q: str = "", current_user=Depends(require_page_access("gq"))):
     try:
         result = await api_client.search_qmanager_users(q)
         return JSONResponse(content=result)
@@ -417,7 +417,7 @@ async def api_search_qmanager_users(q: str = "", current_user=Depends(require_pa
 
 
 @router.get("/q-manager/users/{user_id}")
-async def api_get_qmanager_user(user_id: str, current_user=Depends(require_page_access("tools"))):
+async def api_get_qmanager_user(user_id: str, current_user=Depends(require_page_access("gq"))):
     try:
         result = await api_client.get_qmanager_user(user_id)
         return JSONResponse(content=result)
@@ -431,7 +431,7 @@ async def api_get_qmanager_user(user_id: str, current_user=Depends(require_page_
 
 
 @router.get("/q-manager/users/{user_id}/queues")
-async def api_list_qmanager_user_queues(user_id: str, current_user=Depends(require_page_access("tools"))):
+async def api_list_qmanager_user_queues(user_id: str, current_user=Depends(require_page_access("gq"))):
     try:
         result = await api_client.list_qmanager_user_queues(user_id)
         return JSONResponse(content=result)
@@ -448,7 +448,7 @@ async def api_list_qmanager_user_queues(user_id: str, current_user=Depends(requi
 async def api_update_qmanager_user_queues(
     user_id: str,
     payload: dict,
-    current_user=Depends(require_page_access("tools")),
+    current_user=Depends(require_page_access("gq")),
 ):
     try:
         result = await api_client.update_qmanager_user_queues(user_id, payload)
@@ -477,12 +477,16 @@ async def api_session_authz_refresh(request: Request, sofa_user: str | None = Co
     if session_user_id is None:
         return JSONResponse(content={"detail": "Session konnte nicht eindeutig aufgeloest werden."}, status_code=401)
 
-    stale_authz = get_authz_payload_for_template(build_authorization_context_from_user(normalized_session_user))
+    stale_authz = get_authz_payload_for_template(
+        build_authorization_context_from_user(normalized_session_user, normalized_session_user.get("sofa_permissions"))
+    )
 
     try:
         refreshed_user = await api_client.get_current_user(session_user_id)
         normalized_user = await _build_session_user_from_login(refreshed_user)
-        refreshed_authz = get_authz_payload_for_template(build_authorization_context_from_user(normalized_user))
+        refreshed_authz = get_authz_payload_for_template(
+            build_authorization_context_from_user(normalized_user, normalized_user.get("sofa_permissions"))
+        )
 
         response = JSONResponse(
             content={
@@ -610,10 +614,13 @@ async def api_events(current_user=Depends(require_page_access("console"))):
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
-@router.get("/task_backlogs")
+@router.get("/backlogs")
 async def api_task_backlogs(current_user=Depends(require_any_page_access("tasks", "roles"))):
     try:
-        backlogs = await api_client.get_task_backlogs()
+        backlogs = await api_client.get_backlogs()
+        if not current_user.has_all_backlog_access:
+            allowed = current_user.accessible_backlogs
+            backlogs = [b for b in backlogs if b.get("identifier") in allowed]
         return JSONResponse(content=backlogs)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(
@@ -625,7 +632,7 @@ async def api_task_backlogs(current_user=Depends(require_any_page_access("tasks"
 
 
 @router.post("/users/{user_id}/sofa-access/setup")
-async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(require_page_access("users"))):
+async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=Depends(require_page_access("access_setup"))):
     try:
         request_payload = {
             "password": payload.get("password"),
@@ -640,7 +647,7 @@ async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=D
 
 
 @router.post("/users/{user_id}/sofa-access/reset-password")
-async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user=Depends(require_page_access("users"))):
+async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user=Depends(require_page_access("access_setup"))):
     try:
         request_payload = {
             "password": payload.get("password"),
@@ -655,7 +662,7 @@ async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user
 
 
 @router.post("/users/{user_id}/sofa-access/revoke")
-async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require_page_access("users"))):
+async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require_page_access("access_setup"))):
     try:
         request_payload = {"initiator_user_id": current_user.user_id}
         result = await api_client.revoke_user_sofa_access(user_id, request_payload)
@@ -824,7 +831,7 @@ async def api_change_own_password(payload: dict, current_user=Depends(require_lo
 @router.post("/processes/onboarding/lookup")
 async def api_lookup_onboarding_candidate(
     payload: dict,
-    current_user=Depends(require_page_access("users")),
+    current_user=Depends(require_page_access("onboarding")),
 ):
     pnr = str(payload.get("pnr") or "").strip()
     if not pnr:
@@ -847,7 +854,7 @@ async def api_lookup_onboarding_candidate(
 @router.post("/processes/onboarding")
 async def api_start_onboarding_process(
     payload: dict,
-    current_user=Depends(require_page_access("users")),
+    current_user=Depends(require_page_access("onboarding")),
 ):
     mode = str(payload.get("mode") or "").strip().lower()
     confirmed = bool(payload.get("confirmed"))
@@ -935,7 +942,7 @@ async def api_start_onboarding_process(
 @router.post("/processes/onboarding-ext")
 async def api_start_ext_onboarding_process(
     payload: dict,
-    current_user=Depends(require_page_access("users")),
+    current_user=Depends(require_page_access("onboarding")),
 ):
     try:
         payload["initiator_user_id"] = current_user.user_id
@@ -1245,7 +1252,7 @@ async def api_start_skill_assignment_process(payload: dict, current_user=Depends
 
 
 @router.post("/processes/change")
-async def api_start_primary_role_change_process(payload: dict, current_user=Depends(require_page_access("users"))):
+async def api_start_primary_role_change_process(payload: dict, current_user=Depends(require_page_access("rolechange"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_primary_role_change(payload)
@@ -1257,7 +1264,7 @@ async def api_start_primary_role_change_process(payload: dict, current_user=Depe
 
 
 @router.post("/processes/tmp_role")
-async def api_start_temporary_role_process(payload: dict, current_user=Depends(require_page_access("users"))):
+async def api_start_temporary_role_process(payload: dict, current_user=Depends(require_page_access("tmprole"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_temporary_role(payload)
@@ -1269,7 +1276,7 @@ async def api_start_temporary_role_process(payload: dict, current_user=Depends(r
 
 
 @router.post("/processes/offboarding")
-async def api_start_offboarding_process(payload: dict, current_user=Depends(require_page_access("users"))):
+async def api_start_offboarding_process(payload: dict, current_user=Depends(require_page_access("offboarding"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_offboarding(payload)
@@ -1281,7 +1288,7 @@ async def api_start_offboarding_process(payload: dict, current_user=Depends(requ
 
 
 @router.post("/processes/training_schedule")
-async def api_start_training_schedule_process(payload: dict, current_user=Depends(require_page_access("users"))):
+async def api_start_training_schedule_process(payload: dict, current_user=Depends(require_page_access("training"))):
     user_ids = payload.get("user_ids")
     role_ids = payload.get("role_ids")
     scheduled_for = str(payload.get("scheduled_for") or "").strip()
@@ -1391,7 +1398,7 @@ async def api_remove_resources_from_role(role_id: int, resource_ids: dict, curre
 # Störungsprotokoll
 
 @router.get("/stoerung/incidents")
-async def api_list_incidents(status_filter: str | None = None, authz=Depends(require_page_access("tools"))):
+async def api_list_incidents(status_filter: str | None = None, authz=Depends(require_page_access("slog"))):
     try:
         result = await api_client.list_incidents(authz, status_filter=status_filter)
         return JSONResponse(content=result)
@@ -1413,7 +1420,7 @@ async def api_list_active_incidents(authz=Depends(require_login)):
 
 
 @router.get("/stoerung/incidents/{incident_id}")
-async def api_get_incident(incident_id: str, authz=Depends(require_page_access("tools"))):
+async def api_get_incident(incident_id: str, authz=Depends(require_page_access("slog"))):
     try:
         result = await api_client.get_incident(authz, incident_id)
         return JSONResponse(content=result)
@@ -1424,7 +1431,7 @@ async def api_get_incident(incident_id: str, authz=Depends(require_page_access("
 
 
 @router.post("/stoerung/incidents")
-async def api_create_incident(payload: dict, authz=Depends(require_page_access("tools"))):
+async def api_create_incident(payload: dict, authz=Depends(require_page_access("slog"))):
     try:
         description = payload.get("description") or None
         payload.setdefault("contributor_roles", [])
@@ -1447,7 +1454,7 @@ async def api_create_incident(payload: dict, authz=Depends(require_page_access("
 
 
 @router.patch("/stoerung/incidents/{incident_id}/status")
-async def api_update_incident_status(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+async def api_update_incident_status(incident_id: str, payload: dict, authz=Depends(require_page_access("slog"))):
     try:
         result = await api_client.update_incident_status(authz, incident_id, payload["status"])
         return JSONResponse(content=result)
@@ -1458,7 +1465,7 @@ async def api_update_incident_status(incident_id: str, payload: dict, authz=Depe
 
 
 @router.post("/stoerung/incidents/{incident_id}/entries")
-async def api_append_incident_entry(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+async def api_append_incident_entry(incident_id: str, payload: dict, authz=Depends(require_page_access("slog"))):
     try:
         result = await api_client.append_incident_entry(authz, incident_id, payload["content"])
         return JSONResponse(content=result, status_code=201)
@@ -1469,7 +1476,7 @@ async def api_append_incident_entry(incident_id: str, payload: dict, authz=Depen
 
 
 @router.post("/stoerung/incidents/{incident_id}/close")
-async def api_close_incident(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+async def api_close_incident(incident_id: str, payload: dict, authz=Depends(require_page_access("slog"))):
     try:
         result = await api_client.close_incident(authz, incident_id, payload)
         return JSONResponse(content=result)
@@ -1480,7 +1487,7 @@ async def api_close_incident(incident_id: str, payload: dict, authz=Depends(requ
 
 
 @router.patch("/stoerung/incidents/{incident_id}/contributors")
-async def api_update_incident_contributors(incident_id: str, payload: dict, authz=Depends(require_page_access("tools"))):
+async def api_update_incident_contributors(incident_id: str, payload: dict, authz=Depends(require_page_access("slog"))):
     try:
         result = await api_client.update_incident_contributors(authz, incident_id, payload)
         return JSONResponse(content=result)
@@ -1491,7 +1498,7 @@ async def api_update_incident_contributors(incident_id: str, payload: dict, auth
 
 
 @router.get("/stoerung/roles")
-async def api_stoerung_roles(authz=Depends(require_page_access("tools"))):
+async def api_stoerung_roles(authz=Depends(require_page_access("slog"))):
     try:
         result = await api_client.get_role_map()
         return JSONResponse(content=result)
