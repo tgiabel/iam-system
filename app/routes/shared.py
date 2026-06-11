@@ -114,10 +114,6 @@ def _is_canonical_session_user(user_data: dict | None) -> bool:
 
 
 async def _build_session_user_from_login(login_payload: dict) -> dict:
-    # If sofa_permissions already present, preserve them without a backend call
-    if login_payload.get("sofa_permissions") is not None:
-        return _normalize_session_user(login_payload)
-
     if _is_canonical_session_user(login_payload):
         normalized = _normalize_session_user(login_payload)
     else:
@@ -140,83 +136,6 @@ async def _build_session_user_from_login(login_payload: dict) -> dict:
         normalized["sofa_permissions"] = {}
 
     return normalized
-
-
-def _task_matches_target_user(task: dict, user_id: int, user_detail: dict) -> bool:
-    full_name = _normalize_text(f"{user_detail.get('first_name', '')} {user_detail.get('last_name', '')}")
-    user_pnr = _normalize_text(user_detail.get("pnr"))
-
-    target_user_id = _first_defined_value(task, ["target_user_id", "user_id", "for_user_id"])
-    if str(target_user_id or "") == str(user_id):
-        return True
-
-    target_pnr = _first_defined_value(task, ["target_user_pnr", "user_pnr", "pnr"])
-    if user_pnr and _normalize_text(target_pnr) == user_pnr:
-        return True
-
-    target_name = _first_defined_value(task, ["target_user_name", "user_name", "target_name"])
-    if full_name and _normalize_text(target_name) == full_name:
-        return True
-
-    return False
-
-
-def _task_matches_initiator(task: dict, user_id: int, user_detail: dict) -> bool:
-    full_name = _normalize_text(f"{user_detail.get('first_name', '')} {user_detail.get('last_name', '')}")
-
-    initiator_user_id = _first_defined_value(task, ["initiator_user_id", "created_by_user_id", "triggered_by_user_id"])
-    if str(initiator_user_id or "") == str(user_id):
-        return True
-
-    initiator_name = _first_defined_value(task, ["initiator_name", "triggered_by_name", "created_by_name", "initiator_user_name"])
-    if full_name and _normalize_text(initiator_name) == full_name:
-        return True
-
-    return False
-
-
-def _summarize_process(process_id: str, tasks: list[dict]) -> dict:
-    sorted_tasks = sorted(
-        tasks,
-        key=lambda task: str(_first_defined_value(task, ["created_at", "started_at", "completed_at"], "")),
-        reverse=True,
-    )
-    head = sorted_tasks[0] if sorted_tasks else {}
-    statuses = {_normalize_text(task.get("status")) for task in tasks}
-
-    if "in_progress" in statuses:
-        process_status = "in_progress"
-    elif "open" in statuses:
-        process_status = "requested"
-    elif statuses:
-        process_status = sorted(statuses)[0]
-    else:
-        process_status = "active"
-
-    return {
-        "process_id": process_id,
-        "process_name": _first_defined_value(head, ["process_name", "name", "process_type", "type"], "Prozess"),
-        "process_type": _first_defined_value(head, ["process_type", "type"], "process"),
-        "status": process_status,
-        "target_name": _first_defined_value(head, ["target_user_name", "user_name", "target_name"], "-"),
-        "initiator_name": _first_defined_value(head, ["initiator_name", "triggered_by_name", "created_by_name", "initiator_user_name"], "-"),
-        "started_at": _first_defined_value(head, ["started_at", "created_at"], None),
-        "completed_at": _first_defined_value(head, ["completed_at", "finished_at"], None),
-        "task_count": len(tasks),
-    }
-
-
-def _summarize_task_action(task: dict) -> dict:
-    return {
-        "task_id": task.get("task_id"),
-        "action": "completed",
-        "action_label": "Erledigt",
-        "task_type": task.get("task_type"),
-        "status": _normalize_text(task.get("status")) or "completed",
-        "process_id": task.get("process_id"),
-        "resource_name": task.get("resource_name"),
-        "completed_at": _first_defined_value(task, ["completed_at", "updated_at", "created_at"], None),
-    }
 
 
 def _extract_event_records(payload) -> list[dict]:
@@ -289,23 +208,6 @@ def _build_template_context(
     }
     context.update(extra)
     return context
-
-
-def _task_is_relevant_to_user(task: dict, authz: AuthorizationContext) -> bool:
-    user_id = authz.user_id
-    user_detail = authz.raw_user
-
-    assigned_user_id = _first_defined_value(task, ["assigned_to_user_id", "assigned_user_id"])
-    if str(assigned_user_id or "") == str(user_id):
-        return True
-
-    if _task_matches_target_user(task, user_id, user_detail):
-        return True
-
-    if _task_matches_initiator(task, user_id, user_detail):
-        return True
-
-    return False
 
 
 def _task_is_visible_to_user(task: dict, authz: AuthorizationContext) -> bool:

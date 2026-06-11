@@ -142,10 +142,25 @@ def require_any_permission(*sofa_identifiers: str, redirect_to: str | None = Non
     return dependency
 
 
+class PermissionSet(list):
+    """list-Unterklasse mit Wildcard-aware 'in'-Operator für Jinja2-Templates."""
+    def __init__(self, permissions: frozenset[str]):
+        super().__init__(sorted(permissions))
+        self._pset = permissions
+
+    def __contains__(self, identifier: object) -> bool:
+        if super().__contains__(identifier):
+            return True
+        parts = str(identifier).split("-", 2)
+        if len(parts) >= 2:
+            return f"SOFA-{parts[1]}-ALL" in self._pset
+        return False
+
+
 def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[str, Any]:
     if not authz:
         return {
-            "permissions": [],
+            "permissions": PermissionSet(frozenset()),
             "backlogs": [],
             "has_admin_access": False,
             "has_all_backlog_access": False,
@@ -153,7 +168,7 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
         }
 
     return {
-        "permissions": sorted(authz.permissions),
+        "permissions": PermissionSet(authz.permissions),
         "backlogs": sorted(b for b in authz.accessible_backlogs if b != "SOFA-BKLG-ALL"),
         "has_admin_access": authz.has_admin_access(),
         "has_all_backlog_access": authz.has_all_backlog_access,

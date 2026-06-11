@@ -24,15 +24,11 @@ from app.routes.shared import (
     _coerce_int,
     _build_session_user_from_login,
     _error_content_from_response,
+    _normalize_session_user,
     _filter_processes_for_scope,
     _filter_tasks_for_scope,
-    _first_defined_value,
     _get_relevant_task_or_raise,
     _normalize_events_payload,
-    _summarize_process,
-    _summarize_task_action,
-    _task_matches_initiator,
-    _task_matches_target_user,
     templates,
 )
 
@@ -472,7 +468,7 @@ async def api_session_authz_refresh(request: Request, sofa_user: str | None = Co
     if not isinstance(session_user, dict):
         return JSONResponse(content={"detail": "Keine aktive Session vorhanden."}, status_code=401)
 
-    normalized_session_user = await _build_session_user_from_login(session_user)
+    normalized_session_user = _normalize_session_user(session_user)
     session_user_id = _coerce_int(normalized_session_user.get("user_id"))
     if session_user_id is None:
         return JSONResponse(content={"detail": "Session konnte nicht eindeutig aufgeloest werden."}, status_code=401)
@@ -553,54 +549,7 @@ async def api_user_activity(user_id: int, current_user=Depends(require_permissio
         activity = await api_client.get_user_activity(user_id)
         return JSONResponse(content=activity)
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code != 404:
-            return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
-    except Exception:
-        pass
-
-    try:
-        user_detail = await api_client.get_user_details(user_id)
-        all_tasks = await api_client.list_tasks()
-        completed_tasks = await api_client.list_tasks(status="COMPLETED", assigned_to_user_id=user_id)
-
-        affected_buckets: dict[str, list[dict]] = {}
-        initiated_buckets: dict[str, list[dict]] = {}
-
-        for task in all_tasks:
-            process_id = str(_first_defined_value(task, ["process_id", "id", "task_id"], "unknown"))
-
-            if _task_matches_target_user(task, user_id, user_detail):
-                affected_buckets.setdefault(process_id, []).append(task)
-
-            if _task_matches_initiator(task, user_id, user_detail):
-                initiated_buckets.setdefault(process_id, []).append(task)
-
-        affected_processes = [
-            _summarize_process(process_id, tasks)
-            for process_id, tasks in affected_buckets.items()
-        ]
-        initiated_processes = [
-            _summarize_process(process_id, tasks)
-            for process_id, tasks in initiated_buckets.items()
-        ]
-        recent_task_actions = [
-            _summarize_task_action(task)
-            for task in sorted(
-                completed_tasks,
-                key=lambda item: str(_first_defined_value(item, ["completed_at", "updated_at", "created_at"], "")),
-                reverse=True,
-            )[:5]
-        ]
-
-        return JSONResponse(
-            content={
-                "affected_processes": affected_processes,
-                "initiated_processes": initiated_processes,
-                "recent_task_actions": recent_task_actions,
-            }
-        )
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
@@ -1264,7 +1213,7 @@ async def api_reevaluate_role_resources(role_id: int, payload: dict, current_use
 
 
 @router.post("/processes/skill_assignment")
-async def api_start_skill_assignment_process(payload: dict, current_user=Depends(require_permission("SOFA-PAGE-USER"))):
+async def api_start_skill_assignment_process(payload: dict, current_user=Depends(require_permission("SOFA-FN-RL"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_skill_assignment(payload)
@@ -1359,7 +1308,7 @@ async def api_start_training_schedule_process(payload: dict, current_user=Depend
 
 
 @router.post("/processes/skill_revocation")
-async def api_start_skill_removal_process(payload: dict, current_user=Depends(require_permission("SOFA-PAGE-USER"))):
+async def api_start_skill_removal_process(payload: dict, current_user=Depends(require_permission("SOFA-FN-RMRL"))):
     try:
         payload["initiator_user_id"] = current_user.user_id
         result = await api_client.trigger_skill_removal(payload)

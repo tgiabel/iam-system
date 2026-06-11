@@ -116,7 +116,7 @@ class APIClient:
         return await self._get(ACCESS_BASE_URL, f"/users/{user_id}/details")
 
     async def get_user_activity(self, user_id: int) -> dict:
-        return await self._get(ACCESS_BASE_URL, f"/users/{user_id}/activity")
+        return await self._get(SOFA_BASE_URL, f"/users/{user_id}/activity")
 
     async def get_user_by_pnr(self, pnr: str):
         return await self._get(ACCESS_BASE_URL, f"/users/{pnr}")
