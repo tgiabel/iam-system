@@ -8,12 +8,14 @@ const state = {
     activeUserTab: "details",
     searchTerm: "",
     filters: {
-        primaryRoleIds: [],
-        secondaryRoleIds: [],
-        includeInactive: false,
+        primaryRoles: { include: [], exclude: [] },
+        secondaryRoles: { include: [], exclude: [] },
+        severities: { include: [], exclude: [] },
+        actions: { include: [], exclude: [] },
         openCategory: null
     },
-    statusSortEnabled: false
+    showInactive: false,
+    sortField: "last_name"
 };
 
 const DOM = {};
@@ -43,12 +45,31 @@ const ASSIGNMENT_LABELS = {
     revoked: "Entzogen"
 };
 
+const SEVERITY_OPTIONS = [
+    { id: "none", label: "Ohne Vorgang" },
+    { id: "low", label: "Niedrig" },
+    { id: "info", label: "Info" },
+    { id: "warning", label: "Warnung" },
+    { id: "error", label: "Fehler" }
+];
+
+const ACTION_OPTIONS = [
+    { id: "onboarding", label: "Onboarding" },
+    { id: "skill_assignment", label: "Neue Rolle" },
+    { id: "training_schedule", label: "Schulung" },
+    { id: "skill_removal", label: "Rollenentzug" },
+    { id: "temporary_role", label: "Temporäre Rolle" },
+    { id: "change", label: "Abteilungswechsel" },
+    { id: "offboarding", label: "Offboarding" }
+];
+
 const ACTIVE_ROLE_ASSIGNMENT_CODES = new Set(["active"]);
 const REQUESTED_ROLE_ASSIGNMENT_CODES = new Set(["requested", "open", "pending", "in_progress"]);
+const DONE_TASK_STATUSES = new Set(["completed", "cancelled", "canceled"]);
 
 const api = {
     async getUsers() {
-        const isActive = String(!state.filters.includeInactive);
+        const isActive = String(!state.showInactive);
         const res = await fetch(`/api/users?is_active=${isActive}`);
         if (!res.ok) {
             throw new Error(`Users konnten nicht geladen werden (${res.status})`);
@@ -790,12 +811,52 @@ function dedupeBy(items, keyBuilder) {
 }
 
 function sortUsersByName(users) {
-    return [...(Array.isArray(users) ? users : [])].sort((left, right) => {
-        const leftKey = `${left?.last_name || ""} ${left?.first_name || ""}`.trim();
-        const rightKey = `${right?.last_name || ""} ${right?.first_name || ""}`.trim();
-        return leftKey.localeCompare(rightKey, "de");
-    });
+    return [...(Array.isArray(users) ? users : [])].sort(compareByNameKey);
 }
+
+const SORT_OPTIONS = [
+    { field: "last_name", label: "Nachname" },
+    { field: "main_role", label: "Funktion" },
+    { field: "status", label: "Status" },
+    { field: "entry_date", label: "Eintrittsdatum" },
+    { field: "exit_date", label: "Austrittsdatum" }
+];
+
+function getNameSortKey(user) {
+    return `${user?.last_name || ""} ${user?.first_name || ""}`.trim();
+}
+
+function compareByNameKey(left, right) {
+    return getNameSortKey(left).localeCompare(getNameSortKey(right), "de");
+}
+
+function parseDateValue(value) {
+    if (!value) {
+        return -Infinity;
+    }
+    const time = new Date(value).getTime();
+    return Number.isNaN(time) ? -Infinity : time;
+}
+
+const SORT_COMPARATORS = {
+    last_name: compareByNameKey,
+    main_role: (left, right) => {
+        const diff = (left?.primary_role?.name || "").localeCompare(right?.primary_role?.name || "", "de");
+        return diff !== 0 ? diff : compareByNameKey(left, right);
+    },
+    status: (left, right) => {
+        const diff = getStatusSortPriority(left) - getStatusSortPriority(right);
+        return diff !== 0 ? diff : compareByNameKey(left, right);
+    },
+    entry_date: (left, right) => {
+        const diff = parseDateValue(left?.entry_date) - parseDateValue(right?.entry_date);
+        return diff !== 0 ? diff : compareByNameKey(left, right);
+    },
+    exit_date: (left, right) => {
+        const diff = parseDateValue(left?.exit_date) - parseDateValue(right?.exit_date);
+        return diff !== 0 ? diff : compareByNameKey(left, right);
+    }
+};
 
 function buildUserLabel(user) {
     const name = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
@@ -830,7 +891,8 @@ function getRoleAssignments(detail) {
     const combinedRoles = [
         ...(detail?.primary_role ? [detail.primary_role] : []),
         ...(Array.isArray(detail?.secondary_roles) ? detail.secondary_roles : []),
-        ...(Array.isArray(detail?.roles) ? detail.roles : [])
+        ...(Array.isArray(detail?.roles) ? detail.roles : []),
+        ...(Array.isArray(detail?.pending_role_assignments) ? detail.pending_role_assignments : [])
     ].filter(Boolean);
 
     const uniqueRoles = dedupeBy(combinedRoles, role => String(role.role_id));
@@ -863,6 +925,31 @@ function getUserResources(detail) {
         ...r,
         assignment_status: r.assignment_status || "active"
     }));
+}
+
+const RESOURCE_ASSIGNMENT_STATUS_PRIORITY = { active: 4, requested: 3, revocation_requested: 2, revoked: 1 };
+
+function getResourceAssignmentStatusByResourceId(detail) {
+    const statusByResourceId = new Map();
+    getUserResources(detail).forEach(resource => {
+        const code = getAssignmentStatusCode(resource);
+        const existing = statusByResourceId.get(resource.resource_id);
+        if (!existing || (RESOURCE_ASSIGNMENT_STATUS_PRIORITY[code] || 0) > (RESOURCE_ASSIGNMENT_STATUS_PRIORITY[existing] || 0)) {
+            statusByResourceId.set(resource.resource_id, code);
+        }
+    });
+    return statusByResourceId;
+}
+
+function getPackageResourceStatus(resourceStatusByResourceId, resourceId) {
+    const code = resourceStatusByResourceId.get(resourceId);
+    if (code === "active") {
+        return { label: "Zugewiesen", className: "users-status-active" };
+    }
+    if (code) {
+        return getAssignmentStatus({ assignment_status: code });
+    }
+    return { label: "Fehlt", className: "users-status-warning" };
 }
 
 function groupResourcesBySystem(resources) {
@@ -920,60 +1007,40 @@ const filterController = {
             event.stopPropagation();
         });
 
-        DOM.subfilterDropdown?.addEventListener("change", async event => {
+        DOM.subfilterDropdown?.addEventListener("change", event => {
             const target = event.target;
             if (!(target instanceof HTMLInputElement)) {
                 return;
             }
 
-            if (target.dataset.filterType === "status") {
-                state.filters.includeInactive = target.checked;
-                this.renderActiveTags();
-                await tableController.loadUsers();
-                await this.openSubfilter("status");
+            const { filterKey, action } = target.dataset;
+            if (!filterKey || !action) {
                 return;
             }
 
-            if (target.dataset.filterType === "primary") {
-                this.toggleRoleFilter("primaryRoleIds", target.value, target.checked);
-            }
-
-            if (target.dataset.filterType === "secondary") {
-                this.toggleRoleFilter("secondaryRoleIds", target.value, target.checked);
-            }
-
-            this.renderActiveTags();
-            tableController.render();
-        });
-
-        DOM.activeFilters?.addEventListener("click", async event => {
-            const target = event.target;
-            if (!(target instanceof HTMLElement) || !target.matches("[data-filter-type]")) {
-                return;
-            }
-
-            const filterType = target.dataset.filterType;
-            const value = target.dataset.value;
-
-            if (filterType === "status") {
-                state.filters.includeInactive = false;
-                this.renderActiveTags();
-                this.rerenderOpenSubfilter();
-                await tableController.loadUsers();
-                return;
-            }
-
-            if (filterType === "primary") {
-                this.toggleRoleFilter("primaryRoleIds", value, false);
-            }
-
-            if (filterType === "secondary") {
-                this.toggleRoleFilter("secondaryRoleIds", value, false);
-            }
-
+            this.toggleOptionFilter(filterKey, target.value, action, target.checked);
             this.renderActiveTags();
             this.rerenderOpenSubfilter();
             tableController.render();
+        });
+
+        DOM.activeFilters?.addEventListener("click", event => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement) || !target.matches("[data-filter-key]")) {
+                return;
+            }
+
+            const { filterKey, action, value } = target.dataset;
+            this.toggleOptionFilter(filterKey, value, action, false);
+            this.renderActiveTags();
+            this.rerenderOpenSubfilter();
+            tableController.render();
+        });
+
+        DOM.inactiveToggle?.addEventListener("click", async () => {
+            state.showInactive = !state.showInactive;
+            DOM.inactiveToggle.setAttribute("aria-pressed", String(state.showInactive));
+            await tableController.loadUsers();
         });
 
         document.addEventListener("click", event => {
@@ -985,7 +1052,7 @@ const filterController = {
 
     async openSubfilter(category) {
         state.filters.openCategory = category;
-        if (!state.roleMap && category !== "status") {
+        if (!state.roleMap && (category === "hauptrolle" || category === "nebenrolle")) {
             await api.getRoleMap();
         }
 
@@ -1007,54 +1074,77 @@ const filterController = {
         this.renderSubfilter(state.filters.openCategory);
     },
 
+    renderOptionRow(label, filterKey, value, includeSet, excludeSet) {
+        const v = String(value);
+        return `
+            <div class="users-subfilter-option">
+                <span class="users-subfilter-option-label">${escapeHtml(label)}</span>
+                <span class="users-subfilter-toggle-group">
+                    <label class="users-subfilter-toggle users-subfilter-toggle-include" title="Nur „${escapeHtml(label)}“ anzeigen">
+                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="include" value="${escapeHtml(v)}" ${includeSet.has(v) ? "checked" : ""}>
+                        <span aria-hidden="true">✓</span>
+                    </label>
+                    <label class="users-subfilter-toggle users-subfilter-toggle-exclude" title="„${escapeHtml(label)}“ ausschließen">
+                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="exclude" value="${escapeHtml(v)}" ${excludeSet.has(v) ? "checked" : ""}>
+                        <span aria-hidden="true">✕</span>
+                    </label>
+                </span>
+            </div>
+        `;
+    },
+
     renderSubfilter(category) {
         if (!DOM.subfilterDropdown) {
             return;
         }
 
-        if (category === "status") {
-            DOM.subfilterDropdown.innerHTML = `
-                <label>
-                    <input
-                        type="checkbox"
-                        data-filter-type="status"
-                        ${state.filters.includeInactive ? "checked" : ""}
-                    >
-                    Inaktive User mitladen
-                </label>
-            `;
+        if (category === "status" || category === "aktion") {
+            const filterKey = category === "status" ? "severities" : "actions";
+            const options = category === "status" ? SEVERITY_OPTIONS : ACTION_OPTIONS;
+            const { include, exclude } = state.filters[filterKey];
+            const includeSet = new Set(include.map(String));
+            const excludeSet = new Set(exclude.map(String));
+
+            DOM.subfilterDropdown.innerHTML = options
+                .map(option => this.renderOptionRow(option.label, filterKey, option.id, includeSet, excludeSet))
+                .join("");
             return;
         }
 
         const roleType = category === "hauptrolle" ? "PRIMARY" : "SECONDARY";
-        const selectedIds = category === "hauptrolle" ? state.filters.primaryRoleIds : state.filters.secondaryRoleIds;
-        const filterType = category === "hauptrolle" ? "primary" : "secondary";
+        const filterKey = category === "hauptrolle" ? "primaryRoles" : "secondaryRoles";
+        const { include, exclude } = state.filters[filterKey];
+        const includeSet = new Set(include.map(String));
+        const excludeSet = new Set(exclude.map(String));
         const options = getRoleOptionsByType(roleType);
 
         DOM.subfilterDropdown.innerHTML = options.length
-            ? options.map(([roleId, role]) => `
-                <label>
-                    <input
-                        type="checkbox"
-                        value="${escapeHtml(roleId)}"
-                        data-filter-type="${filterType}"
-                        ${selectedIds.includes(String(roleId)) ? "checked" : ""}
-                    >
-                    ${escapeHtml(role.name)}
-                </label>
-            `).join("")
+            ? options.map(([roleId, role]) => this.renderOptionRow(role.name, filterKey, roleId, includeSet, excludeSet)).join("")
             : "<span>Keine Rollen gefunden</span>";
     },
 
-    toggleRoleFilter(key, roleId, checked) {
-        const normalizedRoleId = String(roleId);
-        const values = new Set(state.filters[key].map(String));
-        if (checked) {
-            values.add(normalizedRoleId);
+    toggleOptionFilter(filterKey, value, action, checked) {
+        const v = String(value);
+        const filter = state.filters[filterKey];
+        const include = new Set(filter.include.map(String));
+        const exclude = new Set(filter.exclude.map(String));
+        if (action === "include") {
+            if (checked) {
+                include.add(v);
+                exclude.delete(v);
+            } else {
+                include.delete(v);
+            }
         } else {
-            values.delete(normalizedRoleId);
+            if (checked) {
+                exclude.add(v);
+                include.delete(v);
+            } else {
+                exclude.delete(v);
+            }
         }
-        state.filters[key] = Array.from(values);
+        filter.include = Array.from(include);
+        filter.exclude = Array.from(exclude);
     },
 
     renderActiveTags() {
@@ -1062,31 +1152,37 @@ const filterController = {
             return;
         }
 
+        const roleTag = (filterKey, action, roleId, prefix) => ({
+            filterKey,
+            action,
+            value: roleId,
+            label: `${prefix}: ${state.roleMap?.[roleId]?.name || roleId}`,
+            excluded: action === "exclude"
+        });
+
+        const optionTag = (filterKey, action, optionId, options, prefix) => ({
+            filterKey,
+            action,
+            value: optionId,
+            label: `${prefix}: ${options.find(option => option.id === optionId)?.label || optionId}`,
+            excluded: action === "exclude"
+        });
+
         const tags = [
-            ...state.filters.primaryRoleIds.map(roleId => ({
-                filterType: "primary",
-                value: roleId,
-                label: `Funktion: ${state.roleMap?.[roleId]?.name || roleId}`
-            })),
-            ...state.filters.secondaryRoleIds.map(roleId => ({
-                filterType: "secondary",
-                value: roleId,
-                label: `Nebenrolle: ${state.roleMap?.[roleId]?.name || roleId}`
-            }))
+            ...state.filters.primaryRoles.include.map(id => roleTag("primaryRoles", "include", id, "Funktion")),
+            ...state.filters.primaryRoles.exclude.map(id => roleTag("primaryRoles", "exclude", id, "Nicht Funktion")),
+            ...state.filters.secondaryRoles.include.map(id => roleTag("secondaryRoles", "include", id, "Nebenrolle")),
+            ...state.filters.secondaryRoles.exclude.map(id => roleTag("secondaryRoles", "exclude", id, "Nicht Nebenrolle")),
+            ...state.filters.severities.include.map(id => optionTag("severities", "include", id, SEVERITY_OPTIONS, "Status")),
+            ...state.filters.severities.exclude.map(id => optionTag("severities", "exclude", id, SEVERITY_OPTIONS, "Nicht Status")),
+            ...state.filters.actions.include.map(id => optionTag("actions", "include", id, ACTION_OPTIONS, "Aktion")),
+            ...state.filters.actions.exclude.map(id => optionTag("actions", "exclude", id, ACTION_OPTIONS, "Nicht Aktion"))
         ];
 
-        if (state.filters.includeInactive) {
-            tags.push({
-                filterType: "status",
-                value: "inactive",
-                label: "Inaktive inkl."
-            });
-        }
-
         DOM.activeFilters.innerHTML = tags.map(tag => `
-            <div class="users-filter-tag">
+            <div class="users-filter-tag${tag.excluded ? " is-excluded" : ""}">
                 <span>${escapeHtml(tag.label)}</span>
-                <button type="button" data-filter-type="${escapeHtml(tag.filterType)}" data-value="${escapeHtml(tag.value)}" aria-label="${escapeHtml(tag.label)} entfernen">&times;</button>
+                <button type="button" data-filter-key="${escapeHtml(tag.filterKey)}" data-action="${escapeHtml(tag.action)}" data-value="${escapeHtml(tag.value)}" aria-label="${escapeHtml(tag.label)} entfernen">&times;</button>
             </div>
         `).join("");
     }
@@ -1095,8 +1191,8 @@ const filterController = {
 const tableController = {
     async init() {
         this.bindSearch();
-        this.bindStatusSortToggle();
-        this.updateStatusSortToggle();
+        this.bindSortToggle();
+        this.updateSortToggle();
         await this.loadUsers();
     },
 
@@ -1119,22 +1215,12 @@ const tableController = {
         const users = state.users
             .filter(user => this.matchesSearch(user))
             .filter(user => this.matchesPrimaryRoles(user))
-            .filter(user => this.matchesSecondaryRoles(user));
+            .filter(user => this.matchesSecondaryRoles(user))
+            .filter(user => this.matchesSeverity(user))
+            .filter(user => this.matchesAction(user));
 
-        if (!state.statusSortEnabled) {
-            return sortUsersByName(users);
-        }
-
-        return [...users].sort((left, right) => {
-            const priorityDiff = getStatusSortPriority(left) - getStatusSortPriority(right);
-            if (priorityDiff !== 0) {
-                return priorityDiff;
-            }
-
-            const leftKey = `${left?.last_name || ""} ${left?.first_name || ""}`.trim();
-            const rightKey = `${right?.last_name || ""} ${right?.first_name || ""}`.trim();
-            return leftKey.localeCompare(rightKey, "de");
-        });
+        const comparator = SORT_COMPARATORS[state.sortField] || SORT_COMPARATORS.last_name;
+        return [...users].sort(comparator);
     },
 
     matchesSearch(user) {
@@ -1157,19 +1243,74 @@ const tableController = {
     },
 
     matchesPrimaryRoles(user) {
-        if (!state.filters.primaryRoleIds.length) {
+        const { include, exclude } = state.filters.primaryRoles;
+        if (!include.length && !exclude.length) {
             return true;
         }
-        return state.filters.primaryRoleIds.includes(String(user.primary_role?.role_id || ""));
+
+        const roleId = String(user.primary_role?.role_id || "");
+        if (exclude.includes(roleId)) {
+            return false;
+        }
+        if (include.length && !include.includes(roleId)) {
+            return false;
+        }
+        return true;
     },
 
     matchesSecondaryRoles(user) {
-        if (!state.filters.secondaryRoleIds.length) {
+        const { include, exclude } = state.filters.secondaryRoles;
+        if (!include.length && !exclude.length) {
             return true;
         }
 
         const userRoleIds = getSecondaryRoles(user).map(role => String(role.role_id));
-        return state.filters.secondaryRoleIds.some(roleId => userRoleIds.includes(String(roleId)));
+        if (exclude.length && userRoleIds.some(roleId => exclude.includes(roleId))) {
+            return false;
+        }
+        if (include.length && !userRoleIds.some(roleId => include.includes(roleId))) {
+            return false;
+        }
+        return true;
+    },
+
+    matchesSeverity(user) {
+        const { include, exclude } = state.filters.severities;
+        if (!include.length && !exclude.length) {
+            return true;
+        }
+
+        const statuses = getNormalizedDerivedStatuses(user);
+        const ids = statuses.length
+            ? [...new Set(statuses.map(status => status.isOverdue ? "error" : status.severity))]
+            : ["none"];
+
+        if (exclude.length && ids.some(id => exclude.includes(id))) {
+            return false;
+        }
+        if (include.length && !ids.some(id => include.includes(id))) {
+            return false;
+        }
+        return true;
+    },
+
+    matchesAction(user) {
+        const { include, exclude } = state.filters.actions;
+        if (!include.length && !exclude.length) {
+            return true;
+        }
+
+        const ids = [...new Set(getNormalizedDerivedStatuses(user)
+            .map(status => normalizeValue(status.processType)))]
+            .filter(Boolean);
+
+        if (exclude.length && ids.some(id => exclude.includes(id))) {
+            return false;
+        }
+        if (include.length && !ids.some(id => include.includes(id))) {
+            return false;
+        }
+        return true;
     },
 
     render() {
@@ -1179,12 +1320,27 @@ const tableController = {
             DOM.usersVisibleCount.textContent = `${users.length} Nutzer`;
         }
 
-        this.updateStatusSortToggle();
+        this.updateSortToggle();
+
+        const dateField = state.sortField === "entry_date" || state.sortField === "exit_date"
+            ? state.sortField
+            : null;
+        const dateLabel = dateField === "entry_date" ? "Eintrittsdatum" : dateField === "exit_date" ? "Austrittsdatum" : "";
+
+        if (DOM.usersDateColumnHeader) {
+            DOM.usersDateColumnHeader.textContent = dateLabel;
+            DOM.usersDateColumnHeader.classList.toggle("is-visible", Boolean(dateField));
+        }
+
+        const totalCols = dateField ? 7 : 6;
 
         DOM.tableBody.innerHTML = users.length
             ? users.map(user => {
                 const secondaryRoles = getSecondaryRoles(user);
                 const status = getSummaryStatus(user);
+                const dateCell = dateField
+                    ? `<td class="users-date-column is-visible">${escapeHtml(formatDate(user[dateField]))}</td>`
+                    : "";
 
                 return `
                     <tr class="users-table-row ${user.is_active ? "" : "is-inactive"}" data-user-id="${escapeHtml(user.user_id)}">
@@ -1208,13 +1364,14 @@ const tableController = {
                                 <span class="users-secondary-preview ${secondaryRoles.length ? "" : "is-empty"}">${escapeHtml(getRolePreview(secondaryRoles))}</span>
                             </div>
                         </td>
+                        ${dateCell}
                         <td>${renderDerivedStatusBadge(status, { extraCount: status.extraCount, tooltip: status.tooltip })}</td>
                     </tr>
                 `;
             }).join("")
             : `
                 <tr class="users-empty-row">
-                    <td colspan="6">${renderEmptyState("Keine User gefunden.")}</td>
+                    <td colspan="${totalCols}">${renderEmptyState("Keine User gefunden.")}</td>
                 </tr>
             `;
 
@@ -1236,22 +1393,26 @@ const tableController = {
         });
     },
 
-    bindStatusSortToggle() {
-        DOM.usersStatusSortToggle?.addEventListener("click", () => {
-            state.statusSortEnabled = !state.statusSortEnabled;
+    bindSortToggle() {
+        DOM.usersSortToggle?.addEventListener("click", () => {
+            const currentIndex = SORT_OPTIONS.findIndex(opt => opt.field === state.sortField);
+            const nextIndex = (currentIndex + 1) % SORT_OPTIONS.length;
+            state.sortField = SORT_OPTIONS[nextIndex].field;
             this.render();
         });
     },
 
-    updateStatusSortToggle() {
-        if (!DOM.usersStatusSortToggle) {
+    updateSortToggle() {
+        if (!DOM.usersSortToggle) {
             return;
         }
 
-        DOM.usersStatusSortToggle.setAttribute("aria-pressed", String(state.statusSortEnabled));
-        DOM.usersStatusSortToggle.textContent = state.statusSortEnabled
-            ? "Sortierung aufheben"
-            : "Nach Status sortieren";
+        const option = SORT_OPTIONS.find(opt => opt.field === state.sortField) || SORT_OPTIONS[0];
+        DOM.usersSortToggle.setAttribute("aria-pressed", String(state.sortField !== "last_name"));
+        DOM.usersSortToggle.setAttribute("aria-label", `Sortierung: ${option.label}. Klicken zum Wechseln.`);
+        if (DOM.usersSortLabel) {
+            DOM.usersSortLabel.textContent = option.label;
+        }
     }
 };
 
@@ -1280,8 +1441,7 @@ const sidebarController = {
                     console.error("User Activity Fehler", error);
                     return {
                         affected_processes: [],
-                        initiated_processes: [],
-                        recent_task_actions: []
+                        initiated_processes: []
                     };
                 }),
                 api.getSystemMap().catch(() => state.systemMap || {})
@@ -1385,10 +1545,12 @@ const sidebarController = {
     },
 
     renderSofaAccessActions(user) {
+        if (!DOM.sofaAccessStatus || !DOM.sofaAccessActions) return;
+
         const hasSofaAccess = Boolean(user.has_sofa_access);
-        const canSetup = hasUsersPageAccess();
-        const canReset = hasUsersPageAccess();
-        const canRevoke = hasUsersPageAccess();
+        const canSetup = hasPerm("SOFA-FN-ACC");
+        const canReset = hasPerm("SOFA-FN-ACC");
+        const canRevoke = hasPerm("SOFA-FN-ACC");
 
         DOM.sofaAccessStatus.textContent = hasSofaAccess
             ? "SOFA Zugriff ist eingerichtet und kann hier direkt verwaltet werden."
@@ -1464,9 +1626,34 @@ const sidebarController = {
     async renderAccounts(accounts = [], detail = null) {
         const items = Array.isArray(accounts) ? accounts : [];
 
-        const accResources = (Array.isArray(detail?.resources) ? detail.resources : []).filter(r => r.type_id === 1);
-        const accountedSystemIds = new Set(items.map(a => a.system_id));
-        const missingAccounts = accResources.filter(r => !accountedSystemIds.has(r.system_id));
+        const rolePackageResources = getRoleAssignments(detail)
+            .flatMap(role => Array.isArray(detail?._roleResourcesMap?.[role.role_id]) ? detail._roleResourcesMap[role.role_id] : []);
+        const accResources = dedupeBy(rolePackageResources.filter(r => r?.type_id === 1), r => String(r.resource_id));
+
+        // Accounts mit gesetzter resource_id lassen sich eindeutig einer erwarteten
+        // Konto-Ressource zuordnen (mehrere Konten pro System sind möglich, z.B. mehrere
+        // "Konto"-Ressourcen im selben System). Ältere Accounts ohne resource_id können
+        // nur über das System zugeordnet werden - das ist nur eindeutig, wenn das System
+        // genau eine erwartete Konto-Ressource hat.
+        const linkedResourceIds = new Set(items.filter(a => a.resource_id != null).map(a => a.resource_id));
+        const legacySystemIds = new Set(items.filter(a => a.resource_id == null).map(a => a.system_id));
+        const accResourcesBySystem = new Map();
+        accResources.forEach(resource => {
+            if (!accResourcesBySystem.has(resource.system_id)) {
+                accResourcesBySystem.set(resource.system_id, []);
+            }
+            accResourcesBySystem.get(resource.system_id).push(resource);
+        });
+
+        const isAccountedFor = (resource) => {
+            if (linkedResourceIds.has(resource.resource_id)) {
+                return true;
+            }
+            const siblings = accResourcesBySystem.get(resource.system_id) || [];
+            return siblings.length === 1 && legacySystemIds.has(resource.system_id);
+        };
+
+        const missingAccounts = accResources.filter(resource => !isAccountedFor(resource));
 
         const totalExpected = items.length + missingAccounts.length;
         DOM.userAccountsCount.textContent = missingAccounts.length
@@ -1521,15 +1708,14 @@ const sidebarController = {
             return;
         }
 
-        const assignedResourceIds = new Set(
-            (Array.isArray(detail?.resources) ? detail.resources : []).map(r => r.resource_id)
-        );
+        const resourceStatusByResourceId = getResourceAssignmentStatusByResourceId(detail);
 
         DOM.sidebarRoles.innerHTML = roles.map((role, index) => {
             const assignmentStatus = getAssignmentStatus(role);
+            const roleStatusLabel = assignmentStatus.code === "requested" ? "Unvollständige Provisionierung" : assignmentStatus.label;
             const roleTypeLabel = role.is_primary ? "Hauptrolle / Funktion" : (normalizeValue(role.role_type) === "secondary" ? "Nebenrolle" : humanizeToken(role.role_type || "Rolle"));
             const packageResources = Array.isArray(detail?._roleResourcesMap?.[role.role_id]) ? detail._roleResourcesMap[role.role_id] : [];
-            const assignedCount = packageResources.filter(r => assignedResourceIds.has(r.resource_id)).length;
+            const assignedCount = packageResources.filter(r => resourceStatusByResourceId.get(r.resource_id) === "active").length;
             const bodyId = `role-body-${role.role_id}-${index}`;
             const countLabel = packageResources.length ? `${assignedCount} / ${packageResources.length} zugewiesen` : "Keine Ressourcen";
 
@@ -1540,7 +1726,7 @@ const sidebarController = {
                             <span class="user-role-title">${escapeHtml(role.name || `Rolle #${role.role_id}`)}</span>
                             <div class="user-role-subline">
                                 <span class="ui-chip ${role.is_primary ? "ui-chip-primary" : "ui-chip-neutral"}">${escapeHtml(roleTypeLabel)}</span>
-                                <span class="users-status-badge ${escapeHtml(assignmentStatus.className)}">${escapeHtml(assignmentStatus.label)}</span>
+                                <span class="users-status-badge ${escapeHtml(assignmentStatus.className)}">${escapeHtml(roleStatusLabel)}</span>
                                 <span class="ui-chip ui-chip-neutral">${escapeHtml(countLabel)}</span>
                             </div>
                         </div>
@@ -1550,16 +1736,14 @@ const sidebarController = {
                         ${packageResources.length ? `
                             <div class="user-resource-list">
                                 ${packageResources.map(resource => {
-                                    const isAssigned = assignedResourceIds.has(resource.resource_id);
-                                    const badgeClass = isAssigned ? "users-status-active" : "users-status-warning";
-                                    const badgeLabel = isAssigned ? "Zugewiesen" : "Fehlt";
+                                    const resourceStatus = getPackageResourceStatus(resourceStatusByResourceId, resource.resource_id);
                                     return `
                                         <div class="user-resource-row">
                                             <div class="user-resource-main">
                                                 <span class="user-resource-identifier" title="${escapeHtml(resource.technical_identifier || "")}">${escapeHtml(resource.display_name || resource.technical_identifier || `#${resource.resource_id}`)}</span>
                                                 <span class="user-resource-system">${escapeHtml(resource.system_name || "")}</span>
                                             </div>
-                                            <span class="users-status-badge ${badgeClass}">${badgeLabel}</span>
+                                            <span class="users-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
                                         </div>
                                     `;
                                 }).join("")}
@@ -1604,8 +1788,8 @@ const sidebarController = {
                         return `
                             <div class="user-resource-row">
                                 <div class="user-resource-main">
-                                    <span class="user-resource-identifier" title="${escapeHtml(getResourceDisplayName(resource))}">${escapeHtml(getResourceIdentifier(resource))}</span>
-                                    <span class="user-resource-system">${escapeHtml(getResourceDisplayName(resource))}</span>
+                                    <span class="user-resource-identifier">${escapeHtml(getResourceDisplayName(resource))}</span>
+                                    <span class="user-resource-system">${escapeHtml(getResourceIdentifier(resource))}</span>
                                 </div>
                                 <span class="users-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
                             </div>
@@ -1619,11 +1803,9 @@ const sidebarController = {
     renderActivity(activity) {
         const affected = Array.isArray(activity?.affected_processes) ? activity.affected_processes : [];
         const initiated = Array.isArray(activity?.initiated_processes) ? activity.initiated_processes : [];
-        const recent = Array.isArray(activity?.recent_task_actions) ? activity.recent_task_actions : [];
 
         DOM.affectedProcesses.innerHTML = this.renderProcessEntries(affected, "Keine Prozesse gefunden, die diesen User betreffen.");
         DOM.initiatedProcesses.innerHTML = this.renderProcessEntries(initiated, "Keine vom User ausgelösten Prozesse gefunden.");
-        DOM.recentActions.innerHTML = this.renderTaskActions(recent, "Keine erledigten Task-Aktionen gefunden.");
     },
 
     renderProcessEntries(items, emptyMessage) {
@@ -1634,6 +1816,9 @@ const sidebarController = {
         return items.map(item => {
             const status = getAssignmentStatus({ assignment_status: item.status || item.process_status || "active" });
             const title = item.process_name || humanizeToken(item.process_type || "prozess");
+            const tasks = Array.isArray(item.tasks) ? item.tasks : [];
+            const doneTasks = tasks.filter(task => DONE_TASK_STATUSES.has(normalizeValue(task?.status)));
+            const openTasks = tasks.filter(task => !DONE_TASK_STATUSES.has(normalizeValue(task?.status)));
             return `
                 <div class="user-activity-entry">
                     <div class="user-activity-top">
@@ -1641,38 +1826,45 @@ const sidebarController = {
                         <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
                     </div>
                     <div class="user-activity-meta">
-                        <span><strong>Ziel:</strong> ${escapeHtml(item.target_name || item.target_user_name || "-")}</span>
+                        <span><strong>Ziel:</strong> ${escapeHtml(item.target_user_name || item.target_name || "-")}</span>
                         <span><strong>Initiator:</strong> ${escapeHtml(item.initiator_name || item.triggered_by_name || "-")}</span>
                         <span><strong>Gestartet:</strong> ${escapeHtml(formatDateTime(item.started_at || item.created_at))}</span>
                         <span><strong>Abgeschlossen:</strong> ${escapeHtml(formatDateTime(item.completed_at || item.finished_at))}</span>
                     </div>
+                    ${this.renderProcessTaskGroup("Offen", openTasks, "Keine offenen Tasks.")}
+                    ${this.renderProcessTaskGroup("Erledigt", doneTasks, "Keine erledigten Tasks.")}
                 </div>
             `;
         }).join("");
     },
 
-    renderTaskActions(items, emptyMessage) {
-        if (!items.length) {
-            return renderEmptyState(emptyMessage);
-        }
-
-        return items.map(item => {
-            const status = getAssignmentStatus({ assignment_status: item.status || item.action || "active" });
-            const title = item.action_label || humanizeToken(item.action || "completed");
+    renderProcessTaskGroup(title, tasks, emptyMessage) {
+        if (!tasks.length) {
             return `
-                <div class="user-activity-entry">
-                    <div class="user-activity-top">
-                        <span class="user-activity-title">${escapeHtml(title)}${item.task_id ? ` · Task #${escapeHtml(item.task_id)}` : ""}</span>
-                        <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
-                    </div>
-                    <div class="user-activity-meta">
-                        <span><strong>Typ:</strong> ${escapeHtml(humanizeToken(item.task_type || "-"))}</span>
-                        <span><strong>Ressource:</strong> ${escapeHtml(item.resource_name || "-")}</span>
-                        <span><strong>Zeit:</strong> ${escapeHtml(formatDateTime(item.completed_at || item.created_at || item.occurred_at))}</span>
-                    </div>
+                <div class="user-activity-tasks">
+                    <span class="user-activity-tasks-title">${escapeHtml(title)}</span>
+                    <p class="user-activity-tasks-empty">${escapeHtml(emptyMessage)}</p>
                 </div>
             `;
+        }
+
+        const rows = tasks.map(task => {
+            const status = getAssignmentStatus({ assignment_status: task?.status || "open" });
+            return `
+                <li class="user-activity-task">
+                    <span class="user-activity-task-title">${escapeHtml(humanizeToken(task?.task_type || "task"))}</span>
+                    <span class="user-activity-task-resource">${escapeHtml(task?.resource_name || "-")}</span>
+                    <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
+                </li>
+            `;
         }).join("");
+
+        return `
+            <div class="user-activity-tasks">
+                <span class="user-activity-tasks-title">${escapeHtml(title)}</span>
+                <ul class="user-activity-task-list">${rows}</ul>
+            </div>
+        `;
     },
 
     bindActions(user) {
@@ -2311,9 +2503,14 @@ const trainingModalController = {
     resolveAvailableUsers(options = {}) {
         const hasUserFilters = Boolean(
             normalizeValue(state.searchTerm) ||
-            state.filters.primaryRoleIds.length ||
-            state.filters.secondaryRoleIds.length ||
-            state.filters.includeInactive
+            state.filters.primaryRoles.include.length ||
+            state.filters.primaryRoles.exclude.length ||
+            state.filters.secondaryRoles.include.length ||
+            state.filters.secondaryRoles.exclude.length ||
+            state.filters.severities.include.length ||
+            state.filters.severities.exclude.length ||
+            state.filters.actions.include.length ||
+            state.filters.actions.exclude.length
         );
         const baseUsers = hasUserFilters ? tableController.getFilteredUsers() : state.users;
         const presetUsers = Array.isArray(options.presetUsers) ? options.presetUsers : [];
@@ -3042,9 +3239,12 @@ function cacheDOM() {
     DOM.filterDropdown = document.getElementById("filter-dropdown");
     DOM.subfilterDropdown = document.getElementById("subfilter-dropdown");
     DOM.activeFilters = document.getElementById("active-filters");
+    DOM.inactiveToggle = document.getElementById("users-inactive-toggle");
     DOM.searchInput = document.getElementById("search-input");
     DOM.usersVisibleCount = document.getElementById("users-visible-count");
-    DOM.usersStatusSortToggle = document.getElementById("users-status-sort-toggle");
+    DOM.usersSortToggle = document.getElementById("users-sort-toggle");
+    DOM.usersSortLabel = document.getElementById("users-sort-label");
+    DOM.usersDateColumnHeader = document.getElementById("users-date-column-header");
     DOM.userTable = document.getElementById("user-table");
     DOM.tableBody = document.getElementById("user-table-body");
 
@@ -3086,7 +3286,6 @@ function cacheDOM() {
     DOM.sidebarResources = document.getElementById("user-resources-list");
     DOM.affectedProcesses = document.getElementById("user-affected-processes");
     DOM.initiatedProcesses = document.getElementById("user-initiated-processes");
-    DOM.recentActions = document.getElementById("user-recent-actions");
 
     DOM.onboardActionBtn = document.getElementById("onboard-action-btn");
     DOM.onboardOverlay = document.getElementById("onboard-overlay");

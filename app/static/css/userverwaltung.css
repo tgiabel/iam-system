@@ -72,8 +72,27 @@
     position: relative;
 }
 
-.users-filter-trigger {
-    min-width: 8rem;
+.users-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    min-width: 0;
+    padding: 0;
+    border-radius: 12px;
+}
+
+.users-icon-btn-img {
+    width: 1.15rem;
+    height: 1.15rem;
+    display: block;
+    object-fit: contain;
+}
+
+html[data-theme="dark"] .users-icon-btn-img,
+html[data-theme="servodata"] .users-icon-btn-img {
+    filter: invert(1);
 }
 
 .users-filter-dropdown,
@@ -135,6 +154,71 @@
     color: var(--menu-text);
 }
 
+.users-subfilter-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.4rem 0.25rem;
+}
+
+.users-subfilter-option-label {
+    display: block;
+    padding: 0;
+    gap: 0;
+    color: var(--menu-text);
+}
+
+.users-subfilter-toggle-group {
+    display: inline-flex;
+    gap: 0.3rem;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.users-subfilter-toggle {
+    position: relative;
+    display: block;
+    width: 1.7rem;
+    height: 1.7rem;
+    padding: 0;
+    gap: 0;
+}
+
+.users-subfilter-toggle input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.users-subfilter-toggle span {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 6px;
+    border: 1px solid var(--ui-border);
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    pointer-events: none;
+}
+
+.users-subfilter-toggle-include input:checked + span {
+    background: #ecfbef;
+    border-color: #267144;
+    color: #267144;
+}
+
+.users-subfilter-toggle-exclude input:checked + span {
+    background: #fdeeee;
+    border-color: #b12626;
+    color: #b12626;
+}
+
 .users-filter-tags {
     display: flex;
     flex-wrap: wrap;
@@ -148,11 +232,15 @@
     min-height: 2rem;
     padding: 0.25rem 0.8rem;
     border-radius: 999px;
-    background: linear-gradient(180deg, #ffffff, #f4f8ff);
-    border: 1px solid rgba(65, 105, 225, 0.14);
+    background: var(--ui-surface-soft);
+    border: 1px solid rgba(var(--color-primary-rgb), 0.18);
     color: var(--color-primary);
     font-size: 0.86rem;
     font-weight: 700;
+}
+
+.users-filter-tag span {
+    color: var(--color-primary);
 }
 
 .users-filter-tag button {
@@ -162,6 +250,16 @@
     font-size: 1rem;
     cursor: pointer;
     line-height: 1;
+}
+
+.users-filter-tag.is-excluded {
+    background: #fdeeee;
+    border-color: rgba(177, 38, 38, 0.18);
+    color: #b12626;
+}
+
+.users-filter-tag.is-excluded span {
+    color: #b12626;
 }
 
 .users-table-card {
@@ -337,14 +435,28 @@
     font-weight: 700;
 }
 
-.users-status-sort-toggle {
-    min-width: 12.5rem;
+.users-sort-icon {
+    font-size: 1.05rem;
+    line-height: 1;
 }
 
-.users-status-sort-toggle[aria-pressed="true"] {
+.users-sort-toggle[aria-pressed="true"] {
+    background: var(--btn-secondary-bg);
+    border-color: var(--btn-secondary-border);
+    color: var(--text-inverse);
+}
+
+.users-inactive-toggle[aria-pressed="true"] {
     background: var(--btn-red-bg);
     border-color: var(--btn-red-border);
-    color: var(--text-inverse);
+}
+
+.users-date-column {
+    display: none;
+}
+
+.users-date-column.is-visible {
+    display: table-cell;
 }
 
 .users-status-active,
@@ -856,6 +968,51 @@
     color: var(--ui-text);
 }
 
+.user-activity-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
+}
+
+.user-activity-tasks-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ui-text-muted);
+}
+
+.user-activity-tasks-empty {
+    margin: 0;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.user-activity-task-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.user-activity-task {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    color: var(--ui-text-muted);
+}
+
+.user-activity-task-title {
+    color: var(--ui-text);
+    font-weight: 600;
+}
+
 .user-action-modal .ui-modal-body {
     gap: 1rem;
 }
@@ -1108,7 +1265,7 @@
     .users-onboard-btn,
     .users-filter-trigger,
     .users-toolbar-meta,
-    .users-status-sort-toggle {
+    .users-sort-toggle {
         width: 100%;
     }
 

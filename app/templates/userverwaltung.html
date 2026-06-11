@@ -31,11 +31,14 @@
 
             <div class="users-toolbar">
                 <div class="users-filter-container" id="users-filter-container">
-                    <button type="button" class="btn btn-secondary users-filter-trigger" id="filter-btn">Filter</button>
+                    <button type="button" class="btn btn-secondary users-icon-btn users-filter-trigger" id="filter-btn" aria-label="Filter" title="Filter">
+                        <img src="/static/img/filter-icon-black.png" alt="" class="users-icon-btn-img">
+                    </button>
                     <div class="users-filter-dropdown" id="filter-dropdown">
                         <button type="button" data-filter="hauptrolle">Hauptrolle</button>
                         <button type="button" data-filter="nebenrolle">Nebenrolle</button>
                         <button type="button" data-filter="status">Status</button>
+                        <button type="button" data-filter="aktion">Aktion</button>
                     </div>
                     <div class="users-subfilter-dropdown" id="subfilter-dropdown"></div>
                 </div>
@@ -52,12 +55,16 @@
 
                 <div class="users-toolbar-meta">
                     <span id="users-visible-count" class="users-visible-count" aria-live="polite">0 User</span>
+                    <button type="button" class="btn btn-secondary users-icon-btn users-inactive-toggle" id="users-inactive-toggle" aria-pressed="false" aria-label="Inaktive User anzeigen" title="Inaktive User anzeigen">
+                        <img src="/static/img/no-user-icon-black.png" alt="" class="users-icon-btn-img">
+                    </button>
                     <button
                         type="button"
-                        class="btn btn-secondary users-status-sort-toggle"
-                        id="users-status-sort-toggle"
+                        class="btn btn-secondary users-sort-toggle"
+                        id="users-sort-toggle"
                         aria-pressed="false">
-                        Nach Status sortiern
+                        <span class="users-sort-icon" aria-hidden="true">⇅</span>
+                        <span class="users-sort-label" id="users-sort-label">Nachname</span>
                     </button>
                 </div>
             </div>
@@ -75,6 +82,7 @@
                             <th>Vorname</th>
                             <th>Funktion</th>
                             <th>Nebenrollen</th>
+                            <th class="users-date-column" id="users-date-column-header"></th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -229,11 +237,15 @@
                         {% if "SOFA-FN-TRNG" in authz.permissions %}
                         <button type="button" class="btn btn-secondary" id="detail-training-action-btn">Schulung planen</button>
                         {% endif %}
+                        {% if "SOFA-FN-RL" in authz.permissions %}
                         <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
+                        {% endif %}
                         {% if "SOFA-FN-TMPR" in authz.permissions %}
                         <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
                         {% endif %}
+                        {% if "SOFA-FN-RMRL" in authz.permissions %}
                         <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>
+                        {% endif %}
                     </div>
                 </article>
             </section>
@@ -261,15 +273,6 @@
                         </div>
                         <div id="user-initiated-processes" class="user-activity-list">
                             <div class="ui-empty-state ui-empty-inline">Keine Prozesse gefunden.</div>
-                        </div>
-                    </article>
-
-                    <article class="ui-card user-detail-card">
-                        <div class="user-detail-card-header">
-                            <h3>Zuletzt erledigte Task-Aktionen</h3>
-                        </div>
-                        <div id="user-recent-actions" class="user-activity-list">
-                            <div class="ui-empty-state ui-empty-inline">Keine Task-Aktionen gefunden.</div>
                         </div>
                     </article>
                 </div>
