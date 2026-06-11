@@ -174,6 +174,52 @@ const api = {
         }
     },
 
+    async bulkAssignTasks(taskIds) {
+        try {
+            const res = await fetch("/api/tasks/bulk-assign", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_ids: taskIds })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                return {
+                    ok: false,
+                    message: extractErrorMessage(data.detail || data.error, "Fehler beim Übernehmen der Aufgaben")
+                };
+            }
+
+            return { ok: true, results: Array.isArray(data.results) ? data.results : [] };
+        } catch (err) {
+            console.error("Bulk Assign Error:", err);
+            return { ok: false, message: "Netzwerkfehler oder Server nicht erreichbar" };
+        }
+    },
+
+    async bulkReleaseTasks(taskIds) {
+        try {
+            const res = await fetch("/api/tasks/bulk-release", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task_ids: taskIds })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                return {
+                    ok: false,
+                    message: extractErrorMessage(data.detail || data.error, "Fehler beim Freigeben der Aufgaben")
+                };
+            }
+
+            return { ok: true, results: Array.isArray(data.results) ? data.results : [] };
+        } catch (err) {
+            console.error("Bulk Release Error:", err);
+            return { ok: false, message: "Netzwerkfehler oder Server nicht erreichbar" };
+        }
+    },
+
     async dispatchBot(taskId) {
         try {
             const res = await fetch("/api/tasks/dispatch_bot", {
@@ -356,6 +402,9 @@ function getTaskStateClass(task) {
     }
     if (task.uiListState === "mine") {
         return "is-mine";
+    }
+    if (task.task_type === "REVOCATION") {
+        return "is-open is-revocation";
     }
     return "is-open";
 }
@@ -597,9 +646,11 @@ function renderTaskTile(task) {
         : "";
 
     const statusLabel = isTaskCompleted(task) ? "Zuletzt erledigt" : formatStatus(task.status, task);
-    const assignedTo = task.assigned_to_user_name || task.assigned_to_name || "-";
     const kickerLabel = formatTaskModalSubtitle(task);
     const backlogLabel = formatBacklogFilterValue(getTaskBacklogFilterKey(task));
+    const handlingChip = task.uiListState === "blocked"
+        ? ""
+        : `<span class="ui-chip ${getHandlingChipClass(task.handling_type)}">${escapeHtml(formatHandlingType(task.handling_type))}</span>`;
 
     return `
         <a href="#" class="task-tile task-card ${getTaskStateClass(task)}" data-task-id="${escapeHtml(task.task_id)}">
@@ -609,7 +660,7 @@ function renderTaskTile(task) {
                     <h3 class="task-card-title">${escapeHtml(formatTaskType(task.task_type))}</h3>
                 </div>
                 <div class="task-card-chips">
-                    <span class="ui-chip ${getHandlingChipClass(task.handling_type)}">${escapeHtml(formatHandlingType(task.handling_type))}</span>
+                    ${handlingChip}
                     ${blockedLabel}
                 </div>
             </div>
@@ -627,10 +678,6 @@ function renderTaskTile(task) {
                     <div class="task-card-row">
                         <span>Backlog</span>
                         <span>${escapeHtml(backlogLabel)}</span>
-                    </div>
-                    <div class="task-card-row">
-                        <span>Bearbeitet von</span>
-                        <span>${escapeHtml(assignedTo)}</span>
                     </div>
                 </div>
             </div>
@@ -874,7 +921,7 @@ function buildBulkActionSummary(successCount, failedTasks, successLabel) {
     };
 }
 
-async function handleBulkTaskAction({ buttonId, busyLabel, taskSelector, requestHandler, successLabel }) {
+async function handleBulkTaskAction({ buttonId, busyLabel, taskSelector, bulkRequestHandler, successLabel }) {
     const button = document.getElementById(buttonId);
     const tasks = taskSelector();
 
@@ -884,21 +931,18 @@ async function handleBulkTaskAction({ buttonId, busyLabel, taskSelector, request
 
     setTaskBulkButtonState(button, true, busyLabel);
 
-    const failedTasks = [];
-    let successCount = 0;
-
     try {
-        for (const task of tasks) {
-            const result = await requestHandler(task.task_id);
-            if (result.ok) {
-                successCount += 1;
-            } else {
-                failedTasks.push({
-                    taskId: task.task_id,
-                    message: result.message
-                });
-            }
+        const response = await bulkRequestHandler(tasks.map(task => task.task_id));
+
+        if (!response.ok) {
+            showFlash(response.message, "failure");
+            return;
         }
+
+        const failedTasks = response.results
+            .filter(entry => !entry.success)
+            .map(entry => ({ taskId: entry.task_id, message: entry.message }));
+        const successCount = response.results.length - failedTasks.length;
 
         await loadTasks();
 
@@ -921,7 +965,7 @@ function initTaskBulkActions() {
                 buttonId: "open-tasks-bulk-assign",
                 busyLabel: "Übernehme...",
                 taskSelector: () => [...taskViewState.filteredBuckets.open],
-                requestHandler: requestTaskAssign,
+                bulkRequestHandler: api.bulkAssignTasks,
                 successLabel: "Aufgaben übernommen"
             });
         });
@@ -934,7 +978,7 @@ function initTaskBulkActions() {
                 buttonId: "my-tasks-bulk-release",
                 busyLabel: "Gebe frei...",
                 taskSelector: () => [...taskViewState.filteredBuckets.mine],
-                requestHandler: requestTaskRelease,
+                bulkRequestHandler: api.bulkReleaseTasks,
                 successLabel: "Aufgaben freigegeben"
             });
         });
