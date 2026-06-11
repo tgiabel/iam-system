@@ -15,7 +15,7 @@
     window.STOERUNG_INCIDENT_ID = "{{ incident.id if incident else '' }}";
     window.STOERUNG_INITIAL = {{ incident | tojson if incident else 'null' }};
 </script>
-<script src="/static/js/tools/stoerungsprotokoll_detail.js"></script>
+<script src="/static/js/tools/stoerungsprotokoll_detail.js?v={{ static_v }}"></script>
 {% endblock %}
 
 {% block content %}

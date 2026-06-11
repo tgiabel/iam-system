@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import httpx  # type: ignore
 from fastapi import HTTPException, Request  # type: ignore
@@ -17,6 +18,7 @@ from app.authz import (
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 static_path = os.path.join(base_dir, "static")
 templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
+templates.env.globals["static_v"] = str(int(time.time()))
 
 
 def _first_defined_value(record: dict, keys: list[str], fallback=None):
