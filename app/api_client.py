@@ -245,6 +245,22 @@ class APIClient:
     async def unassign_task(self, task_id: int, user_id: int) -> dict:
         return await self._delete(SOFA_BASE_URL, f"/tasks/{task_id}/assign", params={"user_id": user_id})
 
+    async def bulk_assign_tasks(self, task_ids: list[int], user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            "/tasks/bulk-assign",
+            payload={"task_ids": task_ids, "user_id": user_id},
+            headers={"X-User-Id": str(user_id)},
+        )
+
+    async def bulk_release_tasks(self, task_ids: list[int], user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            "/tasks/bulk-release",
+            payload={"task_ids": task_ids, "user_id": user_id},
+            headers={"X-User-Id": str(user_id)},
+        )
+
     async def complete_task(
         self,
         task_id: int,

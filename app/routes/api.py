@@ -739,6 +739,30 @@ async def api_unassign_task(task_id: int, current_user=Depends(require_permissio
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.post("/tasks/bulk-assign")
+async def api_bulk_assign_tasks(payload: dict, current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
+    try:
+        task_ids = payload.get("task_ids") or []
+        result = await api_client.bulk_assign_tasks(task_ids, current_user.user_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/tasks/bulk-release")
+async def api_bulk_release_tasks(payload: dict, current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
+    try:
+        task_ids = payload.get("task_ids") or []
+        result = await api_client.bulk_release_tasks(task_ids, current_user.user_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.post("/tasks/{task_id}/complete")
 async def api_complete_task(task_id: int, payload: dict, current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
     try:
