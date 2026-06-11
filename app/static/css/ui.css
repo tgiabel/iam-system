@@ -25,10 +25,11 @@
     --ui-status-blocked-text: #674ea7;
     --ui-status-neutral-bg: #eef1f6;
     --ui-status-neutral-text: #556274;
-    --ui-warning-bg: #fff5e8;
-    --ui-warning-text: #9b5a00;
-    --ui-accent-bg: var(--accent-bg);
-    --ui-accent-text: var(--accent-text);
+    --ui-warning-bg: var(--warning-bg);
+    --ui-warning-text: var(--warning-text);
+    --ui-accent-bg: var(--chip-accent-bg);
+    --ui-accent-text: var(--chip-accent-text);
+    --ui-accent-border: var(--chip-accent-border);
 }
 
 .ui-card {
@@ -106,13 +107,13 @@
 
 .ui-chip-warning {
     background: var(--ui-warning-bg);
-    border-color: rgba(155, 90, 0, 0.16);
+    border-color: color-mix(in srgb, var(--ui-warning-text) 22%, transparent);
     color: var(--ui-warning-text);
 }
 
 .ui-chip-accent {
     background: var(--ui-accent-bg);
-    border-color: rgba(var(--color-accent-rgb), 0.16);
+    border-color: var(--ui-accent-border);
     color: var(--ui-accent-text);
 }
 

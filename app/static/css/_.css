@@ -58,10 +58,15 @@
     --danger-text: #b14343;
     --accent-bg: #f2edff;
     --accent-text: #6d4bc6;
+    --warning-bg: #fff5e8;
+    --warning-text: #9b5a00;
+    --chip-accent-bg: rgb(163 39 203 / 10%);
+    --chip-accent-border: rgb(170 94 199 / 35%);
+    --chip-accent-text: rgb(150 25 191);
     --task-completed-bg-start: #f4fbf6;
     --task-completed-bg-end: #f7faf8;
-    --task-blocked-bg-start: #faf8ff;
-    --task-blocked-bg-end: #f5f2fc;
+    --task-blocked-bg-start: #f7f7f9;
+    --task-blocked-bg-end: #f2f2f4;
 
     /* Background treatment */
     --main-background-image: none;
@@ -154,9 +159,14 @@ html[data-theme="dark"] {
     --danger-text: #ff9f9f;
     --accent-bg: rgba(93, 134, 255, 0.16);
     --accent-text: #b7caff;
+    --warning-bg: rgba(255, 184, 92, 0.16);
+    --warning-text: #ffc98a;
+    --chip-accent-bg: rgb(163 39 203 / 50%);
+    --chip-accent-border: rgb(170 94 199 / 73%);
+    --chip-accent-text: rgb(189 122 215);
     --task-completed-bg-start: rgba(26, 61, 41, 0.92);
     --task-completed-bg-end: rgba(21, 32, 49, 0.98);
-    --task-blocked-bg-start: rgba(46, 36, 73, 0.92);
+    --task-blocked-bg-start: rgba(40, 46, 58, 0.92);
     --task-blocked-bg-end: rgba(21, 32, 49, 0.98);
     --btn-primary-bg: linear-gradient(180deg, #4768c9 0%, #3552a8 100%);
     --btn-primary-hover-bg: linear-gradient(180deg, #5274db 0%, #3e5fc0 100%);
@@ -220,9 +230,14 @@ html[data-theme="servodata"] {
     --danger-text: #ff9f9f;
     --accent-bg: rgba(93, 134, 255, 0.16);
     --accent-text: #b7caff;
+    --warning-bg: rgba(255, 184, 92, 0.16);
+    --warning-text: #ffc98a;
+    --chip-accent-bg: rgb(163 39 203 / 50%);
+    --chip-accent-border: rgb(170 94 199 / 73%);
+    --chip-accent-text: rgb(189 122 215);
     --task-completed-bg-start: rgba(26, 61, 41, 0.92);
     --task-completed-bg-end: rgba(21, 32, 49, 0.98);
-    --task-blocked-bg-start: rgba(46, 36, 73, 0.92);
+    --task-blocked-bg-start: rgba(40, 46, 58, 0.92);
     --task-blocked-bg-end: rgba(21, 32, 49, 0.98);
     --main-background-image:
         linear-gradient(180deg, rgba(16, 23, 39, 0.92), rgba(23, 35, 51, 0.95)),
