@@ -296,6 +296,25 @@
                 </form>
             </div>
         </div>
+
+        <div
+            id="console-calendar-day-modal"
+            class="ui-modal-overlay profile-modal-overlay"
+            data-base-modal="console-calendar-day"
+            aria-hidden="true">
+            <div class="ui-modal ui-modal-compact profile-modal" role="dialog" aria-modal="true" aria-labelledby="console-calendar-day-modal-title">
+                <div class="ui-modal-header">
+                    <div class="ui-section-heading">
+                        <p class="ui-section-kicker">Events</p>
+                        <h3 id="console-calendar-day-modal-title">Tag</h3>
+                    </div>
+                    <button type="button" class="ui-icon-button" data-modal-close="console-calendar-day-modal" aria-label="Dialog schließen">&times;</button>
+                </div>
+                <div class="ui-modal-body">
+                    <div class="console-day-events" id="console-calendar-day-modal-body"></div>
+                </div>
+            </div>
+        </div>
     {% endif %}
 </body>
 </html>

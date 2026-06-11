@@ -152,6 +152,23 @@
     font-size: 0.92rem;
 }
 
+.console-day-more-btn {
+    align-self: flex-start;
+    border: none;
+    background: transparent;
+    padding: 0;
+    color: var(--color-primary);
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.console-day-more-btn:hover,
+.console-day-more-btn:focus-visible {
+    text-decoration: underline;
+    outline: none;
+}
+
 .console-empty-day {
     display: inline-flex;
     align-items: center;

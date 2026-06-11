@@ -352,6 +352,8 @@ function getEventStatusClass(eventStatus) {
     }[normalized] || "console-event-status-skipped";
 }
 
+const CALENDAR_EVENT_DISPLAY_LIMIT = 4;
+
 function renderEventCard(event) {
     const title = event.title || humanizeToken(event.event_type || "event");
     const description = String(event.description || "").trim();
@@ -365,6 +367,27 @@ function renderEventCard(event) {
             </div>
             ${description ? `<span class="console-event-description">${escapeHtml(description)}</span>` : ""}
         </article>
+    `;
+}
+
+function renderDayEvents(events, dayKey) {
+    if (!events.length) {
+        return `<div class="console-empty-day">Keine Events in diesem Tag.</div>`;
+    }
+
+    const visible = events.slice(0, CALENDAR_EVENT_DISPLAY_LIMIT);
+    const hidden = events.slice(CALENDAR_EVENT_DISPLAY_LIMIT);
+    const visibleMarkup = visible.map(renderEventCard).join("");
+
+    if (!hidden.length) {
+        return visibleMarkup;
+    }
+
+    return `
+        ${visibleMarkup}
+        <button type="button" class="console-day-more-btn" data-day-key="${escapeHtml(dayKey)}">
+            + ${hidden.length} weitere
+        </button>
     `;
 }
 
@@ -393,9 +416,7 @@ function renderCalendar() {
                     <span class="console-day-date">${escapeHtml(formatDayDate(day))}</span>
                 </div>
                 <div class="console-day-events">
-                    ${events.length
-                        ? events.map(renderEventCard).join("")
-                        : `<div class="console-empty-day">Keine Events in diesem Tag.</div>`}
+                    ${renderDayEvents(events, dayKey)}
                 </div>
             </section>
         `;
@@ -458,6 +479,27 @@ function bindCalendarControls() {
     consoleDOM.currentBtn?.addEventListener("click", () => {
         consoleState.weekOffset = 0;
         renderCalendar();
+    });
+
+    consoleDOM.grid?.addEventListener("click", event => {
+        const moreBtn = event.target.closest(".console-day-more-btn");
+        if (!moreBtn) return;
+
+        const dayKey = moreBtn.dataset.dayKey;
+        const events = getEventsByDay().get(dayKey) || [];
+        const day = getWeekDays().find(weekDay => toDayKey(weekDay) === dayKey);
+
+        if (consoleDOM.dayModalTitle) {
+            consoleDOM.dayModalTitle.textContent = day
+                ? `${humanizeToken(formatDayHeading(day))}, ${formatDayDate(day)}`
+                : "Events";
+        }
+
+        if (consoleDOM.dayModalBody) {
+            consoleDOM.dayModalBody.innerHTML = events.map(renderEventCard).join("");
+        }
+
+        window.openSofaModal("console-calendar-day-modal");
     });
 }
 
@@ -1437,6 +1479,8 @@ function bindSofaControls() {
 function cacheDom() {
     consoleDOM.grid = document.getElementById("console-calendar-grid");
     consoleDOM.feedback = document.getElementById("console-calendar-feedback");
+    consoleDOM.dayModalTitle = document.getElementById("console-calendar-day-modal-title");
+    consoleDOM.dayModalBody = document.getElementById("console-calendar-day-modal-body");
     consoleDOM.weekLabel = document.getElementById("console-week-label");
     consoleDOM.weekRange = document.getElementById("console-week-range");
     consoleDOM.prevBtn = document.getElementById("console-week-prev");

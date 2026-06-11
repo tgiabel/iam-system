@@ -112,6 +112,8 @@ document.addEventListener("DOMContentLoaded", () => {
         updateBodyScrollLock();
     }
 
+    window.openSofaModal = id => openModal(document.getElementById(id));
+
     function closeModal(overlay) {
         if (!overlay) return;
         overlay.classList.remove("active");
