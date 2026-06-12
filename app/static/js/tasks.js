@@ -3,6 +3,7 @@ if (!window.taskOverlayInitialized) {
         initTaskOverlay();
         initMailDialog();
         initTaskWarningDialog();
+        initRelatedRevocationsDialog();
         initTaskActionHandling();
         initTaskFilters();
         initTaskBulkActions();
@@ -99,6 +100,10 @@ const taskHistoryState = {
 };
 
 const taskWarningState = {
+    resolver: null
+};
+
+const relatedRevocationsState = {
     resolver: null
 };
 
@@ -216,6 +221,29 @@ const api = {
             return { ok: true, results: Array.isArray(data.results) ? data.results : [] };
         } catch (err) {
             console.error("Bulk Release Error:", err);
+            return { ok: false, message: "Netzwerkfehler oder Server nicht erreichbar" };
+        }
+    },
+
+    async completeTask(taskId, payload) {
+        try {
+            const res = await fetch(`/api/tasks/${taskId}/complete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload || {})
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                return {
+                    ok: false,
+                    message: extractErrorMessage(data.detail || data.error, "Fehler beim Abschließen der Aufgabe")
+                };
+            }
+
+            return { ok: true, data };
+        } catch (err) {
+            console.error("Complete Task Error:", err);
             return { ok: false, message: "Netzwerkfehler oder Server nicht erreichbar" };
         }
     },
@@ -413,7 +441,7 @@ function getHandlingChipClass(handlingType) {
     return {
         INTERNAL: "ui-chip-primary",
         EXTERNAL: "ui-chip-warning",
-        BOT: "ui-chip-accent"
+        BOT: "ui-chip-purple"
     }[handlingType] || "ui-chip-neutral";
 }
 
@@ -627,6 +655,15 @@ function filterTaskBuckets() {
 
 function isTaskCompleted(task) {
     return task.uiListState === "completed" || task.status === "COMPLETED" || Boolean(task.completed_at);
+}
+
+function findRelatedOpenRevocationTasks(task) {
+    return [...taskViewState.buckets.open, ...taskViewState.buckets.mine].filter(other =>
+        other.task_id !== task.task_id &&
+        other.task_type === "REVOCATION" &&
+        other.target_user_id === task.target_user_id &&
+        other.system_name === task.system_name
+    );
 }
 
 function renderEmptyState(message) {
@@ -1237,6 +1274,68 @@ function showTaskWarningDialog(actionLabel, warningEntries) {
     });
 }
 
+function closeRelatedRevocationsDialog(result) {
+    closeOverlay("related-revocations-overlay");
+
+    if (typeof relatedRevocationsState.resolver === "function") {
+        const resolve = relatedRevocationsState.resolver;
+        relatedRevocationsState.resolver = null;
+        resolve(result);
+    }
+}
+
+function showRelatedRevocationsDialog(relatedTasks) {
+    const textEl = document.getElementById("related-revocations-text");
+    const listEl = document.getElementById("related-revocations-list");
+    const [{ target_user_name: targetUserName, system_name: systemName }] = relatedTasks;
+
+    if (textEl) {
+        textEl.textContent = `Für ${targetUserName || "diesen Nutzer"} gibt es im System ${systemName || "-"} weitere offene Entzugs-Aufgaben. Sollen diese mit abgeschlossen werden?`;
+    }
+
+    if (listEl) {
+        listEl.innerHTML = relatedTasks.map(task => `
+            <li>
+                <strong>${escapeHtml(formatTaskType(task.task_type))}</strong>
+                <span>${escapeHtml(task.resource_name || "-")}</span>
+            </li>
+        `).join("");
+    }
+
+    openOverlay("related-revocations-overlay");
+
+    return new Promise(resolve => {
+        relatedRevocationsState.resolver = resolve;
+    });
+}
+
+async function handleRelatedRevocationTasks(relatedTasks) {
+    if (!relatedTasks.length) {
+        return;
+    }
+
+    const shouldComplete = await showRelatedRevocationsDialog(relatedTasks);
+    if (!shouldComplete) {
+        return;
+    }
+
+    const taskIds = relatedTasks.map(task => task.task_id);
+    await api.bulkAssignTasks(taskIds);
+
+    const results = await Promise.all(
+        taskIds.map(taskId => api.completeTask(taskId, { comment: "Mit Benutzerkonto gelöscht" }))
+    );
+
+    const failedTasks = results
+        .map((result, index) => ({ result, taskId: taskIds[index] }))
+        .filter(({ result }) => !result.ok)
+        .map(({ taskId, result }) => ({ taskId, message: result.message }));
+    const successCount = results.length - failedTasks.length;
+
+    const summary = buildBulkActionSummary(successCount, failedTasks, "weitere Aufgabe(n) abgeschlossen");
+    showFlash(summary.message, summary.type);
+}
+
 async function confirmTaskActionIfNeeded(task, actionLabel) {
     const history = await loadTaskHistory(task.task_id, { showLoading: false });
     if (!history) {
@@ -1316,6 +1415,12 @@ function initTaskOverlay() {
             return;
         }
 
+        const relatedRevocationsOverlay = document.getElementById("related-revocations-overlay");
+        if (relatedRevocationsOverlay?.classList.contains("active")) {
+            closeRelatedRevocationsDialog(false);
+            return;
+        }
+
         const mailOverlay = document.getElementById("mail-dialog-overlay");
         if (mailOverlay?.classList.contains("active")) {
             closeOverlay("mail-dialog-overlay");
@@ -1361,6 +1466,26 @@ function initTaskWarningDialog() {
     document.getElementById("task-warning-overlay")?.addEventListener("click", event => {
         if (event.target.id === "task-warning-overlay") {
             closeTaskWarningDialog(false);
+        }
+    });
+}
+
+function initRelatedRevocationsDialog() {
+    document.getElementById("related-revocations-cancel-btn")?.addEventListener("click", () => {
+        closeRelatedRevocationsDialog(false);
+    });
+
+    document.getElementById("related-revocations-confirm-btn")?.addEventListener("click", () => {
+        closeRelatedRevocationsDialog(true);
+    });
+
+    document.getElementById("related-revocations-close-btn")?.addEventListener("click", () => {
+        closeRelatedRevocationsDialog(false);
+    });
+
+    document.getElementById("related-revocations-overlay")?.addEventListener("click", event => {
+        if (event.target.id === "related-revocations-overlay") {
+            closeRelatedRevocationsDialog(false);
         }
     });
 }
@@ -1504,6 +1629,10 @@ async function completeInternal(task) {
         payload.account_identifier = document.getElementById("task-account-identifier")?.value?.trim();
     }
 
+    const relatedTasks = (task.task_type === "REVOCATION" && task.resource_type_id === 1)
+        ? findRelatedOpenRevocationTasks(task)
+        : [];
+
     try {
         const res = await fetch(`/api/tasks/${task.task_id}/complete`, {
             method: "POST",
@@ -1519,6 +1648,7 @@ async function completeInternal(task) {
 
         showFlash("Task erfolgreich erledigt.", "success");
         closeOverlay("task-overlay");
+        await handleRelatedRevocationTasks(relatedTasks);
         await loadTasks();
     } catch (err) {
         console.error("Complete failed:", err);
@@ -1651,8 +1781,14 @@ function renderTaskBuckets(filteredBuckets) {
             : renderEmptyState(isFiltered ? "Keine erledigten Aufgaben für die aktuelle Suche" : "Keine abgeschlossenen Aufgaben");
     }
 
-    setCount("open-tasks-count", openAndBlocked.length);
+    setCount("open-tasks-count", filteredBuckets.open.length);
     setCount("my-tasks-count", filteredBuckets.mine.length);
+
+    const blockedCountEl = document.getElementById("blocked-tasks-count");
+    if (blockedCountEl) {
+        blockedCountEl.textContent = String(filteredBuckets.blocked.length);
+        blockedCountEl.hidden = filteredBuckets.blocked.length === 0;
+    }
 }
 
 function refreshTaskView() {
@@ -1770,6 +1906,9 @@ async function loadTasks() {
             mine: myTasks,
             completed: completedTasks
         };
+
+        window.sofaSetTaskCountBadge?.(openTasks.length + myTasks.length);
+
         buildTaskFilterOptions();
         syncTaskFilterControls();
 

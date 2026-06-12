@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% set page_title = "To-Dos" %}
+{% set page_title = "Aufgabem" %}
 {% block css %}
 <link rel="stylesheet" href="/static/css/page_w_table.css">
 <link rel="stylesheet" href="/static/css/ui.css">
@@ -67,7 +67,8 @@
                 </div>
                 <div class="task-section-actions">
                     <button type="button" class="btn btn-secondary" id="open-tasks-bulk-assign">Alle übernehmen</button>
-                    <span class="ui-count-pill" id="open-tasks-count">0</span>
+                    <span class="ui-count-pill ui-count-pill-info" id="open-tasks-count">0</span>
+                    <span class="ui-count-pill ui-count-pill-neutral" id="blocked-tasks-count" hidden>0</span>
                 </div>
             </div>
             <div class="task-strip" id="open-tasks-slider"></div>
@@ -82,7 +83,7 @@
                 </div>
                 <div class="task-section-actions">
                     <button type="button" class="btn btn-red" id="my-tasks-bulk-release">Alle freigeben</button>
-                    <span class="ui-count-pill" id="my-tasks-count">0</span>
+                    <span class="ui-count-pill ui-count-pill-warning" id="my-tasks-count">0</span>
                 </div>
             </div>
             <div class="task-strip" id="my-tasks-slider"></div>
@@ -93,7 +94,7 @@
                 <div class="ui-section-heading">
                     <p class="ui-section-kicker">Erledigte Aufgaben</p>
                     <h3 class="ui-section-title">HISTORIE</h3>
-                    <p class="ui-section-copy">Zuletzt abgeschlossene Aufgaben zur schnellen Nachverfolgung.</p>
+                    <p class="ui-section-copy">Die l</p>
                 </div>
             </div>
             <div class="task-strip" id="completed-tasks-slider"></div>
@@ -230,6 +231,28 @@
         <div class="ui-modal-footer">
             <button id="task-warning-cancel-btn" class="btn btn-secondary" type="button">Abbrechen</button>
             <button id="task-warning-confirm-btn" class="btn btn-primary" type="button">Trotzdem ausführen</button>
+        </div>
+    </div>
+</div>
+
+<div id="related-revocations-overlay" class="ui-modal-overlay" aria-hidden="true">
+    <div class="task-warning-modal ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="related-revocations-title">
+        <div class="ui-modal-header">
+            <div class="task-modal-heading">
+                <p class="ui-section-kicker">Hinweis</p>
+                <h3 id="related-revocations-title">Weitere Aufgaben mit abschließen?</h3>
+            </div>
+            <button id="related-revocations-close-btn" class="ui-icon-button" type="button" aria-label="Hinweis schließen">&times;</button>
+        </div>
+
+        <div class="ui-modal-body">
+            <p id="related-revocations-text" class="task-warning-text"></p>
+            <ul id="related-revocations-list" class="task-warning-list"></ul>
+        </div>
+
+        <div class="ui-modal-footer">
+            <button id="related-revocations-cancel-btn" class="btn btn-secondary" type="button">Nein, nur diese</button>
+            <button id="related-revocations-confirm-btn" class="btn btn-primary" type="button">Ja, alle abschließen</button>
         </div>
     </div>
 </div>

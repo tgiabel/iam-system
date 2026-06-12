@@ -60,12 +60,6 @@
     justify-content: flex-end;
 }
 
-.task-section-progress .ui-count-pill {
-    border-color: rgba(194, 103, 11, 0.2);
-    color: #b86206;
-    background: linear-gradient(135deg, #fff4e8, #fff9f0);
-}
-
 .task-strip {
     display: grid;
     grid-auto-flow: column;
@@ -116,7 +110,7 @@
     inset: 0 0 auto 0;
     height: 5px;
     border-radius: var(--ui-radius-lg) var(--ui-radius-lg) 0 0;
-    background: linear-gradient(90deg, rgba(var(--color-primary-rgb), 0.95), rgba(var(--color-primary-rgb), 0.65));
+    background-color: var(--color-primary);
 }
 
 .task-tile:hover,
@@ -127,19 +121,19 @@
 }
 
 .task-card.is-mine::before {
-    background: linear-gradient(90deg, #d97706, #f5a524);
+    background-color: var(--ui-warning-text);
 }
 
 .task-card.is-completed::before {
-    background: linear-gradient(90deg, #4caa6a, #7dd49c);
+    background-color: var(--ui-success-text);
 }
 
 .task-card.is-revocation::before {
-    background: linear-gradient(90deg, color-mix(in srgb, var(--danger-text) 95%, transparent), color-mix(in srgb, var(--danger-text) 65%, transparent));
+    background-color: var(--ui-error-text);
 }
 
 .task-card.is-blocked::before {
-    background: linear-gradient(90deg, var(--text-muted), var(--border-strong));
+    background-color: var(--text-muted);
 }
 
 .task-card.is-blocked {
@@ -228,8 +222,8 @@
 
 .tasks-page .ui-status-progress,
 .task-overlay .ui-status-progress {
-    background: #fff4e8;
-    color: #b86206;
+    background: var(--ui-warning-bg);
+    color: var(--ui-warning-text);
 }
 
 .task-modal-header-actions {

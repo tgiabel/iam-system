@@ -254,12 +254,32 @@ document.addEventListener("DOMContentLoaded", () => {
         element.setAttribute("aria-disabled", shouldDisable ? "true" : "false");
     }
 
+    function setTaskCountBadge(count) {
+        const safeCount = Math.max(0, Number(count) || 0);
+        if (window.currentAuthz) {
+            window.currentAuthz.task_count = safeCount;
+        }
+        try {
+            window.sessionStorage.setItem("sofaTaskCount", String(safeCount));
+        } catch (error) {
+            console.debug("Task-Count konnte nicht gespeichert werden.", error);
+        }
+        document.querySelectorAll("[data-task-count-badge]").forEach(badge => {
+            badge.textContent = String(safeCount);
+            badge.hidden = safeCount <= 0;
+        });
+    }
+
+    window.sofaSetTaskCountBadge = setTaskCountBadge;
+
     function applyAuthzDomState() {
         document.querySelectorAll("[data-requires-page]").forEach(element => {
             const requiredPages = parseRequirementList(element.dataset.requiresPage);
             const pageAllowed = !requiredPages.length || requiredPages.some(hasPageAccess);
             setAuthzElementState(element, pageAllowed);
         });
+
+        setTaskCountBadge(window.currentAuthz?.task_count);
     }
 
     function getRequiredPageForPath(pathname) {
@@ -556,6 +576,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Störung erfassen"; }
         }
     });
+
+    try {
+        const storedTaskCount = window.sessionStorage.getItem("sofaTaskCount");
+        if (storedTaskCount !== null && window.currentAuthz) {
+            window.currentAuthz.task_count = Number(storedTaskCount) || 0;
+        }
+    } catch (error) {
+        console.debug("Task-Count konnte nicht gelesen werden.", error);
+    }
 
     markActiveNavigation();
     applyAuthzDomState();

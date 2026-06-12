@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="de">
+{% set is_widget_view = request.query_params.get('view') == 'widget' %}
 <head>
     <meta charset="UTF-8">
-    <title>{{ page_title }} | SOFA</title>
-    <link rel="icon" type="image/x-icon" href="/static/img/logo.png">
+    <title>{% if is_widget_view and widget_title is defined %}{{ widget_title }}{% else %}{{ page_title }} | SOFA{% endif %}</title>
+    <link rel="icon" type="image/x-icon" href="{% block favicon %}/static/img/handshake_hover.png{% endblock %}">
     <script>
         (function () {
             const root = document.documentElement;
@@ -30,7 +31,8 @@
     <script src="/static/js/base.js?v={{ static_v }}"></script>
     {% block scripts %}{% endblock %}
 </head>
-<body>
+<body{% if is_widget_view %} class="widget-view"{% endif %}>
+    {% if not is_widget_view %}
     <header class="main-header">
         <div class="header-left">
             {% if sub_page %}
@@ -59,10 +61,13 @@
                 {% if user %}
                     <!-- Nur eingeloggte User sehen diese Links -->
                     {% if "SOFA-PAGE-TODO" in authz.permissions %}
-                        <a href="/tasks" class="nav-link" data-nav-target="tasks">To-Dos</a>
+                        <a href="/tasks" class="nav-link" data-nav-target="tasks">
+                            Aufgaben
+                            <span class="nav-badge" data-task-count-badge{% if not authz.task_count %} hidden{% endif %}>{{ authz.task_count }}</span>
+                        </a>
                     {% endif %}
                     {% if authz.has_any_tool %}
-                        <a href="/tools" class="nav-link" data-nav-target="tools">Tools & Reports</a>
+                        <a href="/tools" class="nav-link" data-nav-target="tools">Workspace</a>
                     {% endif %}
 
                     <!-- Admin dropdown (click-to-toggle) -->
@@ -139,10 +144,13 @@
             <nav class="mobile-nav-links" aria-label="Mobile Hauptnavigation">
                 <a href="/" class="mobile-nav-link" data-nav-target="dashboard">Dashboard</a>
                 {% if "SOFA-PAGE-TODO" in authz.permissions %}
-                    <a href="/tasks" class="mobile-nav-link" data-nav-target="tasks">To-Dos</a>
+                    <a href="/tasks" class="mobile-nav-link" data-nav-target="tasks">
+                        Aufgaben
+                        <span class="nav-badge" data-task-count-badge{% if not authz.task_count %} hidden{% endif %}>{{ authz.task_count }}</span>
+                    </a>
                 {% endif %}
                 {% if authz.has_any_tool %}
-                    <a href="/tools" class="mobile-nav-link" data-nav-target="tools">Tools &amp; Reports</a>
+                    <a href="/tools" class="mobile-nav-link" data-nav-target="tools">Workspace</a>
                 {% endif %}
 
                 {% if authz.has_admin_access %}
@@ -172,6 +180,7 @@
             </nav>
         {% endif %}
     </div>
+    {% endif %}
 
     <main>
         <!-- Flash messages -->
@@ -188,9 +197,11 @@
         {% block content %}{% endblock %}
     </main>
 
+    {% if not is_widget_view %}
     <footer>
         <p class="footer-txt">SERVODATA ONE FOR ALL - &copy; 2026 Servodata</p>
     </footer>
+    {% endif %}
 
     {% if user %}
         <script>
