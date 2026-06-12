@@ -39,7 +39,6 @@
                     <div class="ui-section-heading">
                         <p class="ui-section-kicker">Arbeitswerkzeuge</p>
                         <h2 class="ui-section-title">Meine Tools</h2>
-                        <p class="ui-section-copy">Schnelle Einstiege für Konvertierung, Analyse und Prozessauswertung.</p>
                     </div>
                 </div>
 
@@ -51,8 +50,7 @@
                                 <img src="/static/img/add.png" class="overview-card-icon" alt="">
                             </div>
                             <div class="overview-card-chips">
-                                <span class="ui-chip ui-chip-primary">Tool</span>
-                                <span class="ui-chip ui-chip-accent">Dokumente</span>
+                                <span class="ui-chip ui-chip-primary">Dokumente</span>
                             </div>
                         </div>
                         <div class="overview-card-body">
@@ -60,10 +58,17 @@
                                 <p class="overview-card-kicker">Dokumente & Vorlagen</p>
                                 <h3 class="overview-card-title">Formularverwaltung</h3>
                             </div>
-                            <p class="overview-card-copy">Word-Vorlagen verwalten, JSON-Schemas pflegen und ausgefuellte Dokumente erzeugen.</p>
+                            <p class="overview-card-copy">Word-Vorlagen verwalten und ausgefüllte Dokumente erzeugen.</p>
                         </div>
                         <div class="overview-card-footer">
                             <span class="overview-card-cta">Tool öffnen</span>
+                            <button type="button" class="overview-card-popout" aria-label="In neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
                         </div>
                     </a>
                     {% endif %}
@@ -75,43 +80,25 @@
                                 <img src="/static/img/process.png" class="overview-card-icon" alt="">
                             </div>
                             <div class="overview-card-chips">
-                                <span class="ui-chip ui-chip-primary">Tool</span>
-                                <span class="ui-chip ui-chip-accent">Dokumente</span>
+                                <span class="ui-chip ui-chip-primary">Abrechnung</span>
                             </div>
                         </div>
                         <div class="overview-card-body">
                             <div class="overview-card-heading">
-                                <p class="overview-card-kicker">Datei-Workflow</p>
+                                <p class="overview-card-kicker">Prüfen & korrigieren</p>
                                 <h3 class="overview-card-title">DAT-Export Check</h3>
                             </div>
-                            <p class="overview-card-copy">DAT-Dateien hochladen und direkt in ein auswertbares Excel-Format umwandeln.</p>
+                            <p class="overview-card-copy">.dat-Dateien hochladen und in ein auswertbares Excel-Format umwandeln.</p>
                         </div>
                         <div class="overview-card-footer">
                             <span class="overview-card-cta">Tool öffnen</span>
-                        </div>
-                    </a>
-                    {% endif %}
-
-                    {% if "SOFA-TOOL-IKS" in authz.permissions %}
-                    <a href="/tools/iks" class="overview-card overview-card-link">
-                        <div class="overview-card-top">
-                            <div class="overview-card-icon-wrap">
-                                <img src="/static/img/roles.png" class="overview-card-icon" alt="">
-                            </div>
-                            <div class="overview-card-chips">
-                                <span class="ui-chip ui-chip-primary">Tool</span>
-                                <span class="ui-chip ui-chip-accent">Analyse</span>
-                            </div>
-                        </div>
-                        <div class="overview-card-body">
-                            <div class="overview-card-heading">
-                                <p class="overview-card-kicker">Kontrolle & Audit</p>
-                                <h3 class="overview-card-title">IKS-Bericht Generator</h3>
-                            </div>
-                            <p class="overview-card-copy">Prozesse auswerten, Berichte generieren und Ergebnisse als HTML oder Rohdaten exportieren.</p>
-                        </div>
-                        <div class="overview-card-footer">
-                            <span class="overview-card-cta">Tool öffnen</span>
+                            <button type="button" class="overview-card-popout" aria-label="In neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
                         </div>
                     </a>
                     {% endif %}
@@ -123,19 +110,25 @@
                                 <img src="/static/img/software.png" class="overview-card-icon" alt="">
                             </div>
                             <div class="overview-card-chips">
-                                <span class="ui-chip ui-chip-primary">Tool</span>
-                                <span class="ui-chip ui-chip-accent">Verwaltung</span>
+                                <span class="ui-chip ui-chip-primary">Genesys</span>
                             </div>
                         </div>
                         <div class="overview-card-body">
                             <div class="overview-card-heading">
                                 <p class="overview-card-kicker">Produktionssteuerung</p>
-                                <h3 class="overview-card-title">Genesys Queue Manager</h3>
+                                <h3 class="overview-card-title">Queue Manager</h3>
                             </div>
                             <p class="overview-card-copy">Warteschleifen in Genesys Cloud beobachten & verwalten</p>
                         </div>
                         <div class="overview-card-footer">
                             <span class="overview-card-cta">Tool öffnen</span>
+                            <button type="button" class="overview-card-popout" aria-label="In neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
                         </div>
                     </a>
                     {% endif %}
@@ -147,19 +140,25 @@
                                 <img src="/static/img/process.png" class="overview-card-icon" alt="">
                             </div>
                             <div class="overview-card-chips">
-                                <span class="ui-chip ui-chip-primary">Tool</span>
-                                <span class="ui-chip ui-chip-accent">Betrieb</span>
+                                <span class="ui-chip ui-chip-primary">Notfall</span>
                             </div>
                         </div>
                         <div class="overview-card-body">
                             <div class="overview-card-heading">
-                                <p class="overview-card-kicker">Betriebsmanagement</p>
+                                <p class="overview-card-kicker">Organisation & Dokumentation</p>
                                 <h3 class="overview-card-title">Störungsprotokoll</h3>
                             </div>
                             <p class="overview-card-copy">Betriebliche Störungen erfassen, verfolgen und archivieren.</p>
                         </div>
                         <div class="overview-card-footer">
                             <span class="overview-card-cta">Tool öffnen</span>
+                            <button type="button" class="overview-card-popout" aria-label="In neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
                         </div>
                     </a>
                     {% endif %}
@@ -173,25 +172,76 @@
                     <div class="ui-section-heading">
                         <p class="ui-section-kicker">Auswertungen</p>
                         <h2 class="ui-section-title">Meine Reports</h2>
-                        <p class="ui-section-copy">Geplante Report-Zugänge und zentrale Übersichten für wiederkehrende Auswertungen.</p>
                     </div>
                 </div>
 
                 <div class="overview-card-grid">
-                    <article class="overview-card overview-card-disabled" aria-disabled="true">
+                                        {% if "SOFA-TOOL-IKS" in authz.permissions %}
+                    <a href="/tools/iks" class="overview-card overview-card-link report-card">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/roles.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-warning">IKS</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Kontrolle & Audit</p>
+                                <h3 class="overview-card-title">Systemzugriffe-Report</h3>
+                            </div>
+                            <p class="overview-card-copy">Prozessübersicht zu Berechtigungsverfahren</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">Report öffnen</span>
+                            <button type="button" class="overview-card-popout" aria-label="In neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </a>
+                    {% endif %}
+
+                                        {% if "SOFA-TOOL-IKS" in authz.permissions %}
+                    <a href="/tools" class="overview-card overview-card-link report-card overview-card-disabled">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/roles.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-warning">Coming Soon</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Analyse & Kontrolle</p>
+                                <h3 class="overview-card-title">VR-Payment Ticketreport</h3>
+                            </div>
+                            <p class="overview-card-copy">Prozesse auswerten, Berichte generieren und Ergebnisse als HTML oder Rohdaten exportieren.</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">...</span>
+                        </div>
+                    </a>
+                    {% endif %}
+
+                    <article class="overview-card report-card overview-card-disabled" aria-disabled="true">
                         <div class="overview-card-top">
                             <div class="overview-card-icon-wrap">
                                 <img src="/static/img/drive.png" class="overview-card-icon" alt="">
                             </div>
                             <div class="overview-card-chips">
-                                <span class="ui-chip ui-chip-neutral">Report</span>
                                 <span class="ui-chip ui-chip-warning">Coming Soon</span>
                             </div>
                         </div>
                         <div class="overview-card-body">
                             <div class="overview-card-heading">
                                 <p class="overview-card-kicker">Prozessübersicht</p>
-                                <h3 class="overview-card-title">Prozessdaten</h3>
+                                <h3 class="overview-card-title">Sperrprozesse</h3>
                             </div>
                             <p class="overview-card-copy">Die zentrale Report-Seite ist vorgesehen, im aktuellen Stand aber noch nicht an eine Route angebunden.</p>
                         </div>

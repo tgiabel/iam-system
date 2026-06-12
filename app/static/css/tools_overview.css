@@ -99,11 +99,7 @@
     inset: 0 0 auto 0;
     height: 5px;
     border-radius: var(--ui-radius-lg) var(--ui-radius-lg) 0 0;
-    background: linear-gradient(
-        90deg,
-        rgba(var(--color-primary-rgb), 0.95),
-        rgba(var(--color-primary-rgb), 0.65)
-    );
+    background-color: var(--color-primary);
 }
 
 .overview-card-link {
@@ -119,22 +115,20 @@
     outline: none;
 }
 
+.report-card {
+    background-color: var(--ui-orange-bg);
+}
+
+.report-card::before {
+    background-color: var(--ui-orange-text);
+}
+
 .overview-card-disabled {
-    background:
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--ui-surface-card) 96%, transparent),
-            color-mix(in srgb, var(--ui-surface-muted) 94%, transparent)
-        ),
-        var(--ui-surface-card);
+    opacity: 30%;
 }
 
 .overview-card-disabled::before {
-    background: linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--ui-text-muted) 92%, transparent),
-        color-mix(in srgb, var(--ui-border-strong) 92%, transparent)
-    );
+    background-color: var(--ui-orange-text);
 }
 
 .overview-card-top {
@@ -217,6 +211,32 @@
 .overview-card-cta {
     color: var(--color-primary);
     font-weight: 700;
+}
+
+.overview-card-popout {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    border: 1px solid var(--ui-border);
+    background: color-mix(in srgb, var(--ui-surface-card) 85%, transparent);
+    color: var(--ui-text-muted);
+    cursor: pointer;
+    transition: transform 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.overview-card-popout:hover,
+.overview-card-popout:focus-visible {
+    color: var(--color-primary);
+    border-color: rgba(var(--color-primary-rgb), 0.28);
+    transform: translateY(-1px);
+}
+
+.overview-card-popout svg {
+    width: 1.1rem;
+    height: 1.1rem;
 }
 
 .overview-card-note {

@@ -1,5 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     initTabs();
+    initPopoutButtons();
 });
 
 function initTabs() {
@@ -28,4 +29,23 @@ function initTabs() {
 
     const initiallyActive = document.querySelector(".overview-tab.active")?.dataset.tab || "tools";
     activateTab(initiallyActive);
+}
+
+function initPopoutButtons() {
+    document.querySelectorAll(".overview-card-popout").forEach(btn => {
+        const card = btn.closest(".overview-card-link");
+        if (!card) return;
+
+        btn.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const href = card.getAttribute("href");
+            if (!href) return;
+
+            const url = new URL(href, window.location.origin);
+            url.searchParams.set("view", "widget");
+            window.open(url.toString(), "_blank", "noopener,noreferrer,width=1280,height=860");
+        });
+    });
 }
