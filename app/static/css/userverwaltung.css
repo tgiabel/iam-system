@@ -208,15 +208,21 @@ html[data-theme="servodata"] .users-icon-btn-img {
 }
 
 .users-subfilter-toggle-include input:checked + span {
-    background: #ecfbef;
-    border-color: #267144;
-    color: #267144;
+    background: var(--ui-blue-bg);
+    border-color: color-mix(in srgb, var(--ui-blue-text) 50%, transparent);
+    color: var(--ui-blue-text);
 }
 
 .users-subfilter-toggle-exclude input:checked + span {
-    background: #fdeeee;
-    border-color: #b12626;
-    color: #b12626;
+    background: var(--ui-red-bg);
+    border-color: color-mix(in srgb, var(--ui-red-text) 50%, transparent);
+    color: var(--ui-red-text);
+}
+
+.users-subfilter-select-all {
+    border-bottom: 1px solid var(--ui-border);
+    margin-bottom: 0.25rem;
+    font-weight: 600;
 }
 
 .users-filter-tags {
@@ -253,13 +259,13 @@ html[data-theme="servodata"] .users-icon-btn-img {
 }
 
 .users-filter-tag.is-excluded {
-    background: #fdeeee;
-    border-color: rgba(177, 38, 38, 0.18);
-    color: #b12626;
+    background: var(--ui-red-bg);
+    border-color: color-mix(in srgb, var(--ui-red-text) 30%, transparent);
+    color: var(--ui-red-text);
 }
 
 .users-filter-tag.is-excluded span {
-    color: #b12626;
+    color: var(--ui-red-text);
 }
 
 .users-table-card {
@@ -388,15 +394,12 @@ html[data-theme="servodata"] .users-icon-btn-img {
     min-height: 2.35rem;
     padding: 0.35rem 0.8rem;
     border-radius: 14px;
-    background: linear-gradient(180deg, #ffffff, #f4f8ff);
-    border: 1px solid rgba(65, 105, 225, 0.14);
-    color: var(--color-primary);
+    background: var(--ui-status-neutral-bg);
+    border: 1px solid color-mix(in srgb, var(--ui-status-neutral-text) 20%, transparent);
     font-weight: 700;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.85),
-        0 8px 18px rgba(65, 105, 225, 0.08);
     font-size: 0.95rem;
     line-height: 1;
+    color: var(--ui-status-neutral-text);
 }
 
 .users-secondary-preview {
@@ -414,11 +417,13 @@ html[data-theme="servodata"] .users-icon-btn-img {
     align-items: center;
     justify-content: center;
     min-height: 2rem;
-    min-width: 7rem;
+    min-width: fit-content;
     padding: 0.2rem 0.85rem;
     border-radius: 999px;
     font-size: 0.84rem;
     font-weight: 700;
+    line-height: 1.2;
+    border: 1px solid transparent;
     white-space: nowrap;
 }
 
@@ -451,6 +456,11 @@ html[data-theme="servodata"] .users-icon-btn-img {
     border-color: var(--btn-red-border);
 }
 
+.users-inactive-toggle[aria-pressed="true"]:hover {
+    background: var(--btn-red-bg);
+    border-color: var(--btn-red-border);
+}
+
 .users-date-column {
     display: none;
 }
@@ -461,36 +471,43 @@ html[data-theme="servodata"] .users-icon-btn-img {
 
 .users-status-active,
 .user-assignment-active {
-    background: #ecfbef;
-    color: #267144;
+    background: var(--ui-success-bg);
+    border-color: color-mix(in srgb, var(--ui-success-text) 22%, transparent);
+    color: var(--ui-success-text);
 }
 
 .users-status-inactive,
+.users-status-low,
 .user-assignment-revoked {
-    background: #eef1f6;
-    color: #556274;
+    background: var(--ui-status-neutral-bg);
+    border-color: color-mix(in srgb, var(--ui-status-neutral-text) 20%, transparent);
+    color: var(--ui-status-neutral-text);
 }
 
 .users-status-pending,
 .user-assignment-requested {
-    background: #fff5e8;
-    color: #9b5a00;
+    background: var(--ui-warning-bg);
+    border-color: color-mix(in srgb, var(--ui-warning-text) 22%, transparent);
+    color: var(--ui-warning-text);
 }
 
 .users-status-progress {
-    background: #edf4ff;
-    color: #2459b3;
+    background: var(--ui-info-bg);
+    border-color: color-mix(in srgb, var(--ui-info-text) 18%, transparent);
+    color: var(--ui-info-text);
 }
 
 .users-status-warning,
 .user-assignment-revocation-requested {
-    background: #fff0eb;
-    color: #b85b24;
+    background: var(--ui-warning-bg);
+    border-color: color-mix(in srgb, var(--ui-warning-text) 22%, transparent);
+    color: var(--ui-warning-text);
 }
 
 .users-status-error {
-    background: #fdeeee;
-    color: #b12626;
+    background: var(--ui-error-bg);
+    border-color: color-mix(in srgb, var(--ui-error-text) 22%, transparent);
+    color: var(--ui-error-text);
 }
 
 .users-derived-status-main {
@@ -611,6 +628,8 @@ html[data-theme="servodata"] .users-icon-btn-img {
 }
 
 .user-panel-body {
+    flex: 1;
+    min-height: 0;
     padding-top: 0.25rem;
 }
 
@@ -658,7 +677,7 @@ html[data-theme="servodata"] .users-icon-btn-img {
 .user-info-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.85rem 1rem;
+    gap: 1.85rem 1rem;
 }
 
 .user-info-item {
@@ -695,10 +714,34 @@ html[data-theme="servodata"] .users-icon-btn-img {
     gap: 0.7rem;
 }
 
+.user-status-card {
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+}
+
+.user-status-card-inner {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 1.1rem 1.15rem;
+}
+
+.user-status-card .user-detail-card-header {
+    flex-shrink: 0;
+}
+
 .user-derived-status-list {
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.user-status-card .user-derived-status-list {
+    flex: 1;
 }
 
 .user-derived-status-card {
@@ -745,6 +788,25 @@ html[data-theme="servodata"] .users-icon-btn-img {
     color: var(--ui-text);
 }
 
+.user-derived-status-cancel-btn {
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--danger-text) 35%, transparent);
+    background: transparent;
+    color: var(--danger-text);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.user-derived-status-cancel-btn:hover {
+    background: color-mix(in srgb, var(--danger-surface) 60%, transparent);
+    transform: translateY(-1px);
+}
+
 .user-derived-status-error {
     margin: 0;
     padding: 0.8rem 0.9rem;
@@ -782,31 +844,37 @@ html[data-theme="servodata"] .users-icon-btn-img {
     font-size: 0.88rem;
 }
 
-.user-action-panels {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1rem;
-}
-
-.user-action-copy {
-    margin: 0 0 1rem;
-    color: var(--ui-text);
-}
-
-.user-action-group {
+.user-panel-actions {
     display: flex;
+    align-items: center;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    padding: 0.65rem 1.75rem;
+    border-top: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
+    background: color-mix(in srgb, var(--ui-surface-card) 96%, transparent);
 }
 
-.user-role-actions {
+.user-panel-action-group {
+    display: none;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.user-panel-action-group.is-active {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
 }
 
-.user-role-actions-card {
-    margin-top: 0.15rem;
+.user-panel-action-buttons {
+    display: contents;
+}
+
+.btn-sm {
+    min-height: 2.1rem;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+    border-radius: 10px;
+    box-shadow: none;
 }
 
 .user-role-list,
@@ -1199,13 +1267,27 @@ html[data-theme="servodata"] .users-icon-btn-img {
 }
 
 @media (max-width: 1080px) {
-    .user-panel-grid,
-    .user-action-panels {
+    .user-panel-grid {
         grid-template-columns: 1fr;
     }
 
     .user-panel {
         width: min(760px, calc(100vw - 1.5rem));
+    }
+
+    .user-status-card {
+        position: static;
+        overflow: visible;
+        padding: 1.1rem 1.15rem;
+    }
+
+    .user-status-card-inner {
+        position: static;
+        inset: auto;
+    }
+
+    .user-status-card .user-derived-status-list {
+        overflow-y: visible;
     }
 }
 
@@ -1282,7 +1364,8 @@ html[data-theme="servodata"] .users-icon-btn-img {
 
     .user-panel-tabs,
     .ui-modal-header,
-    .ui-modal-body {
+    .ui-modal-body,
+    .user-panel-actions {
         padding-left: 1.1rem;
         padding-right: 1.1rem;
     }

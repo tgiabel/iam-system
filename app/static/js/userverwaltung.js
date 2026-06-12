@@ -10,6 +10,7 @@ const state = {
     filters: {
         primaryRoles: { include: [], exclude: [] },
         secondaryRoles: { include: [], exclude: [] },
+        skillRoles: { include: [], exclude: [] },
         severities: { include: [], exclude: [] },
         actions: { include: [], exclude: [] },
         openCategory: null
@@ -46,9 +47,9 @@ const ASSIGNMENT_LABELS = {
 };
 
 const SEVERITY_OPTIONS = [
-    { id: "none", label: "Ohne Vorgang" },
+    { id: "none", label: "Normal" },
     { id: "low", label: "Niedrig" },
-    { id: "info", label: "Info" },
+    { id: "info", label: "Bemerkenswert" },
     { id: "warning", label: "Warnung" },
     { id: "error", label: "Fehler" }
 ];
@@ -390,6 +391,34 @@ const api = {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             return false;
         }
+    },
+
+    async cancelProcess(processId, reason) {
+        try {
+            const payload = {};
+            if (reason) {
+                payload.reason = reason;
+            }
+
+            const res = await fetch(`/api/processes/${processId}/cancel`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+                showFlash(data.detail || data.error || "Prozess konnte nicht abgebrochen werden", "failure");
+                return false;
+            }
+
+            showFlash("Prozess abgebrochen", "success");
+            return true;
+        } catch (err) {
+            console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return false;
+        }
     }
 };
 
@@ -583,6 +612,9 @@ function getSeverityBadgeClass(severity, isOverdue = false) {
     }
     if (normalized === "warning") {
         return "users-status-warning";
+    }
+    if (normalized === "low" || normalized === "none") {
+        return "users-status-low";
     }
     return "users-status-progress";
 }
@@ -1018,7 +1050,13 @@ const filterController = {
                 return;
             }
 
-            this.toggleOptionFilter(filterKey, target.value, action, target.checked);
+            if (target.dataset.selectAllValues) {
+                const values = JSON.parse(target.dataset.selectAllValues);
+                values.forEach(value => this.toggleOptionFilter(filterKey, value, action, target.checked));
+            } else {
+                this.toggleOptionFilter(filterKey, target.value, action, target.checked);
+            }
+
             this.renderActiveTags();
             this.rerenderOpenSubfilter();
             tableController.render();
@@ -1052,7 +1090,7 @@ const filterController = {
 
     async openSubfilter(category) {
         state.filters.openCategory = category;
-        if (!state.roleMap && (category === "hauptrolle" || category === "nebenrolle")) {
+        if (!state.roleMap && (category === "hauptrolle" || category === "nebenrolle" || category === "skill")) {
             await api.getRoleMap();
         }
 
@@ -1093,6 +1131,33 @@ const filterController = {
         `;
     },
 
+    renderSelectAllRow(filterKey, values, includeSet, excludeSet) {
+        if (!values.length) {
+            return "";
+        }
+
+        const stringValues = values.map(String);
+        const allIncluded = stringValues.every(v => includeSet.has(v));
+        const allExcluded = stringValues.every(v => excludeSet.has(v));
+        const valuesAttr = escapeHtml(JSON.stringify(stringValues));
+
+        return `
+            <div class="users-subfilter-option users-subfilter-select-all">
+                <span class="users-subfilter-option-label">Alle</span>
+                <span class="users-subfilter-toggle-group">
+                    <label class="users-subfilter-toggle users-subfilter-toggle-include" title="Alle anzeigen">
+                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="include" data-select-all-values='${valuesAttr}' ${allIncluded ? "checked" : ""}>
+                        <span aria-hidden="true">✓</span>
+                    </label>
+                    <label class="users-subfilter-toggle users-subfilter-toggle-exclude" title="Alle ausschließen">
+                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="exclude" data-select-all-values='${valuesAttr}' ${allExcluded ? "checked" : ""}>
+                        <span aria-hidden="true">✕</span>
+                    </label>
+                </span>
+            </div>
+        `;
+    },
+
     renderSubfilter(category) {
         if (!DOM.subfilterDropdown) {
             return;
@@ -1105,21 +1170,36 @@ const filterController = {
             const includeSet = new Set(include.map(String));
             const excludeSet = new Set(exclude.map(String));
 
-            DOM.subfilterDropdown.innerHTML = options
-                .map(option => this.renderOptionRow(option.label, filterKey, option.id, includeSet, excludeSet))
-                .join("");
+            DOM.subfilterDropdown.innerHTML =
+                this.renderSelectAllRow(filterKey, options.map(option => option.id), includeSet, excludeSet) +
+                options.map(option => this.renderOptionRow(option.label, filterKey, option.id, includeSet, excludeSet)).join("");
             return;
         }
 
-        const roleType = category === "hauptrolle" ? "PRIMARY" : "SECONDARY";
-        const filterKey = category === "hauptrolle" ? "primaryRoles" : "secondaryRoles";
+        if (category === "nebenrolle" || category === "skill") {
+            const filterKey = category === "nebenrolle" ? "secondaryRoles" : "skillRoles";
+            const { include, exclude } = state.filters[filterKey];
+            const includeSet = new Set(include.map(String));
+            const excludeSet = new Set(exclude.map(String));
+            const options = getRoleOptionsByType("SECONDARY")
+                .filter(([, role]) => normalizeValue(role.name).startsWith("skill") === (category === "skill"));
+
+            DOM.subfilterDropdown.innerHTML = options.length
+                ? this.renderSelectAllRow(filterKey, options.map(([roleId]) => roleId), includeSet, excludeSet) +
+                  options.map(([roleId, role]) => this.renderOptionRow(role.name, filterKey, roleId, includeSet, excludeSet)).join("")
+                : "<span>Keine Rollen gefunden</span>";
+            return;
+        }
+
+        const filterKey = "primaryRoles";
         const { include, exclude } = state.filters[filterKey];
         const includeSet = new Set(include.map(String));
         const excludeSet = new Set(exclude.map(String));
-        const options = getRoleOptionsByType(roleType);
+        const options = getRoleOptionsByType("PRIMARY");
 
         DOM.subfilterDropdown.innerHTML = options.length
-            ? options.map(([roleId, role]) => this.renderOptionRow(role.name, filterKey, roleId, includeSet, excludeSet)).join("")
+            ? this.renderSelectAllRow(filterKey, options.map(([roleId]) => roleId), includeSet, excludeSet) +
+              options.map(([roleId, role]) => this.renderOptionRow(role.name, filterKey, roleId, includeSet, excludeSet)).join("")
             : "<span>Keine Rollen gefunden</span>";
     },
 
@@ -1152,31 +1232,35 @@ const filterController = {
             return;
         }
 
-        const roleTag = (filterKey, action, roleId, prefix) => ({
+        const tagLabel = (name, action) => action === "exclude" ? `Kein ${name}` : name;
+
+        const roleTag = (filterKey, action, roleId) => ({
             filterKey,
             action,
             value: roleId,
-            label: `${prefix}: ${state.roleMap?.[roleId]?.name || roleId}`,
+            label: tagLabel(state.roleMap?.[roleId]?.name || roleId, action),
             excluded: action === "exclude"
         });
 
-        const optionTag = (filterKey, action, optionId, options, prefix) => ({
+        const optionTag = (filterKey, action, optionId, options) => ({
             filterKey,
             action,
             value: optionId,
-            label: `${prefix}: ${options.find(option => option.id === optionId)?.label || optionId}`,
+            label: tagLabel(options.find(option => option.id === optionId)?.label || optionId, action),
             excluded: action === "exclude"
         });
 
         const tags = [
-            ...state.filters.primaryRoles.include.map(id => roleTag("primaryRoles", "include", id, "Funktion")),
-            ...state.filters.primaryRoles.exclude.map(id => roleTag("primaryRoles", "exclude", id, "Nicht Funktion")),
-            ...state.filters.secondaryRoles.include.map(id => roleTag("secondaryRoles", "include", id, "Nebenrolle")),
-            ...state.filters.secondaryRoles.exclude.map(id => roleTag("secondaryRoles", "exclude", id, "Nicht Nebenrolle")),
-            ...state.filters.severities.include.map(id => optionTag("severities", "include", id, SEVERITY_OPTIONS, "Status")),
-            ...state.filters.severities.exclude.map(id => optionTag("severities", "exclude", id, SEVERITY_OPTIONS, "Nicht Status")),
-            ...state.filters.actions.include.map(id => optionTag("actions", "include", id, ACTION_OPTIONS, "Aktion")),
-            ...state.filters.actions.exclude.map(id => optionTag("actions", "exclude", id, ACTION_OPTIONS, "Nicht Aktion"))
+            ...state.filters.primaryRoles.include.map(id => roleTag("primaryRoles", "include", id)),
+            ...state.filters.primaryRoles.exclude.map(id => roleTag("primaryRoles", "exclude", id)),
+            ...state.filters.secondaryRoles.include.map(id => roleTag("secondaryRoles", "include", id)),
+            ...state.filters.secondaryRoles.exclude.map(id => roleTag("secondaryRoles", "exclude", id)),
+            ...state.filters.skillRoles.include.map(id => roleTag("skillRoles", "include", id)),
+            ...state.filters.skillRoles.exclude.map(id => roleTag("skillRoles", "exclude", id)),
+            ...state.filters.severities.include.map(id => optionTag("severities", "include", id, SEVERITY_OPTIONS)),
+            ...state.filters.severities.exclude.map(id => optionTag("severities", "exclude", id, SEVERITY_OPTIONS)),
+            ...state.filters.actions.include.map(id => optionTag("actions", "include", id, ACTION_OPTIONS)),
+            ...state.filters.actions.exclude.map(id => optionTag("actions", "exclude", id, ACTION_OPTIONS))
         ];
 
         DOM.activeFilters.innerHTML = tags.map(tag => `
@@ -1216,6 +1300,7 @@ const tableController = {
             .filter(user => this.matchesSearch(user))
             .filter(user => this.matchesPrimaryRoles(user))
             .filter(user => this.matchesSecondaryRoles(user))
+            .filter(user => this.matchesSkillRoles(user))
             .filter(user => this.matchesSeverity(user))
             .filter(user => this.matchesAction(user));
 
@@ -1260,6 +1345,22 @@ const tableController = {
 
     matchesSecondaryRoles(user) {
         const { include, exclude } = state.filters.secondaryRoles;
+        if (!include.length && !exclude.length) {
+            return true;
+        }
+
+        const userRoleIds = getSecondaryRoles(user).map(role => String(role.role_id));
+        if (exclude.length && userRoleIds.some(roleId => exclude.includes(roleId))) {
+            return false;
+        }
+        if (include.length && !userRoleIds.some(roleId => include.includes(roleId))) {
+            return false;
+        }
+        return true;
+    },
+
+    matchesSkillRoles(user) {
+        const { include, exclude } = state.filters.skillRoles;
         if (!include.length && !exclude.length) {
             return true;
         }
@@ -1507,6 +1608,10 @@ const sidebarController = {
         DOM.userPanelViews.forEach(view => {
             view.classList.toggle("active", view.id === `tab-${tabId}`);
         });
+
+        DOM.userPanelActionGroups.forEach(group => {
+            group.classList.toggle("is-active", group.dataset.actionsFor === tabId);
+        });
     },
 
     async render(user, activity) {
@@ -1545,46 +1650,29 @@ const sidebarController = {
     },
 
     renderSofaAccessActions(user) {
-        if (!DOM.sofaAccessStatus || !DOM.sofaAccessActions) return;
+        if (!DOM.sofaAccessActions) return;
 
         const hasSofaAccess = Boolean(user.has_sofa_access);
         const canSetup = hasPerm("SOFA-FN-ACC");
         const canReset = hasPerm("SOFA-FN-ACC");
         const canRevoke = hasPerm("SOFA-FN-ACC");
 
-        DOM.sofaAccessStatus.textContent = hasSofaAccess
-            ? "SOFA Zugriff ist eingerichtet und kann hier direkt verwaltet werden."
-            : "Für diesen User ist aktuell kein SOFA Zugriff eingerichtet.";
-
-        if (!canSetup && !canReset && !canRevoke) {
-            DOM.sofaAccessActions.innerHTML = `
-                <div class="ui-empty-state ui-empty-inline">Keine administrativen SOFA-Aktionen verfuegbar.</div>
-            `;
-            return;
-        }
-
         if (!hasSofaAccess) {
             DOM.sofaAccessActions.innerHTML = canSetup
-                ? `
-                    <button type="button" class="btn btn-primary" id="sofa-access-setup-btn">SOFA Zugriff einrichten</button>
-                `
-                : `
-                    <div class="ui-empty-state ui-empty-inline">Kein Recht zum Einrichten von SOFA-Zugaengen.</div>
-                `;
+                ? '<button type="button" class="btn btn-sm btn-secondary" id="sofa-access-setup-btn" title="SOFA Zugriff einrichten">SOFA einrichten</button>'
+                : "";
             return;
         }
 
         const buttons = [];
         if (canReset) {
-            buttons.push('<button type="button" class="btn btn-secondary" id="sofa-password-reset-btn">SOFA Passwort zurücksetzen</button>');
+            buttons.push('<button type="button" class="btn btn-sm btn-secondary" id="sofa-password-reset-btn" title="SOFA Passwort zurücksetzen">SOFA Passwort</button>');
         }
         if (canRevoke) {
-            buttons.push('<button type="button" class="btn btn-red" id="sofa-access-revoke-btn">SOFA Zugriff entziehen</button>');
+            buttons.push('<button type="button" class="btn btn-sm btn-red" id="sofa-access-revoke-btn" title="SOFA Zugriff entziehen">SOFA entziehen</button>');
         }
 
-        DOM.sofaAccessActions.innerHTML = buttons.join("") || `
-            <div class="ui-empty-state ui-empty-inline">Keine administrativen SOFA-Aktionen verfuegbar.</div>
-        `;
+        DOM.sofaAccessActions.innerHTML = buttons.join("");
     },
 
     renderDerivedStatuses(user) {
@@ -1602,6 +1690,8 @@ const sidebarController = {
             return;
         }
 
+        const canCancel = hasPerm("SOFA-FN-PCNCL");
+
         DOM.userDerivedStatusList.innerHTML = statuses.map(status => `
             <article class="user-derived-status-card">
                 <div class="user-derived-status-top">
@@ -1610,6 +1700,7 @@ const sidebarController = {
                         ${status.roleName ? `<span class="ui-chip ui-chip-neutral">${escapeHtml(status.roleName)}</span>` : ""}
                         ${status.isOverdue ? '<span class="ui-chip ui-chip-warning">Überfällig</span>' : ""}
                     </div>
+                    ${canCancel && status.processId ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
                 </div>
                 <div class="user-derived-status-meta">
                     ${status.referenceDate ? `<span><strong>Bezug:</strong> ${escapeHtml(formatDateTime(status.referenceDate))}</span>` : ""}
@@ -1621,6 +1712,26 @@ const sidebarController = {
                 ${status.lastError ? `<p class="user-derived-status-error"><strong>Letzter Fehler:</strong> ${escapeHtml(status.lastError)}</p>` : ""}
             </article>
         `).join("");
+
+        if (canCancel) {
+            DOM.userDerivedStatusList.querySelectorAll(".user-derived-status-cancel-btn").forEach(button => {
+                button.addEventListener("click", async () => {
+                    const processId = button.dataset.processId;
+                    const processLabel = button.dataset.processLabel;
+                    if (!window.confirm(`Prozess "${processLabel}" wirklich abbrechen?`)) {
+                        return;
+                    }
+
+                    const success = await api.cancelProcess(processId);
+                    if (!success) {
+                        return;
+                    }
+
+                    await tableController.loadUsers();
+                    await sidebarController.refreshCurrentUser();
+                });
+            });
+        }
     },
 
     async renderAccounts(accounts = [], detail = null) {
@@ -2507,6 +2618,8 @@ const trainingModalController = {
             state.filters.primaryRoles.exclude.length ||
             state.filters.secondaryRoles.include.length ||
             state.filters.secondaryRoles.exclude.length ||
+            state.filters.skillRoles.include.length ||
+            state.filters.skillRoles.exclude.length ||
             state.filters.severities.include.length ||
             state.filters.severities.exclude.length ||
             state.filters.actions.include.length ||
@@ -3253,6 +3366,7 @@ function cacheDOM() {
     DOM.userPanelTabs = document.getElementById("user-panel-tabs");
     DOM.userPanelTabButtons = document.querySelectorAll(".user-panel-tab");
     DOM.userPanelViews = document.querySelectorAll(".user-panel-view");
+    DOM.userPanelActionGroups = document.querySelectorAll(".user-panel-action-group");
     DOM.sidebarUsername = document.getElementById("sidebar-username");
     DOM.sidebarSubtitle = document.getElementById("sidebar-subtitle");
     DOM.sidebarPnrChip = document.getElementById("sidebar-pnr-chip");
@@ -3274,7 +3388,6 @@ function cacheDOM() {
     DOM.userAccountsCount = document.getElementById("user-accounts-count");
     DOM.userDerivedStatusList = document.getElementById("user-derived-status-list");
     DOM.userDerivedStatusCount = document.getElementById("user-derived-status-count");
-    DOM.sofaAccessStatus = document.getElementById("sofa-access-status");
     DOM.sofaAccessActions = document.getElementById("sofa-access-actions");
     DOM.offboardActionBtn = document.getElementById("offboard-action-btn");
     DOM.primaryRoleChangeActionBtn = document.getElementById("primary-role-change-action-btn");

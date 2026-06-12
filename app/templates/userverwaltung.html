@@ -37,6 +37,7 @@
                     <div class="users-filter-dropdown" id="filter-dropdown">
                         <button type="button" data-filter="hauptrolle">Hauptrolle</button>
                         <button type="button" data-filter="nebenrolle">Nebenrolle</button>
+                        <button type="button" data-filter="skill">Skill</button>
                         <button type="button" data-filter="status">Status</button>
                         <button type="button" data-filter="aktion">Aktion</button>
                     </div>
@@ -175,13 +176,15 @@
                         <a id="user-helix-link" class="user-inline-link" href="#" target="_blank" rel="noopener noreferrer">In Helix aufrufen</a>
                     </article>
 
-                    <article class="ui-card user-detail-card">
-                        <div class="user-detail-card-header">
-                            <h3>Status</h3>
-                            <span class="ui-chip ui-chip-neutral" id="user-derived-status-count">0</span>
-                        </div>
-                        <div id="user-derived-status-list" class="user-derived-status-list">
-                            <div class="ui-empty-state ui-empty-inline">Keine abgeleiteten Status vorhanden.</div>
+                    <article class="ui-card user-detail-card user-status-card">
+                        <div class="user-status-card-inner">
+                            <div class="user-detail-card-header">
+                                <h3>Status</h3>
+                                <span class="ui-chip ui-chip-neutral" id="user-derived-status-count">0</span>
+                            </div>
+                            <div id="user-derived-status-list" class="user-derived-status-list">
+                                <div class="ui-empty-state ui-empty-inline">Keine abgeleiteten Status vorhanden.</div>
+                            </div>
                         </div>
                     </article>
 
@@ -195,59 +198,12 @@
                         </div>
                     </article>
                 </div>
-
-                <div class="user-action-panels">
-                    {% if "SOFA-FN-ACC" in authz.permissions %}
-                    <article class="ui-card user-detail-card">
-                        <div class="user-detail-card-header">
-                            <h3>SOFA-Aktionen</h3>
-                        </div>
-                        <p id="sofa-access-status" class="user-action-copy">Status wird geladen…</p>
-                        <div id="sofa-access-actions" class="user-action-group"></div>
-                    </article>
-                    {% endif %}
-
-                    {% if "SOFA-FN-OFFB" in authz.permissions %}
-                    <article class="ui-card user-detail-card">
-                        <div class="user-detail-card-header">
-                            <h3>Offboarding</h3>
-                        </div>
-                        <p class="user-action-copy">Austrittstermine sauber anstoßen und den Prozess direkt aus dem User-Kontext starten.</p>
-                        <div class="user-action-group">
-                            <button type="button" class="btn btn-red" id="offboard-action-btn">Offboarding starten</button>
-                        </div>
-                    </article>
-                    {% endif %}
-                </div>
             </section>
 
             <section class="user-panel-view" id="tab-rollen">
                 <div id="user-roles-list" class="user-role-list">
                     <div class="ui-empty-state ui-empty-inline">Keine Rollen vorhanden.</div>
                 </div>
-                <article class="ui-card user-detail-card user-role-actions-card">
-                    <div class="user-detail-card-header">
-                        <h3>Aktionen</h3>
-                    </div>
-                    <p class="user-action-copy">Rollenbezogene Aktionen direkt im Kontext der aktuellen Zuweisungen starten.</p>
-                    <div class="user-action-group">
-                        {% if "SOFA-FN-ROLE" in authz.permissions %}
-                        <button type="button" class="btn btn-primary" id="primary-role-change-action-btn">Funktion wechseln</button>
-                        {% endif %}
-                        {% if "SOFA-FN-TRNG" in authz.permissions %}
-                        <button type="button" class="btn btn-secondary" id="detail-training-action-btn">Schulung planen</button>
-                        {% endif %}
-                        {% if "SOFA-FN-RL" in authz.permissions %}
-                        <button type="button" class="btn btn-primary" id="new-skill-action-btn">Neue Rolle</button>
-                        {% endif %}
-                        {% if "SOFA-FN-TMPR" in authz.permissions %}
-                        <button type="button" class="btn btn-secondary" id="tmp-rights-action-btn">Temporäre Rolle</button>
-                        {% endif %}
-                        {% if "SOFA-FN-RMRL" in authz.permissions %}
-                        <button type="button" class="btn btn-red" id="skill-revoke-action-btn">Rolle entziehen</button>
-                        {% endif %}
-                    </div>
-                </article>
             </section>
 
             <section class="user-panel-view" id="tab-ressourcen">
@@ -277,6 +233,35 @@
                     </article>
                 </div>
             </section>
+        </div>
+
+        <div class="user-panel-actions" id="user-panel-actions">
+            <div class="user-panel-action-group is-active" data-actions-for="details">
+                {% if "SOFA-FN-ACC" in authz.permissions %}
+                <div id="sofa-access-actions" class="user-panel-action-buttons"></div>
+                {% endif %}
+                {% if "SOFA-FN-OFFB" in authz.permissions %}
+                <button type="button" class="btn btn-sm btn-red" id="offboard-action-btn" title="Offboarding starten">Offboarding</button>
+                {% endif %}
+            </div>
+
+            <div class="user-panel-action-group" data-actions-for="rollen">
+                {% if "SOFA-FN-ROLE" in authz.permissions %}
+                <button type="button" class="btn btn-sm btn-secondary" id="primary-role-change-action-btn" title="Funktion wechseln">Funktion wechseln</button>
+                {% endif %}
+                {% if "SOFA-FN-RL" in authz.permissions %}
+                <button type="button" class="btn btn-sm btn-secondary" id="new-skill-action-btn" title="Neue Rolle">Neue Rolle</button>
+                {% endif %}
+                {% if "SOFA-FN-TMPR" in authz.permissions %}
+                <button type="button" class="btn btn-sm btn-secondary" id="tmp-rights-action-btn" title="Temporäre Rolle">Temp. Rolle</button>
+                {% endif %}
+                {% if "SOFA-FN-TRNG" in authz.permissions %}
+                <button type="button" class="btn btn-sm btn-secondary" id="detail-training-action-btn" title="Schulung planen">Schulung</button>
+                {% endif %}
+                {% if "SOFA-FN-RMRL" in authz.permissions %}
+                <button type="button" class="btn btn-sm btn-red" id="skill-revoke-action-btn" title="Rolle entziehen">Entziehen</button>
+                {% endif %}
+            </div>
         </div>
     </div>
 </div>
