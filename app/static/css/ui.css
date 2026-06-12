@@ -15,6 +15,31 @@
     --ui-radius-md: 18px;
     --ui-radius-lg: 24px;
     --ui-radius-xl: 30px;
+
+    /* Accent color families (background/text pairs), theme-aware */
+    --ui-blue-bg: var(--ui-surface-soft);
+    --ui-blue-text: var(--color-primary);
+    --ui-orange-bg: var(--orange-bg);
+    --ui-orange-text: var(--orange-text);
+    --ui-red-bg: var(--danger-surface);
+    --ui-red-text: var(--danger-text);
+    --ui-green-bg: var(--green-bg);
+    --ui-green-text: var(--green-text);
+    --ui-grey-bg: var(--grey-bg);
+    --ui-grey-text: var(--grey-text);
+    --ui-purple-bg: var(--purple-bg);
+    --ui-purple-text: var(--purple-text);
+
+    /* Semantic aliases onto the accent color families above */
+    --ui-info-bg: var(--ui-blue-bg);
+    --ui-info-text: var(--ui-blue-text);
+    --ui-warning-bg: var(--ui-orange-bg);
+    --ui-warning-text: var(--ui-orange-text);
+    --ui-error-bg: var(--ui-red-bg);
+    --ui-error-text: var(--ui-red-text);
+    --ui-success-bg: var(--ui-green-bg);
+    --ui-success-text: var(--ui-green-text);
+
     --ui-status-open-bg: #edf4ff;
     --ui-status-open-text: #2459b3;
     --ui-status-progress-bg: #eef7ff;
@@ -23,10 +48,8 @@
     --ui-status-completed-text: #267144;
     --ui-status-blocked-bg: #f4f1fb;
     --ui-status-blocked-text: #674ea7;
-    --ui-status-neutral-bg: #eef1f6;
-    --ui-status-neutral-text: #556274;
-    --ui-warning-bg: var(--warning-bg);
-    --ui-warning-text: var(--warning-text);
+    --ui-status-neutral-bg: var(--ui-grey-bg);
+    --ui-status-neutral-text: var(--ui-grey-text);
     --ui-accent-bg: var(--chip-accent-bg);
     --ui-accent-text: var(--chip-accent-text);
     --ui-accent-border: var(--chip-accent-border);
@@ -86,6 +109,28 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
+.ui-count-pill-neutral {
+    background: var(--ui-status-neutral-bg);
+    border-color: color-mix(in srgb, var(--ui-status-neutral-text) 20%, transparent);
+    color: var(--ui-status-neutral-text);
+}
+
+.ui-count-pill-info {
+    background: var(--ui-blue-bg);
+    border-color: rgba(var(--color-primary-rgb), 0.18);
+    color: var(--ui-blue-text);
+}
+
+.ui-count-pill-warning {
+    background: var(--ui-orange-bg);
+    border-color: color-mix(in srgb, var(--ui-orange-text) 20%, transparent);
+    color: var(--ui-orange-text);
+}
+
+.ui-count-pill[hidden] {
+    display: none;
+}
+
 .ui-chip {
     display: inline-flex;
     align-items: center;
@@ -100,9 +145,9 @@
 }
 
 .ui-chip-primary {
-    background: var(--ui-surface-soft);
+    background: var(--ui-blue-bg);
     border-color: rgba(var(--color-primary-rgb), 0.18);
-    color: var(--color-primary);
+    color: var(--ui-blue-text);
 }
 
 .ui-chip-warning {
@@ -115,6 +160,12 @@
     background: var(--ui-accent-bg);
     border-color: var(--ui-accent-border);
     color: var(--ui-accent-text);
+}
+
+.ui-chip-purple {
+    background: var(--ui-purple-bg);
+    border-color: color-mix(in srgb, var(--ui-purple-text) 22%, transparent);
+    color: var(--ui-purple-text);
 }
 
 .ui-chip-neutral {
