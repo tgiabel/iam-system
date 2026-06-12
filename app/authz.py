@@ -33,6 +33,7 @@ class AuthorizationContext:
     accessible_backlogs: frozenset[str]
     has_all_backlog_access: bool
     raw_user: dict[str, Any]
+    task_count: int = 0
 
     def has_permission(self, sofa_identifier: str) -> bool:
         if sofa_identifier in self.permissions:
@@ -73,6 +74,11 @@ def build_authorization_context_from_user(
     accessible_backlogs = _extract_identifiers(perms.get("accessible_backlogs"))
     has_all_backlog_access = bool(perms.get("has_all_backlog_access")) or "SOFA-BKLG-ALL" in accessible_backlogs
 
+    try:
+        task_count = int(perms.get("task_count") or 0)
+    except (TypeError, ValueError):
+        task_count = 0
+
     return AuthorizationContext(
         user_id=user.get("user_id"),
         pnr=str(user.get("pnr") or "").strip(),
@@ -81,6 +87,7 @@ def build_authorization_context_from_user(
         accessible_backlogs=accessible_backlogs,
         has_all_backlog_access=has_all_backlog_access,
         raw_user=user,
+        task_count=task_count,
     )
 
 
@@ -165,6 +172,7 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
             "has_admin_access": False,
             "has_all_backlog_access": False,
             "has_any_tool": False,
+            "task_count": 0,
         }
 
     return {
@@ -173,4 +181,5 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
         "has_admin_access": authz.has_admin_access(),
         "has_all_backlog_access": authz.has_all_backlog_access,
         "has_any_tool": authz.has_any_tool(),
+        "task_count": authz.task_count,
     }

@@ -1319,6 +1319,21 @@ async def api_start_skill_removal_process(payload: dict, current_user=Depends(re
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.post("/processes/{process_id}/cancel")
+async def api_cancel_process(process_id: int, payload: dict, current_user=Depends(require_permission("SOFA-FN-PCNCL"))):
+    try:
+        request_payload = {"initiator_user_id": current_user.user_id}
+        reason = (payload or {}).get("reason")
+        if reason:
+            request_payload["reason"] = reason
+        result = await api_client.cancel_process(process_id, request_payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.post("/processes/iks")
 async def api_start_iks_process_report(payload: dict, current_user=Depends(require_permission("SOFA-TOOL-IKS"))):
     try:

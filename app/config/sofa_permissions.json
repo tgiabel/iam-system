@@ -146,9 +146,9 @@
     },
     {
       "key": "tasks.view",
-      "label": "To-Dos anzeigen",
+      "label": "Aufgaben anzeigen",
       "category": "tasks",
-      "description": "Erlaubt den Zugriff auf die To-Do-Seite.",
+      "description": "Erlaubt den Zugriff auf die Aufgaben-Seite.",
       "legacy": {
         "page": "tasks"
       }

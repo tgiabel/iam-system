@@ -217,6 +217,9 @@ class APIClient:
     async def revoke_user_sofa_access(self, user_id: int, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, f"/users/{user_id}/sofa-access/revoke", payload=payload)
 
+    async def cancel_process(self, process_id: int, payload: dict) -> dict:
+        return await self._post(SOFA_BASE_URL, f"/processes/{process_id}/cancel", payload=payload)
+
     async def list_tasks(
         self,
         status: str | None = None,
