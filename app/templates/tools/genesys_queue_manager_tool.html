@@ -19,192 +19,123 @@
 
 {% block content %}
 <div class="container queue-manager-page">
-    <section class="queue-manager-hero">
-        <div class="queue-manager-hero-copy">
-            <p class="report-kicker">Produktionssteuerung</p>
-            <h2>Genesys Queue Manager</h2>
-            <p>Queues, Mitglieder und individuelle Zuordnungen zentral verwalten. Die Seite kombiniert queue-zentrierte Pflege mit user-zentrierter Mitgliedschaftssteuerung.</p>
+    <header class="qm-header">
+        <div class="qm-header-row">
+            <div class="qm-header-title">
+                <p class="report-kicker">Genesys Cloud</p>
+                <h2>Queue Manager</h2>
+            </div>
+
+            <div class="qm-view-toggle" role="tablist" aria-label="Ansicht wählen">
+                <button type="button" class="qm-view-toggle-btn is-active" data-view="activity" role="tab" aria-selected="true">Activity</button>
+                <button type="button" class="qm-view-toggle-btn" data-view="performance" role="tab" aria-selected="false" disabled title="Bald verfügbar">Performance<span class="qm-view-badge-soon">bald</span></button>
+            </div>
         </div>
-        <div class="queue-manager-hero-chips">
-            <span class="queue-manager-chip queue-manager-chip-primary">Queues</span>
-            <span class="queue-manager-chip queue-manager-chip-accent">Bulk Actions</span>
-            <span class="queue-manager-chip queue-manager-chip-neutral">Genesys</span>
+
+        <div class="qm-header-row">
+            <div class="qm-kpi-strip" id="qmKpiStrip" aria-live="polite">
+                <div class="qm-kpi">
+                    <span class="qm-kpi-value" id="qmKpiQueueCount">–</span>
+                    <span class="qm-kpi-label">Queues</span>
+                </div>
+                <div class="qm-kpi">
+                    <span class="qm-kpi-value" id="qmKpiTotalMembers">–</span>
+                    <span class="qm-kpi-label">Mitarbeiter</span>
+                </div>
+                <div class="qm-kpi">
+                    <span class="qm-kpi-value" id="qmKpiActiveMembers">–</span>
+                    <span class="qm-kpi-label">Aktiv</span>
+                </div>
+                <div class="qm-kpi">
+                    <span class="qm-kpi-value" id="qmKpiMaxQueue">–</span>
+                    <span class="qm-kpi-label">Größte Queue</span>
+                </div>
+            </div>
+
+            <div class="qm-header-actions">
+                <label for="qmSortSelect" class="queue-manager-sr-only">Sortierung</label>
+                <select id="qmSortSelect" class="qm-input qm-sort-select">
+                    <option value="name">Name</option>
+                    <option value="member_count">Meiste Mitglieder</option>
+                    <option value="joined">Meiste Zuweisungen</option>
+                    <option value="present">Gerade anwesend</option>
+                </select>
+                <label for="qmQueueFilter" class="queue-manager-sr-only">Queue filtern</label>
+                <input id="qmQueueFilter" class="qm-input qm-filter-input" type="search" placeholder="Queue filtern…" autocomplete="off">
+                <div class="qm-refresh-wrap">
+                    <button type="button" class="btn btn-secondary" id="qmRefreshButton">Aktualisieren</button>
+                    <span class="qm-last-updated" id="qmLastUpdated"></span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="queue-manager-status queue-manager-status-error" id="globalStatus" role="status" aria-live="polite" hidden></div>
+
+    <section class="qm-equalizer-wrap" aria-label="Queue-Belegung (Equalizer)">
+        <div class="qm-equalizer-scroll" id="qmEqualizerScroll">
+            <div class="qm-equalizer" id="qmEqualizer" role="list">
+                <div class="qm-equalizer-empty queue-manager-empty-card">
+                    <strong>Queues werden geladen…</strong>
+                    <p>Die Queue-Belegung wird in Kürze angezeigt.</p>
+                </div>
+            </div>
         </div>
     </section>
 
-    <div class="queue-manager-global-status queue-manager-status queue-manager-status-info" id="globalStatus" role="status" aria-live="polite">
-        Lade Queue- und Userdaten für den Queue Manager.
+    <div class="qm-legend" aria-label="Farblegende">
+        <span class="qm-legend-item"><span class="qm-legend-dot is-green"></span>Online</span>
+        <span class="qm-legend-item"><span class="qm-legend-dot is-blue"></span>In Warteschleife</span>
+        <span class="qm-legend-item"><span class="qm-legend-dot is-orange"></span>Im Call</span>
+        <span class="qm-legend-item"><span class="qm-legend-dot is-red"></span>Beschäftigt / Pause</span>
+        <span class="qm-legend-item"><span class="qm-legend-dot is-grey"></span>Offline</span>
     </div>
+</div>
 
-    <div class="queue-manager-strip-wrap">
-        <div class="queue-manager-strip-filter-row">
-            <label for="queueStripFilter" class="queue-manager-sr-only">Queues filtern</label>
-            <input id="queueStripFilter" class="queue-manager-input queue-manager-strip-filter" type="search" placeholder="Queue filtern…">
-            <span class="queue-manager-panel-meta" id="queueMeta">Keine Queue ausgewählt</span>
+<div id="qmQueueModal" class="ui-modal-overlay" aria-hidden="true">
+    <div class="ui-modal qm-modal" role="dialog" aria-modal="true" aria-labelledby="qmModalTitle">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker" id="qmModalQueueId">Queue ID –</p>
+                <h3 class="ui-section-title" id="qmModalTitle">Queue</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="qmModalCloseBtn" aria-label="Dialog schließen">&times;</button>
         </div>
-        <div class="queue-manager-strip" id="queueStrip" role="list">
-            <span class="queue-manager-panel-meta">Queues werden geladen…</span>
-        </div>
-    </div>
 
-    <div class="queue-manager-layout">
-        <section class="queue-manager-panel" aria-labelledby="queue-workspace-title">
-            <div class="queue-manager-panel-header">
-                <div>
-                    <p class="queue-manager-panel-kicker">Queue-zentriert</p>
-                    <h3 id="queue-workspace-title">Queue Workspace</h3>
-                </div>
-            </div>
+        <div class="ui-modal-body qm-modal-body">
+            <div id="qmPresenceSummary" aria-live="polite"></div>
 
-            <div class="queue-manager-status queue-manager-status-info" id="queueStatus" role="status" aria-live="polite">
-                Wähle eine Queue aus dem Strip, um Mitglieder zu verwalten.
-            </div>
-
-            <div class="queue-manager-selection-card" id="selectedQueueCard" hidden>
-                <div class="queue-manager-selection-copy">
-                    <strong id="selectedQueueTitle">Keine Queue ausgewählt</strong>
-                    <p id="selectedQueueSubtitle">Sobald eine Queue aktiv ist, werden Mitglieder und verfügbare Aktionen hier sichtbar.</p>
-                </div>
-                <button type="button" class="btn btn-secondary" id="refreshQueueMembersButton" disabled>Mitglieder neu laden</button>
-            </div>
-
-            <div class="queue-manager-bulk-grid">
-                <section class="queue-manager-card" aria-labelledby="queue-add-users-title">
-                    <div class="queue-manager-card-header">
-                        <div>
-                            <p class="queue-manager-card-kicker">Mitglieder hinzufügen</p>
-                            <h4 id="queue-add-users-title">User zur Queue hinzufügen</h4>
-                        </div>
+            <div class="qm-dualpane">
+                <section class="qm-pane" aria-labelledby="qmPaneJoinedTitle">
+                    <div class="qm-pane-header">
+                        <h4 id="qmPaneJoinedTitle">Zugeordnet</h4>
+                        <span class="ui-count-pill ui-count-pill-neutral" id="qmJoinedCount">0</span>
                     </div>
-
-                    <div class="queue-manager-search-row">
-                        <label for="queueUserSearchInput" class="queue-manager-sr-only">User suchen (Name, E-Mail, PNR, RACF oder ID)</label>
-                        <input id="queueUserSearchInput" class="queue-manager-input" type="search" placeholder="Nach Name, E-Mail, PNR, RACF oder ID suchen">
-                        <button type="button" class="btn btn-secondary" id="queueUserSearchButton">User suchen</button>
-                    </div>
-
-                    <div class="queue-manager-scroll-area queue-manager-results-scroll queue-manager-search-results" id="queueUserSearchResults">
-                        <div class="queue-manager-empty-card">
-                            <strong>Noch keine Suche gestartet</strong>
-                            <p>Treffer werden hier angezeigt und können für Bulk Add ausgewählt werden.</p>
-                        </div>
-                    </div>
-
-                    <div class="queue-manager-selection-summary" id="queueAddSelectionSummary">Keine User für Bulk Add ausgewählt.</div>
-
-                    <div class="queue-manager-inline-actions">
-                        <button type="button" class="btn btn-secondary" id="clearQueueAddSelectionButton" disabled>Auswahl leeren</button>
-                        <button type="button" class="btn btn-primary" id="addQueueMembersButton" disabled>Ausgewählte User hinzufügen</button>
-                    </div>
+                    <label for="qmJoinedFilter" class="queue-manager-sr-only">Aktive filtern</label>
+                    <input id="qmJoinedFilter" class="qm-input" type="search" placeholder="Zugeordnete filtern…" autocomplete="off">
+                    <div class="qm-pane-list" id="qmJoinedList"></div>
                 </section>
 
-                <section class="queue-manager-card" aria-labelledby="queue-members-title">
-                    <div class="queue-manager-card-header">
-                        <div>
-                            <p class="queue-manager-card-kicker">Mitglieder</p>
-                            <h4 id="queue-members-title">Queue-Mitglieder</h4>
-                        </div>
-                        <span class="queue-manager-card-meta" id="memberListMeta">Noch keine Daten geladen</span>
+                <section class="qm-pane" aria-labelledby="qmPaneUnjoinedTitle">
+                    <div class="qm-pane-header">
+                        <h4 id="qmPaneUnjoinedTitle">Nicht zugeordnet</h4>
+                        <span class="ui-count-pill ui-count-pill-neutral" id="qmUnjoinedCount">0</span>
                     </div>
-
-                    <div class="queue-manager-inline-actions">
-                        <button type="button" class="btn btn-secondary" id="removeSelectedMembersButton" disabled>Markierte Mitglieder entfernen</button>
-                        <button type="button" class="btn btn-secondary" id="clearMemberSelectionButton" disabled>Markierung leeren</button>
-                    </div>
-
-                    <div class="queue-manager-scroll-area queue-manager-member-scroll queue-manager-member-table-wrap">
-                        <table class="queue-manager-member-table">
-                            <thead>
-                                <tr>
-                                    <th scope="col">Auswahl</th>
-                                    <th scope="col">Mitglied</th>
-                                    <th scope="col">Member ID</th>
-                                    <th scope="col">Aktionen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="memberTableBody">
-                                <tr>
-                                    <td colspan="4">
-                                        <div class="queue-manager-empty-table">Nach Auswahl einer Queue werden hier Mitglieder geladen.</div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <label for="qmUnjoinedFilter" class="queue-manager-sr-only">Inaktive filtern</label>
+                    <input id="qmUnjoinedFilter" class="qm-input" type="search" placeholder="Nicht zugeordnete filtern…" autocomplete="off">
+                    <div class="qm-pane-list" id="qmUnjoinedList"></div>
                 </section>
             </div>
-        </section>
+        </div>
 
-        <section class="queue-manager-panel" aria-labelledby="user-workspace-title">
-            <div class="queue-manager-panel-header">
-                <div>
-                    <p class="queue-manager-panel-kicker">User-zentriert</p>
-                    <h3 id="user-workspace-title">User Workspace</h3>
-                </div>
-                <span class="queue-manager-panel-meta" id="userMeta">Kein User ausgewählt</span>
+        <div class="ui-modal-footer">
+            <div class="qm-modal-footer-left">
+                <div class="qm-pending-changes" id="qmPendingChanges" aria-live="polite"></div>
+                <div class="qm-modal-footer-status" id="qmModalFooterStatus" role="status" aria-live="polite"></div>
             </div>
-
-            <div class="queue-manager-status queue-manager-status-info" id="userStatus" role="status" aria-live="polite">
-                Suche einen User, um bestehende Queue-Zuordnungen gezielt zu prüfen und anzupassen.
-            </div>
-
-            <section class="queue-manager-card">
-                <div class="queue-manager-card-header">
-                    <div>
-                        <p class="queue-manager-card-kicker">Usersuche</p>
-                        <h4>User finden</h4>
-                    </div>
-                </div>
-
-                <div class="queue-manager-search-row">
-                    <label for="userSearchInput" class="queue-manager-sr-only">User suchen (Name, E-Mail, PNR, RACF oder ID)</label>
-                    <input id="userSearchInput" class="queue-manager-input" type="search" placeholder="Name, E-Mail, PNR, RACF oder ID">
-                    <button type="button" class="btn btn-secondary" id="userSearchButton">Suchen</button>
-                </div>
-
-                <div class="queue-manager-scroll-area queue-manager-results-scroll queue-manager-search-results" id="userSearchResults">
-                    <div class="queue-manager-empty-card">
-                        <strong>Keine Suchtreffer</strong>
-                        <p>Nach einer Suche erscheinen hier passende User zur Auswahl.</p>
-                    </div>
-                </div>
-            </section>
-
-            <section class="queue-manager-card queue-manager-selected-user-card" id="selectedUserCard" hidden>
-                <div class="queue-manager-selected-user-row">
-                    <strong id="selectedUserTitle">Kein User ausgewählt</strong>
-                    <button type="button" class="btn btn-secondary" id="refreshUserQueuesButton" disabled>Neu laden</button>
-                </div>
-                <div id="selectedUserDetails"></div>
-            </section>
-
-            <section class="queue-manager-card" aria-labelledby="user-queues-title">
-                <div class="queue-manager-card-header">
-                    <div>
-                        <p class="queue-manager-card-kicker">Mitgliedschaften</p>
-                        <h4 id="user-queues-title">Queues des Users</h4>
-                    </div>
-                    <span class="queue-manager-card-meta" id="userQueueMeta">Noch keine Daten geladen</span>
-                </div>
-
-                <div class="queue-manager-search-row">
-                    <label for="userQueueFilter" class="queue-manager-sr-only">Queue-Mitgliedschaften filtern</label>
-                    <input id="userQueueFilter" class="queue-manager-input" type="search" placeholder="Queues filtern…">
-                </div>
-
-                <div class="queue-manager-inline-actions">
-                    <button type="button" class="btn btn-secondary" id="resetUserQueueSelectionButton" disabled>Änderungen verwerfen</button>
-                    <button type="button" class="btn btn-primary" id="saveUserQueuesButton" disabled>Änderungen speichern</button>
-                </div>
-
-                <div class="queue-manager-scroll-area queue-manager-userqueue-scroll queue-manager-user-queues" id="userQueuesList">
-                    <div class="queue-manager-empty-card">
-                        <strong>Kein User aktiv</strong>
-                        <p>Nach Auswahl eines Users werden hier alle Queues samt Join-Status angezeigt.</p>
-                    </div>
-                </div>
-            </section>
-        </section>
+            <button type="button" class="btn btn-secondary" id="qmDiscardButton">Änderungen verwerfen</button>
+            <button type="button" class="btn btn-primary" id="qmSaveButton">Speichern</button>
+        </div>
     </div>
 </div>
 {% endblock %}

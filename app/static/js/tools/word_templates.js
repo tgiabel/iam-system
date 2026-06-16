@@ -5,7 +5,9 @@ const wordTemplateState = {
     selectedTemplateId: null,
     selectedTemplate: null,
     selectedSchema: null,
-    documentListMode: "all",
+    selectionMode: "all",
+    selectedDocumentId: null,
+    selectedDocument: null,
     users: [],
     userSearchTerm: "",
     selectedUserId: "",
@@ -13,7 +15,6 @@ const wordTemplateState = {
     existingDocument: null,
     pendingDeleteDocument: null,
     templateModalMode: "create",
-    isRenderModalOpen: false,
     isTemplateModalOpen: false,
     isDeleteModalOpen: false,
 };
@@ -376,26 +377,23 @@ const wordTemplateFormatters = {
 
 const wordTemplateUi = {
     cacheDom() {
-        wordTemplateDom.templateList = document.getElementById("templateList");
-        wordTemplateDom.templateListStatus = document.getElementById("templateListStatus");
-        wordTemplateDom.templateListMeta = document.getElementById("templateListMeta");
-        wordTemplateDom.openTemplateCreateButton = document.getElementById("openTemplateCreateButton");
+        wordTemplateDom.templateCardRow = document.getElementById("templateCardRow");
 
         wordTemplateDom.documentList = document.getElementById("documentList");
         wordTemplateDom.documentListStatus = document.getElementById("documentListStatus");
         wordTemplateDom.documentListMeta = document.getElementById("documentListMeta");
-        wordTemplateDom.documentListContext = document.getElementById("documentListContext");
-        wordTemplateDom.documentModeAllButton = document.getElementById("documentModeAllButton");
-        wordTemplateDom.documentModeTemplateButton = document.getElementById("documentModeTemplateButton");
-        wordTemplateDom.openTemplateEditButton = document.getElementById("openTemplateEditButton");
 
-        wordTemplateDom.renderStatus = document.getElementById("renderStatus");
-        wordTemplateDom.renderMeta = document.getElementById("renderMeta");
-        wordTemplateDom.renderEmptyState = document.getElementById("renderEmptyState");
-        wordTemplateDom.renderLauncher = document.getElementById("renderLauncher");
-        wordTemplateDom.renderLauncherTitle = document.getElementById("renderLauncherTitle");
-        wordTemplateDom.renderLauncherCopy = document.getElementById("renderLauncherCopy");
-        wordTemplateDom.openRenderModalButton = document.getElementById("openRenderModalButton");
+        wordTemplateDom.mainPaneKicker = document.getElementById("mainPaneKicker");
+        wordTemplateDom.mainPaneTitle = document.getElementById("mainPaneTitle");
+        wordTemplateDom.mainPaneMeta = document.getElementById("mainPaneMeta");
+        wordTemplateDom.mainPaneStatus = document.getElementById("mainPaneStatus");
+        wordTemplateDom.mainPaneEmptyState = document.getElementById("mainPaneEmptyState");
+        wordTemplateDom.mainPaneGenerate = document.getElementById("mainPaneGenerate");
+        wordTemplateDom.mainPaneDocumentActions = document.getElementById("mainPaneDocumentActions");
+        wordTemplateDom.docActionSignButton = document.getElementById("docActionSignButton");
+        wordTemplateDom.docActionDownloadButton = document.getElementById("docActionDownloadButton");
+        wordTemplateDom.docActionSendButton = document.getElementById("docActionSendButton");
+        wordTemplateDom.docActionDeleteButton = document.getElementById("docActionDeleteButton");
 
         wordTemplateDom.templateModalOverlay = document.getElementById("word-template-manage-modal");
         wordTemplateDom.templateModalTitle = document.getElementById("word-template-manage-modal-title");
@@ -412,10 +410,6 @@ const wordTemplateUi = {
         wordTemplateDom.closeTemplateModalButton = document.getElementById("closeTemplateModalButton");
         wordTemplateDom.cancelTemplateModalButton = document.getElementById("cancelTemplateModalButton");
 
-        wordTemplateDom.renderModalOverlay = document.getElementById("word-template-render-modal");
-        wordTemplateDom.renderModalTitle = document.getElementById("word-template-render-modal-title");
-        wordTemplateDom.renderModalSubtitle = document.getElementById("renderModalSubtitle");
-        wordTemplateDom.renderModalStatus = document.getElementById("renderModalStatus");
         wordTemplateDom.existingDocumentCard = document.getElementById("existingDocumentCard");
         wordTemplateDom.existingDocumentCopy = document.getElementById("existingDocumentCopy");
         wordTemplateDom.openExistingDocumentButton = document.getElementById("openExistingDocumentButton");
@@ -425,8 +419,6 @@ const wordTemplateUi = {
         wordTemplateDom.renderModalForm = document.getElementById("renderModalForm");
         wordTemplateDom.renderModalFields = document.getElementById("renderModalFields");
         wordTemplateDom.renderModalSubmitButton = document.getElementById("renderModalSubmitButton");
-        wordTemplateDom.closeRenderModalButton = document.getElementById("closeRenderModalButton");
-        wordTemplateDom.cancelRenderModalButton = document.getElementById("cancelRenderModalButton");
 
         wordTemplateDom.deleteModalOverlay = document.getElementById("word-document-delete-modal");
         wordTemplateDom.documentDeleteStatus = document.getElementById("documentDeleteStatus");
@@ -461,7 +453,6 @@ const wordTemplateUi = {
     setRenderActionLoading(isLoading, mode = "prefill") {
         wordTemplateDom.prefillTemplateButton.disabled = isLoading;
         wordTemplateDom.renderModalSubmitButton.disabled = isLoading;
-        wordTemplateDom.openRenderModalButton.disabled = isLoading;
         if (wordTemplateDom.openExistingDocumentButton) {
             wordTemplateDom.openExistingDocumentButton.disabled = isLoading;
         }
@@ -492,66 +483,70 @@ const wordTemplateUi = {
         URL.revokeObjectURL(blobUrl);
     },
 
-    renderTemplateList() {
-        const list = wordTemplateDom.templateList;
-        if (!list) {
+    renderTemplateCardRow() {
+        const row = wordTemplateDom.templateCardRow;
+        if (!row) {
             return;
         }
 
-        list.innerHTML = "";
-        wordTemplateDom.templateListMeta.textContent = `${wordTemplateState.templates.length} Vorlage(n)`;
+        row.innerHTML = "";
 
-        if (!wordTemplateState.templates.length) {
-            list.innerHTML = `
-                <article class="word-template-list-item is-placeholder" aria-disabled="true">
-                    <div>
-                        <strong>Keine Vorlagen gefunden</strong>
-                        <p>Lege die erste Word-Vorlage an, um den Workflow zu starten.</p>
-                    </div>
-                </article>
-            `;
-            return;
+        const allCard = document.createElement("button");
+        allCard.type = "button";
+        allCard.className = "word-template-card word-template-card-all";
+        if (wordTemplateState.selectionMode === "all") {
+            allCard.classList.add("is-active");
         }
+        allCard.innerHTML = `
+            <span class="word-template-card-title">Alle Dokumente</span>
+            <span class="word-template-card-meta">${wordTemplateState.allDocuments.length} Dokument(e)</span>
+        `;
+        allCard.addEventListener("click", () => wordTemplateHandlers.selectAllDocumentsMode());
+        row.appendChild(allCard);
+
+        const divider = document.createElement("div");
+        divider.className = "word-template-card-divider";
+        row.appendChild(divider);
 
         wordTemplateState.templates.forEach((template) => {
-            const button = document.createElement("button");
-            button.type = "button";
-            button.className = "word-template-list-item word-template-list-button";
-            if (String(template.template_id) === String(wordTemplateState.selectedTemplateId)) {
-                button.classList.add("is-active");
+            const card = document.createElement("button");
+            card.type = "button";
+            card.className = "word-template-card";
+
+            const isActive = wordTemplateState.selectionMode === "template"
+                && String(template.template_id) === String(wordTemplateState.selectedTemplateId);
+            if (isActive) {
+                card.classList.add("is-active");
             }
 
-            button.innerHTML = `
-                <span class="word-template-list-title">${escapeHtml(wordTemplateFormatters.value(template.name))}</span>
-                <span class="word-template-list-copy">${escapeHtml(wordTemplateFormatters.value(template.description))}</span>
-                <span class="word-template-list-meta">${escapeHtml(wordTemplateFormatters.value(template.original_filename))} · aktualisiert ${escapeHtml(wordTemplateFormatters.dateTime(template.updated_at || template.created_at))}</span>
+            card.innerHTML = `
+                <span class="word-template-card-title">${escapeHtml(wordTemplateFormatters.value(template.name))}</span>
+                <span class="word-template-card-meta">${escapeHtml(wordTemplateFormatters.value(template.original_filename))}</span>
             `;
-            button.addEventListener("click", () => wordTemplateHandlers.selectTemplate(template.template_id));
-            list.appendChild(button);
+
+            if (isActive) {
+                const editButton = document.createElement("button");
+                editButton.type = "button";
+                editButton.className = "word-template-card-edit";
+                editButton.setAttribute("aria-label", "Vorlage bearbeiten");
+                editButton.innerHTML = "&#9998;";
+                editButton.addEventListener("click", (event) => {
+                    event.stopPropagation();
+                    wordTemplateHandlers.openEditTemplateModal();
+                });
+                card.appendChild(editButton);
+            }
+
+            card.addEventListener("click", () => wordTemplateHandlers.selectTemplate(template.template_id));
+            row.appendChild(card);
         });
-    },
 
-    renderDocumentModeButtons() {
-        const isTemplateMode = wordTemplateState.documentListMode === "template";
-        const hasTemplate = Boolean(wordTemplateState.selectedTemplateId);
-
-        wordTemplateDom.documentModeAllButton.classList.toggle("is-active", !isTemplateMode);
-        wordTemplateDom.documentModeTemplateButton.classList.toggle("is-active", isTemplateMode);
-        wordTemplateDom.documentModeTemplateButton.disabled = !hasTemplate;
-        wordTemplateDom.openTemplateEditButton.disabled = !hasTemplate;
-
-        if (!hasTemplate) {
-            wordTemplateDom.documentListContext.textContent = "Aktuell werden alle erzeugten Dokumente angezeigt.";
-            return;
-        }
-
-        const templateName = wordTemplateState.selectedTemplate?.name || `Vorlage ${wordTemplateState.selectedTemplateId}`;
-        if (isTemplateMode) {
-            wordTemplateDom.documentListContext.textContent = `Aktive Ansicht: Dokumente für "${templateName}".`;
-            return;
-        }
-
-        wordTemplateDom.documentListContext.textContent = `Aktive Vorlage: "${templateName}". Über den Toggle kannst du zwischen allen Dokumenten und dieser Vorlage wechseln.`;
+        const addCard = document.createElement("button");
+        addCard.type = "button";
+        addCard.className = "word-template-card word-template-card-add";
+        addCard.textContent = "+ Neue Vorlage";
+        addCard.addEventListener("click", () => wordTemplateHandlers.openCreateTemplateModal());
+        row.appendChild(addCard);
     },
 
     renderDocumentList() {
@@ -561,7 +556,8 @@ const wordTemplateUi = {
         }
 
         list.innerHTML = "";
-        const isTemplateMode = wordTemplateState.documentListMode === "template";
+
+        const isTemplateMode = wordTemplateState.selectionMode === "template";
         const selectedTemplateId = String(wordTemplateState.selectedTemplateId || "");
         const rawDocuments = isTemplateMode ? wordTemplateState.templateDocuments : wordTemplateState.allDocuments;
         const documents = isTemplateMode && selectedTemplateId
@@ -570,53 +566,74 @@ const wordTemplateUi = {
 
         wordTemplateDom.documentListMeta.textContent = `${documents.length} Dokument(e)`;
 
-        if (isTemplateMode && !selectedTemplateId) {
-            list.innerHTML = `
-                <article class="word-template-list-item is-placeholder" aria-disabled="true">
-                    <div>
-                        <strong>Keine Vorlage gewählt</strong>
-                        <p>Wähle zuerst links eine Vorlage aus, um nur deren Dokumente anzuzeigen.</p>
-                    </div>
-                </article>
-            `;
-            return;
+        if (isTemplateMode) {
+            const newItem = document.createElement("button");
+            newItem.type = "button";
+            newItem.className = "word-template-explorer-item word-template-explorer-item-new";
+            if (wordTemplateState.selectedDocumentId === "new") {
+                newItem.classList.add("is-active");
+            }
+            newItem.textContent = "+ Neues Dokument";
+            newItem.addEventListener("click", () => wordTemplateHandlers.selectNewDocument());
+            list.appendChild(newItem);
         }
 
         if (!documents.length) {
-            list.innerHTML = `
-                <article class="word-template-list-item is-placeholder" aria-disabled="true">
-                    <div>
-                        <strong>Keine Dokumente gefunden</strong>
-                        <p>${isTemplateMode ? "Für die ausgewählte Vorlage wurden noch keine Dokumente erzeugt." : "Es wurden noch keine Dokumente erzeugt."}</p>
-                    </div>
-                </article>
+            const placeholder = document.createElement("div");
+            placeholder.className = "is-placeholder";
+            placeholder.innerHTML = `
+                <strong>Keine Dokumente gefunden</strong>
+                <p>${isTemplateMode ? "Für diese Vorlage wurden noch keine Dokumente erzeugt." : "Es wurden noch keine Dokumente erzeugt."}</p>
             `;
+            list.appendChild(placeholder);
             return;
         }
 
         documents.forEach((documentItem) => {
-            const article = document.createElement("article");
-            article.className = "word-template-list-item word-template-document-item";
-            article.innerHTML = `
-                <div class="word-template-document-header">
-                    <div>
-                        <strong>${escapeHtml(wordTemplateFormatters.value(documentItem.output_filename))}</strong>
-                        <p class="word-template-document-copy">${escapeHtml(wordTemplateFormatters.value(documentItem.template_name || documentItem.template_id))}</p>
-                    </div>
-                </div>
-                <div class="word-template-document-actions">
-                    <button type="button" class="btn btn-secondary" data-document-action="download">Download</button>
-                    <button type="button" class="btn btn-red" data-document-action="delete">Löschen</button>
-                </div>
-                <p class="word-template-list-meta">Erstellt ${escapeHtml(wordTemplateFormatters.dateTime(documentItem.created_at))}</p>
+            const item = document.createElement("button");
+            item.type = "button";
+            item.className = "word-template-explorer-item";
+            if (String(documentItem.document_id) === String(wordTemplateState.selectedDocumentId)) {
+                item.classList.add("is-active");
+            }
+
+            item.innerHTML = `
+                <span class="word-template-explorer-item-title">${escapeHtml(wordTemplateFormatters.value(documentItem.output_filename))}</span>
+                <p class="word-template-explorer-item-meta">${escapeHtml(wordTemplateFormatters.value(documentItem.template_name || documentItem.template_id))} · ${escapeHtml(wordTemplateFormatters.dateTime(documentItem.created_at))}</p>
             `;
 
-            const downloadButton = article.querySelector('[data-document-action="download"]');
-            const deleteButton = article.querySelector('[data-document-action="delete"]');
-            downloadButton.addEventListener("click", () => wordTemplateHandlers.downloadDocument(documentItem.document_id, documentItem.output_filename));
-            deleteButton.addEventListener("click", () => wordTemplateHandlers.openDeleteDocumentModal(documentItem));
-            list.appendChild(article);
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "word-template-explorer-item-delete";
+            deleteButton.setAttribute("aria-label", "Dokument löschen");
+            deleteButton.innerHTML = "&times;";
+            deleteButton.addEventListener("click", (event) => {
+                event.stopPropagation();
+                wordTemplateHandlers.openDeleteDocumentModal(documentItem);
+            });
+            item.appendChild(deleteButton);
+
+            item.addEventListener("click", () => wordTemplateHandlers.selectDocument(documentItem));
+            list.appendChild(item);
         });
+    },
+
+    setMainPaneState(state) {
+        const isForm = state === "form";
+        wordTemplateDom.mainPaneEmptyState.hidden = isForm;
+        wordTemplateDom.mainPaneGenerate.hidden = !isForm;
+    },
+
+    syncDocumentActionsRow() {
+        const documentItem = wordTemplateState.selectedDocument;
+        wordTemplateDom.mainPaneDocumentActions.hidden = !documentItem;
+
+        if (!documentItem) {
+            return;
+        }
+
+        wordTemplateDom.docActionDownloadButton.onclick = () => wordTemplateHandlers.downloadDocument(documentItem.document_id, documentItem.output_filename);
+        wordTemplateDom.docActionDeleteButton.onclick = () => wordTemplateHandlers.openDeleteDocumentModal(documentItem);
     },
 
     prepareTemplateModalCreate() {
@@ -669,49 +686,7 @@ const wordTemplateUi = {
         wordTemplateDom.templateModalOverlay.classList.remove("active");
         wordTemplateDom.templateModalOverlay.setAttribute("aria-hidden", "true");
         wordTemplateState.isTemplateModalOpen = false;
-        if (!wordTemplateState.isRenderModalOpen && !wordTemplateState.isDeleteModalOpen) {
-            document.body.style.overflow = "";
-        }
-    },
-
-    syncRenderLauncher() {
-        if (!wordTemplateState.selectedTemplate || !wordTemplateState.selectedSchema) {
-            wordTemplateDom.renderMeta.textContent = "Dialog";
-            this.setStatus(
-                wordTemplateDom.renderStatus,
-                "info",
-                "Nach Auswahl einer Vorlage wird ein Dialog geöffnet, in dem das Formular automatisch oder manuell ausgefüllt werden kann."
-            );
-            wordTemplateDom.renderEmptyState.hidden = false;
-            wordTemplateDom.renderLauncher.hidden = true;
-            return;
-        }
-
-        wordTemplateDom.renderMeta.textContent = wordTemplateFormatters.value(wordTemplateState.selectedTemplate.name);
-        this.setStatus(
-            wordTemplateDom.renderStatus,
-            "success",
-            "Die Vorlage ist geladen. Der Dokument-Dialog kann jetzt geöffnet und bei Bedarf mit Userdaten vorbefüllt werden."
-        );
-        wordTemplateDom.renderEmptyState.hidden = true;
-        wordTemplateDom.renderLauncher.hidden = false;
-        wordTemplateDom.renderLauncherTitle.textContent = wordTemplateState.selectedTemplate.name || "Vorlage ausgewählt";
-        wordTemplateDom.renderLauncherCopy.textContent = "Der Dialog erzeugt aus dem Schema ein HTML-Formular. Felder können automatisch vorbefüllt und vor dem Download noch angepasst werden.";
-        wordTemplateDom.openRenderModalButton.disabled = false;
-    },
-
-    openRenderModal() {
-        wordTemplateDom.renderModalOverlay.classList.add("active");
-        wordTemplateDom.renderModalOverlay.setAttribute("aria-hidden", "false");
-        wordTemplateState.isRenderModalOpen = true;
-        document.body.style.overflow = "hidden";
-    },
-
-    closeRenderModal() {
-        wordTemplateDom.renderModalOverlay.classList.remove("active");
-        wordTemplateDom.renderModalOverlay.setAttribute("aria-hidden", "true");
-        wordTemplateState.isRenderModalOpen = false;
-        if (!wordTemplateState.isTemplateModalOpen && !wordTemplateState.isDeleteModalOpen) {
+        if (!wordTemplateState.isDeleteModalOpen) {
             document.body.style.overflow = "";
         }
     },
@@ -739,7 +714,7 @@ const wordTemplateUi = {
         wordTemplateDom.deleteModalOverlay.classList.remove("active");
         wordTemplateDom.deleteModalOverlay.setAttribute("aria-hidden", "true");
         wordTemplateState.isDeleteModalOpen = false;
-        if (!wordTemplateState.isTemplateModalOpen && !wordTemplateState.isRenderModalOpen) {
+        if (!wordTemplateState.isTemplateModalOpen) {
             document.body.style.overflow = "";
         }
     },
@@ -851,18 +826,12 @@ const wordTemplateUi = {
 
 const wordTemplateHandlers = {
     async loadTemplates(options = {}) {
-        const { selectTemplateId = null, successMessage = "" } = options;
-        wordTemplateUi.setStatus(wordTemplateDom.templateListStatus, "info", "Vorlagen werden geladen...");
+        const { selectTemplateId = null } = options;
 
         try {
             const templates = await wordTemplateApi.listTemplates();
             wordTemplateState.templates = Array.isArray(templates) ? templates : [];
-            wordTemplateUi.renderTemplateList();
-            wordTemplateUi.setStatus(
-                wordTemplateDom.templateListStatus,
-                successMessage ? "success" : "info",
-                successMessage || `${wordTemplateState.templates.length} Vorlage(n) erfolgreich geladen.`
-            );
+            wordTemplateUi.renderTemplateCardRow();
 
             if (selectTemplateId) {
                 await this.selectTemplate(selectTemplateId);
@@ -873,18 +842,11 @@ const wordTemplateHandlers = {
                 wordTemplateState.selectedTemplateId
                 && !wordTemplateState.templates.some((template) => String(template.template_id) === String(wordTemplateState.selectedTemplateId))
             ) {
-                wordTemplateState.selectedTemplateId = null;
-                wordTemplateState.selectedTemplate = null;
-                wordTemplateState.selectedSchema = null;
-                wordTemplateState.documentListMode = "all";
-                wordTemplateUi.renderTemplateList();
-                wordTemplateUi.renderDocumentModeButtons();
-                wordTemplateUi.syncRenderLauncher();
-                await this.loadDocuments({ mode: "all" });
+                await this.selectAllDocumentsMode();
             }
         } catch (error) {
             wordTemplateUi.setStatus(
-                wordTemplateDom.templateListStatus,
+                wordTemplateDom.documentListStatus,
                 "error",
                 error.message || "Vorlagen konnten nicht geladen werden."
             );
@@ -892,21 +854,20 @@ const wordTemplateHandlers = {
     },
 
     async loadDocuments(options = {}) {
-        const { mode = wordTemplateState.documentListMode, successMessage = "" } = options;
-        wordTemplateState.documentListMode = mode;
-        wordTemplateUi.renderDocumentModeButtons();
+        const { mode = wordTemplateState.selectionMode } = options;
 
         if (mode === "template" && !wordTemplateState.selectedTemplateId) {
             wordTemplateUi.setStatus(
                 wordTemplateDom.documentListStatus,
                 "info",
-                "Wähle zuerst eine Vorlage aus, um nur die Dokumente dieser Vorlage anzuzeigen."
+                "Wähle zuerst eine Vorlage aus, um deren Dokumente anzuzeigen."
             );
+            wordTemplateDom.documentListStatus.hidden = false;
             wordTemplateUi.renderDocumentList();
             return;
         }
 
-        wordTemplateUi.setStatus(wordTemplateDom.documentListStatus, "info", "Dokumente werden geladen...");
+        wordTemplateDom.documentListStatus.hidden = true;
 
         try {
             const documents = await wordTemplateApi.listDocuments(
@@ -920,29 +881,52 @@ const wordTemplateHandlers = {
                 wordTemplateState.templateDocuments = normalizedDocuments;
             } else {
                 wordTemplateState.allDocuments = normalizedDocuments;
+                wordTemplateUi.renderTemplateCardRow();
             }
 
             wordTemplateUi.renderDocumentList();
-            wordTemplateUi.setStatus(
-                wordTemplateDom.documentListStatus,
-                successMessage ? "success" : "info",
-                successMessage || `${normalizedDocuments.length} Dokument(e) erfolgreich geladen.`
-            );
+            wordTemplateDom.documentListStatus.hidden = true;
         } catch (error) {
             wordTemplateUi.setStatus(
                 wordTemplateDom.documentListStatus,
                 "error",
                 error.message || "Die Dokumentenliste konnte nicht geladen werden."
             );
+            wordTemplateDom.documentListStatus.hidden = false;
             wordTemplateUi.renderDocumentList();
         }
     },
 
+    async selectAllDocumentsMode() {
+        wordTemplateState.selectionMode = "all";
+        wordTemplateState.selectedTemplateId = null;
+        wordTemplateState.selectedTemplate = null;
+        wordTemplateState.selectedSchema = null;
+        wordTemplateState.selectedDocumentId = null;
+        wordTemplateState.selectedDocument = null;
+        wordTemplateState.modalFields = [];
+
+        wordTemplateDom.mainPaneKicker.textContent = "Übersicht";
+        wordTemplateDom.mainPaneTitle.textContent = "Alle Dokumente";
+        wordTemplateDom.mainPaneMeta.textContent = "";
+        wordTemplateDom.mainPaneStatus.hidden = true;
+        wordTemplateDom.mainPaneEmptyState.querySelector("strong").textContent = "Kein Dokument ausgewählt";
+        wordTemplateDom.mainPaneEmptyState.querySelector("p").textContent = "Wähle links ein Dokument aus der Liste oder wähle oben eine Vorlage aus, um ein neues Dokument zu erstellen.";
+        wordTemplateUi.setMainPaneState("empty");
+
+        wordTemplateUi.renderTemplateCardRow();
+        await this.loadDocuments({ mode: "all" });
+    },
+
     async selectTemplate(templateId) {
+        wordTemplateState.selectionMode = "template";
         wordTemplateState.selectedTemplateId = String(templateId);
-        wordTemplateUi.renderTemplateList();
-        wordTemplateUi.renderDocumentModeButtons();
-        wordTemplateUi.setStatus(wordTemplateDom.renderStatus, "info", "Vorlagendetails werden geladen...");
+        wordTemplateState.selectedDocumentId = null;
+        wordTemplateState.selectedDocument = null;
+        wordTemplateUi.renderTemplateCardRow();
+        wordTemplateUi.setMainPaneState("empty");
+        wordTemplateDom.mainPaneStatus.hidden = false;
+        wordTemplateUi.setStatus(wordTemplateDom.mainPaneStatus, "info", "Vorlagendetails werden geladen...");
 
         try {
             const template = await wordTemplateApi.getTemplate(templateId);
@@ -959,35 +943,116 @@ const wordTemplateHandlers = {
             wordTemplateState.selectedTemplate = template;
             wordTemplateState.selectedSchema = schema;
             wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromSchema(schema);
-            wordTemplateState.documentListMode = "template";
 
-            wordTemplateUi.renderTemplateList();
-            wordTemplateUi.renderDocumentModeButtons();
-            wordTemplateUi.syncRenderLauncher();
-            await this.loadDocuments({
-                mode: "template",
-                successMessage: `Dokumente für <strong>${escapeHtml(wordTemplateFormatters.value(template.name))}</strong> wurden geladen.`,
-            });
+            wordTemplateDom.mainPaneKicker.textContent = "Übersicht";
+            wordTemplateDom.mainPaneTitle.textContent = wordTemplateFormatters.value(template.name);
+            wordTemplateDom.mainPaneMeta.textContent = "";
+            wordTemplateDom.mainPaneEmptyState.querySelector("strong").textContent = "Kein Dokument ausgewählt";
+            wordTemplateDom.mainPaneEmptyState.querySelector("p").textContent = `Wähle links ein Dokument aus der Liste oder erstelle über "+ Neues Dokument" ein neues Dokument für "${wordTemplateFormatters.value(template.name)}".`;
+            wordTemplateDom.mainPaneStatus.hidden = true;
+
+            wordTemplateUi.renderTemplateCardRow();
+            await this.loadDocuments({ mode: "template" });
         } catch (error) {
             wordTemplateUi.setStatus(
-                wordTemplateDom.renderStatus,
+                wordTemplateDom.mainPaneStatus,
                 "error",
                 error.message || "Die Vorlage konnte nicht geladen werden."
             );
         }
     },
 
-    setDocumentMode(mode) {
-        if (mode === "template" && !wordTemplateState.selectedTemplateId) {
-            wordTemplateUi.setStatus(
-                wordTemplateDom.documentListStatus,
-                "error",
-                "Bitte wählen Sie zuerst eine Vorlage aus."
-            );
+    selectNewDocument() {
+        if (!wordTemplateState.selectedTemplate || !wordTemplateState.selectedSchema) {
             return;
         }
 
-        this.loadDocuments({ mode });
+        wordTemplateState.selectedDocumentId = "new";
+        wordTemplateState.selectedDocument = null;
+        wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromSchema(wordTemplateState.selectedSchema);
+        wordTemplateState.selectedUserId = "";
+        wordTemplateState.userSearchTerm = "";
+        wordTemplateState.existingDocument = null;
+
+        wordTemplateDom.mainPaneKicker.textContent = "Neues Dokument";
+        wordTemplateDom.mainPaneTitle.textContent = wordTemplateState.selectedTemplate.name || "Dokument erstellen";
+        wordTemplateDom.mainPaneMeta.textContent = "";
+        wordTemplateDom.renderUserSearchInput.value = "";
+
+        wordTemplateUi.renderExistingDocumentCard();
+        wordTemplateUi.renderUserOptions();
+        wordTemplateUi.renderModalFields();
+        wordTemplateUi.syncDocumentActionsRow();
+        wordTemplateUi.setStatus(
+            wordTemplateDom.mainPaneStatus,
+            "info",
+            "Das Formular wurde aus dem Schema aufgebaut. Felder können manuell gepflegt oder automatisch vorbefüllt werden."
+        );
+        wordTemplateDom.mainPaneStatus.hidden = false;
+        wordTemplateUi.setMainPaneState("form");
+        wordTemplateUi.renderDocumentList();
+        this.ensureUsersLoaded();
+    },
+
+    async selectDocument(documentItem) {
+        if (wordTemplateState.selectionMode === "all") {
+            await this.selectTemplate(documentItem.template_id);
+        }
+
+        wordTemplateState.selectedDocumentId = documentItem.document_id;
+        wordTemplateState.selectedDocument = documentItem;
+        wordTemplateState.existingDocument = null;
+        wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromSchema(wordTemplateState.selectedSchema);
+
+        wordTemplateDom.mainPaneKicker.textContent = "Dokument";
+        wordTemplateDom.mainPaneTitle.textContent = wordTemplateFormatters.value(documentItem.output_filename);
+        wordTemplateDom.mainPaneMeta.textContent = `Erstellt ${wordTemplateFormatters.dateTime(documentItem.created_at)}`;
+        wordTemplateDom.renderUserSearchInput.value = "";
+
+        wordTemplateUi.renderExistingDocumentCard();
+        wordTemplateUi.renderModalFields();
+        wordTemplateUi.syncDocumentActionsRow();
+        wordTemplateUi.setMainPaneState("form");
+        wordTemplateUi.renderDocumentList();
+        this.ensureUsersLoaded();
+
+        if (documentItem.user_id) {
+            wordTemplateState.selectedUserId = String(documentItem.user_id);
+            wordTemplateUi.renderUserOptions();
+            wordTemplateDom.mainPaneStatus.hidden = false;
+            wordTemplateUi.setStatus(wordTemplateDom.mainPaneStatus, "info", "Aktuelle Userdaten werden geladen...");
+            wordTemplateUi.setRenderActionLoading(true, "prefill");
+
+            try {
+                const payload = await wordTemplateApi.prefillTemplate(wordTemplateState.selectedTemplateId, {
+                    user_id: documentItem.user_id,
+                });
+                wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromPrefill(payload);
+                wordTemplateUi.renderModalFields();
+                wordTemplateUi.setStatus(
+                    wordTemplateDom.mainPaneStatus,
+                    "success",
+                    "Das Formular wurde mit den aktuellen Userdaten vorbefüllt. Beim Erzeugen entsteht ein neues Dokument."
+                );
+            } catch (error) {
+                wordTemplateUi.setStatus(
+                    wordTemplateDom.mainPaneStatus,
+                    "error",
+                    error.message || "Die aktuellen Userdaten konnten nicht geladen werden."
+                );
+            } finally {
+                wordTemplateUi.setRenderActionLoading(false, "prefill");
+            }
+        } else {
+            wordTemplateState.selectedUserId = "";
+            wordTemplateUi.renderUserOptions();
+            wordTemplateDom.mainPaneStatus.hidden = false;
+            wordTemplateUi.setStatus(
+                wordTemplateDom.mainPaneStatus,
+                "info",
+                "Für dieses Dokument liegt keine User-Zuordnung vor. Das Formular zeigt die Standardwerte der Vorlage."
+            );
+        }
     },
 
     openCreateTemplateModal() {
@@ -1090,7 +1155,6 @@ const wordTemplateHandlers = {
                 wordTemplateUi.closeTemplateModal();
                 await this.loadTemplates({
                     selectTemplateId: updated.template_id || wordTemplateState.selectedTemplateId,
-                    successMessage: `Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(updated.name || name))}</strong> wurde aktualisiert.`,
                 });
                 return;
             }
@@ -1112,7 +1176,6 @@ const wordTemplateHandlers = {
             wordTemplateUi.closeTemplateModal();
             await this.loadTemplates({
                 selectTemplateId: created.template_id,
-                successMessage: `Vorlage <strong>${escapeHtml(wordTemplateFormatters.value(created.name || name))}</strong> wurde angelegt.`,
             });
         } catch (error) {
             wordTemplateUi.setStatus(
@@ -1161,65 +1224,30 @@ const wordTemplateHandlers = {
             return;
         }
 
-        wordTemplateUi.setStatus(wordTemplateDom.renderModalStatus, "info", "User-Liste wird geladen...");
-
         try {
             const users = await wordTemplateApi.listTemplateUsers();
             wordTemplateState.users = Array.isArray(users) ? users : [];
             wordTemplateUi.renderUserOptions();
-            wordTemplateUi.setStatus(
-                wordTemplateDom.renderModalStatus,
-                "info",
-                "Das Formular kann manuell ausgefüllt oder mit Userdaten vorbefüllt werden."
-            );
         } catch (error) {
             wordTemplateUi.setStatus(
-                wordTemplateDom.renderModalStatus,
+                wordTemplateDom.mainPaneStatus,
                 "error",
                 error.message || "Die User-Liste konnte nicht geladen werden."
             );
+            wordTemplateDom.mainPaneStatus.hidden = false;
         }
-    },
-
-    openRenderModal() {
-        if (!wordTemplateState.selectedTemplate || !wordTemplateState.selectedSchema) {
-            wordTemplateUi.setStatus(wordTemplateDom.renderStatus, "error", "Bitte wählen Sie zuerst eine Vorlage aus.");
-            return;
-        }
-
-        wordTemplateState.modalFields = wordTemplateSchemaUtils.buildModalFieldsFromSchema(wordTemplateState.selectedSchema);
-        wordTemplateState.selectedUserId = "";
-        wordTemplateState.userSearchTerm = "";
-        wordTemplateState.existingDocument = null;
-
-        wordTemplateDom.renderModalTitle.textContent = wordTemplateState.selectedTemplate.name || "Dokument erstellen";
-        wordTemplateDom.renderModalSubtitle.textContent = "Wähle einen User zum Vorbefüllen oder trage die Werte direkt im Formular ein.";
-        wordTemplateDom.renderUserSearchInput.value = "";
-        wordTemplateUi.renderExistingDocumentCard();
-        wordTemplateUi.renderUserOptions();
-        wordTemplateUi.renderModalFields();
-        wordTemplateUi.setStatus(
-            wordTemplateDom.renderModalStatus,
-            "info",
-            "Das Formular wurde aus dem Schema aufgebaut. Felder können jetzt manuell gepflegt oder automatisch vorbefüllt werden."
-        );
-        wordTemplateUi.openRenderModal();
-        this.ensureUsersLoaded();
-        wordTemplateDom.renderUserSearchInput.focus();
-    },
-
-    closeRenderModal() {
-        wordTemplateUi.closeRenderModal();
     },
 
     async handlePrefillClick() {
         if (!wordTemplateState.selectedTemplateId) {
-            wordTemplateUi.setStatus(wordTemplateDom.renderModalStatus, "error", "Bitte wählen Sie zuerst eine Vorlage aus.");
+            wordTemplateUi.setStatus(wordTemplateDom.mainPaneStatus, "error", "Bitte wählen Sie zuerst eine Vorlage aus.");
+            wordTemplateDom.mainPaneStatus.hidden = false;
             return;
         }
 
         if (!wordTemplateState.selectedUserId) {
-            wordTemplateUi.setStatus(wordTemplateDom.renderModalStatus, "error", "Bitte wählen Sie einen User zum Vorbefüllen aus.");
+            wordTemplateUi.setStatus(wordTemplateDom.mainPaneStatus, "error", "Bitte wählen Sie einen User zum Vorbefüllen aus.");
+            wordTemplateDom.mainPaneStatus.hidden = false;
             return;
         }
 
@@ -1234,18 +1262,20 @@ const wordTemplateHandlers = {
             wordTemplateUi.renderExistingDocumentCard();
             wordTemplateUi.renderModalFields();
             wordTemplateUi.setStatus(
-                wordTemplateDom.renderModalStatus,
+                wordTemplateDom.mainPaneStatus,
                 "success",
                 wordTemplateState.existingDocument
                     ? "Die Vorlage wurde vorbefüllt. Zusätzlich steht die letzte bereits generierte Version direkt zum Öffnen bereit."
                     : "Die Vorlage wurde mit den verfügbaren Userdaten vorbefüllt. Alle sichtbaren Felder können vor dem Download noch angepasst werden."
             );
+            wordTemplateDom.mainPaneStatus.hidden = false;
         } catch (error) {
             wordTemplateUi.setStatus(
-                wordTemplateDom.renderModalStatus,
+                wordTemplateDom.mainPaneStatus,
                 "error",
                 error.message || "Die Vorlage konnte nicht automatisch ausgefüllt werden."
             );
+            wordTemplateDom.mainPaneStatus.hidden = false;
         } finally {
             wordTemplateUi.setRenderActionLoading(false, "prefill");
         }
@@ -1284,13 +1314,15 @@ const wordTemplateHandlers = {
         event.preventDefault();
 
         if (!wordTemplateState.selectedTemplateId) {
-            wordTemplateUi.setStatus(wordTemplateDom.renderModalStatus, "error", "Bitte wählen Sie zuerst eine Vorlage aus.");
+            wordTemplateUi.setStatus(wordTemplateDom.mainPaneStatus, "error", "Bitte wählen Sie zuerst eine Vorlage aus.");
+            wordTemplateDom.mainPaneStatus.hidden = false;
             return;
         }
 
         const { values, error } = this.collectModalValues();
         if (error) {
-            wordTemplateUi.setStatus(wordTemplateDom.renderModalStatus, "error", error);
+            wordTemplateUi.setStatus(wordTemplateDom.mainPaneStatus, "error", error);
+            wordTemplateDom.mainPaneStatus.hidden = false;
             return;
         }
 
@@ -1305,20 +1337,19 @@ const wordTemplateHandlers = {
 
             wordTemplateUi.downloadBlob(blob, filename);
             wordTemplateUi.setStatus(
-                wordTemplateDom.renderModalStatus,
+                wordTemplateDom.mainPaneStatus,
                 "success",
                 `Das Dokument wurde erfolgreich erzeugt. Der Download für <code>${escapeHtml(filename)}</code> wurde gestartet.`
             );
-            await this.loadDocuments({
-                mode: wordTemplateState.documentListMode,
-                successMessage: "Die Dokumentenliste wurde nach dem Rendern aktualisiert.",
-            });
+            wordTemplateDom.mainPaneStatus.hidden = false;
+            await this.loadDocuments({ mode: "template" });
         } catch (error) {
             wordTemplateUi.setStatus(
-                wordTemplateDom.renderModalStatus,
+                wordTemplateDom.mainPaneStatus,
                 "error",
                 error.message || "Das Dokument konnte nicht erzeugt werden."
             );
+            wordTemplateDom.mainPaneStatus.hidden = false;
         } finally {
             wordTemplateUi.setRenderActionLoading(false, "render");
         }
@@ -1344,14 +1375,12 @@ const wordTemplateHandlers = {
             const { blob, filename } = await wordTemplateApi.downloadDocument(documentId, fallbackFilename);
             wordTemplateUi.downloadBlob(blob, filename);
         } catch (error) {
-            const targetStatus = wordTemplateState.isRenderModalOpen
-                ? wordTemplateDom.renderModalStatus
-                : wordTemplateDom.documentListStatus;
             wordTemplateUi.setStatus(
-                targetStatus,
+                wordTemplateDom.mainPaneStatus,
                 "error",
                 error.message || "Das Dokument konnte nicht heruntergeladen werden."
             );
+            wordTemplateDom.mainPaneStatus.hidden = false;
         }
     },
 
@@ -1370,14 +1399,24 @@ const wordTemplateHandlers = {
 
         try {
             const payload = await wordTemplateApi.deleteDocument(documentItem.document_id);
+            const wasSelected = String(wordTemplateState.selectedDocumentId || "") === String(documentItem.document_id);
             this.removeDocumentFromState(documentItem.document_id);
             wordTemplateUi.renderDocumentList();
+            wordTemplateUi.renderTemplateCardRow();
             wordTemplateUi.setStatus(
                 wordTemplateDom.documentListStatus,
                 "success",
                 `Dokument <strong>${escapeHtml(wordTemplateFormatters.value(payload.output_filename || documentItem.output_filename))}</strong> wurde gelöscht.`
             );
             this.closeDeleteDocumentModal();
+
+            if (wasSelected) {
+                if (wordTemplateState.selectionMode === "template" && wordTemplateState.selectedTemplate) {
+                    this.selectNewDocument();
+                } else {
+                    await this.selectAllDocumentsMode();
+                }
+            }
         } catch (error) {
             wordTemplateUi.setStatus(
                 wordTemplateDom.documentDeleteStatus,
@@ -1399,11 +1438,6 @@ const wordTemplateHandlers = {
     },
 
     handleOverlayClick(event) {
-        if (event.target === wordTemplateDom.renderModalOverlay) {
-            this.closeRenderModal();
-            return;
-        }
-
         if (event.target === wordTemplateDom.templateModalOverlay) {
             this.closeTemplateModal();
             return;
@@ -1416,11 +1450,6 @@ const wordTemplateHandlers = {
 
     handleKeydown(event) {
         if (event.key !== "Escape") {
-            return;
-        }
-
-        if (wordTemplateState.isRenderModalOpen) {
-            this.closeRenderModal();
             return;
         }
 
@@ -1443,22 +1472,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     wordTemplateUi.prepareTemplateModalCreate();
-    wordTemplateUi.renderDocumentModeButtons();
-    wordTemplateUi.syncRenderLauncher();
 
-    wordTemplateDom.openTemplateCreateButton.addEventListener("click", () => wordTemplateHandlers.openCreateTemplateModal());
-    wordTemplateDom.openTemplateEditButton.addEventListener("click", () => wordTemplateHandlers.openEditTemplateModal());
     wordTemplateDom.templateModalForm.addEventListener("submit", (event) => wordTemplateHandlers.handleTemplateModalSubmit(event));
     wordTemplateDom.templateResetButton.addEventListener("click", () => wordTemplateHandlers.resetTemplateModal());
     wordTemplateDom.closeTemplateModalButton.addEventListener("click", () => wordTemplateHandlers.closeTemplateModal());
     wordTemplateDom.cancelTemplateModalButton.addEventListener("click", () => wordTemplateHandlers.closeTemplateModal());
 
-    wordTemplateDom.documentModeAllButton.addEventListener("click", () => wordTemplateHandlers.setDocumentMode("all"));
-    wordTemplateDom.documentModeTemplateButton.addEventListener("click", () => wordTemplateHandlers.setDocumentMode("template"));
-
-    wordTemplateDom.openRenderModalButton.addEventListener("click", () => wordTemplateHandlers.openRenderModal());
-    wordTemplateDom.closeRenderModalButton.addEventListener("click", () => wordTemplateHandlers.closeRenderModal());
-    wordTemplateDom.cancelRenderModalButton.addEventListener("click", () => wordTemplateHandlers.closeRenderModal());
     wordTemplateDom.openExistingDocumentButton.addEventListener("click", () => {
         if (wordTemplateState.existingDocument?.documentId) {
             wordTemplateHandlers.downloadDocument(
@@ -1471,15 +1490,18 @@ document.addEventListener("DOMContentLoaded", () => {
     wordTemplateDom.renderModalForm.addEventListener("submit", (event) => wordTemplateHandlers.handleRenderModalSubmit(event));
     wordTemplateDom.renderUserSearchInput.addEventListener("input", (event) => wordTemplateHandlers.handleUserSearchInput(event));
     wordTemplateDom.renderUserSelect.addEventListener("change", (event) => wordTemplateHandlers.handleUserSelectionChange(event));
+
     wordTemplateDom.closeDocumentDeleteModalButton.addEventListener("click", () => wordTemplateHandlers.closeDeleteDocumentModal());
     wordTemplateDom.cancelDocumentDeleteModalButton.addEventListener("click", () => wordTemplateHandlers.closeDeleteDocumentModal());
     wordTemplateDom.confirmDocumentDeleteButton.addEventListener("click", () => wordTemplateHandlers.handleDeleteDocumentConfirm());
 
-    wordTemplateDom.renderModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
     wordTemplateDom.templateModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
     wordTemplateDom.deleteModalOverlay.addEventListener("click", (event) => wordTemplateHandlers.handleOverlayClick(event));
     document.addEventListener("keydown", (event) => wordTemplateHandlers.handleKeydown(event));
 
+    wordTemplateUi.renderTemplateCardRow();
+    wordTemplateUi.renderDocumentList();
+
     wordTemplateHandlers.loadTemplates();
-    wordTemplateHandlers.loadDocuments({ mode: "all" });
+    wordTemplateHandlers.selectAllDocumentsMode();
 });

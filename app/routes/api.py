@@ -330,6 +330,20 @@ async def api_list_qmanager_queues(current_user=Depends(require_permission("SOFA
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/q-manager/queues/overview")
+async def api_list_qmanager_queues_overview(current_user=Depends(require_permission("SOFA-TOOL-GQ"))):
+    try:
+        result = await api_client.list_qmanager_queues_overview()
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/q-manager/queues/{queue_id}/members")
 async def api_list_qmanager_queue_members(queue_id: str, current_user=Depends(require_permission("SOFA-TOOL-GQ"))):
     try:
@@ -344,78 +358,14 @@ async def api_list_qmanager_queue_members(queue_id: str, current_user=Depends(re
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
-@router.post("/q-manager/queues/{queue_id}/members")
-async def api_add_qmanager_queue_members(
+@router.patch("/q-manager/queues/{queue_id}/members")
+async def api_patch_qmanager_queue_members(
     queue_id: str,
     payload: dict,
     current_user=Depends(require_permission("SOFA-TOOL-GQ")),
 ):
     try:
-        result = await api_client.add_qmanager_queue_members(queue_id, payload)
-        return JSONResponse(content=result)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@router.post("/q-manager/queues/{queue_id}/members/remove")
-async def api_remove_qmanager_queue_members(
-    queue_id: str,
-    payload: dict,
-    current_user=Depends(require_permission("SOFA-TOOL-GQ")),
-):
-    try:
-        result = await api_client.remove_qmanager_queue_members(queue_id, payload)
-        return JSONResponse(content=result)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@router.delete("/q-manager/queues/{queue_id}/members/{member_id}")
-async def api_delete_qmanager_queue_member(
-    queue_id: str,
-    member_id: str,
-    current_user=Depends(require_permission("SOFA-TOOL-GQ")),
-):
-    try:
-        result = await api_client.delete_qmanager_queue_member(queue_id, member_id)
-        return JSONResponse(content=result)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@router.get("/q-manager/users/search")
-async def api_search_qmanager_users(q: str = "", current_user=Depends(require_permission("SOFA-TOOL-GQ"))):
-    try:
-        result = await api_client.search_qmanager_users(q)
-        return JSONResponse(content=result)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@router.get("/q-manager/users/{user_id}")
-async def api_get_qmanager_user(user_id: str, current_user=Depends(require_permission("SOFA-TOOL-GQ"))):
-    try:
-        result = await api_client.get_qmanager_user(user_id)
+        result = await api_client.patch_qmanager_queue_members(queue_id, payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(

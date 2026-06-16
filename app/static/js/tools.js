@@ -33,6 +33,9 @@ function initTabs() {
 
 function initPopoutButtons() {
     document.querySelectorAll(".overview-card-popout").forEach(btn => {
+        if (btn.dataset.popoutInit) return;
+        btn.dataset.popoutInit = "1";
+
         const card = btn.closest(".overview-card-link");
         if (!card) return;
 

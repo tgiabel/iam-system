@@ -865,10 +865,10 @@ body.mobile-nav-open .mobile-nav-toggle {
     padding: 0.35rem 0.95rem 0 0.95rem;
 }
 
-/* ensure no hover-only behavior remains */
+/* ensure no hover-only behavior remains 
 .nav-item:hover .subnav,
-.profile-dropdown:hover .subnav { /* no-op to avoid hover persistence */ }
-
+.profile-dropdown:hover .subnav { /* no-op to avoid hover persistence * }
+*/
 @media (max-width: 1080px) {
     .main-header {
         padding: 12px 18px;

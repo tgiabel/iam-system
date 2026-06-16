@@ -393,23 +393,14 @@ class APIClient:
     async def list_qmanager_queues(self) -> dict:
         return await self._get(Q_MANAGER_BASE_URL, "/queues/all")
 
+    async def list_qmanager_queues_overview(self) -> dict:
+        return await self._get(Q_MANAGER_BASE_URL, "/queues/overview")
+
     async def list_qmanager_queue_members(self, queue_id: str) -> dict:
         return await self._get(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members")
 
-    async def add_qmanager_queue_members(self, queue_id: str, payload: dict) -> dict:
-        return await self._post(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members", payload=payload)
-
-    async def remove_qmanager_queue_members(self, queue_id: str, payload: dict) -> dict:
-        return await self._post(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members/remove", payload=payload)
-
-    async def delete_qmanager_queue_member(self, queue_id: str, member_id: str) -> dict:
-        return await self._delete(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members/{member_id}")
-
-    async def search_qmanager_users(self, query: str) -> Any:
-        return await self._get(Q_MANAGER_BASE_URL, "/users/search", params={"q": query})
-
-    async def get_qmanager_user(self, user_id: str) -> dict:
-        return await self._get(Q_MANAGER_BASE_URL, f"/users/{user_id}")
+    async def patch_qmanager_queue_members(self, queue_id: str, payload: dict) -> dict:
+        return await self._patch(Q_MANAGER_BASE_URL, f"/queues/{queue_id}/members", payload=payload)
 
     async def list_qmanager_user_queues(self, user_id: str) -> dict:
         return await self._get(Q_MANAGER_BASE_URL, f"/users/{user_id}/queues")
