@@ -99,10 +99,12 @@ html[data-theme="servodata"] .users-icon-btn-img {
 .users-subfilter-dropdown {
     position: absolute;
     top: calc(100% + 0.65rem);
-    left: 0;
+    right: 0;
+    left: auto;
     display: none;
     flex-direction: column;
-    min-width: 220px;
+    width: fit-content;
+    min-width: 180px;
     padding: 0.45rem;
     background: var(--menu-surface);
     border: 1px solid var(--ui-border);
@@ -118,6 +120,7 @@ html[data-theme="servodata"] .users-icon-btn-img {
 
 .users-subfilter-dropdown {
     left: calc(100% + 0.75rem);
+    right: auto;
     top: 0;
     max-height: 360px;
     overflow-y: auto;
@@ -139,6 +142,10 @@ html[data-theme="servodata"] .users-icon-btn-img {
 .users-filter-dropdown button:focus-visible {
     background: var(--menu-surface-hover);
     outline: none;
+}
+
+.users-filter-dropdown button.is-active {
+    color: var(--color-primary);
 }
 
 .users-subfilter-dropdown input {
@@ -225,10 +232,19 @@ html[data-theme="servodata"] .users-icon-btn-img {
     font-weight: 600;
 }
 
+.users-filter-tags-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
 .users-filter-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.55rem;
+    flex: 1 1 auto;
 }
 
 .users-filter-tag {
@@ -443,12 +459,6 @@ html[data-theme="servodata"] .users-icon-btn-img {
 .users-sort-icon {
     font-size: 1.05rem;
     line-height: 1;
-}
-
-.users-sort-toggle[aria-pressed="true"] {
-    background: var(--btn-secondary-bg);
-    border-color: var(--btn-secondary-border);
-    color: var(--text-inverse);
 }
 
 .users-inactive-toggle[aria-pressed="true"] {
@@ -1347,6 +1357,8 @@ html[data-theme="servodata"] .users-icon-btn-img {
     .users-onboard-btn,
     .users-filter-trigger,
     .users-toolbar-meta,
+    #users-filter-container,
+    #users-sort-container,
     .users-sort-toggle {
         width: 100%;
     }

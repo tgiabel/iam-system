@@ -30,20 +30,6 @@
             </div>
 
             <div class="users-toolbar">
-                <div class="users-filter-container" id="users-filter-container">
-                    <button type="button" class="btn btn-secondary users-icon-btn users-filter-trigger" id="filter-btn" aria-label="Filter" title="Filter">
-                        <img src="/static/img/filter-icon-black.png" alt="" class="users-icon-btn-img">
-                    </button>
-                    <div class="users-filter-dropdown" id="filter-dropdown">
-                        <button type="button" data-filter="hauptrolle">Hauptrolle</button>
-                        <button type="button" data-filter="nebenrolle">Nebenrolle</button>
-                        <button type="button" data-filter="skill">Skill</button>
-                        <button type="button" data-filter="status">Status</button>
-                        <button type="button" data-filter="aktion">Aktion</button>
-                    </div>
-                    <div class="users-subfilter-dropdown" id="subfilter-dropdown"></div>
-                </div>
-
                 <div class="users-search-row">
                     <label class="users-search-label ui-section-kicker" for="search-input">Suche</label>
                     <input
@@ -55,22 +41,38 @@
                 </div>
 
                 <div class="users-toolbar-meta">
-                    <span id="users-visible-count" class="users-visible-count" aria-live="polite">0 User</span>
+                    <div class="users-filter-container" id="users-filter-container">
+                        <button type="button" class="btn btn-secondary users-icon-btn users-filter-trigger" id="filter-btn" aria-haspopup="true" aria-expanded="false" aria-label="Filter" title="Filter">
+                            <img src="/static/img/filter-icon-black.png" alt="" class="users-icon-btn-img">
+                        </button>
+                        <div class="users-filter-dropdown" id="filter-dropdown">
+                            <button type="button" data-filter="hauptrolle">Hauptrolle</button>
+                            <button type="button" data-filter="nebenrolle">Nebenrolle</button>
+                            <button type="button" data-filter="skill">Skill</button>
+                            <button type="button" data-filter="status">Status</button>
+                            <button type="button" data-filter="aktion">Aktion</button>
+                        </div>
+                        <div class="users-subfilter-dropdown" id="subfilter-dropdown"></div>
+                    </div>
+
                     <button type="button" class="btn btn-secondary users-icon-btn users-inactive-toggle" id="users-inactive-toggle" aria-pressed="false" aria-label="Inaktive User anzeigen" title="Inaktive User anzeigen">
                         <img src="/static/img/no-user-icon-black.png" alt="" class="users-icon-btn-img">
                     </button>
-                    <button
-                        type="button"
-                        class="btn btn-secondary users-sort-toggle"
-                        id="users-sort-toggle"
-                        aria-pressed="false">
-                        <span class="users-sort-icon" aria-hidden="true">⇅</span>
-                        <span class="users-sort-label" id="users-sort-label">Nachname</span>
-                    </button>
+
+                    <div class="users-filter-container" id="users-sort-container">
+                        <button type="button" class="btn btn-secondary users-sort-toggle" id="users-sort-toggle" aria-haspopup="true" aria-expanded="false">
+                            <span class="users-sort-icon" aria-hidden="true">⇅</span>
+                            <span class="users-sort-label" id="users-sort-label">Nachname</span>
+                        </button>
+                        <div class="users-filter-dropdown" id="sort-dropdown"></div>
+                    </div>
                 </div>
             </div>
 
-            <div class="users-filter-tags" id="active-filters"></div>
+            <div class="users-filter-tags-row">
+                <div class="users-filter-tags" id="active-filters"></div>
+                <span id="users-visible-count" class="users-visible-count" aria-live="polite">0 User</span>
+            </div>
         </section>
 
         <section class="ui-card users-table-card">

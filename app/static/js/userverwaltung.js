@@ -19,6 +19,45 @@ const state = {
     sortField: "last_name"
 };
 
+const PERSISTED_FILTERS_KEY = "sofaUserverwaltungFilters";
+
+function loadPersistedFilters() {
+    try {
+        const raw = localStorage.getItem(PERSISTED_FILTERS_KEY);
+        if (!raw) {
+            return;
+        }
+        const saved = JSON.parse(raw);
+        if (saved.filters) {
+            Object.assign(state.filters, saved.filters);
+        }
+        if (typeof saved.showInactive === "boolean") {
+            state.showInactive = saved.showInactive;
+        }
+        if (typeof saved.sortField === "string") {
+            state.sortField = saved.sortField;
+        }
+        if (typeof saved.searchTerm === "string") {
+            state.searchTerm = saved.searchTerm;
+        }
+    } catch (err) {
+        console.error("Gespeicherte Filter konnten nicht geladen werden", err);
+    }
+}
+
+function savePersistedFilters() {
+    try {
+        localStorage.setItem(PERSISTED_FILTERS_KEY, JSON.stringify({
+            filters: state.filters,
+            showInactive: state.showInactive,
+            sortField: state.sortField,
+            searchTerm: state.searchTerm
+        }));
+    } catch (err) {
+        console.error("Filter konnten nicht gespeichert werden", err);
+    }
+}
+
 const DOM = {};
 
 function getAuthz() {
@@ -1023,8 +1062,10 @@ const filterController = {
             event.stopPropagation();
             const shouldOpen = !DOM.filterDropdown.classList.contains("active");
             this.closeMenus();
+            tableController.closeSortDropdown();
             if (shouldOpen) {
                 DOM.filterDropdown.classList.add("active");
+                DOM.filterBtn.setAttribute("aria-expanded", "true");
             }
         });
 
@@ -1059,6 +1100,7 @@ const filterController = {
 
             this.renderActiveTags();
             this.rerenderOpenSubfilter();
+            savePersistedFilters();
             tableController.render();
         });
 
@@ -1072,18 +1114,23 @@ const filterController = {
             this.toggleOptionFilter(filterKey, value, action, false);
             this.renderActiveTags();
             this.rerenderOpenSubfilter();
+            savePersistedFilters();
             tableController.render();
         });
 
         DOM.inactiveToggle?.addEventListener("click", async () => {
             state.showInactive = !state.showInactive;
             DOM.inactiveToggle.setAttribute("aria-pressed", String(state.showInactive));
+            savePersistedFilters();
             await tableController.loadUsers();
         });
 
         document.addEventListener("click", event => {
             if (!DOM.filterContainer?.contains(event.target)) {
                 this.closeMenus();
+            }
+            if (!DOM.sortContainer?.contains(event.target)) {
+                tableController.closeSortDropdown();
             }
         });
     },
@@ -1102,6 +1149,7 @@ const filterController = {
     closeMenus() {
         DOM.filterDropdown?.classList.remove("active");
         DOM.subfilterDropdown?.classList.remove("active");
+        DOM.filterBtn?.setAttribute("aria-expanded", "false");
         state.filters.openCategory = null;
     },
 
@@ -1490,17 +1538,48 @@ const tableController = {
     bindSearch() {
         DOM.searchInput?.addEventListener("input", event => {
             state.searchTerm = event.target.value || "";
+            savePersistedFilters();
             this.render();
         });
     },
 
     bindSortToggle() {
-        DOM.usersSortToggle?.addEventListener("click", () => {
-            const currentIndex = SORT_OPTIONS.findIndex(opt => opt.field === state.sortField);
-            const nextIndex = (currentIndex + 1) % SORT_OPTIONS.length;
-            state.sortField = SORT_OPTIONS[nextIndex].field;
+        DOM.usersSortToggle?.addEventListener("click", event => {
+            event.stopPropagation();
+            const shouldOpen = !DOM.sortDropdown.classList.contains("active");
+            filterController.closeMenus();
+            this.closeSortDropdown();
+            if (shouldOpen) {
+                this.renderSortDropdown();
+                DOM.sortDropdown.classList.add("active");
+                DOM.usersSortToggle.setAttribute("aria-expanded", "true");
+            }
+        });
+
+        DOM.sortDropdown?.addEventListener("click", event => {
+            const button = event.target.closest("[data-sort]");
+            if (!button) {
+                return;
+            }
+            state.sortField = button.dataset.sort;
+            savePersistedFilters();
+            this.closeSortDropdown();
             this.render();
         });
+    },
+
+    closeSortDropdown() {
+        DOM.sortDropdown?.classList.remove("active");
+        DOM.usersSortToggle?.setAttribute("aria-expanded", "false");
+    },
+
+    renderSortDropdown() {
+        if (!DOM.sortDropdown) {
+            return;
+        }
+        DOM.sortDropdown.innerHTML = SORT_OPTIONS.map(option => `
+            <button type="button" data-sort="${escapeHtml(option.field)}" class="${option.field === state.sortField ? "is-active" : ""}">${escapeHtml(option.label)}</button>
+        `).join("");
     },
 
     updateSortToggle() {
@@ -1509,8 +1588,7 @@ const tableController = {
         }
 
         const option = SORT_OPTIONS.find(opt => opt.field === state.sortField) || SORT_OPTIONS[0];
-        DOM.usersSortToggle.setAttribute("aria-pressed", String(state.sortField !== "last_name"));
-        DOM.usersSortToggle.setAttribute("aria-label", `Sortierung: ${option.label}. Klicken zum Wechseln.`);
+        DOM.usersSortToggle.setAttribute("aria-label", `Sortierung: ${option.label}. Klicken zum Ändern.`);
         if (DOM.usersSortLabel) {
             DOM.usersSortLabel.textContent = option.label;
         }
@@ -3357,6 +3435,8 @@ function cacheDOM() {
     DOM.usersVisibleCount = document.getElementById("users-visible-count");
     DOM.usersSortToggle = document.getElementById("users-sort-toggle");
     DOM.usersSortLabel = document.getElementById("users-sort-label");
+    DOM.sortContainer = document.getElementById("users-sort-container");
+    DOM.sortDropdown = document.getElementById("sort-dropdown");
     DOM.usersDateColumnHeader = document.getElementById("users-date-column-header");
     DOM.userTable = document.getElementById("user-table");
     DOM.tableBody = document.getElementById("user-table-body");
@@ -3455,6 +3535,11 @@ function cacheDOM() {
 
 document.addEventListener("DOMContentLoaded", async () => {
     cacheDOM();
+    loadPersistedFilters();
+    if (DOM.searchInput) {
+        DOM.searchInput.value = state.searchTerm;
+    }
+    DOM.inactiveToggle?.setAttribute("aria-pressed", String(state.showInactive));
     sidebarController.init();
     await filterController.init();
     await tableController.init();
