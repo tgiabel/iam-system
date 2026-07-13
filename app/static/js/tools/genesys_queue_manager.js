@@ -1,9 +1,14 @@
 const SEGMENT_COUNT = 50;
+const AUTO_REFRESH_INTERVAL_MS = 15000;
+let autoRefreshTimerId = null;
+let lastRefreshTime = 0;
 
 const queueManagerState = {
     queues: [],
     sortBy: "name",
     hiddenQueueIds: new Set(),
+    queueFilter: "",
+    view: "activity",
     modal: {
         open: false,
         queueId: "",
@@ -25,6 +30,45 @@ const queueManagerState = {
 
 const queueManagerDom = {};
 const queueManagerColumns = new Map();
+
+const PERSISTED_FILTERS_KEY = "sofaQueueManagerFilters";
+
+function loadPersistedFilters() {
+    try {
+        const raw = localStorage.getItem(PERSISTED_FILTERS_KEY);
+        if (!raw) {
+            return;
+        }
+        const saved = JSON.parse(raw);
+        if (typeof saved.sortBy === "string") {
+            queueManagerState.sortBy = saved.sortBy;
+        }
+        if (Array.isArray(saved.hiddenQueueIds)) {
+            queueManagerState.hiddenQueueIds = new Set(saved.hiddenQueueIds);
+        }
+        if (typeof saved.queueFilter === "string") {
+            queueManagerState.queueFilter = saved.queueFilter;
+        }
+        if (saved.view === "activity" || saved.view === "performance") {
+            queueManagerState.view = saved.view;
+        }
+    } catch (err) {
+        console.error("Gespeicherte Filter konnten nicht geladen werden", err);
+    }
+}
+
+function savePersistedFilters() {
+    try {
+        localStorage.setItem(PERSISTED_FILTERS_KEY, JSON.stringify({
+            sortBy: queueManagerState.sortBy,
+            hiddenQueueIds: Array.from(queueManagerState.hiddenQueueIds),
+            queueFilter: queueManagerDom.queueFilter?.value || "",
+            view: queueManagerState.view
+        }));
+    } catch (err) {
+        console.error("Filter konnten nicht gespeichert werden", err);
+    }
+}
 
 function escapeHtml(value) {
     return String(value ?? "")
@@ -71,6 +115,8 @@ function normalizeQueueListResponse(payload) {
         on_queue_idle:        Number(queue.on_queue_idle)        || 0,
         on_queue_interacting: Number(queue.on_queue_interacting) || 0,
         presence_offline:     Number(queue.presence_offline)     || 0,
+        interactions_interacting: Number(queue.interactions_interacting) || 0,
+        interactions_waiting:     Number(queue.interactions_waiting)     || 0,
     }));
 }
 
@@ -202,6 +248,8 @@ function cacheDom() {
     queueManagerDom.lastUpdated   = document.getElementById("qmLastUpdated");
 
     queueManagerDom.equalizer = document.getElementById("qmEqualizer");
+    queueManagerDom.legend = document.getElementById("qmLegend");
+    queueManagerDom.viewToggleButtons = document.querySelectorAll(".qm-view-toggle-btn");
 
     queueManagerDom.modal = document.getElementById("qmQueueModal");
     queueManagerDom.modalTitle = document.getElementById("qmModalTitle");
@@ -234,6 +282,27 @@ function setStatus(element, kind, message) {
 
 // ── Equalizer ─────────────────────────────────────────────────────────────────
 
+const ACTIVITY_LEGEND_HTML = `
+    <span class="qm-legend-item"><span class="qm-legend-dot is-green"></span>Online</span>
+    <span class="qm-legend-item"><span class="qm-legend-dot is-blue"></span>In Warteschleife</span>
+    <span class="qm-legend-item"><span class="qm-legend-dot is-orange"></span>Im Call</span>
+    <span class="qm-legend-item"><span class="qm-legend-dot is-red"></span>Beschäftigt / Pause</span>
+    <span class="qm-legend-item"><span class="qm-legend-dot is-grey"></span>Offline</span>
+`;
+
+const PERFORMANCE_LEGEND_HTML = `
+    <span class="qm-legend-item"><span class="qm-legend-dot is-green"></span>Aktive Gespräche</span>
+    <span class="qm-legend-item"><span class="qm-legend-dot is-orange"></span>Wartend (bis 5)</span>
+    <span class="qm-legend-item"><span class="qm-legend-dot is-red"></span>Wartend (&gt;5)</span>
+`;
+
+function renderLegend() {
+    if (!queueManagerDom.legend) return;
+    queueManagerDom.legend.innerHTML = queueManagerState.view === "performance"
+        ? PERFORMANCE_LEGEND_HTML
+        : ACTIVITY_LEGEND_HTML;
+}
+
 function sortQueues(queues) {
     const sortBy = queueManagerState.sortBy;
     return [...queues].sort((a, b) => {
@@ -246,17 +315,23 @@ function sortQueues(queues) {
             const bp = Math.max(0, (b.joined_member_count || 0) - (b.presence_offline || 0));
             return bp - ap;
         }
+        if (sortBy === "calls_total") {
+            const at = (a.interactions_interacting || 0) + (a.interactions_waiting || 0);
+            const bt = (b.interactions_interacting || 0) + (b.interactions_waiting || 0);
+            return bt - at;
+        }
+        if (sortBy === "calls_waiting") {
+            const waitingDiff = (b.interactions_waiting || 0) - (a.interactions_waiting || 0);
+            if (waitingDiff !== 0) return waitingDiff;
+            const at = (a.interactions_interacting || 0) + (a.interactions_waiting || 0);
+            const bt = (b.interactions_interacting || 0) + (b.interactions_waiting || 0);
+            return bt - at;
+        }
         return (a.queue_name || "").localeCompare(b.queue_name || "", "de");
     });
 }
 
-function buildSegments(presAvail, onIdle, onInter, otherRed, segmentCount) {
-    const fills = [
-        { count: presAvail, cls: "is-filled-green"  },
-        { count: onIdle,    cls: "is-filled-blue"   },
-        { count: onInter,   cls: "is-filled-orange" },
-        { count: otherRed,  cls: "is-filled-red"    },
-    ];
+function buildSegments(fills, segmentCount) {
     const slots = [];
     for (const { count, cls } of fills) {
         const n = Math.min(count, segmentCount - slots.length);
@@ -267,9 +342,7 @@ function buildSegments(presAvail, onIdle, onInter, otherRed, segmentCount) {
     return slots.map(cls => `<span class="qm-segment${cls ? ` ${cls}` : ""}"></span>`).join("");
 }
 
-function buildColumnHtml(queue, segmentCount) {
-    const queueId = getQueueId(queue);
-    const queueName = normalizeText(queue?.queue_name) || queueId;
+function buildActivityColumnData(queue, segmentCount) {
     const memberCount   = queue.member_count         || 0;
     const joinedCount   = queue.joined_member_count  || 0;
     const presAvail     = queue.presence_available   || 0;
@@ -279,17 +352,65 @@ function buildColumnHtml(queue, segmentCount) {
     const presentCount  = Math.max(0, joinedCount - presOffline);
     const otherRed      = Math.max(0, joinedCount - presAvail - onIdle - onInter - presOffline);
 
-    const segments = buildSegments(presAvail, onIdle, onInter, otherRed, segmentCount);
+    const segments = buildSegments([
+        { count: onIdle,    cls: "is-filled-blue"   },
+        { count: presAvail, cls: "is-filled-green"  },
+        { count: onInter,   cls: "is-filled-orange" },
+        { count: otherRed,  cls: "is-filled-red"    },
+    ], segmentCount);
 
     const tooltipParts = [];
-    if (presAvail > 0)   tooltipParts.push(`${presAvail} Online`);
     if (onIdle > 0)      tooltipParts.push(`${onIdle} In Warteschleife`);
+    if (presAvail > 0)   tooltipParts.push(`${presAvail} Online`);
     if (onInter > 0)     tooltipParts.push(`${onInter} Im Call`);
     if (otherRed > 0)    tooltipParts.push(`${otherRed} Beschäftigt/Pause`);
     if (presOffline > 0) tooltipParts.push(`${presOffline} Offline`);
-    const tooltip = `${queueName} — ${tooltipParts.join(", ") || "Keine Daten"}`;
 
+    return {
+        assignmentLabel: `${memberCount} Mitglieder`,
+        counterMain: String(presentCount),
+        counterSub: `/${joinedCount}`,
+        segments,
+        tooltipParts,
+    };
+}
+
+function buildPerformanceColumnData(queue, segmentCount) {
+    const interacting    = queue.interactions_interacting || 0;
+    const waiting        = queue.interactions_waiting     || 0;
+    const waitingOrange  = Math.min(waiting, 5);
+    const waitingRed     = Math.max(0, waiting - 5);
+
+    const segments = buildSegments([
+        { count: interacting,   cls: "is-filled-green"  },
+        { count: waitingOrange, cls: "is-filled-orange" },
+        { count: waitingRed,    cls: "is-filled-red"    },
+    ], segmentCount);
+
+    const tooltipParts = [];
+    if (interacting > 0) tooltipParts.push(`${interacting} im Gespräch`);
+    if (waiting > 0)      tooltipParts.push(`${waiting} wartend`);
+
+    return {
+        assignmentLabel: `${interacting + waiting} Calls`,
+        counterMain: String(interacting),
+        counterSub: `/${waiting}`,
+        segments,
+        tooltipParts,
+    };
+}
+
+function buildColumnHtml(queue, segmentCount) {
+    const queueId = getQueueId(queue);
+    const queueName = normalizeText(queue?.queue_name) || queueId;
     const isHidden = queueManagerState.hiddenQueueIds.has(queueId);
+
+    const { assignmentLabel, counterMain, counterSub, segments, tooltipParts } =
+        queueManagerState.view === "performance"
+            ? buildPerformanceColumnData(queue, segmentCount)
+            : buildActivityColumnData(queue, segmentCount);
+
+    const tooltip = `${queueName} — ${tooltipParts.join(", ") || "Keine Daten"}`;
 
     return `
         <div class="qm-column-wrap${isHidden ? " is-dimmed" : ""}" role="listitem"
@@ -303,9 +424,9 @@ function buildColumnHtml(queue, segmentCount) {
             <button type="button" class="qm-column"
                 data-queue-id="${escapeHtml(queueId)}"
                 title="${escapeHtml(tooltip)}">
-                <div class="qm-column-assignment">${memberCount} Mitglieder</div>
+                <div class="qm-column-assignment">${assignmentLabel}</div>
                 <div class="qm-column-counter">
-                    <span class="qm-column-counter-x">${presentCount}</span><span class="qm-column-counter-y">/${joinedCount}</span>
+                    <span class="qm-column-counter-x">${counterMain}</span><span class="qm-column-counter-y">${counterSub}</span>
                 </div>
                 <div class="qm-column-track">${segments}</div>
                 <span class="qm-column-label">${escapeHtml(queueName)}</span>
@@ -328,8 +449,10 @@ function renderEqualizer() {
         return;
     }
 
-    const maxPresent = Math.max(...queues.map(q => Math.max(0, (q.joined_member_count || 0) - (q.presence_offline || 0))));
-    const segmentCount = Math.min(50, Math.max(10, maxPresent + 5));
+    const maxMetric = queueManagerState.view === "performance"
+        ? Math.max(...queues.map(q => (q.interactions_interacting || 0) + (q.interactions_waiting || 0)))
+        : Math.max(...queues.map(q => Math.max(0, (q.joined_member_count || 0) - (q.presence_offline || 0))));
+    const segmentCount = Math.min(50, Math.max(10, maxMetric + 5));
 
     const sorted = sortQueues(queues);
     const hidden = queueManagerState.hiddenQueueIds;
@@ -337,6 +460,7 @@ function renderEqualizer() {
     const dimmed  = sorted.filter(q =>  hidden.has(getQueueId(q)));
     const ordered = [...visible, ...dimmed];
 
+    renderLegend();
     queueManagerDom.equalizer.innerHTML = ordered.map(queue => buildColumnHtml(queue, segmentCount)).join("");
 
     queueManagerDom.equalizer.querySelectorAll(".qm-column-wrap[data-queue-id]").forEach(wrapEl => {
@@ -389,7 +513,31 @@ function renderKpis() {
 
 // ── Queues loading ────────────────────────────────────────────────────────────
 
+function startAutoRefreshTimer() {
+    if (autoRefreshTimerId) return;
+    autoRefreshTimerId = setInterval(loadQueues, AUTO_REFRESH_INTERVAL_MS);
+}
+
+function stopAutoRefreshTimer() {
+    if (autoRefreshTimerId) {
+        clearInterval(autoRefreshTimerId);
+        autoRefreshTimerId = null;
+    }
+}
+
+function handleVisibilityChange() {
+    if (document.hidden) {
+        stopAutoRefreshTimer();
+        return;
+    }
+    if (Date.now() - lastRefreshTime >= AUTO_REFRESH_INTERVAL_MS) {
+        loadQueues();
+    }
+    startAutoRefreshTimer();
+}
+
 async function loadQueues() {
+    lastRefreshTime = Date.now();
     queueManagerState.loadingFlags.queues = true;
     queueManagerDom.globalStatus.hidden = true;
 
@@ -667,6 +815,22 @@ async function saveModalChanges() {
 // ── Events ────────────────────────────────────────────────────────────────────
 
 function handleClick(event) {
+    const viewBtn = event.target.closest(".qm-view-toggle-btn[data-view]");
+    if (viewBtn) {
+        const view = viewBtn.dataset.view;
+        if (!viewBtn.disabled && view !== queueManagerState.view) {
+            queueManagerState.view = view;
+            queueManagerDom.viewToggleButtons?.forEach(btn => {
+                const active = btn.dataset.view === view;
+                btn.classList.toggle("is-active", active);
+                btn.setAttribute("aria-selected", active ? "true" : "false");
+            });
+            savePersistedFilters();
+            renderEqualizer();
+        }
+        return;
+    }
+
     const visBtn = event.target.closest(".qm-visibility-btn[data-toggle-queue-id]");
     if (visBtn) {
         const id = visBtn.dataset.toggleQueueId;
@@ -674,6 +838,7 @@ function handleClick(event) {
             queueManagerState.hiddenQueueIds.delete(id);
         else
             queueManagerState.hiddenQueueIds.add(id);
+        savePersistedFilters();
         renderEqualizer();
         return;
     }
@@ -738,14 +903,17 @@ function handleKeydown(event) {
 function bindEvents() {
     document.addEventListener("click", handleClick);
     document.addEventListener("keydown", handleKeydown);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     queueManagerDom.sortSelect?.addEventListener("change", event => {
         queueManagerState.sortBy = event.target.value;
+        savePersistedFilters();
         renderEqualizer();
     });
 
     queueManagerDom.queueFilter?.addEventListener("input", event => {
         filterEqualizer(event.target.value);
+        savePersistedFilters();
     });
 
     queueManagerDom.joinedFilter?.addEventListener("input", event => {
@@ -761,8 +929,23 @@ function bindEvents() {
 
 async function initializeQueueManager() {
     cacheDom();
+    loadPersistedFilters();
+    if (queueManagerDom.sortSelect) {
+        queueManagerDom.sortSelect.value = queueManagerState.sortBy;
+    }
+    if (queueManagerDom.queueFilter && queueManagerState.queueFilter) {
+        queueManagerDom.queueFilter.value = queueManagerState.queueFilter;
+    }
+    queueManagerDom.viewToggleButtons?.forEach(btn => {
+        const active = btn.dataset.view === queueManagerState.view;
+        btn.classList.toggle("is-active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
     bindEvents();
     await loadQueues();
+    if (!document.hidden) {
+        startAutoRefreshTimer();
+    }
 }
 
 document.addEventListener("DOMContentLoaded", initializeQueueManager);

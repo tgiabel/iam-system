@@ -28,7 +28,7 @@
 
             <div class="qm-view-toggle" role="tablist" aria-label="Ansicht wählen">
                 <button type="button" class="qm-view-toggle-btn is-active" data-view="activity" role="tab" aria-selected="true">Activity</button>
-                <button type="button" class="qm-view-toggle-btn" data-view="performance" role="tab" aria-selected="false" disabled title="Bald verfügbar">Performance<span class="qm-view-badge-soon">bald</span></button>
+                <button type="button" class="qm-view-toggle-btn" data-view="performance" role="tab" aria-selected="false">Performance</button>
             </div>
         </div>
 
@@ -56,14 +56,16 @@
                 <label for="qmSortSelect" class="queue-manager-sr-only">Sortierung</label>
                 <select id="qmSortSelect" class="qm-input qm-sort-select">
                     <option value="name">Name</option>
-                    <option value="member_count">Meiste Mitglieder</option>
-                    <option value="joined">Meiste Zuweisungen</option>
-                    <option value="present">Gerade anwesend</option>
+                    <option value="member_count">Anzahl Agenten</option>
+                    <option value="joined">Aktiverte Agenten</option>
+                    <option value="present">Anweswende Agenten</option>
+                    <option value="calls_total">Anzahl Anrufe</option>
+                    <option value="calls_waiting">Wartende Anrufer</option>
                 </select>
                 <label for="qmQueueFilter" class="queue-manager-sr-only">Queue filtern</label>
                 <input id="qmQueueFilter" class="qm-input qm-filter-input" type="search" placeholder="Queue filtern…" autocomplete="off">
                 <div class="qm-refresh-wrap">
-                    <button type="button" class="btn btn-secondary" id="qmRefreshButton">Aktualisieren</button>
+                    <button type="button" class="btn btn-secondary qm-refresh-btn" id="qmRefreshButton" title="Aktualisieren" aria-label="Aktualisieren">↻</button>
                     <span class="qm-last-updated" id="qmLastUpdated"></span>
                 </div>
             </div>
@@ -83,7 +85,7 @@
         </div>
     </section>
 
-    <div class="qm-legend" aria-label="Farblegende">
+    <div class="qm-legend" id="qmLegend" aria-label="Farblegende">
         <span class="qm-legend-item"><span class="qm-legend-dot is-green"></span>Online</span>
         <span class="qm-legend-item"><span class="qm-legend-dot is-blue"></span>In Warteschleife</span>
         <span class="qm-legend-item"><span class="qm-legend-dot is-orange"></span>Im Call</span>
