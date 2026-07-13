@@ -148,10 +148,10 @@ async def datex_tool(request: Request, authz=Depends(require_permission("SOFA-TO
     )
 
 
-@router.get("/tools/word-templates", response_class=HTMLResponse)
-async def word_templates_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-FORM", redirect_to="/tools"))):
+@router.get("/tools/request-templates", response_class=HTMLResponse)
+async def request_templates_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-FORM", redirect_to="/tools"))):
     return templates.TemplateResponse(
-        "tools/word_templates_tool.html",
+        "tools/request_templates_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 

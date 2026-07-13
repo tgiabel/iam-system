@@ -316,6 +316,228 @@ async def api_delete_word_document(document_id: str, current_user=Depends(requir
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+_DOC_TYPE_EXTENSIONS = {".dotx": "word", ".pdf": "pdf"}
+
+_DOC_TYPE_MEDIA_TYPES = {
+    "word": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "pdf": "application/pdf",
+}
+
+_DOC_TYPE_FILE_EXTENSIONS = {"word": "docx", "pdf": "pdf"}
+
+
+def _infer_doc_type_from_filename(filename: str | None) -> str | None:
+    lowered = str(filename or "").strip().lower()
+    for extension, doc_type in _DOC_TYPE_EXTENSIONS.items():
+        if lowered.endswith(extension):
+            return doc_type
+    return None
+
+
+@router.get("/dataprocessing/doc-templates")
+async def api_list_doc_templates(doc_type: str | None = None, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        result = await api_client.list_doc_templates(doc_type)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/dataprocessing/doc-templates/{template_id}")
+async def api_get_doc_template(template_id: str, doc_type: str, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        result = await api_client.get_doc_template(template_id, doc_type)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/dataprocessing/doc-documents")
+async def api_list_doc_documents(
+    doc_type: str | None = None,
+    template_id: str | None = None,
+    user_id: str | None = None,
+    current_user=Depends(require_permission("SOFA-TOOL-FORM")),
+):
+    try:
+        result = await api_client.list_doc_documents(doc_type=doc_type, template_id=template_id, user_id=user_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/doc-templates")
+async def api_create_doc_template(
+    name: str = Form(...),
+    description: str = Form(""),
+    schema_json: str = Form(...),
+    template_file: UploadFile = File(...),
+    current_user=Depends(require_permission("SOFA-TOOL-FORM")),
+):
+    try:
+        doc_type = _infer_doc_type_from_filename(template_file.filename)
+        if not doc_type:
+            return JSONResponse(
+                content={"error": "Die Vorlagendatei muss die Endung .dotx oder .pdf haben."},
+                status_code=400,
+            )
+
+        template_content = await template_file.read()
+        result = await api_client.create_doc_template(
+            name=name,
+            description=description,
+            schema_json=schema_json,
+            doc_type=doc_type,
+            template_filename=template_file.filename or f"template.{doc_type}",
+            template_content=template_content,
+            template_content_type=template_file.content_type,
+        )
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+    finally:
+        await template_file.close()
+
+
+@router.put("/dataprocessing/doc-templates/{template_id}")
+async def api_update_doc_template(template_id: str, doc_type: str, payload: dict, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        result = await api_client.update_doc_template(template_id, doc_type, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/doc-templates/{template_id}/render")
+async def api_render_doc_template(template_id: str, doc_type: str, payload: dict, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        result = await api_client.render_doc_template(template_id, doc_type, payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/doc-templates/{template_id}/prefill")
+async def api_prefill_doc_template(template_id: str, doc_type: str, payload: dict, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        request_payload = {
+            "user_id": payload.get("user_id"),
+            "initiator_user_id": current_user.user_id,
+        }
+        result = await api_client.prefill_doc_template(template_id, doc_type, request_payload)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/dataprocessing/doc-templates/{template_id}/render-download")
+async def api_render_download_doc_template(template_id: str, doc_type: str, payload: dict, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        request_payload = {
+            "user_id": payload.get("user_id"),
+            "values": payload.get("values") or {},
+            "initiator_user_id": current_user.user_id,
+        }
+        response = await api_client.render_download_doc_template(template_id, doc_type, request_payload)
+        fallback_extension = _DOC_TYPE_FILE_EXTENSIONS.get(doc_type, "bin")
+        media_type = response.headers.get(
+            "content-type",
+            _DOC_TYPE_MEDIA_TYPES.get(doc_type, "application/octet-stream"),
+        )
+        content_disposition = response.headers.get(
+            "content-disposition",
+            f'attachment; filename="document-{template_id}.{fallback_extension}"',
+        )
+        return StreamingResponse(
+            BytesIO(response.content),
+            media_type=media_type,
+            headers={"Content-Disposition": content_disposition},
+        )
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/dataprocessing/doc-documents/{document_id}/download")
+async def api_download_doc_document(document_id: str, doc_type: str, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        response = await api_client.download_doc_document(document_id, doc_type)
+        fallback_extension = _DOC_TYPE_FILE_EXTENSIONS.get(doc_type, "bin")
+        media_type = response.headers.get(
+            "content-type",
+            _DOC_TYPE_MEDIA_TYPES.get(doc_type, "application/octet-stream"),
+        )
+        content_disposition = response.headers.get(
+            "content-disposition",
+            f'attachment; filename="document-{document_id}.{fallback_extension}"',
+        )
+        return StreamingResponse(
+            BytesIO(response.content),
+            media_type=media_type,
+            headers={"Content-Disposition": content_disposition},
+        )
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.delete("/dataprocessing/doc-documents/{document_id}")
+async def api_delete_doc_document(document_id: str, doc_type: str, current_user=Depends(require_permission("SOFA-TOOL-FORM"))):
+    try:
+        result = await api_client.delete_doc_document(document_id, doc_type)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/q-manager/queues/all")
 async def api_list_qmanager_queues(current_user=Depends(require_permission("SOFA-TOOL-GQ"))):
     try:

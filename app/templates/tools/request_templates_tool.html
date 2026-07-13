@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tools & Reports" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% set widget_title = "Berechtigungsformulare" %}
+
+{% block favicon %}/static/img/add.png{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/tools.css">
+<link rel="stylesheet" href="/static/css/request_templates.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/tools/request_templates.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container request-templates-page">
+    <section class="request-templates-hero request-templates-hero-slim">
+        <div class="request-templates-hero-copy">
+            <p class="report-kicker">Dokumente & Vorlagen</p>
+            <h2>Berechtigungsformulare</h2>
+        </div>
+    </section>
+
+    <section class="request-template-card-row-section" aria-label="Vorlagenauswahl">
+        <div class="request-template-card-row" id="templateCardRow"></div>
+    </section>
+
+    <div class="request-templates-layout" id="requestTemplatesLayout">
+        <section class="request-template-explorer-pane qm-pane" aria-labelledby="explorerPaneTitle">
+            <div class="qm-pane-header request-template-panel-header">
+                <div>
+                    <p class="request-template-panel-kicker">Dokumente</p>
+                    <h3 id="explorerPaneTitle">Dateien</h3>
+                </div>
+                <span class="request-template-panel-meta" id="documentListMeta">0 Dokument(e)</span>
+            </div>
+
+            <input
+                id="documentSearchInput"
+                class="request-template-search-input"
+                type="search"
+                placeholder="Nachname oder Personalnummer suchen"
+                autocomplete="off">
+
+            <div class="request-template-status request-template-status-info" id="documentListStatus" hidden></div>
+
+            <div class="qm-pane-list request-template-explorer-list" id="documentList"></div>
+        </section>
+
+        <section class="request-template-main-pane" aria-labelledby="mainPaneTitle">
+            <div class="request-template-panel-header">
+                <div>
+                    <p class="request-template-panel-kicker" id="mainPaneKicker">Übersicht</p>
+                    <h3 id="mainPaneTitle">Berechtigungsformulare</h3>
+                </div>
+                <span class="request-template-panel-meta" id="mainPaneMeta"></span>
+            </div>
+
+            <div class="request-template-status request-template-status-info" id="mainPaneStatus" hidden></div>
+
+            <div class="request-template-panel-scroll" id="mainPaneScroll">
+                <div class="request-template-empty-state" id="mainPaneEmptyState">
+                    <strong>Kein Dokument ausgewählt</strong>
+                    <p>Wähle links ein Dokument aus der Liste oder erstelle über "+ Neues Dokument" ein neues Dokument für die aktuelle Vorlage.</p>
+                </div>
+
+                <div class="request-template-generate" id="mainPaneGenerate" hidden>
+                    <div class="request-template-document-actions-row" id="mainPaneDocumentActions" hidden>
+                        <button type="button" class="btn btn-primary" id="docActionDownloadButton">Herunterladen</button>
+                        <button type="button" class="btn btn-red" id="docActionDeleteButton">Löschen</button>
+                    </div>
+
+                    <div class="request-template-hint-card" id="mainPaneDescriptionCard" hidden>
+                        <strong>Beschreibung</strong>
+                        <p id="mainPaneDescriptionCopy"></p>
+                    </div>
+
+                    <div id="mainPaneRenderForm" hidden>
+                        <div class="request-template-result-card" id="existingDocumentCard" hidden>
+                            <strong>Bereits generierte Version gefunden</strong>
+                            <p id="existingDocumentCopy"></p>
+                            <div class="request-template-actions">
+                                <button type="button" class="btn btn-secondary" id="openExistingDocumentButton">Letzte generierte Version öffnen</button>
+                            </div>
+                        </div>
+
+                        <div class="request-template-prefill-row">
+                            <input
+                                id="renderUserSearchInput"
+                                class="request-template-input request-template-prefill-search"
+                                type="search"
+                                placeholder="User suchen nach Name, E-Mail, PNR oder RACF"
+                                autocomplete="off">
+                            <select id="renderUserSelect" class="request-template-input request-template-prefill-select">
+                                <option value="">User auswählen</option>
+                            </select>
+                            <button type="button" class="btn btn-secondary" id="prefillTemplateButton">Ausfüllen</button>
+                        </div>
+
+                        <form id="renderModalForm" class="request-template-form">
+                            <div id="renderModalFields" class="request-template-render-fields"></div>
+                            <div class="request-template-actions">
+                                <button type="submit" class="btn btn-primary" id="renderModalSubmitButton">Dokument erzeugen</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <div id="request-template-manage-modal" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal request-template-manage-modal" role="dialog" aria-modal="true" aria-labelledby="request-template-manage-modal-title">
+            <div class="ui-modal-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Dokumente & Vorlagen</p>
+                    <h3 class="ui-section-title" id="request-template-manage-modal-title">Vorlage anlegen</h3>
+                    <p class="ui-section-copy" id="templateModalSubtitle">Name, Beschreibung, Schema und Vorlagendatei werden hier gepflegt.</p>
+                </div>
+                <button type="button" class="ui-icon-button" id="closeTemplateModalButton" aria-label="Vorlagen-Dialog schließen">&times;</button>
+            </div>
+
+            <div class="ui-modal-body">
+                <div class="request-template-status request-template-status-info" id="templateModalStatus">
+                    Name, Beschreibung, Schema und Vorlagendatei werden hier gepflegt.
+                </div>
+
+                <form id="templateModalForm" class="request-template-form" enctype="multipart/form-data">
+                    <div class="request-template-form-grid">
+                        <div class="form-group">
+                            <label for="templateNameInput">Name</label>
+                            <input id="templateNameInput" name="name" type="text" class="request-template-input" placeholder="z. B. Angebotsvorlage" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="templateFileInput">Vorlagendatei</label>
+                            <input id="templateFileInput" name="template_file" type="file" class="request-template-input" accept=".dotx,.pdf" required>
+                            <p class="request-template-field-hint" id="templateFileHelp">Erlaubt sind ausschließlich <code>.dotx</code>- oder <code>.pdf</code>-Dateien.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="templateDescriptionInput">Beschreibung</label>
+                        <textarea id="templateDescriptionInput" name="description" class="request-template-textarea" rows="3" placeholder="Wofür wird diese Vorlage genutzt?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="templateSchemaInput">Schema JSON</label>
+                        <textarea
+                            id="templateSchemaInput"
+                            name="schema_json"
+                            class="request-template-textarea request-template-codearea"
+                            rows="14"
+                            spellcheck="false"
+                            placeholder='{"version":1,"fields":[]}'
+                            required></textarea>
+                    </div>
+                </form>
+
+                <div class="request-template-hint-card">
+                    <strong>Schema-Hinweis</strong>
+                    <p>Erwartet wird ein JSON mit <code>version: 1</code> und einem <code>fields</code>-Array aus <code>text</code>- oder <code>checkbox</code>-Feldern. Bei PDF-Vorlagen (AcroForm) verwenden Checkboxen standardmäßig <code>"Yes"</code>/<code>"Off"</code> als Werte; abweichende Werte können je Feld über <code>true_value</code>/<code>false_value</code> gesetzt werden.</p>
+                </div>
+            </div>
+
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelTemplateModalButton">Abbrechen</button>
+                <button type="button" class="btn btn-secondary" id="templateResetButton">Formular zurücksetzen</button>
+                <button type="submit" class="btn btn-primary" id="templateSubmitButton" form="templateModalForm">Vorlage speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="request-document-delete-modal" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal ui-modal-compact request-template-delete-modal" role="dialog" aria-modal="true" aria-labelledby="request-document-delete-title">
+            <div class="ui-modal-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Generierte Dokumente</p>
+                    <h3 class="ui-section-title" id="request-document-delete-title">Dokument löschen</h3>
+                    <p class="ui-section-copy">Diese Aktion entfernt das generierte Dokument dauerhaft aus der Dokumentenliste.</p>
+                </div>
+                <button type="button" class="ui-icon-button" id="closeDocumentDeleteModalButton" aria-label="Lösch-Dialog schließen">&times;</button>
+            </div>
+
+            <div class="ui-modal-body">
+                <div class="request-template-status request-template-status-info" id="documentDeleteStatus">
+                    Prüfe die Dokumentdaten und bestätige das Löschen nur, wenn die Datei nicht mehr benötigt wird.
+                </div>
+
+                <div class="request-template-hint-card">
+                    <strong id="documentDeleteName">Kein Dokument ausgewählt</strong>
+                    <p id="documentDeleteMeta">Nach Auswahl eines Dokuments werden Dateiname, Vorlage und Erstellzeitpunkt hier angezeigt.</p>
+                </div>
+            </div>
+
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelDocumentDeleteModalButton">Abbrechen</button>
+                <button type="button" class="btn btn-red" id="confirmDocumentDeleteButton">Dokument löschen</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

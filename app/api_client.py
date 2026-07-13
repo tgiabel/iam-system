@@ -75,8 +75,8 @@ class APIClient:
     async def _get(self, base_url: str, path: str, *, params: dict | None = None, headers: dict | None = None) -> Any:
         return await self._request_json("GET", base_url, path, params=params, headers=headers)
 
-    async def _post(self, base_url: str, path: str, *, payload: dict | None = None, headers: dict | None = None) -> Any:
-        return await self._request_json("POST", base_url, path, payload=payload, headers=headers)
+    async def _post(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None, headers: dict | None = None) -> Any:
+        return await self._request_json("POST", base_url, path, params=params, payload=payload, headers=headers)
 
     async def _post_form(
         self,
@@ -89,8 +89,8 @@ class APIClient:
     ) -> Any:
         return await self._request_json("POST", base_url, path, data=data, files=files, headers=headers)
 
-    async def _put(self, base_url: str, path: str, *, payload: dict | None = None, headers: dict | None = None) -> Any:
-        return await self._request_json("PUT", base_url, path, payload=payload, headers=headers)
+    async def _put(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None, headers: dict | None = None) -> Any:
+        return await self._request_json("PUT", base_url, path, params=params, payload=payload, headers=headers)
 
     async def _patch(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None, headers: dict | None = None) -> Any:
         return await self._request_json("PATCH", base_url, path, params=params, payload=payload, headers=headers)
@@ -388,6 +388,87 @@ class APIClient:
 
     async def delete_word_document(self, document_id: str) -> dict:
         return await self._delete(DATAPROCESSING_BASE_URL, f"/word-documents/{document_id}")
+
+    # Dataprocessing - unified doc templates (word + pdf)
+    async def list_doc_templates(self, doc_type: str | None = None) -> list[dict]:
+        params = {"doc_type": doc_type} if doc_type else None
+        return await self._get(DATAPROCESSING_BASE_URL, "/doc-templates/", params=params)
+
+    async def get_doc_template(self, template_id: str, doc_type: str) -> dict:
+        return await self._get(DATAPROCESSING_BASE_URL, f"/doc-templates/{template_id}", params={"doc_type": doc_type})
+
+    async def list_doc_documents(
+        self,
+        *,
+        doc_type: str | None = None,
+        template_id: str | None = None,
+        user_id: str | None = None,
+    ) -> list[dict]:
+        params = {
+            key: value
+            for key, value in {
+                "doc_type": doc_type,
+                "template_id": template_id,
+                "user_id": user_id,
+            }.items()
+            if value not in (None, "")
+        }
+        return await self._get(DATAPROCESSING_BASE_URL, "/doc-documents/", params=params or None)
+
+    async def create_doc_template(
+        self,
+        *,
+        name: str,
+        description: str,
+        schema_json: str,
+        doc_type: str,
+        template_filename: str,
+        template_content: bytes,
+        template_content_type: str | None = None,
+    ) -> dict:
+        files = {
+            "template_file": (
+                template_filename,
+                template_content,
+                template_content_type or "application/octet-stream",
+            )
+        }
+        data = {
+            "name": name,
+            "description": description,
+            "schema_json": schema_json,
+            "doc_type": doc_type,
+        }
+        return await self._post_form(DATAPROCESSING_BASE_URL, "/doc-templates/", data=data, files=files)
+
+    async def update_doc_template(self, template_id: str, doc_type: str, payload: dict) -> dict:
+        return await self._put(DATAPROCESSING_BASE_URL, f"/doc-templates/{template_id}", params={"doc_type": doc_type}, payload=payload)
+
+    async def render_doc_template(self, template_id: str, doc_type: str, payload: dict) -> dict:
+        return await self._post(DATAPROCESSING_BASE_URL, f"/doc-templates/{template_id}/render", params={"doc_type": doc_type}, payload=payload)
+
+    async def prefill_doc_template(self, template_id: str, doc_type: str, payload: dict) -> dict:
+        return await self._post(DATAPROCESSING_BASE_URL, f"/doc-templates/{template_id}/prefill", params={"doc_type": doc_type}, payload=payload)
+
+    async def render_download_doc_template(self, template_id: str, doc_type: str, payload: dict) -> httpx.Response:
+        return await self._request(
+            "POST",
+            DATAPROCESSING_BASE_URL,
+            f"/doc-templates/{template_id}/render-download",
+            params={"doc_type": doc_type},
+            payload=payload,
+        )
+
+    async def download_doc_document(self, document_id: str, doc_type: str) -> httpx.Response:
+        return await self._request(
+            "GET",
+            DATAPROCESSING_BASE_URL,
+            f"/doc-documents/{document_id}/download",
+            params={"doc_type": doc_type},
+        )
+
+    async def delete_doc_document(self, document_id: str, doc_type: str) -> dict:
+        return await self._delete(DATAPROCESSING_BASE_URL, f"/doc-documents/{document_id}", params={"doc_type": doc_type})
 
     # Q-Manager
     async def list_qmanager_queues(self) -> dict:
