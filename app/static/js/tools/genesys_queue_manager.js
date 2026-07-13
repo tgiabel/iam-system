@@ -103,6 +103,10 @@ function stripQueueNamePrefix(name) {
     return normalizeText(name).replace(/^\[(?:PROD|INT)\]_/i, "");
 }
 
+function formatServiceLevelPercent(value) {
+    return Number.isFinite(value) ? Math.round(value * 100) : null;
+}
+
 function normalizeQueueListResponse(payload) {
     const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.queues) ? payload.queues : []);
     return list.map(queue => ({
@@ -117,6 +121,10 @@ function normalizeQueueListResponse(payload) {
         presence_offline:     Number(queue.presence_offline)     || 0,
         interactions_interacting: Number(queue.interactions_interacting) || 0,
         interactions_waiting:     Number(queue.interactions_waiting)     || 0,
+        service_level:             Number.isFinite(queue.service_level) ? queue.service_level : null,
+        service_level_numerator:   Number(queue.service_level_numerator)   || 0,
+        service_level_denominator: Number(queue.service_level_denominator) || 0,
+        service_level_target:      Number.isFinite(queue.service_level_target) ? queue.service_level_target : null,
     }));
 }
 
@@ -238,9 +246,9 @@ function cacheDom() {
     queueManagerDom.globalStatus = document.getElementById("globalStatus");
 
     queueManagerDom.kpiQueueCount = document.getElementById("qmKpiQueueCount");
-    queueManagerDom.kpiTotalMembers = document.getElementById("qmKpiTotalMembers");
-    queueManagerDom.kpiActiveMembers = document.getElementById("qmKpiActiveMembers");
     queueManagerDom.kpiMaxQueue = document.getElementById("qmKpiMaxQueue");
+    queueManagerDom.kpiOverallSl = document.getElementById("qmKpiOverallSl");
+    queueManagerDom.kpiLowestSl = document.getElementById("qmKpiLowestSl");
 
     queueManagerDom.queueFilter = document.getElementById("qmQueueFilter");
     queueManagerDom.sortSelect    = document.getElementById("qmSortSelect");
@@ -412,6 +420,17 @@ function buildColumnHtml(queue, segmentCount) {
 
     const tooltip = `${queueName} — ${tooltipParts.join(", ") || "Keine Daten"}`;
 
+    const hasSlData = queue.service_level_denominator > 0 && Number.isFinite(queue.service_level);
+    const slPct = hasSlData ? formatServiceLevelPercent(queue.service_level) : null;
+    const targetPct = Number.isFinite(queue.service_level_target) ? formatServiceLevelPercent(queue.service_level_target) : null;
+    const isBelowTarget = hasSlData && targetPct !== null && slPct < targetPct;
+    const slLabel = slPct !== null
+        ? `${slPct}%${targetPct !== null ? `/${targetPct}%` : ""}`
+        : "–";
+    const slTooltip = hasSlData
+        ? `${queue.service_level_numerator} von ${queue.service_level_denominator} Anrufe im Servicelevel`
+        : "Keine Servicelevel-Daten";
+
     return `
         <div class="qm-column-wrap${isHidden ? " is-dimmed" : ""}" role="listitem"
              data-queue-id="${escapeHtml(queueId)}"
@@ -430,6 +449,7 @@ function buildColumnHtml(queue, segmentCount) {
                 </div>
                 <div class="qm-column-track">${segments}</div>
                 <span class="qm-column-label">${escapeHtml(queueName)}</span>
+                <span class="qm-column-sl${isBelowTarget ? " is-below-target" : ""}" title="${escapeHtml(slTooltip)}">${slLabel}</span>
             </button>
         </div>
     `;
@@ -499,16 +519,38 @@ function renderKpis() {
             maxQueue = queue;
         }
     }
-    const maxPresent = maxQueue
-        ? Math.max(0, (maxQueue.joined_member_count || 0) - (maxQueue.presence_offline || 0))
-        : 0;
 
-    queueManagerDom.kpiQueueCount.textContent   = String(queueCount);
-    queueManagerDom.kpiTotalMembers.textContent  = "–";
-    queueManagerDom.kpiActiveMembers.textContent = "–";
-    queueManagerDom.kpiMaxQueue.textContent      = maxQueue && (maxQueue.joined_member_count || 0) > 0
-        ? `${maxQueue.queue_name || getQueueId(maxQueue)} (${maxQueue.joined_member_count}/${maxPresent})`
+    let totalNumerator = 0;
+    let totalDenominator = 0;
+    for (const queue of queues) {
+        totalNumerator += queue.service_level_numerator || 0;
+        totalDenominator += queue.service_level_denominator || 0;
+    }
+    const overallSlPct = totalDenominator > 0 ? Math.round((totalNumerator / totalDenominator) * 100) : null;
+
+    let lowestSlQueue = null;
+    for (const queue of queues) {
+        if (queue.service_level_denominator > 0 && Number.isFinite(queue.service_level)) {
+            if (!lowestSlQueue || queue.service_level < lowestSlQueue.service_level) {
+                lowestSlQueue = queue;
+            }
+        }
+    }
+    const lowestSlPct = lowestSlQueue ? formatServiceLevelPercent(lowestSlQueue.service_level) : null;
+    const lowestSlTargetPct = lowestSlQueue && Number.isFinite(lowestSlQueue.service_level_target)
+        ? formatServiceLevelPercent(lowestSlQueue.service_level_target)
+        : null;
+    const lowestSlBelowTarget = lowestSlPct !== null && lowestSlTargetPct !== null && lowestSlPct < lowestSlTargetPct;
+
+    queueManagerDom.kpiQueueCount.textContent = String(queueCount);
+    queueManagerDom.kpiMaxQueue.textContent = maxQueue && (maxQueue.joined_member_count || 0) > 0
+        ? (maxQueue.queue_name || getQueueId(maxQueue))
         : "–";
+    queueManagerDom.kpiOverallSl.textContent = overallSlPct !== null ? `${overallSlPct}%` : "–";
+    queueManagerDom.kpiLowestSl.textContent = lowestSlQueue && lowestSlPct !== null
+        ? `${lowestSlQueue.queue_name || getQueueId(lowestSlQueue)} (${lowestSlPct}%)`
+        : "–";
+    queueManagerDom.kpiLowestSl.classList.toggle("is-below-target", lowestSlBelowTarget);
 }
 
 // ── Queues loading ────────────────────────────────────────────────────────────

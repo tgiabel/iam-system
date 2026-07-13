@@ -180,6 +180,10 @@
     color: var(--ui-text-muted);
 }
 
+.qm-kpi-value.is-below-target {
+    color: var(--qm-red);
+}
+
 /* ── Header actions / inputs ─────────────────────── */
 
 .qm-header-actions {
@@ -383,6 +387,17 @@
 .qm-column:hover .qm-column-label,
 .qm-column:focus-visible .qm-column-label {
     color: var(--ui-text-strong);
+}
+
+.qm-column-sl {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--ui-text-muted);
+    text-align: center;
+}
+
+.qm-column-sl.is-below-target {
+    color: var(--qm-red);
 }
 
 
