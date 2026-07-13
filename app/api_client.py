@@ -11,6 +11,7 @@ TICKETING_BASE_URL = f"{BASE_URL}/ticketing"
 MESSAGING_BASE_URL = f"{BASE_URL}/messaging"
 DATAPROCESSING_BASE_URL = f"{BASE_URL}/dataprocessing"
 Q_MANAGER_BASE_URL = f"{BASE_URL}/q-manager"
+REPORTING_BASE_URL = f"{BASE_URL}/reporting"
 STOERUNG_BASE_URL = BASE_URL
 
 
@@ -488,6 +489,11 @@ class APIClient:
 
     async def update_qmanager_user_queues(self, user_id: str, payload: dict) -> dict:
         return await self._patch(Q_MANAGER_BASE_URL, f"/users/{user_id}/queues", payload=payload)
+
+    # Reporting
+    async def get_ivr_report(self, day: str | None = None) -> dict:
+        params = {"day": day} if day else None
+        return await self._get(REPORTING_BASE_URL, "/ivr/report", params=params)
 
     # Störungsprotokoll
     def _stoerung_headers(self, authz: Any) -> dict:

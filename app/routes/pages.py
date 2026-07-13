@@ -185,3 +185,11 @@ async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=De
         "tools/stoerungsprotokoll_detail.html",
         _build_template_context(request, user=authz.raw_user, authz=authz, incident=incident),
     )
+
+
+@router.get("/tools/ivr-report", response_class=HTMLResponse)
+async def ivr_report_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-TIVR", redirect_to="/tools"))):
+    return templates.TemplateResponse(
+        "reports/ivr_report.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
+    )

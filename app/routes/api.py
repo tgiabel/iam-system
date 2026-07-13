@@ -630,6 +630,25 @@ async def api_update_qmanager_user_queues(
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+# Reporting
+
+@router.get("/reporting/ivr/report")
+async def api_get_ivr_report(
+    day: str | None = None,
+    current_user=Depends(require_permission("SOFA-RPRT-TIVR")),
+):
+    try:
+        result = await api_client.get_ivr_report(day=day)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/session/authz")
 async def api_session_authz_refresh(request: Request, sofa_user: str | None = Cookie(default=None)):
     try:

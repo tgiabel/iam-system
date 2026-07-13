@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% set page_title = "IVR Report" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% set widget_title = "IVR Report (116116)" %}
+
+{% block favicon %}/static/img/process.png{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/ivr_report.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/reports/ivr_report.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="ivr-report-page">
+    <div class="ui-section-heading ivr-report-heading">
+        <p class="ui-section-kicker">Telekom 116116</p>
+        <h1 class="ui-section-title">IVR-Anrufdaten</h1>
+    </div>
+
+    <div class="ivr-report-toolbar">
+        <div class="ivr-report-daynav">
+            <button type="button" id="ivrPrevDay" class="ivr-report-nav-btn" aria-label="Vorheriger Tag">&lsaquo;</button>
+            <button type="button" id="ivrDayLabel" class="ivr-report-day-label" aria-label="Tag wählen"></button>
+            <button type="button" id="ivrNextDay" class="ivr-report-nav-btn" aria-label="Nächster Tag">&rsaquo;</button>
+            <input type="date" id="ivrDayPicker" class="ivr-report-day-picker" aria-hidden="true" tabindex="-1">
+        </div>
+        <div class="ivr-report-toolbar-meta">
+            <div class="ivr-report-range-toggle" role="group" aria-label="Zeitraum">
+                <button type="button" class="ivr-report-range-btn is-active" disabled>Tag</button>
+                <button type="button" class="ivr-report-range-btn" disabled title="Monatsansicht folgt in einem späteren Update">Monat</button>
+            </div>
+            <button type="button" id="ivrRetryBtn" class="ivr-report-nav-btn" aria-label="Erneut laden" title="Erneut laden">&#x21bb;</button>
+        </div>
+    </div>
+
+    <div class="ivr-report-table-toolbar">
+        <input type="search" id="ivrSearchInput" class="ui-input ivr-report-search-input" placeholder="Suche nach Ziel, Zielbezeichnung, Anrufer oder Call-ID…" autocomplete="off">
+        <div class="ivr-report-table-toolbar-meta">
+            <span id="ivrReportCount" class="ui-chip ui-chip-neutral">0 Anrufe</span>
+            <div class="ivr-report-page-nav">
+                <button type="button" id="ivrPrevPage" class="ivr-report-nav-btn" aria-label="Vorherige Seite">&lsaquo;</button>
+                <span id="ivrPageLabel" class="ivr-report-page-label">Seite 1 / 1</span>
+                <button type="button" id="ivrNextPage" class="ivr-report-nav-btn" aria-label="Nächste Seite">&rsaquo;</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="ivr-report-table-card">
+        <div class="table-wrapper">
+            <table class="ivr-report-table">
+                <thead>
+                    <tr>
+                        <th id="ivrSortTimestamp" class="ivr-report-sortable" role="button" tabindex="0">Zeitpunkt <span id="ivrSortIndicator" class="ivr-report-sort-indicator"></span></th>
+                        <th>Servicenummer</th>
+                        <th>Anrufer</th>
+                        <th>Herkunft</th>
+                        <th>Ziel</th>
+                        <th>Zielbezeichnung</th>
+                        <th>Ergebnis</th>
+                        <th>Rufdauer</th>
+                        <th>Faxweiche</th>
+                        <th>Sprachdialog</th>
+                        <th>Verbindung</th>
+                        <th>Leitungszeit</th>
+                    </tr>
+                </thead>
+                <tbody id="ivrReportTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

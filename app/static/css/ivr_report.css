@@ -1,0 +1,217 @@
+.ivr-report-page {
+    width: 100%;
+    max-width: 1400px;
+    margin: 40px auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.ivr-report-heading {
+    margin-bottom: 1.25rem;
+}
+
+.ivr-report-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.ivr-report-daynav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+}
+
+.ivr-report-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ivr-report-nav-btn:hover:not(:disabled) {
+    background: var(--ui-surface-soft);
+    border-color: var(--color-primary);
+}
+
+.ivr-report-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ivr-report-day-label {
+    min-width: 11rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    text-align: center;
+    cursor: pointer;
+}
+
+.ivr-report-day-label:hover {
+    border-color: var(--color-primary);
+}
+
+.ivr-report-day-picker {
+    position: absolute;
+    inset: auto 0 0 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+}
+
+.ivr-report-toolbar-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ivr-report-range-toggle {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+}
+
+.ivr-report-range-btn {
+    border: none;
+    background: transparent;
+    border-radius: calc(var(--ui-radius-sm) - 3px);
+    padding: 0.4rem 0.85rem;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--ui-text-muted);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ivr-report-range-btn.is-active {
+    opacity: 1;
+    background: var(--ui-blue-bg);
+    color: var(--color-primary);
+}
+
+.ivr-report-page-nav {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ivr-report-page-label {
+    min-width: 6.5rem;
+    text-align: center;
+    font-size: 0.88rem;
+    color: var(--ui-text-muted);
+    white-space: nowrap;
+}
+
+.ivr-report-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ivr-report-search-input {
+    flex: 1 1 320px;
+    max-width: 420px;
+}
+
+.ivr-report-table-toolbar-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.ivr-report-table-card {
+    max-width: 100%;
+}
+
+.ivr-report-table-card .table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    background: transparent;
+    box-shadow: none;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid var(--ui-border);
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 65vh;
+}
+
+.ivr-report-table {
+    width: 100%;
+    min-width: 1180px;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.ivr-report-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 1rem;
+    background: var(--table-header-bg);
+    color: var(--text-inverse);
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.ivr-report-table thead th.ivr-report-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.ivr-report-table thead th.ivr-report-sortable:hover {
+    filter: brightness(1.15);
+}
+
+.ivr-report-sort-indicator {
+    display: inline-block;
+    margin-left: 0.3rem;
+}
+
+.ivr-report-table tbody tr:hover {
+    background: rgba(var(--color-primary-rgb), 0.04);
+}
+
+.ivr-report-table tbody td {
+    padding: 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--border-color) 95%, transparent);
+    color: var(--ui-text);
+    font-size: 0.92rem;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.ivr-report-table tbody tr.ivr-report-empty-row td {
+    padding: 0;
+    white-space: normal;
+}
