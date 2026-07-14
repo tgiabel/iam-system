@@ -112,7 +112,9 @@ function formatServiceLevelPercent(value) {
 function calcInteractionsNeededForTarget(numerator, denominator, target) {
     if (!Number.isFinite(target) || target <= 0 || target >= 1) return null;
     const raw = (target * denominator - numerator) / (1 - target);
-    return Math.max(0, Math.ceil(raw));
+    // Round off IEEE754 noise (e.g. 4.000000000000001) before ceiling, or it inflates the result.
+    const rounded = Math.round(raw * 1e6) / 1e6;
+    return Math.max(0, Math.ceil(rounded));
 }
 
 function normalizeQueueListResponse(payload) {
