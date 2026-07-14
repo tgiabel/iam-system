@@ -107,6 +107,14 @@ function formatServiceLevelPercent(value) {
     return Number.isFinite(value) ? Math.round(value * 100) : null;
 }
 
+// Interactions still needed within target to bring the SL ratio up to target:
+// MAX(0; ROUNDUP((target*total - success) / (1 - target); 0))
+function calcInteractionsNeededForTarget(numerator, denominator, target) {
+    if (!Number.isFinite(target) || target <= 0 || target >= 1) return null;
+    const raw = (target * denominator - numerator) / (1 - target);
+    return Math.max(0, Math.ceil(raw));
+}
+
 function normalizeQueueListResponse(payload) {
     const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.queues) ? payload.queues : []);
     return list.map(queue => ({
@@ -246,7 +254,7 @@ function cacheDom() {
     queueManagerDom.globalStatus = document.getElementById("globalStatus");
 
     queueManagerDom.kpiQueueCount = document.getElementById("qmKpiQueueCount");
-    queueManagerDom.kpiMaxQueue = document.getElementById("qmKpiMaxQueue");
+    queueManagerDom.kpiTotalInteractions = document.getElementById("qmKpiTotalInteractions");
     queueManagerDom.kpiOverallSl = document.getElementById("qmKpiOverallSl");
     queueManagerDom.kpiLowestSl = document.getElementById("qmKpiLowestSl");
 
@@ -335,6 +343,13 @@ function sortQueues(queues) {
             const bt = (b.interactions_interacting || 0) + (b.interactions_waiting || 0);
             return bt - at;
         }
+        if (sortBy === "service_level") {
+            const hasA = a.service_level_denominator > 0 && Number.isFinite(a.service_level);
+            const hasB = b.service_level_denominator > 0 && Number.isFinite(b.service_level);
+            if (hasA !== hasB) return hasA ? -1 : 1;
+            if (!hasA && !hasB) return 0;
+            return a.service_level - b.service_level;
+        }
         return (a.queue_name || "").localeCompare(b.queue_name || "", "de");
     });
 }
@@ -400,7 +415,7 @@ function buildPerformanceColumnData(queue, segmentCount) {
     if (waiting > 0)      tooltipParts.push(`${waiting} wartend`);
 
     return {
-        assignmentLabel: `${interacting + waiting} Calls`,
+        assignmentLabel: `${queue.service_level_denominator || 0} Calls`,
         counterMain: String(interacting),
         counterSub: `/${waiting}`,
         segments,
@@ -427,8 +442,12 @@ function buildColumnHtml(queue, segmentCount) {
     const slLabel = slPct !== null
         ? `${slPct}%${targetPct !== null ? `/${targetPct}%` : ""}`
         : "–";
+    const slNeeded = isBelowTarget
+        ? calcInteractionsNeededForTarget(queue.service_level_numerator, queue.service_level_denominator, queue.service_level_target)
+        : null;
     const slTooltip = hasSlData
         ? `${queue.service_level_numerator} von ${queue.service_level_denominator} Anrufe im Servicelevel`
+            + (slNeeded !== null ? `\n\nin ${slNeeded} Interaktionen wieder im Servicelevel` : "")
         : "Keine Servicelevel-Daten";
 
     return `
@@ -513,13 +532,6 @@ function renderKpis() {
     const queues = queueManagerState.queues;
     const queueCount = queues.length;
 
-    let maxQueue = null;
-    for (const queue of queues) {
-        if (!maxQueue || (queue.joined_member_count || 0) > (maxQueue.joined_member_count || 0)) {
-            maxQueue = queue;
-        }
-    }
-
     let totalNumerator = 0;
     let totalDenominator = 0;
     for (const queue of queues) {
@@ -543,9 +555,7 @@ function renderKpis() {
     const lowestSlBelowTarget = lowestSlPct !== null && lowestSlTargetPct !== null && lowestSlPct < lowestSlTargetPct;
 
     queueManagerDom.kpiQueueCount.textContent = String(queueCount);
-    queueManagerDom.kpiMaxQueue.textContent = maxQueue && (maxQueue.joined_member_count || 0) > 0
-        ? (maxQueue.queue_name || getQueueId(maxQueue))
-        : "–";
+    queueManagerDom.kpiTotalInteractions.textContent = String(totalDenominator);
     queueManagerDom.kpiOverallSl.textContent = overallSlPct !== null ? `${overallSlPct}%` : "–";
     queueManagerDom.kpiLowestSl.textContent = lowestSlQueue && lowestSlPct !== null
         ? `${lowestSlQueue.queue_name || getQueueId(lowestSlQueue)} (${lowestSlPct}%)`

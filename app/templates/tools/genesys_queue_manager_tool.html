@@ -39,12 +39,12 @@
                     <span class="qm-kpi-label">Queues</span>
                 </div>
                 <div class="qm-kpi">
-                    <span class="qm-kpi-value" id="qmKpiMaxQueue">–</span>
-                    <span class="qm-kpi-label">Größte Queue</span>
+                    <span class="qm-kpi-value" id="qmKpiTotalInteractions">–</span>
+                    <span class="qm-kpi-label">Alle Interaktionen</span>
                 </div>
                 <div class="qm-kpi">
                     <span class="qm-kpi-value" id="qmKpiOverallSl">–</span>
-                    <span class="qm-kpi-label">Servicelevel</span>
+                    <span class="qm-kpi-label">Gesamt-Servicelevel</span>
                 </div>
                 <div class="qm-kpi">
                     <span class="qm-kpi-value" id="qmKpiLowestSl">–</span>
@@ -61,6 +61,7 @@
                     <option value="present">Anweswende Agenten</option>
                     <option value="calls_total">Anzahl Anrufe</option>
                     <option value="calls_waiting">Wartende Anrufer</option>
+                    <option value="service_level">Niedrigster Servicelevel</option>
                 </select>
                 <label for="qmQueueFilter" class="queue-manager-sr-only">Queue filtern</label>
                 <input id="qmQueueFilter" class="qm-input qm-filter-input" type="search" placeholder="Queue filtern…" autocomplete="off">
