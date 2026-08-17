@@ -334,9 +334,7 @@ function sortQueues(queues) {
             return bp - ap;
         }
         if (sortBy === "calls_total") {
-            const at = (a.interactions_interacting || 0) + (a.interactions_waiting || 0);
-            const bt = (b.interactions_interacting || 0) + (b.interactions_waiting || 0);
-            return bt - at;
+            return (b.service_level_denominator || 0) - (a.service_level_denominator || 0);
         }
         if (sortBy === "calls_waiting") {
             const waitingDiff = (b.interactions_waiting || 0) - (a.interactions_waiting || 0);
