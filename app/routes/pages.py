@@ -7,7 +7,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 
 from app.api_client import api_client
 from app.authz import (
+    require_admin_access,
     require_any_permission,
+    require_any_permission_or_admin,
     require_login,
     require_permission,
     get_current_user,
@@ -78,7 +80,7 @@ def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", r
 
 
 @router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_any_permission("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-SLOG", redirect_to="/"))):
+def tools(request: Request, authz=Depends(require_any_permission_or_admin("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-SLOG", redirect_to="/"))):
     return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
@@ -184,6 +186,14 @@ async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=De
     return templates.TemplateResponse(
         "tools/stoerungsprotokoll_detail.html",
         _build_template_context(request, user=authz.raw_user, authz=authz, incident=incident),
+    )
+
+
+@router.get("/tools/media-blocking", response_class=HTMLResponse)
+async def media_blocking_tool(request: Request, authz=Depends(require_admin_access(redirect_to="/tools"))):
+    return templates.TemplateResponse(
+        "tools/media_blocking_tool.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 

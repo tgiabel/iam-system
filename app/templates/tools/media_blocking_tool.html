@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tools & Reports" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% set widget_title = "Sperrmaske" %}
+
+{% block favicon %}/static/img/software.png{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/tools.css">
+<link rel="stylesheet" href="/static/css/media_blocking.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/tools/media_blocking.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="media-blocking-page">
+
+    <div class="media-blocking-container">
+        <section class="media-blocking-hero">
+            <div class="media-blocking-hero-top">
+                <div class="media-blocking-hero-copy">
+                    <p class="report-kicker">Hotline-Workflow</p>
+                    <h2>Sperrmaske</h2>
+                </div>
+                <div class="media-blocking-hero-actions">
+                    <span class="ui-chip ui-chip-warning">Demo — keine echte Sperrung</span>
+                </div>
+            </div>
+            <div class="media-blocking-hero-search" id="mb-search-section" aria-label="Herausgeber-Suche">
+                <div class="ui-field-group">
+                    <label for="mb-issuer-search" class="ui-field-label">Nach Herausgeber suchen</label>
+                    <input type="search" id="mb-issuer-search" class="ui-input" placeholder="z.B. Sparkasse, Volksbank…" autocomplete="off">
+                </div>
+                <div class="media-blocking-search-results" id="mb-issuer-search-results" hidden></div>
+            </div>
+        </section>
+
+        <section class="media-blocking-type-bar" id="mb-media-type-bar" aria-label="Medientypen"></section>
+    </div>
+
+    <div class="media-blocking-layout-container">
+        <section class="media-blocking-layout" id="mb-workspace-layout">
+            <div class="media-blocking-column" aria-label="Bearbeitungsliste">
+                <div class="media-blocking-column-head">
+                    <span class="media-blocking-column-title">Bearbeitungsliste</span>
+                </div>
+                <div id="mb-work-list"></div>
+            </div>
+
+            <div class="media-blocking-column ui-card" aria-label="Arbeitsbereich">
+                <div id="mb-workspace"></div>
+            </div>
+
+            <div class="media-blocking-column" aria-label="Personen">
+                <div class="media-blocking-column-head">
+                    <span class="media-blocking-column-title">Personen</span>
+                </div>
+                <div id="mb-person-rail"></div>
+                <button type="button" class="btn btn-secondary media-blocking-add-person-btn" id="mb-add-person-btn" hidden>+ Person hinzufügen</button>
+            </div>
+        </section>
+    </div>
+
+    <div class="media-blocking-container">
+        <section class="media-blocking-summary ui-card" id="mb-session-panel"></section>
+    </div>
+
+</div>
+
+<!-- Remove-confirmation modal (items past "open" state) -->
+<div id="mb-remove-confirm-modal" class="ui-modal-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="mb-remove-confirm-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Entfernen</p>
+                <h3 id="mb-remove-confirm-title">Vorgang wirklich entfernen?</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="mb-remove-close-btn" aria-label="Dialog schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body">
+            <p id="mb-remove-confirm-body"></p>
+        </div>
+        <div class="ui-modal-footer">
+            <button type="button" class="btn btn-secondary" id="mb-remove-cancel-btn">Abbrechen</button>
+            <button type="button" class="btn btn-red" id="mb-remove-confirm-btn">Entfernen</button>
+        </div>
+    </div>
+</div>
+
+<!-- Action-confirmation modal (auto_block / confirm_external_block / mail_issuer_block_request) -->
+<div id="mb-confirm-action-modal" class="ui-modal-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="mb-confirm-action-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Bestätigen</p>
+                <h3 id="mb-confirm-action-title">Aktion bestätigen</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="mb-action-close-btn" aria-label="Dialog schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body">
+            <div id="mb-confirm-action-body"></div>
+        </div>
+        <div class="ui-modal-footer">
+            <button type="button" class="btn btn-secondary" id="mb-action-cancel-btn">Abbrechen</button>
+            <button type="button" class="btn btn-red" id="mb-action-confirm-btn">Bestätigen</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

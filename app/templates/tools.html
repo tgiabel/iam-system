@@ -162,6 +162,36 @@
                         </div>
                     </a>
                     {% endif %}
+
+                    {% if authz.has_admin_access %}
+                    <a href="/tools/media-blocking" class="overview-card overview-card-link">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/software.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-warning">Demo</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Hotline-Workflow</p>
+                                <h3 class="overview-card-title">Sperrmaske</h3>
+                            </div>
+                            <p class="overview-card-copy">Demo eines neuen Workflows zur Bearbeitung von Sperranfragen. Nur für Admins sichtbar.</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">Tool öffnen</span>
+                            <button type="button" class="overview-card-popout" aria-label="In neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </section>

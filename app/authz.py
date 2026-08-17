@@ -130,6 +130,21 @@ def require_permission(sofa_identifier: str, redirect_to: str | None = None):
     return dependency
 
 
+def require_admin_access(redirect_to: str | None = None):
+    async def dependency(
+        authz: AuthorizationContext = Depends(build_authorization_context),
+    ) -> AuthorizationContext:
+        if not authz.has_admin_access():
+            _forbidden(
+                detail="Kein administrativer Zugriff.",
+                code="admin_access_denied",
+                redirect_to=redirect_to,
+            )
+        return authz
+
+    return dependency
+
+
 def require_any_permission(*sofa_identifiers: str, redirect_to: str | None = None):
     for identifier in sofa_identifiers:
         if not identifier.startswith("SOFA-"):
@@ -139,6 +154,25 @@ def require_any_permission(*sofa_identifiers: str, redirect_to: str | None = Non
         authz: AuthorizationContext = Depends(build_authorization_context),
     ) -> AuthorizationContext:
         if not any(authz.has_permission(sid) for sid in sofa_identifiers):
+            _forbidden(
+                detail=f"Kein Zugriff auf '{', '.join(sofa_identifiers)}'.",
+                code="page_access_denied",
+                redirect_to=redirect_to,
+            )
+        return authz
+
+    return dependency
+
+
+def require_any_permission_or_admin(*sofa_identifiers: str, redirect_to: str | None = None):
+    for identifier in sofa_identifiers:
+        if not identifier.startswith("SOFA-"):
+            raise ValueError(f"Invalid SOFA identifier: {identifier!r}")
+
+    async def dependency(
+        authz: AuthorizationContext = Depends(build_authorization_context),
+    ) -> AuthorizationContext:
+        if not (authz.has_admin_access() or any(authz.has_permission(sid) for sid in sofa_identifiers)):
             _forbidden(
                 detail=f"Kein Zugriff auf '{', '.join(sofa_identifiers)}'.",
                 code="page_access_denied",
