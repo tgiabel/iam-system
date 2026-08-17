@@ -1,0 +1,711 @@
+.iks-page {
+    width: min(1440px, calc(100% - 32px));
+    margin: 38px auto 56px;
+    color: var(--ui-text);
+}
+
+.iks-page-header,
+.iks-report-header,
+.iks-builder-footer,
+.iks-block-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.iks-page-header {
+    margin-bottom: 24px;
+}
+
+.iks-page-header h2,
+.iks-report-header h2,
+.iks-step-heading h3,
+.iks-block-heading h3,
+.iks-contract-error h3 {
+    margin: 0;
+    color: var(--ui-text-strong);
+}
+
+.iks-page-header h2 {
+    margin-top: 5px;
+    font-size: clamp(1.7rem, 3vw, 2.5rem);
+}
+
+.iks-intro,
+.iks-report-subtitle,
+.iks-step-heading p,
+.iks-builder-footer p {
+    margin: 7px 0 0;
+    color: var(--ui-text-muted);
+    line-height: 1.55;
+}
+
+.iks-intro {
+    max-width: 780px;
+}
+
+.iks-builder {
+    overflow: hidden;
+}
+
+.iks-builder-step {
+    padding: 25px 28px;
+    border-bottom: 1px solid var(--ui-border);
+}
+
+.iks-step-heading {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 13px;
+    align-items: start;
+    margin-bottom: 20px;
+}
+
+.iks-step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(var(--color-primary-rgb), 0.24);
+    border-radius: 50%;
+    background: var(--ui-blue-bg);
+    color: var(--ui-blue-text);
+    font-weight: 800;
+}
+
+.iks-type-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.iks-type-option {
+    position: relative;
+    cursor: pointer;
+}
+
+.iks-type-option input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.iks-type-card {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 4px 12px;
+    min-height: 92px;
+    padding: 17px;
+    box-sizing: border-box;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-card);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.iks-type-card strong {
+    align-self: center;
+    color: var(--ui-text-strong);
+    font-size: 1.05rem;
+}
+
+.iks-type-card small {
+    grid-column: 2;
+    color: var(--ui-text-muted);
+    line-height: 1.4;
+}
+
+.iks-type-icon {
+    grid-row: 1 / span 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: var(--ui-surface-soft);
+    color: var(--color-primary);
+    font-weight: 800;
+}
+
+.iks-type-option:not(.is-disabled):hover .iks-type-card {
+    border-color: var(--ui-border-strong);
+    background: var(--ui-surface-soft);
+}
+
+.iks-type-option input:checked + .iks-type-card {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--ui-blue-bg) 68%, var(--ui-surface-card));
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.13);
+}
+
+.iks-type-option input:focus-visible + .iks-type-card {
+    outline: 3px solid rgba(var(--color-primary-rgb), 0.3);
+    outline-offset: 2px;
+}
+
+.iks-type-option input:disabled + .iks-type-card {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.iks-type-option.is-disabled {
+    cursor: not-allowed;
+}
+
+.iks-type-denied {
+    grid-column: 2;
+    width: fit-content;
+    margin-top: 4px;
+    padding: 3px 8px;
+    border: 1px solid color-mix(in srgb, var(--ui-error-text) 22%, transparent);
+    border-radius: 999px;
+    background: var(--ui-error-bg);
+    color: var(--ui-error-text);
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.iks-field-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr);
+    gap: 14px;
+}
+
+.iks-period-grid {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(180px, 0.7fr));
+    gap: 14px;
+}
+
+.iks-field {
+    display: grid;
+    gap: 7px;
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.iks-field input,
+.iks-field select {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    border: 1px solid var(--input-border);
+    border-radius: 10px;
+    background: var(--input-bg);
+    color: var(--ui-text-strong);
+    font: inherit;
+    font-weight: 500;
+}
+
+.iks-field input:hover,
+.iks-field select:hover {
+    border-color: var(--input-border-hover);
+}
+
+.iks-field input:focus,
+.iks-field select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: var(--input-focus-ring);
+}
+
+.iks-field input:disabled,
+.iks-field select:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.iks-inline-status {
+    min-height: 20px;
+    margin: 10px 0 0;
+    color: var(--ui-text-muted);
+    font-size: 0.9rem;
+}
+
+.iks-builder-footer {
+    align-items: center;
+    padding: 20px 28px;
+    background: var(--ui-surface-muted);
+}
+
+.iks-builder-footer p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.iks-report {
+    margin-top: 30px;
+    padding: clamp(20px, 3vw, 32px);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.iks-report-header {
+    margin-bottom: 20px;
+}
+
+.iks-report-header h2 {
+    margin-top: 5px;
+    font-size: clamp(1.45rem, 2.2vw, 2rem);
+}
+
+.iks-export-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.iks-meta-grid,
+.iks-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.iks-meta-grid {
+    margin-bottom: 16px;
+}
+
+.iks-meta-item,
+.iks-kpi,
+.iks-role-overview-item {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 13px;
+    background: var(--ui-surface-muted);
+}
+
+.iks-meta-item span,
+.iks-kpi span,
+.iks-role-overview-item span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--ui-text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.iks-meta-item strong,
+.iks-kpi strong,
+.iks-role-overview-item strong {
+    display: block;
+    color: var(--ui-text-strong);
+    overflow-wrap: anywhere;
+}
+
+.iks-assessment {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    margin: 16px 0;
+    padding: 17px 18px;
+    border: 1px solid var(--ui-border);
+    border-left-width: 5px;
+    border-radius: 14px;
+    background: var(--ui-surface-soft);
+}
+
+.iks-assessment-badge,
+.iks-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 3px 10px;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-status-neutral-bg);
+    color: var(--ui-status-neutral-text);
+    font-size: 0.82rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.iks-assessment strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--ui-text-strong);
+}
+
+.iks-assessment p {
+    margin: 0;
+    color: var(--ui-text-muted);
+    line-height: 1.45;
+}
+
+.iks-assessment.is-attention-required,
+.iks-finding.is-warning {
+    border-color: color-mix(in srgb, var(--ui-warning-text) 34%, var(--ui-border));
+    background: var(--ui-warning-bg);
+}
+
+.iks-assessment.is-attention-required .iks-assessment-badge,
+.iks-status-badge.is-warning {
+    border-color: color-mix(in srgb, var(--ui-warning-text) 30%, transparent);
+    background: var(--ui-warning-bg);
+    color: var(--ui-warning-text);
+}
+
+.iks-assessment.is-data-incomplete,
+.iks-finding.is-critical,
+.iks-finding.is-error {
+    border-color: color-mix(in srgb, var(--ui-error-text) 34%, var(--ui-border));
+    background: var(--ui-error-bg);
+}
+
+.iks-assessment.is-data-incomplete .iks-assessment-badge,
+.iks-status-badge.is-critical,
+.iks-status-badge.is-error {
+    border-color: color-mix(in srgb, var(--ui-error-text) 30%, transparent);
+    background: var(--ui-error-bg);
+    color: var(--ui-error-text);
+}
+
+.iks-assessment.is-no-findings {
+    border-color: color-mix(in srgb, var(--ui-success-text) 34%, var(--ui-border));
+    background: var(--ui-success-bg);
+}
+
+.iks-assessment.is-no-findings .iks-assessment-badge,
+.iks-status-badge.is-success,
+.iks-status-badge.is-matching,
+.iks-status-badge.is-compliant {
+    border-color: color-mix(in srgb, var(--ui-success-text) 30%, transparent);
+    background: var(--ui-success-bg);
+    color: var(--ui-success-text);
+}
+
+.iks-kpi-grid {
+    margin: 16px 0;
+}
+
+.iks-kpi strong {
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.iks-kpi.is-warning {
+    background: var(--ui-warning-bg);
+}
+
+.iks-kpi.is-error,
+.iks-kpi.is-critical {
+    background: var(--ui-error-bg);
+}
+
+.iks-kpi.is-success {
+    background: var(--ui-success-bg);
+}
+
+.iks-data-quality {
+    margin: 16px 0;
+    padding: 14px 16px;
+    border: 1px solid var(--ui-border);
+    border-radius: 13px;
+    background: var(--ui-surface-muted);
+}
+
+.iks-data-quality.is-incomplete {
+    border-color: color-mix(in srgb, var(--ui-error-text) 30%, var(--ui-border));
+    background: var(--ui-error-bg);
+}
+
+.iks-data-quality-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.iks-source-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.iks-report-block {
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--ui-border);
+}
+
+.iks-block-heading {
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.iks-finding-list {
+    display: grid;
+    gap: 10px;
+}
+
+.iks-finding {
+    padding: 15px 17px;
+    border: 1px solid var(--ui-border);
+    border-left-width: 4px;
+    border-radius: 13px;
+    background: var(--ui-surface-muted);
+}
+
+.iks-finding-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.iks-finding h4 {
+    margin: 0;
+    color: var(--ui-text-strong);
+}
+
+.iks-finding p {
+    margin: 7px 0 0;
+    color: var(--ui-text);
+    line-height: 1.5;
+}
+
+.iks-finding-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-top: 10px;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.iks-empty {
+    padding: 22px;
+    border: 1px dashed var(--ui-border-strong);
+    border-radius: 13px;
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+    text-align: center;
+}
+
+.iks-table-wrap {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--ui-border);
+    border-radius: 13px;
+}
+
+.iks-table {
+    width: 100%;
+    min-width: 820px;
+    border-collapse: collapse;
+    color: var(--ui-text);
+    font-size: 0.9rem;
+}
+
+.iks-table th,
+.iks-table td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--ui-border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.iks-table th {
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-strong);
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.iks-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.iks-primary-text {
+    display: block;
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.iks-secondary-text {
+    display: block;
+    margin-top: 3px;
+    color: var(--ui-text-muted);
+    font-size: 0.82rem;
+    overflow-wrap: anywhere;
+}
+
+.iks-detail-section + .iks-detail-section {
+    margin-top: 24px;
+}
+
+.iks-detail-section h4 {
+    margin: 0 0 11px;
+    color: var(--ui-text-strong);
+    font-size: 1.05rem;
+}
+
+.iks-role-overview {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.iks-process-instance {
+    border: 1px solid var(--ui-border);
+    border-radius: 13px;
+    background: var(--ui-surface-card);
+    overflow: hidden;
+}
+
+.iks-process-instance + .iks-process-instance {
+    margin-top: 10px;
+}
+
+.iks-process-instance summary {
+    display: grid;
+    grid-template-columns: minmax(240px, 1.3fr) repeat(3, minmax(130px, 0.65fr)) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 15px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.iks-process-instance summary::-webkit-details-marker {
+    display: none;
+}
+
+.iks-process-instance[open] summary {
+    background: var(--ui-surface-muted);
+    border-bottom: 1px solid var(--ui-border);
+}
+
+.iks-process-steps {
+    padding: 15px;
+}
+
+.iks-system-note {
+    margin-bottom: 14px;
+    padding: 13px 15px;
+    border: 1px solid rgba(var(--color-primary-rgb), 0.2);
+    border-radius: 12px;
+    background: var(--ui-blue-bg);
+    color: var(--ui-text);
+    line-height: 1.5;
+}
+
+.iks-technical-details {
+    margin-top: 22px;
+    padding: 14px 16px;
+    border: 1px solid var(--ui-border);
+    border-radius: 13px;
+    background: var(--ui-surface-muted);
+}
+
+.iks-technical-details summary {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.iks-technical-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 13px;
+}
+
+.iks-technical-grid code {
+    display: block;
+    margin-top: 4px;
+    color: var(--ui-text-strong);
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+
+.iks-contract-error {
+    margin-top: 24px;
+    padding: 20px;
+    border: 1px solid color-mix(in srgb, var(--ui-error-text) 34%, var(--ui-border));
+    border-radius: 14px;
+    background: var(--ui-error-bg);
+    color: var(--ui-error-text);
+}
+
+.iks-contract-error p {
+    margin: 8px 0 0;
+}
+
+@media (max-width: 980px) {
+    .iks-meta-grid,
+    .iks-kpi-grid,
+    .iks-role-overview {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .iks-process-instance summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 760px) {
+    .iks-page {
+        width: min(100% - 20px, 1440px);
+        margin-top: 22px;
+    }
+
+    .iks-page-header,
+    .iks-report-header,
+    .iks-builder-footer,
+    .iks-block-heading,
+    .iks-data-quality-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .iks-type-grid,
+    .iks-field-grid,
+    .iks-period-grid,
+    .iks-technical-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .iks-builder-step,
+    .iks-builder-footer {
+        padding: 20px;
+    }
+
+    .iks-builder-footer .btn {
+        width: 100%;
+    }
+
+    .iks-export-actions .btn {
+        flex: 1;
+    }
+
+    .iks-assessment {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .iks-meta-grid,
+    .iks-kpi-grid,
+    .iks-role-overview,
+    .iks-process-instance summary {
+        grid-template-columns: 1fr;
+    }
+}

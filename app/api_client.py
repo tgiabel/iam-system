@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx  # type: ignore
 from typing import Any
+from urllib.parse import quote
 
 
 BASE_URL = "http://dev-api:8080"
@@ -334,6 +335,35 @@ class APIClient:
 
     async def trigger_iks_process_report(self, payload) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/iks", payload=payload)
+
+    # IKS reports
+    @staticmethod
+    def _iks_headers(user_id: int) -> dict[str, str]:
+        return {"X-User-Id": str(user_id)}
+
+    async def get_iks_catalog(self, user_id: int) -> dict:
+        return await self._get(
+            SOFA_BASE_URL,
+            "/iks/catalog",
+            headers=self._iks_headers(user_id),
+        )
+
+    async def create_iks_report(self, user_id: int, payload: dict) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            "/iks/reports",
+            payload=payload,
+            headers=self._iks_headers(user_id),
+        )
+
+    async def download_iks_report_export(self, user_id: int, report_id: str, export_format: str) -> httpx.Response:
+        encoded_report_id = quote(str(report_id), safe="")
+        return await self._request(
+            "GET",
+            SOFA_BASE_URL,
+            f"/iks/reports/{encoded_report_id}/exports/{export_format}",
+            headers=self._iks_headers(user_id),
+        )
 
     async def get_task_logs(self, task_id):
         return await self._get(SOFA_BASE_URL, f"/tasks/{task_id}/logs")

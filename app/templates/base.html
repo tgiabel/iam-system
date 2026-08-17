@@ -88,7 +88,7 @@
                                 {% if "SOFA-PAGE-ROLE" in authz.permissions %}
                                     <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
                                 {% endif %}
-                                {% if implemented and "SOFA-TOOL-IKS" in authz.permissions %}
+                                {% if "SOFA-TOOL-IKS" in authz.permissions %}
                                     <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks">Kontrollsystem</a>
                                 {% endif %}
                                 {% if "SOFA-PAGE-CNSL" in authz.permissions %}
@@ -165,7 +165,7 @@
                         {% if "SOFA-PAGE-ROLE" in authz.permissions %}
                             <a href="/roles" class="mobile-nav-link" data-nav-target="roles">Rollenmanagement</a>
                         {% endif %}
-                        {% if implemented and "SOFA-TOOL-IKS" in authz.permissions %}
+                        {% if "SOFA-TOOL-IKS" in authz.permissions %}
                             <a href="/iks" class="mobile-nav-link" data-nav-target="iks">Kontrollsystem</a>
                         {% endif %}
                         {% if "SOFA-PAGE-CNSL" in authz.permissions %}

@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from io import BytesIO
 import json
+from urllib.parse import quote
 
 import httpx  # type: ignore
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Request, UploadFile  # type: ignore
@@ -34,6 +35,33 @@ from app.routes.shared import (
 
 
 router = APIRouter(prefix="/api")
+
+
+IKS_EXPORT_FORMATS = frozenset({"html", "csv", "json"})
+IKS_REPORT_PERMISSIONS = {
+    "process": "SOFA-IKS-PRCS",
+    "role": "SOFA-IKS-ROLE",
+    "system": "SOFA-IKS-SYS",
+}
+
+
+def _normalize_iks_export_links(report: dict) -> dict:
+    """Keep internal backend URLs out of browser-visible report payloads."""
+    normalized = dict(report)
+    report_id = report.get("report_id")
+    exports = report.get("exports")
+    if not report_id or not isinstance(exports, dict):
+        return normalized
+
+    encoded_report_id = quote(str(report_id), safe="")
+    normalized_exports = dict(exports)
+    for export_format in IKS_EXPORT_FORMATS:
+        if exports.get(export_format):
+            normalized_exports[export_format] = (
+                f"/api/iks/reports/{encoded_report_id}/exports/{export_format}"
+            )
+    normalized["exports"] = normalized_exports
+    return normalized
 
 
 def _request_uses_https(request: Request) -> bool:
@@ -1571,6 +1599,118 @@ async def api_cancel_process(process_id: int, payload: dict, current_user=Depend
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/iks/catalog")
+async def api_get_iks_catalog(authz=Depends(require_permission("SOFA-TOOL-IKS"))):
+    try:
+        result = await api_client.get_iks_catalog(authz.user_id)
+        if isinstance(result, dict):
+            result = dict(result)
+            for report_type, catalog_key in (
+                ("process", "process_types"),
+                ("role", "roles"),
+                ("system", "systems"),
+            ):
+                if not authz.has_permission(IKS_REPORT_PERMISSIONS[report_type]):
+                    result[catalog_key] = []
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/iks/reports")
+async def api_create_iks_report(payload: dict, authz=Depends(require_permission("SOFA-TOOL-IKS"))):
+    # Only forward fields from the public report contract. In particular, the
+    # browser cannot provide generated_by or override the authenticated user.
+    request_payload = {}
+    if "report_type" in payload:
+        request_payload["report_type"] = payload["report_type"]
+    if "target" in payload:
+        target = payload["target"]
+        request_payload["target"] = (
+            {"id": target["id"]}
+            if isinstance(target, dict) and "id" in target
+            else target
+        )
+    if "period" in payload:
+        period = payload["period"]
+        request_payload["period"] = (
+            {key: period[key] for key in ("from", "to") if key in period}
+            if isinstance(period, dict)
+            else period
+        )
+    if "timezone" in payload:
+        request_payload["timezone"] = payload["timezone"]
+
+    report_type = request_payload.get("report_type")
+    required_permission = IKS_REPORT_PERMISSIONS.get(report_type)
+    if required_permission and not authz.has_permission(required_permission):
+        return JSONResponse(
+            content={
+                "detail": {
+                    "code": "iks_report_access_denied",
+                    "message": "Keine Berechtigung für diese IKS-Kontrollart.",
+                }
+            },
+            status_code=403,
+        )
+
+    try:
+        result = await api_client.create_iks_report(authz.user_id, request_payload)
+        if not isinstance(result, dict):
+            return JSONResponse(
+                content={"error": "Das IKS-Backend hat keinen gültigen Bericht geliefert."},
+                status_code=502,
+            )
+        return JSONResponse(content=_normalize_iks_export_links(result))
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/iks/reports/{report_id}/exports/{export_format}")
+async def api_download_iks_report_export(
+    report_id: str,
+    export_format: str,
+    authz=Depends(require_permission("SOFA-TOOL-IKS")),
+):
+    normalized_format = export_format.lower()
+    if normalized_format not in IKS_EXPORT_FORMATS:
+        return JSONResponse(content={"error": "Unbekanntes Exportformat."}, status_code=404)
+
+    try:
+        upstream = await api_client.download_iks_report_export(
+            authz.user_id,
+            report_id,
+            normalized_format,
+        )
+        forwarded_headers = {
+            header: upstream.headers[header]
+            for header in ("content-type", "content-disposition", "cache-control", "etag", "last-modified")
+            if header in upstream.headers
+        }
+        forwarded_headers.setdefault("content-type", "application/octet-stream")
+        return StreamingResponse(
+            BytesIO(upstream.content),
+            headers=forwarded_headers,
+        )
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 

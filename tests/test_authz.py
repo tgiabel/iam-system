@@ -167,6 +167,13 @@ class TestHasPermission(unittest.TestCase):
         self.assertTrue(authz.has_permission("SOFA-FN-ACC"))
         self.assertFalse(authz.has_permission("SOFA-TOOL-GQ"))
 
+    def test_iks_all_grant(self):
+        authz = self._make_authz(permissions=("SOFA-IKS-ALL",))
+        self.assertTrue(authz.has_permission("SOFA-IKS-PRCS"))
+        self.assertTrue(authz.has_permission("SOFA-IKS-ROLE"))
+        self.assertTrue(authz.has_permission("SOFA-IKS-SYS"))
+        self.assertFalse(authz.has_permission("SOFA-TOOL-IKS"))
+
     def test_page_all_grant(self):
         authz = self._make_authz(permissions=("SOFA-PAGE-ALL",))
         self.assertTrue(authz.has_permission("SOFA-PAGE-TODO"))

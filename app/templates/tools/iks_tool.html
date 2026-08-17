@@ -1,15 +1,18 @@
 {% extends "base.html" %}
 
-{% set page_title = "Tools & Reports" %}
+{% set page_title = "IKS Kontrollberichte" %}
 {% set sub_page = true %}
 {% set sub_page_back_url = "/tools" %}
-{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
-{% set widget_title = "Systemzugriffe-Report" %}
+{% set sub_page_back_label = "Zurück zur Workspace-Übersicht" %}
+{% set widget_title = "IKS Kontrollberichte" %}
+{% set can_process_reports = "SOFA-IKS-PRCS" in authz.permissions %}
+{% set can_role_reports = "SOFA-IKS-ROLE" in authz.permissions %}
+{% set can_system_reports = "SOFA-IKS-SYS" in authz.permissions %}
 
 {% block favicon %}/static/img/roles.png{% endblock %}
 
 {% block css %}
-<link rel="stylesheet" href="/static/css/tools.css">
+<link rel="stylesheet" href="/static/css/iks.css?v={{ static_v }}">
 {% endblock %}
 
 {% block scripts %}
@@ -17,78 +20,176 @@
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2>IKS Kontrollbericht erstellen</h2>
+<div class="iks-page">
+    <header class="iks-page-header">
+        <div>
+            <p class="ui-section-kicker">Kontrolle &amp; Audit</p>
+            <h2>IKS Kontrollbericht erstellen</h2>
+            <p class="iks-intro">
+                Prozesse, Rollenzuweisungen und dokumentierte Systemzugriffe strukturiert prüfen
+                und als unveränderlichen Nachweis exportieren.
+            </p>
+        </div>
+        <span class="ui-chip ui-chip-neutral">Read-only</span>
+    </header>
 
-    <form id="reportForm">
-        <!-- Auswahl: Rolle oder Prozess -->
-        <div class="form-group">
-            <label>Was möchten Sie tun?</label>
-            <div class="radio-group">
-                <label>
-                    <input type="radio" name="type" value="role" disabled>
-                    Rolle rezertifizieren
+    <form id="iks-report-form" class="iks-builder ui-card" novalidate>
+        <section class="iks-builder-step" aria-labelledby="iks-type-heading">
+            <div class="iks-step-heading">
+                <span class="iks-step-number" aria-hidden="true">1</span>
+                <div>
+                    <h3 id="iks-type-heading">Kontrollart wählen</h3>
+                    <p>Der Bericht passt Prüffelder und Detailansicht an die gewählte Kontrolle an.</p>
+                </div>
+            </div>
+
+            <div class="iks-type-grid">
+                <label class="iks-type-option{% if not can_process_reports %} is-disabled{% endif %}">
+                    <input type="radio" name="report_type" value="process"
+                           data-authorized="{{ 'true' if can_process_reports else 'false' }}"
+                           {% if can_process_reports %}checked{% else %}disabled{% endif %}>
+                    <span class="iks-type-card">
+                        <span class="iks-type-icon" aria-hidden="true">P</span>
+                        <strong>Prozesse</strong>
+                        <small>Zeitgerechte und vollständige Durchführung prüfen</small>
+                        {% if not can_process_reports %}<span class="iks-type-denied">Keine Berechtigung</span>{% endif %}
+                    </span>
                 </label>
-                <label>
-                    <input type="radio" name="type" value="process" checked>
-                    Prozess auswerten
+                <label class="iks-type-option{% if not can_role_reports %} is-disabled{% endif %}">
+                    <input type="radio" name="report_type" value="role"
+                           data-authorized="{{ 'true' if can_role_reports else 'false' }}"
+                           {% if can_role_reports and not can_process_reports %}checked{% endif %}
+                           {% if not can_role_reports %}disabled{% endif %}>
+                    <span class="iks-type-card">
+                        <span class="iks-type-icon" aria-hidden="true">R</span>
+                        <strong>Rollen</strong>
+                        <small>Zuweisungen, Paketinhalt und Änderungen prüfen</small>
+                        {% if not can_role_reports %}<span class="iks-type-denied">Keine Berechtigung</span>{% endif %}
+                    </span>
+                </label>
+                <label class="iks-type-option{% if not can_system_reports %} is-disabled{% endif %}">
+                    <input type="radio" name="report_type" value="system"
+                           data-authorized="{{ 'true' if can_system_reports else 'false' }}"
+                           {% if can_system_reports and not can_process_reports and not can_role_reports %}checked{% endif %}
+                           {% if not can_system_reports %}disabled{% endif %}>
+                    <span class="iks-type-card">
+                        <span class="iks-type-icon" aria-hidden="true">S</span>
+                        <strong>Systeme</strong>
+                        <small>Soll und in SOFA dokumentierten Ist-Zugriff vergleichen</small>
+                        {% if not can_system_reports %}<span class="iks-type-denied">Keine Berechtigung</span>{% endif %}
+                    </span>
                 </label>
             </div>
-        </div>
+        </section>
 
-        <!-- Dropdown -->
-        <div class="form-group">
-            <label for="selection" id="selectionLabel">Rolle</label>
-            <select id="selection" name="selection" required>
-                <!-- Wird per JS befüllt -->
-            </select>
-            <input type="hidden" id="selectedRoleId" name="role_id">
-        </div>
-
-        <!-- Zeitraum -->
-        <div class="form-group">
-            <label>Zeitraum</label>
-
-            <select id="preset">
-                <option value="">Individuell wählen</option>
-                <option value="last_month">Letzter Monat</option>
-                <option value="last_quarter">Letztes Quartal</option>
-                <option value="this_year">Dieses Jahr</option>
-                <option value="last_year">Letztes Jahr</option>
-            </select>
-
-            <div class="date-range">
-                <input type="date" id="fromDate" name="from" required>
-                <span>bis</span>
-                <input type="date" id="toDate" name="to" required>
+        <section class="iks-builder-step" aria-labelledby="iks-target-heading">
+            <div class="iks-step-heading">
+                <span class="iks-step-number" aria-hidden="true">2</span>
+                <div>
+                    <h3 id="iks-target-heading">Kontrollobjekt festlegen</h3>
+                    <p id="iks-target-help">Eine Prozessart oder alle Prozessarten auswählen.</p>
+                </div>
             </div>
-        </div>
 
-        <!-- Button -->
-        <button type="submit" class="btn btn-primary">
-            Bericht generieren
-        </button>
+            <div class="iks-field-grid">
+                <label class="iks-field" for="iks-target-search">
+                    <span>Suchen</span>
+                    <input id="iks-target-search" type="search" autocomplete="off" placeholder="Prozessart suchen …">
+                </label>
+                <label class="iks-field" for="iks-target-select">
+                    <span id="iks-target-label">Prozessart</span>
+                    <select id="iks-target-select" name="target_id" aria-describedby="iks-target-help"></select>
+                </label>
+            </div>
+            <p id="iks-catalog-status" class="iks-inline-status" role="status" aria-live="polite"></p>
+        </section>
+
+        <section class="iks-builder-step" aria-labelledby="iks-period-heading">
+            <div class="iks-step-heading">
+                <span class="iks-step-number" aria-hidden="true">3</span>
+                <div>
+                    <h3 id="iks-period-heading">Kontrollzeitraum bestimmen</h3>
+                    <p>Start- und Enddatum werden einschließlich ausgewertet.</p>
+                </div>
+            </div>
+
+            <div class="iks-period-grid">
+                <label class="iks-field" for="iks-period-preset">
+                    <span>Schnellauswahl</span>
+                    <select id="iks-period-preset">
+                        <option value="last_month">Letzter Monat</option>
+                        <option value="last_quarter">Letztes Quartal</option>
+                        <option value="this_year">Dieses Jahr</option>
+                        <option value="last_year">Letztes Jahr</option>
+                        <option value="custom">Individuell</option>
+                    </select>
+                </label>
+                <label class="iks-field" for="iks-period-from">
+                    <span>Von</span>
+                    <input id="iks-period-from" type="date" required>
+                </label>
+                <label class="iks-field" for="iks-period-to">
+                    <span>Bis einschließlich</span>
+                    <input id="iks-period-to" type="date" required>
+                </label>
+            </div>
+        </section>
+
+        <div class="iks-builder-footer">
+            <p>Bewertungen und Kennzahlen werden unverändert vom IKS-Backend übernommen.</p>
+            <button id="iks-submit" type="submit" class="btn btn-primary">Bericht generieren</button>
+        </div>
     </form>
 
-    <section id="reportSection" class="report-section" hidden>
-        <div class="report-header">
+    <section id="iks-report" class="iks-report" aria-labelledby="iks-report-title" hidden>
+        <header class="iks-report-header">
             <div>
-                <p class="report-kicker">IKS Report</p>
-                <h3 id="reportTitle">Bericht</h3>
+                <p class="ui-section-kicker">IKS Kontrollnachweis</p>
+                <h2 id="iks-report-title">Kontrollbericht</h2>
+                <p id="iks-report-subtitle" class="iks-report-subtitle"></p>
             </div>
-            <div class="report-actions">
-                <button type="button" id="downloadHtmlButton" class="btn btn-secondary">
-                    HTML herunterladen
-                </button>
-                <button type="button" id="downloadJsonButton" class="btn btn-secondary">
-                    Rohdaten herunterladen
-                </button>
+            <div class="iks-export-actions" aria-label="Bericht exportieren">
+                <button type="button" class="btn btn-secondary" data-iks-export="html" disabled>HTML</button>
+                <button type="button" class="btn btn-secondary" data-iks-export="csv" disabled>CSV</button>
+                <button type="button" class="btn btn-secondary" data-iks-export="json" disabled>JSON</button>
             </div>
-        </div>
+        </header>
 
-        <div id="reportMeta" class="report-meta"></div>
-        <div id="reportContent" class="report-content"></div>
+        <div id="iks-report-meta" class="iks-meta-grid"></div>
+        <div id="iks-assessment"></div>
+        <div id="iks-kpis" class="iks-kpi-grid"></div>
+        <div id="iks-data-quality"></div>
+
+        <section class="iks-report-block" aria-labelledby="iks-findings-title">
+            <div class="iks-block-heading">
+                <div>
+                    <p class="ui-section-kicker">Automatische Hinweise</p>
+                    <h3 id="iks-findings-title">Auffälligkeiten</h3>
+                </div>
+                <span id="iks-findings-count" class="ui-count-pill ui-count-pill-neutral">0</span>
+            </div>
+            <div id="iks-findings"></div>
+        </section>
+
+        <section class="iks-report-block" aria-labelledby="iks-details-title">
+            <div class="iks-block-heading">
+                <div>
+                    <p class="ui-section-kicker">Prüfgrundlage</p>
+                    <h3 id="iks-details-title">Berichtsdetails</h3>
+                </div>
+            </div>
+            <div id="iks-report-details"></div>
+        </section>
+
+        <details id="iks-technical-details" class="iks-technical-details">
+            <summary>Technische Nachweisinformationen</summary>
+            <div id="iks-technical-content"></div>
+        </details>
+    </section>
+
+    <section id="iks-contract-error" class="iks-contract-error" role="alert" hidden>
+        <h3>Bericht kann nicht sicher dargestellt werden</h3>
+        <p id="iks-contract-error-message"></p>
     </section>
 </div>
-
 {% endblock %}
