@@ -23,9 +23,7 @@
     padding: 28px;
     border: 1px solid var(--border-color);
     border-radius: 24px;
-    background:
-        radial-gradient(circle at top right, rgba(var(--color-primary-rgb), 0.10), transparent 34%),
-        linear-gradient(135deg, var(--surface-subtle) 0%, var(--surface-soft) 100%);
+    background: var(--surface-soft);
 }
 
 .stoerung-hero-copy {

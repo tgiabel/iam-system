@@ -113,20 +113,20 @@ function getProtectionClass(system) {
     const normalized = normalizeValue(rawValue);
 
     if (["gering", "low"].includes(normalized)) {
-        return { label: "Gering", className: "systems-protection-low" };
+        return { label: "Gering", className: "ui-status-success" };
     }
 
     if (["erhoeht", "erhöht", "mittel", "medium", "elevated"].includes(normalized)) {
-        return { label: "Erhöht", className: "systems-protection-medium" };
+        return { label: "Erhöht", className: "ui-status-warning" };
     }
 
     if (["kritisch", "critical", "hoch", "high"].includes(normalized)) {
-        return { label: "Kritisch", className: "systems-protection-high" };
+        return { label: "Kritisch", className: "ui-status-error" };
     }
 
     return {
         label: rawValue ? String(rawValue) : "Nicht gepflegt",
-        className: "systems-protection-unknown"
+        className: "ui-status-neutral"
     };
 }
 
@@ -212,18 +212,18 @@ function renderSystems() {
         const systemUrl = `/systems/${encodeURIComponent(system.system_id)}`;
 
         return `
-            <tr class="systems-table-row" data-system-id="${escapeHtml(system.system_id)}" data-system-url="${escapeHtml(systemUrl)}">
+            <tr class="ui-table-row systems-table-row" data-system-id="${escapeHtml(system.system_id)}" data-system-url="${escapeHtml(systemUrl)}">
                 <td class="systems-id-cell">${escapeHtml(system.system_id)}</td>
                 <td class="systems-short-cell">${escapeHtml(system.short_name || "-")}</td>
                 <td class="systems-name-cell">${escapeHtml(system.name || "-")}</td>
                 <td class="systems-protection-cell">
-                    <span class="systems-protection-badge ${protection.className}">
+                    <span class="ui-status-badge ${protection.className}">
                         ${escapeHtml(protection.label)}
                     </span>
                 </td>
                 <td class="systems-resource-cell">
                     <div class="systems-resource-block">
-                        <span class="systems-resource-count" title="${escapeHtml(preview.title)}">${resourceNames.length}</span>
+                        <span class="ui-table-count" title="${escapeHtml(preview.title)}">${resourceNames.length}</span>
                         <span class="systems-resource-preview ${preview.isEmpty ? "is-empty" : ""}" title="${escapeHtml(preview.title)}">
                             ${escapeHtml(preview.text)}
                         </span>
@@ -231,7 +231,7 @@ function renderSystems() {
                 </td>
                 <td class="systems-resource-cell">
                     <div class="systems-resource-block">
-                        <span class="systems-resource-count" title="${escapeHtml(rolePreview.title)}">${representedRoleNames.length}</span>
+                        <span class="ui-table-count" title="${escapeHtml(rolePreview.title)}">${representedRoleNames.length}</span>
                         <span class="systems-resource-preview ${rolePreview.isEmpty ? "is-empty" : ""}" title="${escapeHtml(rolePreview.title)}">
                             ${escapeHtml(rolePreview.text)}
                         </span>

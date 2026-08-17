@@ -42,11 +42,7 @@
 }
 
 .overview-tab.active {
-    background: linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--ui-surface-card) 98%, transparent),
-        color-mix(in srgb, var(--ui-surface-soft) 92%, transparent)
-    );
+    background: var(--ui-surface-soft);
     color: var(--ui-text-strong);
     box-shadow: var(--ui-shadow-sm);
 }
@@ -83,13 +79,7 @@
     padding: 1.25rem;
     border-radius: 4px 4px var(--ui-radius-lg) var(--ui-radius-lg);
     border: 1px solid var(--ui-border);
-    background:
-        linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--ui-surface-card) 98%, transparent),
-            color-mix(in srgb, var(--ui-surface-muted) 95%, transparent)
-        ),
-        var(--ui-surface-card);
+    background: var(--ui-surface-card);
     box-shadow: var(--ui-shadow-sm);
 }
 
@@ -145,11 +135,7 @@
     width: 4.25rem;
     height: 4.25rem;
     border-radius: 18px;
-    background: linear-gradient(
-        135deg,
-        rgba(var(--color-primary-rgb), 0.16),
-        rgba(var(--color-primary-rgb), 0.08)
-    );
+    background: rgba(var(--color-primary-rgb), 0.12);
     border: 1px solid rgba(var(--color-primary-rgb), 0.16);
 }
 

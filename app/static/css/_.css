@@ -18,7 +18,7 @@
     --header-border: rgba(255, 255, 255, 0.18);
     --header-shadow: 0 10px 28px rgba(29, 55, 137, 0.18);
     --table-header-bg: var(--header-bg);
-    --table-header-muted-bg: linear-gradient(135deg, #7d8ca8, #5f6d87);
+    --table-header-muted-bg: #5f6d87;
 
     /* App Surfaces */
     --surface-page: #f6f8fc;
@@ -69,10 +69,8 @@
     --chip-accent-bg: rgb(163 39 203 / 10%);
     --chip-accent-border: rgb(170 94 199 / 35%);
     --chip-accent-text: rgb(150 25 191);
-    --task-completed-bg-start: #f4fbf6;
-    --task-completed-bg-end: #f7faf8;
-    --task-blocked-bg-start: #f7f7f9;
-    --task-blocked-bg-end: #f2f2f4;
+    --task-completed-bg: #f4fbf6;
+    --task-blocked-bg: #f2f2f4;
 
     /* Background treatment */
     --main-background-image: none;
@@ -101,14 +99,14 @@
     /* Floating Button */
     --fab-bg: #4169e1;
     --fab-hover: #2d4dad;
-    --btn-primary-bg: linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 80%, white), var(--color-primary) 100%);
-    --btn-primary-hover-bg: linear-gradient(180deg, color-mix(in srgb, var(--color-primary-hover) 85%, white), var(--color-primary-hover) 100%);
+    --btn-primary-bg: var(--color-primary);
+    --btn-primary-hover-bg: var(--color-primary-hover);
     --btn-primary-border: rgba(var(--color-primary-rgb), 0.45);
-    --btn-secondary-bg: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 96%, transparent), color-mix(in srgb, var(--surface-muted) 96%, transparent));
-    --btn-secondary-hover-bg: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 100%, transparent), color-mix(in srgb, var(--surface-soft) 96%, transparent));
+    --btn-secondary-bg: var(--surface-raised);
+    --btn-secondary-hover-bg: var(--surface-soft);
     --btn-secondary-border: var(--border-color);
-    --btn-red-bg: linear-gradient(180deg, #ffd7d2 0%, #ffc1b8 100%);
-    --btn-red-hover-bg: linear-gradient(180deg, #ffd0ca 0%, #ffb3a7 100%);
+    --btn-red-bg: #ffc1b8;
+    --btn-red-hover-bg: #ffb3a7;
     --btn-red-border: rgba(188, 74, 61, 0.24);
     --btn-red-text: #8d2117;
 
@@ -176,18 +174,16 @@ html[data-theme="dark"] {
     --chip-accent-bg: rgb(163 39 203 / 50%);
     --chip-accent-border: rgb(170 94 199 / 73%);
     --chip-accent-text: rgb(189 122 215);
-    --task-completed-bg-start: rgba(26, 61, 41, 0.92);
-    --task-completed-bg-end: rgba(21, 32, 49, 0.98);
-    --task-blocked-bg-start: rgba(40, 46, 58, 0.92);
-    --task-blocked-bg-end: rgba(21, 32, 49, 0.98);
-    --btn-primary-bg: linear-gradient(180deg, #4768c9 0%, #3552a8 100%);
-    --btn-primary-hover-bg: linear-gradient(180deg, #5274db 0%, #3e5fc0 100%);
+    --task-completed-bg: #1a3d29;
+    --task-blocked-bg: #282e3a;
+    --btn-primary-bg: #3552a8;
+    --btn-primary-hover-bg: #3e5fc0;
     --btn-primary-border: rgba(143, 176, 255, 0.34);
-    --btn-secondary-bg: linear-gradient(180deg, #243248 0%, #1b2738 100%);
-    --btn-secondary-hover-bg: linear-gradient(180deg, #2b3a54 0%, #223146 100%);
+    --btn-secondary-bg: #1b2738;
+    --btn-secondary-hover-bg: #223146;
     --btn-secondary-border: #395172;
-    --btn-red-bg: linear-gradient(180deg, #8f3e3e 0%, #6e2525 100%);
-    --btn-red-hover-bg: linear-gradient(180deg, #a34747 0%, #7e2c2c 100%);
+    --btn-red-bg: #6e2525;
+    --btn-red-hover-bg: #7e2c2c;
     --btn-red-border: rgba(255, 159, 159, 0.24);
     --btn-red-text: #ffe5e5;
     --fileinput-preview-text: 0 12px 28px rgba(4, 10, 22, 0.45);
@@ -253,24 +249,20 @@ html[data-theme="servodata"] {
     --chip-accent-bg: rgb(163 39 203 / 50%);
     --chip-accent-border: rgb(170 94 199 / 73%);
     --chip-accent-text: rgb(189 122 215);
-    --task-completed-bg-start: rgba(26, 61, 41, 0.92);
-    --task-completed-bg-end: rgba(21, 32, 49, 0.98);
-    --task-blocked-bg-start: rgba(40, 46, 58, 0.92);
-    --task-blocked-bg-end: rgba(21, 32, 49, 0.98);
-    --main-background-image:
-        linear-gradient(180deg, rgba(16, 23, 39, 0.92), rgba(23, 35, 51, 0.95)),
-        url("../img/duck_duck_goose.png");
-    --main-background-size: cover, 520px auto;
-    --main-background-repeat: no-repeat, repeat;
-    --main-background-position: center, center top;
-    --btn-primary-bg: linear-gradient(180deg, #4f72d8 0%, #3857b2 100%);
-    --btn-primary-hover-bg: linear-gradient(180deg, #5b7fe8 0%, #4364c0 100%);
+    --task-completed-bg: #1a3d29;
+    --task-blocked-bg: #282e3a;
+    --main-background-image: url("../img/duck_duck_goose.png");
+    --main-background-size: 520px auto;
+    --main-background-repeat: repeat;
+    --main-background-position: center top;
+    --btn-primary-bg: #3857b2;
+    --btn-primary-hover-bg: #4364c0;
     --btn-primary-border: rgba(143, 176, 255, 0.34);
-    --btn-secondary-bg: linear-gradient(180deg, #243248 0%, #1b2738 100%);
-    --btn-secondary-hover-bg: linear-gradient(180deg, #2b3a54 0%, #223146 100%);
+    --btn-secondary-bg: #1b2738;
+    --btn-secondary-hover-bg: #223146;
     --btn-secondary-border: #395172;
-    --btn-red-bg: linear-gradient(180deg, #8f3e3e 0%, #6e2525 100%);
-    --btn-red-hover-bg: linear-gradient(180deg, #a34747 0%, #7e2c2c 100%);
+    --btn-red-bg: #6e2525;
+    --btn-red-hover-bg: #7e2c2c;
     --btn-red-border: rgba(255, 159, 159, 0.24);
     --btn-red-text: #ffe5e5;
     --fileinput-preview-text: 0 12px 28px rgba(4, 10, 22, 0.45);
@@ -749,7 +741,7 @@ body.mobile-nav-open .mobile-nav-toggle {
     padding: 0.95rem 1rem;
     border-radius: 16px;
     border: 1px solid rgba(var(--color-primary-rgb), 0.16);
-    background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.12), rgba(255, 255, 255, 0.06));
+    background: rgba(var(--color-primary-rgb), 0.12);
     color: var(--text-default);
     line-height: 1.5;
 }
@@ -908,7 +900,7 @@ body.mobile-nav-open .mobile-nav-toggle {
         right: 0;
         z-index: 995;
         padding: 0 18px 16px;
-        background: linear-gradient(180deg, rgba(15, 28, 53, 0.98), rgba(15, 28, 53, 0.92));
+        background: rgba(15, 28, 53, 0.98);
         box-shadow: var(--header-shadow);
     }
 
@@ -1069,13 +1061,13 @@ body.mobile-nav-open .mobile-nav-toggle {
 }
 
 .btn-green {
-    background: linear-gradient(180deg, #dbf6db 0%, #c6efc6 100%);
+    background: #c6efc6;
     border: 1px solid rgba(59, 137, 72, 0.22);
     color: #1f6a2a;
 }
 
 .btn-green:hover:not(:disabled) {
-    background: linear-gradient(180deg, #d4f2d4 0%, #bbe9bb 100%);
+    background: #bbe9bb;
     box-shadow: 0 12px 22px rgba(59, 137, 72, 0.14);
 }
 

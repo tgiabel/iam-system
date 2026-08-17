@@ -45,24 +45,11 @@
 }
 
 .systems-table-card {
-    overflow: hidden;
+    --ui-table-max-height: 65vh;
 }
 
-.systems-table-card .table-wrapper {
-    margin-bottom: 0;
-    background: transparent;
-    box-shadow: none;
-    border-radius: 0;
-    overflow: auto;
-    max-height: min(34rem, 60vh);
-}
-
-.systems-table-card thead {
-    background: var(--table-header-bg);
-}
-
-.systems-table-card tbody tr:hover {
-    background: rgba(var(--color-primary-rgb), 0.04);
+#system-table {
+    min-width: 980px;
 }
 
 .systems-table-card tbody td.systems-id-cell {
@@ -97,67 +84,14 @@
     gap: 0.35rem;
 }
 
-.systems-resource-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: fit-content;
-    min-width: 2.75rem;
-    min-height: 2.35rem;
-    padding: 0.35rem 0.8rem;
-    border-radius: 14px;
-    background: linear-gradient(180deg, var(--surface-card), var(--surface-soft));
-    border: 1px solid rgba(var(--color-primary-rgb), 0.14);
-    color: var(--color-primary);
-    font-weight: 700;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.18),
-        0 8px 18px rgba(var(--color-primary-rgb), 0.08);
-    font-size: 0.95rem;
-    line-height: 1;
-}
-
 .systems-resource-preview {
-    color: var(--text-default);
+    color: var(--ui-text-muted);
     font-size: 0.88rem;
     line-height: 1.35;
 }
 
 .systems-resource-preview.is-empty {
     color: var(--text-muted);
-}
-
-.systems-protection-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2rem;
-    min-width: 7rem;
-    padding: 0.2rem 0.85rem;
-    border-radius: 999px;
-    font-size: 0.84rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.systems-protection-low {
-    background: var(--ui-status-completed-bg);
-    color: var(--ui-status-completed-text);
-}
-
-.systems-protection-medium {
-    background: var(--ui-warning-bg);
-    color: var(--ui-warning-text);
-}
-
-.systems-protection-high {
-    background: var(--danger-surface);
-    color: var(--danger-text);
-}
-
-.systems-protection-unknown {
-    background: var(--ui-status-neutral-bg);
-    color: var(--ui-status-neutral-text);
 }
 
 .systems-detail-cell {

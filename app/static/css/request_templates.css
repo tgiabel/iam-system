@@ -12,13 +12,7 @@
     padding: 24px 28px;
     border: 1px solid var(--border-color);
     border-radius: 20px;
-    background:
-        radial-gradient(
-            circle at top right,
-            color-mix(in srgb, rgb(var(--color-primary-rgb)) 14%, transparent),
-            transparent 34%
-        ),
-        linear-gradient(180deg, var(--surface-card) 0%, var(--surface-subtle) 100%);
+    background: var(--surface-card);
 }
 
 .request-templates-hero-slim {
@@ -134,13 +128,7 @@
 }
 
 .request-template-card-all {
-    background:
-        radial-gradient(
-            circle at top left,
-            color-mix(in srgb, rgb(var(--color-primary-rgb)) 14%, transparent),
-            transparent 60%
-        ),
-        var(--surface-card);
+    background: var(--surface-card);
 }
 
 .request-template-card-add {

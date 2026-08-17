@@ -39,13 +39,13 @@ function typeMap(roleType) {
 function getTypeClass(roleType) {
     switch (roleType) {
         case "PRIMARY":
-            return "roles-type-primary";
+            return "ui-chip-primary";
         case "SECONDARY":
-            return "roles-type-secondary";
+            return "ui-chip-accent";
         case "TEMPLATE":
-            return "roles-type-template";
+            return "ui-chip-neutral";
         default:
-            return "roles-type-template";
+            return "ui-chip-neutral";
     }
 }
 
@@ -165,7 +165,7 @@ function renderRoles() {
         const isInactive = String(role.role_status || "").toUpperCase() === "INACTIVE";
 
         return `
-            <tr class="roles-table-row ${isInactive ? "is-inactive" : ""}" data-role-id="${escapeHtml(role.role_id)}" data-role-url="${escapeHtml(roleUrl)}">
+            <tr class="ui-table-row roles-table-row ${isInactive ? "is-inactive" : ""}" data-role-id="${escapeHtml(role.role_id)}" data-role-url="${escapeHtml(roleUrl)}">
                 <td class="roles-name-cell">
                     <div class="roles-name-block">
                         <span class="roles-name-main">${escapeHtml(role.name || "-")}</span>
@@ -173,12 +173,12 @@ function renderRoles() {
                     </div>
                 </td>
                 <td>
-                    <span class="roles-type-badge ${getTypeClass(role.role_type)}">${escapeHtml(typeMap(role.role_type))}</span>
+                    <span class="ui-chip ${getTypeClass(role.role_type)}">${escapeHtml(typeMap(role.role_type))}</span>
                 </td>
                 <td class="roles-parent-cell">${escapeHtml(role.parent_role_name || "-")}</td>
                 <td class="roles-resource-cell">
                     <div class="roles-resource-block">
-                        <span class="roles-resource-count" title="${escapeHtml(resourcePreview.title)}">${resources.length}</span>
+                        <span class="ui-table-count" title="${escapeHtml(resourcePreview.title)}">${resources.length}</span>
                         <span class="roles-resource-preview ${resourcePreview.isEmpty ? "is-empty" : ""}" title="${escapeHtml(resourcePreview.title)}">
                             ${escapeHtml(resourcePreview.text)}
                         </span>
@@ -186,7 +186,7 @@ function renderRoles() {
                 </td>
                 <td class="roles-resource-cell">
                     <div class="roles-resource-block">
-                        <span class="roles-resource-count" title="${escapeHtml(assignmentPreview.title)}">${assignments.length}</span>
+                        <span class="ui-table-count" title="${escapeHtml(assignmentPreview.title)}">${assignments.length}</span>
                         <span class="roles-resource-preview ${assignmentPreview.isEmpty ? "is-empty" : ""}" title="${escapeHtml(assignmentPreview.title)}">
                             ${escapeHtml(assignmentPreview.text)}
                         </span>

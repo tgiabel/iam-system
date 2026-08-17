@@ -60,40 +60,19 @@
 }
 
 .roles-table-card {
-    overflow: hidden;
+    --ui-table-max-height: 65vh;
 }
 
-.roles-table-card .table-wrapper {
-    margin-bottom: 0;
-    background: transparent;
-    box-shadow: none;
-    border-radius: 0;
-    overflow: auto;
-    max-height: min(34rem, 60vh);
-}
-
-.roles-table-card thead {
-    background: var(--table-header-bg);
-}
-
-.roles-table-card tbody tr:hover {
-    background: rgba(65, 105, 225, 0.04);
+#rbac-table {
+    min-width: 980px;
 }
 
 .roles-table-row {
     cursor: default;
 }
 
-.roles-table-row.is-inactive {
-    background: linear-gradient(180deg, rgba(247, 248, 250, 0.96), rgba(244, 246, 249, 0.96));
-}
-
-.roles-table-row.is-inactive:hover {
-    background: linear-gradient(180deg, rgba(242, 244, 248, 0.98), rgba(239, 242, 247, 0.98));
-}
-
 .roles-table-card tbody td.roles-name-cell {
-    color: #162133;
+    color: var(--ui-text-strong);
     font-weight: 600;
 }
 
@@ -109,40 +88,12 @@
 }
 
 .roles-name-meta {
-    color: #6d7d91;
+    color: var(--ui-text-muted);
     font-size: 0.84rem;
 }
 
 .roles-table-card tbody td.roles-parent-cell {
-    color: #5f6f84;
-}
-
-.roles-type-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 2rem;
-    min-width: 7rem;
-    padding: 0.2rem 0.85rem;
-    border-radius: 999px;
-    font-size: 0.84rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.roles-type-primary {
-    background: #edf4ff;
-    color: #2459b3;
-}
-
-.roles-type-secondary {
-    background: #f2edff;
-    color: #6d4bc6;
-}
-
-.roles-type-template {
-    background: #eef1f6;
-    color: #556274;
+    color: var(--ui-text-muted);
 }
 
 .roles-resource-cell {
@@ -155,34 +106,15 @@
     gap: 0.35rem;
 }
 
-.roles-resource-count {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: fit-content;
-    min-width: 2.75rem;
-    min-height: 2.35rem;
-    padding: 0.35rem 0.8rem;
-    border-radius: 14px;
-    background: linear-gradient(180deg, #ffffff, #f4f8ff);
-    border: 1px solid rgba(65, 105, 225, 0.14);
-    color: var(--color-primary);
-    font-weight: 700;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.85),
-        0 8px 18px rgba(65, 105, 225, 0.08);
-    font-size: 0.95rem;
-    line-height: 1;
-}
-
 .roles-resource-preview {
-    color: #67778d;
+    color: var(--ui-text-muted);
     font-size: 0.88rem;
     line-height: 1.35;
 }
 
 .roles-resource-preview.is-empty {
-    color: #8a96a8;
+    color: var(--ui-text-muted);
+    opacity: 0.8;
 }
 
 .roles-detail-cell {

@@ -12,8 +12,7 @@
 }
 
 .overlay-content-wrapper {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 98%, transparent), color-mix(in srgb, var(--surface-muted) 96%, transparent));
+  background: var(--surface-card);
   border: 1px solid color-mix(in srgb, var(--border-color) 88%, transparent);
   border-radius: 12px;
   max-height: 90vh;
@@ -107,10 +106,7 @@
   background-color: var(--surface-muted);
   border-radius: 4px;
   margin: 10px 0;
-  background-image: linear-gradient(to right, var(--surface-muted) 0%, var(--surface-soft) 20%, var(--surface-muted) 40%, var(--surface-muted) 100%);
-  background-size: 200% 100%;
-  background-repeat: no-repeat;
-  animation: shimmer 1.5s infinite ease-out;
+  animation: skeleton-pulse 1.5s infinite ease-in-out;
 }
 
 .skeleton.title {
@@ -127,9 +123,9 @@
   width: 50%;
 }
 
-@keyframes shimmer {
-  0% { background-position: -200px 0; }
-  100% { background-position: 200px 0; }
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 
 @media (max-width: 720px) {
