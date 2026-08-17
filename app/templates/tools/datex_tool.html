@@ -17,30 +17,197 @@
 {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h2>DAT-Export konvertieren</h2>
-    <p class="report-kicker">Upload einer DAT-Datei und direkter Excel-Download</p>
+<div class="container datex-container">
+    <header class="datex-page-header">
+        <p class="report-kicker">Prüfen & korrigieren</p>
+        <h2>DAT-Export Check</h2>
+        <p class="datex-intro">Fehlerhafte Datensätze nach Bankleitzahl finden, vor dem Export prüfen und als korrigierte DAT-Datei herunterladen.</p>
+    </header>
 
-    <form id="datexForm" action="/api/tools/datex/convert" method="post" enctype="multipart/form-data">
-        <div class="form-group">
-            <label for="fileInput">DAT-Datei</label>
-            <div id="dropArea" class="process-card process-toggle" tabindex="0" role="button" aria-controls="fileInput" aria-label="DAT-Datei auswählen oder hineinziehen">
-                <div class="process-main">
-                    <span class="process-title">Datei hierher ziehen oder klicken</span>
-                    <span class="process-subtitle">Für das DAT-Export-Format mit festen 207 Zeichen pro Datensatz.</span>
-                </div>
-                <span class="process-chevron" aria-hidden="true">↑</span>
-            </div>
-            <input type="file" id="fileInput" name="datfile" accept=".dat,text/plain" required hidden>
-            <div id="fileName" class="report-meta">
-                <div class="report-meta-item">
-                    <span class="report-meta-label">Ausgewählte Datei</span>
-                    <span class="report-meta-value">Keine Datei ausgewählt</span>
-                </div>
+    <section id="datexUploadPanel" class="datex-panel datex-upload-panel" aria-labelledby="datex-upload-title">
+        <div class="datex-section-heading">
+            <div>
+                <p class="report-kicker">Schritt 1</p>
+                <h3 id="datex-upload-title">DAT-Datei einlesen</h3>
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary">Excel-Datei erzeugen</button>
-    </form>
+        <div id="datexUploadExpanded">
+            <form id="datexForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="datex-label" for="fileInput">Debit- oder Kredit-Datei</label>
+                    <div id="dropArea" class="process-card process-toggle" tabindex="0" role="button" aria-controls="fileInput" aria-label="DAT-Datei auswählen oder hineinziehen">
+                        <div class="process-main">
+                            <span class="process-title">Datei hierher ziehen oder klicken</span>
+                            <span class="process-subtitle">DAT-Format mit Kopf- und Fußdatensatz sowie festen 207 Byte pro Datensatz.</span>
+                        </div>
+                        <span class="process-chevron" aria-hidden="true">↑</span>
+                    </div>
+                    <input type="file" id="fileInput" name="datfile" accept=".dat,application/octet-stream,text/plain" required hidden>
+                </div>
+
+                <div class="datex-upload-footer">
+                    <div>
+                        <span class="report-meta-label">Ausgewählte Datei</span>
+                        <span id="fileNameValue" class="datex-file-name">Keine Datei ausgewählt</span>
+                    </div>
+                    <div class="datex-upload-actions">
+                        <button id="collapseUploadButton" type="button" class="btn btn-secondary" hidden>Upload minimieren</button>
+                        <button id="previewButton" type="submit" class="btn btn-primary">Datei prüfen</button>
+                    </div>
+                </div>
+            </form>
+            <div id="datexStatus" class="datex-status" role="status" aria-live="polite" hidden></div>
+        </div>
+
+        <div id="datexUploadCompact" class="datex-upload-compact" hidden>
+            <div>
+                <span class="report-meta-label">Aktuelle Datei</span>
+                <strong id="compactFileName" class="datex-file-name">–</strong>
+            </div>
+            <button id="expandUploadButton" type="button" class="btn btn-secondary">Andere Datei einlesen</button>
+        </div>
+    </section>
+
+    <div id="datexEditor" hidden>
+        <div class="datex-action-dock" aria-label="Aktueller Korrekturstand">
+            <div class="datex-action-dock-copy">
+                <span class="report-kicker">Korrekturstand</span>
+                <strong><span id="dockRemainingCount">0</span> Datensätze · Menge <span id="dockRemainingMenge">0</span></strong>
+            </div>
+            <div class="datex-action-dock-buttons">
+                <button id="openRemovalButton" type="button" class="datex-review-counter" disabled>
+                    Vorgemerkt <strong id="dockRemovedCount">0</strong>
+                </button>
+                <button id="exportButton" type="button" class="btn btn-primary" disabled>DAT + Prüfbericht herunterladen</button>
+            </div>
+        </div>
+
+        <section class="datex-panel" aria-labelledby="datex-summary-title">
+            <div class="datex-section-heading">
+                <div>
+                    <p class="report-kicker">Schritt 2</p>
+                    <h3 id="datex-summary-title">Datei prüfen und bereinigen</h3>
+                </div>
+                <span id="datexValidationBadge" class="datex-badge datex-badge-success">Datei ist strukturell gültig</span>
+            </div>
+
+            <div class="datex-summary-grid">
+                <div class="datex-summary-card">
+                    <span>Datensätze original</span>
+                    <strong id="originalRowCount">0</strong>
+                </div>
+                <div class="datex-summary-card datex-summary-removed">
+                    <span>Vorgemerkt</span>
+                    <strong id="removedRowCount">0</strong>
+                </div>
+                <div class="datex-summary-card datex-summary-kept">
+                    <span>Datensätze korrigiert</span>
+                    <strong id="remainingRowCount">0</strong>
+                </div>
+                <div class="datex-summary-card">
+                    <span>Menge original</span>
+                    <strong id="originalMenge">0</strong>
+                </div>
+                <div class="datex-summary-card datex-summary-removed">
+                    <span>Menge entfernt</span>
+                    <strong id="removedMenge">0</strong>
+                </div>
+                <div class="datex-summary-card datex-summary-kept">
+                    <span>Menge korrigiert</span>
+                    <strong id="remainingMenge">0</strong>
+                </div>
+            </div>
+
+            <div id="datexWarnings" class="datex-warnings" hidden></div>
+
+            <div class="datex-toolbar">
+                <div class="datex-search-group">
+                    <label for="blzFilter">Nach BLZ filtern</label>
+                    <input id="blzFilter" type="search" inputmode="numeric" autocomplete="off" placeholder="z. B. 70169614">
+                </div>
+                <button id="clearFilterButton" type="button" class="btn btn-secondary">Filter löschen</button>
+                <button id="removeFilteredButton" type="button" class="btn datex-btn-danger" disabled>Gefilterte Datensätze vormerken</button>
+            </div>
+            <p id="activeResultSummary" class="datex-result-summary"></p>
+
+            <div class="datex-table-wrap">
+                <table class="datex-table">
+                    <thead>
+                        <tr>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="file_row">Zeile</button></th>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="BLZ">BLZ</button></th>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="Filiale">Filiale</button></th>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="KTONr">Kontonummer</button></th>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="Leistungsnummer">Leistungsnummer</button></th>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="Menge">Menge</button></th>
+                            <th scope="col">Betrag</th>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="Sperrdatum">Datum</button></th>
+                            <th scope="col"><button type="button" class="datex-sort" data-sort="Nachname">Name</button></th>
+                            <th scope="col">Details</th>
+                            <th scope="col"><span class="datex-visually-hidden">Aktion</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="activeRows"></tbody>
+                </table>
+            </div>
+            <div id="activeEmpty" class="empty-state" hidden>Keine aktiven Datensätze entsprechen diesem BLZ-Filter.</div>
+
+            <nav class="datex-pagination" aria-label="Seitennavigation der aktiven Datensätze">
+                <button id="previousPageButton" type="button" class="btn btn-secondary">Zurück</button>
+                <span id="pageSummary">Seite 1 von 1</span>
+                <button id="nextPageButton" type="button" class="btn btn-secondary">Weiter</button>
+            </nav>
+        </section>
+    </div>
+
+    <div id="datexRemovalOverlay" class="ui-modal-overlay datex-removal-overlay" aria-hidden="true">
+        <section class="ui-modal datex-removal-drawer" role="dialog" aria-modal="true" aria-labelledby="datex-removal-title">
+            <header class="ui-modal-header">
+                <div class="ui-section-heading">
+                    <p class="ui-section-kicker">Kontrollliste</p>
+                    <h3 id="datex-removal-title">Vorgemerkte Datensätze</h3>
+                    <p class="ui-section-copy">Diese Zeilen werden beim Download entfernt. Prüfe sie hier oder stelle sie wieder her.</p>
+                </div>
+                <button id="closeRemovalButton" type="button" class="ui-icon-button" aria-label="Kontrollliste schließen">&times;</button>
+            </header>
+            <div class="ui-modal-body datex-removal-body">
+                <div id="removedEmpty" class="ui-empty-state">Noch keine Datensätze zum Entfernen vorgemerkt.</div>
+                <div id="removedTableWrap" class="datex-table-wrap" hidden>
+                    <table class="datex-table datex-removed-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Zeile</th>
+                                <th scope="col">BLZ</th>
+                                <th scope="col">Kontonummer</th>
+                                <th scope="col">Leistungsnummer</th>
+                                <th scope="col">Menge</th>
+                                <th scope="col">Name</th>
+                                <th scope="col">Details</th>
+                                <th scope="col"><span class="datex-visually-hidden">Aktion</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="removedRows"></tbody>
+                    </table>
+                </div>
+            </div>
+            <footer class="ui-modal-footer datex-removal-footer">
+                <button id="restoreAllButton" type="button" class="btn btn-secondary" disabled>Alle wiederherstellen</button>
+                <button id="overlayExportButton" type="button" class="btn btn-primary" disabled>DAT + Prüfbericht herunterladen</button>
+            </footer>
+        </section>
+    </div>
+
+    <dialog id="datexDetailDialog" class="datex-detail-dialog" aria-labelledby="datex-detail-title">
+        <div class="datex-detail-dialog-header">
+            <div>
+                <p class="report-kicker">Datensatzdetails</p>
+                <h3 id="datex-detail-title">Datensatz</h3>
+            </div>
+            <button id="datexDetailClose" type="button" class="btn btn-secondary">Schließen</button>
+        </div>
+        <div id="datexDetailContent" class="datex-detail-content"></div>
+        <code id="datexDetailRaw" class="datex-raw-record"></code>
+    </dialog>
 </div>
 {% endblock %}

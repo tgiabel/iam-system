@@ -17,7 +17,7 @@ from app.authz import (
     require_login,
     require_permission,
 )
-from app.helpers.datex import build_datex_export
+from app.helpers.datex import build_corrected_package, build_datex_preview
 from app.routes.shared import (
     _build_template_context,
     _coerce_bool,
@@ -44,43 +44,60 @@ def _request_uses_https(request: Request) -> bool:
     return request.url.scheme.lower() == "https"
 
 
-@router.post("/tools/datex/convert")
-async def convert_datex_file(
-    request: Request,
+@router.post("/tools/datex/preview")
+async def preview_datex_file(
     datfile: UploadFile = File(...),
-    authz=Depends(require_permission("SOFA-TOOL-DATX")),
+    _authz=Depends(require_permission("SOFA-TOOL-DATX")),
 ):
     try:
         if not datfile.filename:
-            return templates.TemplateResponse(
-                "tools/datex_tool.html",
-                _build_template_context(
-                    request,
-                    user=authz.raw_user,
-                    authz=authz,
-                    flash_messages=[("failure", "Bitte waehlen Sie eine DAT-Datei aus.")],
-                ),
+            return JSONResponse(
+                content={"error": "Bitte waehlen Sie eine DAT-Datei aus."},
                 status_code=400,
             )
 
-        filename, workbook = build_datex_export(await datfile.read())
+        preview = build_datex_preview(await datfile.read())
+        preview["filename"] = datfile.filename
+        return JSONResponse(content=preview)
     except ValueError as exc:
-        return templates.TemplateResponse(
-            "tools/datex_tool.html",
-            _build_template_context(
-                request,
-                user=authz.raw_user,
-                authz=authz,
-                flash_messages=[("failure", str(exc))],
-            ),
+        return JSONResponse(
+            content={"error": str(exc)},
             status_code=400,
         )
     finally:
         await datfile.close()
 
+
+@router.post("/tools/datex/download")
+async def download_corrected_datex_file(
+    datfile: UploadFile = File(...),
+    removed_indices_json: str = Form(...),
+    _authz=Depends(require_permission("SOFA-TOOL-DATX")),
+):
+    try:
+        if not datfile.filename:
+            raise ValueError("Bitte waehlen Sie eine DAT-Datei aus.")
+
+        try:
+            removed_indices = json.loads(removed_indices_json)
+        except json.JSONDecodeError as exc:
+            raise ValueError("Die Liste der entfernten Datensaetze ist ungueltig.") from exc
+        if not isinstance(removed_indices, list):
+            raise ValueError("Die Liste der entfernten Datensaetze ist ungueltig.")
+
+        filename, package = build_corrected_package(
+            await datfile.read(),
+            removed_indices,
+            datfile.filename,
+        )
+    except ValueError as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=400)
+    finally:
+        await datfile.close()
+
     return StreamingResponse(
-        workbook,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        package,
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
