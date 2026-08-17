@@ -52,6 +52,17 @@
                     </div>
                 </div>
 
+                <div class="tasks-visibility-row" role="group" aria-label="Zusätzliche Aufgaben einblenden">
+                    <label class="tasks-visibility-toggle">
+                        <input type="checkbox" id="tasks-show-blocked">
+                        <span>Blockierte Tasks anzeigen</span>
+                    </label>
+                    <label class="tasks-visibility-toggle">
+                        <input type="checkbox" id="tasks-show-deferred">
+                        <span>Nachgelagerte Tasks anzeigen</span>
+                    </label>
+                </div>
+
                 <div class="tasks-toolbar-footer">
                     <p class="tasks-filter-summary" id="tasks-filter-summary">Alle Aufgaben sichtbar</p>
                     <button type="button" class="btn btn-secondary" id="tasks-filter-reset">Filter zurücksetzen</button>
@@ -69,6 +80,7 @@
                     <button type="button" class="btn btn-secondary" id="open-tasks-bulk-assign">Alle übernehmen</button>
                     <span class="ui-count-pill ui-count-pill-info" id="open-tasks-count">0</span>
                     <span class="ui-count-pill ui-count-pill-neutral" id="blocked-tasks-count" hidden>0</span>
+                    <span class="ui-count-pill ui-count-pill-neutral" id="deferred-tasks-count" hidden>0</span>
                 </div>
             </div>
             <div class="task-strip" id="open-tasks-slider"></div>
@@ -89,16 +101,6 @@
             <div class="task-strip" id="my-tasks-slider"></div>
         </div>
 
-        <div class="task-section">
-            <div class="ui-section-header">
-                <div class="ui-section-heading">
-                    <p class="ui-section-kicker">Erledigte Aufgaben</p>
-                    <h3 class="ui-section-title">HISTORIE</h3>
-                    <p class="ui-section-copy">Die l</p>
-                </div>
-            </div>
-            <div class="task-strip" id="completed-tasks-slider"></div>
-        </div>
     </section>
 </div>
 
@@ -110,7 +112,7 @@
                 <h3 id="task-modal-title">Task-Details</h3>
             </div>
             <div class="task-modal-header-actions">
-                <button id="task-help-btn" class="task-help-btn" type="button" aria-label="Hilfe anzeigen">
+                <button id="task-help-btn" class="ui-flat-button ui-flat-button--icon task-help-btn" type="button" aria-label="Hilfe anzeigen">
                     <img src="/static/img/help-icon.png" alt="" class="task-help-icon">
                 </button>
                 <span class="ui-status-badge ui-status-neutral" id="task-modal-status">Offen</span>

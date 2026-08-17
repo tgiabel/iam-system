@@ -1126,9 +1126,10 @@ async def api_tasks_overview(current_user=Depends(require_permission("SOFA-PAGE-
     try:
         user_id = current_user.user_id
         tasks = await api_client.get_task_overview(user_id)
-        for key in ("open_tasks", "blocked_tasks", "user_tasks", "completed_tasks"):
+        for key in ("open_tasks", "blocked_tasks", "user_tasks"):
             if isinstance(tasks.get(key), list):
                 tasks[key] = _filter_tasks_for_scope(tasks[key], current_user)
+        tasks.pop("completed_tasks", None)
         return JSONResponse(content=tasks)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)

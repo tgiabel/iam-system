@@ -22,7 +22,8 @@ const LABELS = {
     handling: {
         INTERNAL: "Intern",
         EXTERNAL: "Mail",
-        BOT: "Automatisiert"
+        BOT: "Automatisiert",
+        EVENT: "Ereignis"
     },
     taskType: {
         ASSIGNMENT: "Zuweisung",
@@ -65,10 +66,19 @@ const TASK_FILTER_DEFAULTS = {
     backlog: ""
 };
 
+// Blockierte und nachgelagerte Aufgaben werden erst auf Wunsch eingeblendet.
+// Bewusst nicht Teil von TASK_FILTER_DEFAULTS: hasActiveTaskFilters() arbeitet
+// auf Strings und wuerde Booleans falsch auswerten.
+const TASK_VISIBILITY_DEFAULTS = {
+    showBlocked: false,
+    showDeferred: false
+};
+
 const NO_BACKLOG_FILTER_VALUE = "__NONE__";
 
 const taskViewState = {
     filters: { ...TASK_FILTER_DEFAULTS },
+    visibility: { ...TASK_VISIBILITY_DEFAULTS },
     filterOptions: {
         status: [],
         handling: [],
@@ -79,14 +89,12 @@ const taskViewState = {
     filteredBuckets: {
         open: [],
         blocked: [],
-        mine: [],
-        completed: []
+        mine: []
     },
     buckets: {
         open: [],
         blocked: [],
-        mine: [],
-        completed: []
+        mine: []
     }
 };
 
@@ -422,9 +430,6 @@ function formatDateTime(value) {
 }
 
 function getTaskStateClass(task) {
-    if (task.uiListState === "completed") {
-        return "is-completed";
-    }
     if (task.uiListState === "blocked") {
         return "is-blocked";
     }
@@ -499,6 +504,31 @@ function getTaskTypeFilterKey(task) {
     return String(task?.task_type || "").trim().toUpperCase();
 }
 
+function isBlockedTask(task) {
+    return task?.uiListState === "blocked";
+}
+
+function isDeferredTask(task) {
+    // Fehlendes Feld gilt als REQUIRED, damit ohne Backend-Feld nichts verschwindet.
+    return String(task?.provisioning_requirement || "").trim().toUpperCase() === "DEFERRED";
+}
+
+function isEventHandlingTask(task) {
+    return getTaskHandlingFilterKey(task) === "EVENT";
+}
+
+function taskPassesVisibilityToggles(task) {
+    if (isBlockedTask(task) && !taskViewState.visibility.showBlocked) {
+        return false;
+    }
+
+    if (isDeferredTask(task) && !taskViewState.visibility.showDeferred) {
+        return false;
+    }
+
+    return true;
+}
+
 function getTaskSearchIndex(task) {
     return [
         task.task_id,
@@ -520,8 +550,7 @@ function collectAllTasks() {
     return [
         ...taskViewState.buckets.open,
         ...taskViewState.buckets.blocked,
-        ...taskViewState.buckets.mine,
-        ...taskViewState.buckets.completed
+        ...taskViewState.buckets.mine
     ];
 }
 
@@ -532,7 +561,9 @@ function createSortedFilterOptions(values, formatter) {
 }
 
 function buildTaskFilterOptions() {
-    const tasks = collectAllTasks();
+    // Optionen nur aus dem, was aktuell ueberhaupt sichtbar sein darf - sonst liesse sich
+    // z. B. "Blockiert" waehlen, obwohl der zugehoerige Haken aus ist.
+    const tasks = collectAllTasks().filter(taskPassesVisibilityToggles);
 
     taskViewState.filterOptions.status = createSortedFilterOptions(
         tasks.map(getTaskStatusFilterKey),
@@ -550,6 +581,17 @@ function buildTaskFilterOptions() {
         tasks.map(getTaskBacklogFilterKey),
         formatBacklogFilterValue
     );
+
+    pruneStaleFilterSelections();
+}
+
+function pruneStaleFilterSelections() {
+    Object.entries(taskViewState.filterOptions).forEach(([filterKey, options]) => {
+        const selected = taskViewState.filters[filterKey];
+        if (selected && !options.some(option => option.value === selected)) {
+            taskViewState.filters[filterKey] = "";
+        }
+    });
 }
 
 function populateFilterSelect(elementId, options, defaultLabel, selectedValue) {
@@ -599,27 +641,48 @@ function syncTaskFilterControls() {
         "Alle",
         taskViewState.filters.backlog
     );
+
+    setVisibilityToggleChecked("tasks-show-blocked", taskViewState.visibility.showBlocked);
+    setVisibilityToggleChecked("tasks-show-deferred", taskViewState.visibility.showDeferred);
+}
+
+function setVisibilityToggleChecked(elementId, isChecked) {
+    const toggle = document.getElementById(elementId);
+    if (toggle) {
+        toggle.checked = Boolean(isChecked);
+    }
 }
 
 function hasActiveTaskFilters() {
     return Object.values(taskViewState.filters).some(value => String(value || "").trim() !== "");
 }
 
+function hasNonDefaultTaskView() {
+    const visibilityChanged = Object.keys(TASK_VISIBILITY_DEFAULTS).some(
+        key => taskViewState.visibility[key] !== TASK_VISIBILITY_DEFAULTS[key]
+    );
+    return hasActiveTaskFilters() || visibilityChanged;
+}
+
 function updateTaskFilterSummary(visibleCount, totalCount) {
     const summary = document.getElementById("tasks-filter-summary");
     if (summary) {
-        summary.textContent = hasActiveTaskFilters()
+        summary.textContent = visibleCount !== totalCount
             ? `${visibleCount} von ${totalCount} Aufgaben sichtbar`
             : `${totalCount} Aufgaben sichtbar`;
     }
 
     const resetButton = document.getElementById("tasks-filter-reset");
     if (resetButton) {
-        resetButton.disabled = !hasActiveTaskFilters();
+        resetButton.disabled = !hasNonDefaultTaskView();
     }
 }
 
 function taskMatchesFilters(task) {
+    return taskPassesVisibilityToggles(task) && taskMatchesSearchAndSelectFilters(task);
+}
+
+function taskMatchesSearchAndSelectFilters(task) {
     const normalizedSearch = normalizeSearchValue(taskViewState.filters.search);
     if (normalizedSearch && !getTaskSearchIndex(task).includes(normalizedSearch)) {
         return false;
@@ -648,13 +711,12 @@ function filterTaskBuckets() {
     return {
         open: taskViewState.buckets.open.filter(taskMatchesFilters),
         blocked: taskViewState.buckets.blocked.filter(taskMatchesFilters),
-        mine: taskViewState.buckets.mine.filter(taskMatchesFilters),
-        completed: taskViewState.buckets.completed.filter(taskMatchesFilters)
+        mine: taskViewState.buckets.mine.filter(taskMatchesFilters)
     };
 }
 
 function isTaskCompleted(task) {
-    return task.uiListState === "completed" || task.status === "COMPLETED" || Boolean(task.completed_at);
+    return task.status === "COMPLETED" || Boolean(task.completed_at);
 }
 
 function findRelatedOpenRevocationTasks(task) {
@@ -1758,7 +1820,6 @@ async function dispatchBot(task) {
 function renderTaskBuckets(filteredBuckets) {
     const openContainer = document.getElementById("open-tasks-slider");
     const myContainer = document.getElementById("my-tasks-slider");
-    const completedContainer = document.getElementById("completed-tasks-slider");
 
     const openAndBlocked = [...filteredBuckets.open, ...filteredBuckets.blocked];
     const isFiltered = hasActiveTaskFilters();
@@ -1775,20 +1836,44 @@ function renderTaskBuckets(filteredBuckets) {
             : renderEmptyState(isFiltered ? "Keine eigenen Aufgaben für die aktuelle Suche" : "Keine eigenen Aufgaben");
     }
 
-    if (completedContainer) {
-        completedContainer.innerHTML = filteredBuckets.completed.length
-            ? filteredBuckets.completed.map(renderTaskTile).join("")
-            : renderEmptyState(isFiltered ? "Keine erledigten Aufgaben für die aktuelle Suche" : "Keine abgeschlossenen Aufgaben");
-    }
-
     setCount("open-tasks-count", filteredBuckets.open.length);
     setCount("my-tasks-count", filteredBuckets.mine.length);
 
-    const blockedCountEl = document.getElementById("blocked-tasks-count");
-    if (blockedCountEl) {
-        blockedCountEl.textContent = String(filteredBuckets.blocked.length);
-        blockedCountEl.hidden = filteredBuckets.blocked.length === 0;
+    updateGroupCountPill(
+        "blocked-tasks-count",
+        countOpenTasksMatchingSelection(isBlockedTask),
+        taskViewState.visibility.showBlocked,
+        "blockierte Aufgaben"
+    );
+    updateGroupCountPill(
+        "deferred-tasks-count",
+        countOpenTasksMatchingSelection(isDeferredTask),
+        taskViewState.visibility.showDeferred,
+        "Nachlieferungen"
+    );
+}
+
+// Zaehlt bewusst ohne die Sichtbarkeits-Haken, damit das Pill auch dann meldet,
+// wie viele Aufgaben gerade ausgeblendet sind.
+function countOpenTasksMatchingSelection(predicate) {
+    return collectAllTasks().filter(task =>
+        predicate(task) &&
+        taskMatchesSearchAndSelectFilters(task)
+    ).length;
+}
+
+function updateGroupCountPill(elementId, count, isVisible, groupLabel) {
+    const pill = document.getElementById(elementId);
+    if (!pill) {
+        return;
     }
+
+    pill.textContent = String(count);
+    pill.hidden = count === 0;
+    pill.classList.toggle("is-muted-group", !isVisible);
+    pill.title = isVisible
+        ? `${count} ${groupLabel}`
+        : `${count} ${groupLabel} ausgeblendet`;
 }
 
 function refreshTaskView() {
@@ -1808,6 +1893,8 @@ function initTaskFilters() {
     const handlingFilter = document.getElementById("tasks-handling-filter");
     const typeFilter = document.getElementById("tasks-type-filter");
     const backlogFilter = document.getElementById("tasks-backlog-filter");
+    const showBlockedToggle = document.getElementById("tasks-show-blocked");
+    const showDeferredToggle = document.getElementById("tasks-show-deferred");
     const resetButton = document.getElementById("tasks-filter-reset");
 
     if (searchInput && searchInput.dataset.bound !== "true") {
@@ -1850,10 +1937,15 @@ function initTaskFilters() {
         });
     }
 
+    bindVisibilityToggle(showBlockedToggle, "showBlocked");
+    bindVisibilityToggle(showDeferredToggle, "showDeferred");
+
     if (resetButton && resetButton.dataset.bound !== "true") {
         resetButton.dataset.bound = "true";
         resetButton.addEventListener("click", () => {
             taskViewState.filters = { ...TASK_FILTER_DEFAULTS };
+            taskViewState.visibility = { ...TASK_VISIBILITY_DEFAULTS };
+            buildTaskFilterOptions();
             syncTaskFilterControls();
             refreshTaskView();
         });
@@ -1861,6 +1953,21 @@ function initTaskFilters() {
 
     syncTaskFilterControls();
     updateTaskFilterSummary(0, 0);
+}
+
+function bindVisibilityToggle(toggle, visibilityKey) {
+    if (!toggle || toggle.dataset.bound === "true") {
+        return;
+    }
+
+    toggle.dataset.bound = "true";
+    toggle.addEventListener("change", event => {
+        taskViewState.visibility[visibilityKey] = Boolean(event.target.checked);
+        // Die Filteroptionen haengen an der Sichtbarkeit und muessen neu aufgebaut werden.
+        buildTaskFilterOptions();
+        syncTaskFilterControls();
+        refreshTaskView();
+    });
 }
 
 async function loadTaskBacklogs() {
@@ -1890,6 +1997,10 @@ async function loadInitialTaskData() {
     ]);
 }
 
+function countBadgeRelevantTasks(tasks) {
+    return tasks.filter(task => !isDeferredTask(task) && !isEventHandlingTask(task)).length;
+}
+
 async function loadTasks() {
     try {
         const res = await fetch("/api/tasks/overview");
@@ -1898,22 +2009,26 @@ async function loadTasks() {
         const openTasks = decorateTasks(Array.isArray(data.open_tasks) ? data.open_tasks : [], "open");
         const blockedTasks = decorateTasks(Array.isArray(data.blocked_tasks) ? data.blocked_tasks : [], "blocked");
         const myTasks = decorateTasks(Array.isArray(data.user_tasks) ? data.user_tasks : [], "mine");
-        const completedTasks = decorateTasks(Array.isArray(data.completed_tasks) ? data.completed_tasks : [], "completed");
 
         taskViewState.buckets = {
             open: openTasks,
             blocked: blockedTasks,
-            mine: myTasks,
-            completed: completedTasks
+            mine: myTasks
         };
 
-        window.sofaSetTaskCountBadge?.(openTasks.length + myTasks.length);
+        // Gleiche Regel wie GET /sofa/me -> task_count: offene plus eigene Aufgaben,
+        // ohne Nachlieferungen und ohne EVENT-Handling. Blockierte zaehlen ohnehin nicht mit.
+        // Bewusst auf den rohen Buckets - Suche, Dropdowns und die Sichtbarkeits-Haken
+        // duerfen die Badge nie veraendern.
+        window.sofaSetTaskCountBadge?.(
+            countBadgeRelevantTasks(openTasks) + countBadgeRelevantTasks(myTasks)
+        );
 
         buildTaskFilterOptions();
         syncTaskFilterControls();
 
         window.taskIndex = {};
-        [...openTasks, ...blockedTasks, ...myTasks, ...completedTasks].forEach(task => {
+        [...openTasks, ...blockedTasks, ...myTasks].forEach(task => {
             window.taskIndex[String(task.task_id)] = task;
         });
 

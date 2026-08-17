@@ -11,9 +11,7 @@
     flex-direction: column;
     gap: 1.15rem;
     padding: 1.4rem;
-    background:
-        radial-gradient(circle at top left, rgba(var(--color-primary-rgb), 0.14), transparent 30%),
-        linear-gradient(135deg, var(--surface-card), var(--surface-soft) 52%, var(--surface-subtle));
+    background: var(--surface-card);
 }
 
 .console-calendar-head {
@@ -76,7 +74,7 @@
     padding: 1rem;
     border-radius: 22px;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 96%, transparent), color-mix(in srgb, var(--surface-subtle) 92%, transparent));
+    background: var(--surface-card);
 }
 
 .console-calendar-day.is-today {
@@ -85,7 +83,7 @@
 }
 
 .console-calendar-day.is-empty {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-muted) 94%, transparent), color-mix(in srgb, var(--surface-subtle) 92%, transparent));
+    background: var(--surface-muted);
 }
 
 .console-day-head {
@@ -122,7 +120,7 @@
 
 .console-event-card.is-blocking {
     border-color: rgba(var(--color-primary-rgb), 0.46);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-soft) 88%, transparent), color-mix(in srgb, var(--surface-card) 96%, transparent));
+    background: var(--surface-soft);
 }
 
 .console-event-title {
@@ -267,9 +265,7 @@
     justify-content: space-between;
     gap: 1.5rem;
     padding: 1.8rem;
-    background:
-        radial-gradient(circle at top right, rgba(var(--color-primary-rgb), 0.16), transparent 24%),
-        linear-gradient(135deg, var(--surface-card), var(--surface-soft) 55%, var(--surface-subtle));
+    background: var(--surface-card);
 }
 
 .console-hero-title {
@@ -295,9 +291,7 @@
     flex-direction: column;
     gap: 1rem;
     padding: 1.4rem;
-    background:
-        radial-gradient(circle at top left, rgba(var(--color-primary-rgb), 0.12), transparent 30%),
-        linear-gradient(135deg, var(--surface-card), var(--surface-soft) 52%, var(--surface-subtle));
+    background: var(--surface-card);
 }
 
 .console-process-head,
@@ -337,14 +331,62 @@
     color: var(--danger-text);
 }
 
+.console-open-task-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    min-width: 11rem;
+}
+
+.console-open-task-summary > strong {
+    color: var(--text-strong);
+    font-size: 0.9rem;
+}
+
+.console-open-task-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.55rem;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.console-provisioning-phase {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    padding: 0.1rem 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--ui-status-neutral-bg);
+    color: var(--ui-status-neutral-text);
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.console-provisioning-phase-blocking {
+    background: var(--ui-warning-bg);
+    border-color: color-mix(in srgb, var(--ui-warning-text) 22%, transparent);
+    color: var(--ui-warning-text);
+}
+
+.console-provisioning-phase-waiting_event {
+    background: var(--ui-info-bg);
+    border-color: color-mix(in srgb, var(--ui-info-text) 18%, transparent);
+    color: var(--ui-info-text);
+}
+
+.console-open-task-summary.is-followup-only > strong {
+    color: var(--text-default);
+}
+
 .console-reevaluate-panel {
     display: flex;
     flex-direction: column;
     gap: 1rem;
     padding: 1.4rem;
-    background:
-        radial-gradient(circle at top left, rgba(var(--color-primary-rgb), 0.12), transparent 28%),
-        linear-gradient(135deg, var(--surface-card), var(--surface-soft) 52%, var(--surface-subtle));
+    background: var(--surface-card);
 }
 
 .console-sofa-panel {
@@ -352,9 +394,7 @@
     flex-direction: column;
     gap: 1rem;
     padding: 1.4rem;
-    background:
-        radial-gradient(circle at top right, rgba(var(--color-primary-rgb), 0.1), transparent 30%),
-        linear-gradient(135deg, var(--surface-card), var(--surface-soft) 52%, var(--surface-subtle));
+    background: var(--surface-card);
 }
 
 .console-sofa-head,
@@ -466,7 +506,7 @@
 }
 
 .console-sofa-card thead {
-    background: linear-gradient(135deg, color-mix(in srgb, var(--surface-soft) 88%, black), color-mix(in srgb, var(--surface-soft) 58%, black));
+    background: var(--table-header-bg);
 }
 
 .console-sofa-card thead th {
@@ -617,7 +657,7 @@
     padding: 1.1rem;
     border-radius: 22px;
     border: 1px solid color-mix(in srgb, var(--border-color) 92%, transparent);
-    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 96%, transparent), color-mix(in srgb, var(--surface-subtle) 92%, transparent));
+    background: var(--surface-card);
 }
 
 .console-reevaluate-result-kicker,
@@ -803,7 +843,7 @@
     padding: 0.95rem 1rem;
     border-radius: 18px;
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
-    background: linear-gradient(180deg, var(--surface-subtle), var(--surface-card));
+    background: var(--surface-subtle);
 }
 
 .console-list {
@@ -814,9 +854,7 @@
 }
 
 .console-placeholder-panel {
-    background:
-        linear-gradient(180deg, var(--surface-card), var(--surface-subtle)),
-        repeating-linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.04) 0, rgba(var(--color-primary-rgb), 0.04) 10px, transparent 10px, transparent 20px);
+    background: var(--surface-subtle);
 }
 
 .console-placeholder-box {

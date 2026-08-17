@@ -32,6 +32,38 @@
     gap: 0.85rem;
 }
 
+.tasks-visibility-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+}
+
+.tasks-visibility-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.94rem;
+}
+
+.tasks-visibility-toggle input {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+.tasks-visibility-toggle input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.ui-count-pill.is-muted-group {
+    opacity: 0.55;
+}
+
 .tasks-toolbar-footer {
     display: flex;
     align-items: center;
@@ -97,9 +129,7 @@
     padding: 1.2rem;
     border-radius: 4px 4px var(--ui-radius-lg) var(--ui-radius-lg);
     border: 1px solid var(--ui-border);
-    background:
-        linear-gradient(180deg, color-mix(in srgb, var(--surface-card) 98%, transparent), color-mix(in srgb, var(--surface-subtle) 95%, transparent)),
-        var(--ui-surface-card);
+    background: var(--ui-surface-card);
     box-shadow: var(--ui-shadow-sm);
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -137,15 +167,11 @@
 }
 
 .task-card.is-blocked {
-    background:
-        linear-gradient(180deg, var(--task-blocked-bg-start), var(--task-blocked-bg-end)),
-        var(--ui-surface-card);
+    background: var(--task-blocked-bg);
 }
 
 .task-card.is-completed {
-    background:
-        linear-gradient(180deg, var(--task-completed-bg-start), var(--task-completed-bg-end)),
-        var(--ui-surface-card);
+    background: var(--task-completed-bg);
 }
 
 .task-card-top {
@@ -233,27 +259,6 @@
     gap: 0.75rem;
 }
 
-.task-help-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.4rem;
-    height: 2.4rem;
-    padding: 0;
-    border: none;
-    background: none;
-    border-radius: 999px;
-    cursor: pointer;
-    transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.task-help-btn:hover,
-.task-help-btn:focus-visible {
-    transform: translateY(-1px);
-    background: rgba(var(--color-primary-rgb), 0.12);
-    box-shadow: 0 0 10px rgba(var(--color-primary-rgb), 0.35);
-}
-
 .task-help-icon {
     width: 1.3rem;
     height: 1.3rem;
@@ -284,7 +289,7 @@ html[data-theme="servodata"] .task-help-icon {
     gap: 0.25rem;
     padding: 0.85rem 0.95rem;
     border-radius: 18px;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-subtle) 96%, transparent), color-mix(in srgb, var(--surface-muted) 92%, transparent));
+    background: var(--surface-muted);
     border: 1px solid color-mix(in srgb, var(--border-color) 90%, transparent);
 }
 
@@ -460,6 +465,11 @@ html[data-theme="servodata"] .task-help-icon {
 
     .tasks-filter-grid {
         grid-template-columns: 1fr;
+    }
+
+    .tasks-visibility-row {
+        flex-direction: column;
+        gap: 0.6rem;
     }
 
     .history-toolbar {

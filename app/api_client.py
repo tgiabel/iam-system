@@ -298,7 +298,7 @@ class APIClient:
         return await self._get(SOFA_BASE_URL, "/tasks/overview", params={"user_id": user_id})
 
     async def get_process_overview(self, user_id: int) -> dict:
-        return await self._get(SOFA_BASE_URL, "/processes/overview", params={"user_id": user_id})
+        return await self._get(SOFA_BASE_URL, f"/processes/overview/{user_id}")
 
     async def trigger_skill_assignment(self, payload) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/skill_assignment", payload=payload)

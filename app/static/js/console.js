@@ -79,7 +79,16 @@ const PROCESS_KEYS = {
     triggeredBy: ["initiator_name", "triggered_by_name", "created_by_name", "initiator_user_name", "created_by"],
     startedAt: ["started_at", "created_at", "process_started_at"],
     completedAt: ["completed_at", "finished_at", "process_completed_at"],
-    openTaskCount: ["open_task_count", "pending_task_count"]
+    openTaskCount: ["open_task_count", "pending_task_count"],
+    blockingOpenTaskCount: ["blocking_open_task_count"],
+    deferredOpenTaskCount: ["deferred_open_task_count"],
+    provisioningPhase: ["provisioning_phase"]
+};
+
+const PROVISIONING_PHASE_LABELS = {
+    BLOCKING: "Start blockiert",
+    FOLLOWUP_ONLY: "Nur Nachlieferungen",
+    WAITING_EVENT: "Wartet auf Ereignis"
 };
 
 async function fetchJson(url, options = {}, fallback = {}) {
@@ -566,6 +575,49 @@ function computeOpenTaskCount(process) {
     return "-";
 }
 
+function getOptionalTaskCount(process, keys) {
+    const value = firstDefinedValue(process, keys, null);
+    if (value === null) {
+        return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : value;
+}
+
+function getProvisioningPhase(process) {
+    const phase = firstDefinedValue(process, PROCESS_KEYS.provisioningPhase, "");
+    const normalized = String(phase || "").trim().toUpperCase();
+    return PROVISIONING_PHASE_LABELS[normalized]
+        ? { code: normalized, label: PROVISIONING_PHASE_LABELS[normalized] }
+        : null;
+}
+
+function renderOpenTaskSummary(process) {
+    const total = computeOpenTaskCount(process);
+    const blocking = getOptionalTaskCount(process, PROCESS_KEYS.blockingOpenTaskCount);
+    const deferred = getOptionalTaskCount(process, PROCESS_KEYS.deferredOpenTaskCount);
+    const phase = getProvisioningPhase(process);
+    const hasBreakdown = blocking !== null || deferred !== null;
+
+    if (!hasBreakdown && !phase) {
+        return escapeHtml(total);
+    }
+
+    return `
+        <div class="console-open-task-summary${phase?.code === "FOLLOWUP_ONLY" ? " is-followup-only" : ""}">
+            <strong>${escapeHtml(total)} offene Aufgaben</strong>
+            ${hasBreakdown ? `
+                <span class="console-open-task-breakdown">
+                    ${blocking !== null ? `<span>${escapeHtml(blocking)} blockierend</span>` : ""}
+                    ${deferred !== null ? `<span>${escapeHtml(deferred)} Nachlieferungen</span>` : ""}
+                </span>
+            ` : ""}
+            ${phase ? `<span class="console-provisioning-phase console-provisioning-phase-${escapeHtml(phase.code.toLowerCase())}">${escapeHtml(phase.label)}</span>` : ""}
+        </div>
+    `;
+}
+
 function renderProcessRow(process, isCompleted) {
     const id = firstDefinedValue(process, PROCESS_KEYS.id);
     const name = formatProcessLabel(process);
@@ -587,7 +639,7 @@ function renderProcessRow(process, isCompleted) {
         `;
     }
 
-    const openTaskCount = computeOpenTaskCount(process);
+    const openTaskSummary = renderOpenTaskSummary(process);
     return `
         <tr>
             <td>${escapeHtml(id)}</td>
@@ -595,7 +647,7 @@ function renderProcessRow(process, isCompleted) {
             <td>${escapeHtml(target)}</td>
             <td>${escapeHtml(triggeredBy)}</td>
             <td>${escapeHtml(startedAt)}</td>
-            <td>${escapeHtml(openTaskCount)}</td>
+            <td>${openTaskSummary}</td>
         </tr>
     `;
 }
