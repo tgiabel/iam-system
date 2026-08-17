@@ -146,6 +146,28 @@
     gap: 10px;
 }
 
+.ivr-report-export-btn {
+    min-height: 2.2rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ivr-report-export-btn:hover:not(:disabled) {
+    background: var(--ui-surface-soft);
+    border-color: var(--color-primary);
+}
+
+.ivr-report-export-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .ivr-report-table-card {
     max-width: 100%;
 }

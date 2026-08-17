@@ -15,6 +15,22 @@ const ivrReportDayCache = new Map();
 
 const PERSISTED_KEY = "sofaIvrReportFilters";
 
+const IVR_CSV_COLUMNS = [
+    { header: "Zeitpunkt", getValue: row => formatNaiveDateTime(row.TimeStamp) },
+    { header: "Servicenummer", getValue: row => formatPlainValue(row.Servicenummer) },
+    { header: "Anrufer", getValue: row => formatPlainValue(row.RemoteNumber) },
+    { header: "Herkunft", getValue: row => formatPlainValue(row.Herkunft) },
+    { header: "Ziel", getValue: row => formatPlainValue(row.Ziel) },
+    { header: "Zielbezeichnung", getValue: row => formatPlainValue(row.ZielBezeichnung) },
+    { header: "Ergebnis", getValue: row => formatPlainValue(row.Ergebnis) },
+    { header: "Rufdauer", getValue: row => formatPlainValue(row.Rufdauer) },
+    { header: "Faxweiche", getValue: row => formatPlainValue(row.Faxweiche) },
+    { header: "Sprachdialog", getValue: row => formatPlainValue(row.Sprachdialog) },
+    { header: "Verbindung", getValue: row => formatPlainValue(row.Verbindung) },
+    { header: "Leitungszeit", getValue: row => formatPlainValue(row.Leitungszeit) },
+    { header: "Call-ID", getValue: row => formatPlainValue(row.CallId) },
+];
+
 let ivrSearchDebounceTimer = null;
 
 function escapeHtml(value) {
@@ -129,6 +145,7 @@ function cacheDom() {
     ivrReportDom.prevPageBtn = document.getElementById("ivrPrevPage");
     ivrReportDom.nextPageBtn = document.getElementById("ivrNextPage");
     ivrReportDom.pageLabel = document.getElementById("ivrPageLabel");
+    ivrReportDom.exportCsvBtn = document.getElementById("ivrExportCsvBtn");
 }
 
 function updateDayToolbar() {
@@ -209,7 +226,7 @@ function matchesSearch(row) {
     if (!term) {
         return true;
     }
-    return [row.Ziel, row.ZielBezeichnung, row.RemoteNumber, row.CallId]
+    return [row.Servicenummer, row.Ziel, row.ZielBezeichnung, row.RemoteNumber, row.CallId]
         .some(value => normalizeValue(value).includes(term));
 }
 
@@ -237,6 +254,12 @@ function renderCount(filteredCount) {
         : `${total} Anrufe`;
 }
 
+function updateExportButton(filteredCount) {
+    if (ivrReportDom.exportCsvBtn) {
+        ivrReportDom.exportCsvBtn.disabled = ivrReportState.loading || filteredCount === 0;
+    }
+}
+
 function renderPage() {
     const filtered = getFilteredSortedRows();
     const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -251,6 +274,7 @@ function renderPage() {
     const startIndex = (ivrReportState.page - 1) * PAGE_SIZE;
     renderTable(filtered.slice(startIndex, startIndex + PAGE_SIZE));
     renderCount(filtered.length);
+    updateExportButton(filtered.length);
 
     if (ivrReportDom.pageLabel) {
         ivrReportDom.pageLabel.textContent = `Seite ${ivrReportState.page} / ${totalPages}`;
@@ -261,6 +285,42 @@ function renderPage() {
     if (ivrReportDom.nextPageBtn) {
         ivrReportDom.nextPageBtn.disabled = ivrReportState.page >= totalPages;
     }
+}
+
+function escapeCsvValue(value) {
+    const text = String(value ?? "");
+    const safeText = /^[\t\r\n ]*[=+\-@]/.test(text) ? `'${text}` : text;
+    return `"${safeText.replace(/"/g, '""')}"`;
+}
+
+function buildCsv(rows) {
+    const header = IVR_CSV_COLUMNS.map(column => escapeCsvValue(column.header)).join(";");
+    const lines = rows.map(row => IVR_CSV_COLUMNS
+        .map(column => escapeCsvValue(column.getValue(row)))
+        .join(";"));
+
+    return `\ufeff${[header, ...lines].join("\r\n")}\r\n`;
+}
+
+function downloadCsv() {
+    if (ivrReportState.loading) {
+        return;
+    }
+
+    const rows = getFilteredSortedRows();
+    if (!rows.length) {
+        return;
+    }
+
+    const blob = new Blob([buildCsv(rows)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ivr-report-${ivrReportState.day || "export"}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function storeDayInCache(day, entry) {
@@ -301,6 +361,7 @@ async function loadReport(day, { forceRefresh = false } = {}) {
 
     ivrReportState.loading = true;
     updateDayToolbar();
+    updateExportButton(0);
     renderLoadingRow();
 
     try {
@@ -323,6 +384,7 @@ async function loadReport(day, { forceRefresh = false } = {}) {
     } finally {
         ivrReportState.loading = false;
         updateDayToolbar();
+        updateExportButton(getFilteredSortedRows().length);
     }
 }
 
@@ -375,6 +437,8 @@ function bindEvents() {
     ivrReportDom.searchInput?.addEventListener("input", event => {
         scheduleSearch(event.target.value || "");
     });
+
+    ivrReportDom.exportCsvBtn?.addEventListener("click", downloadCsv);
 
     function toggleSort() {
         ivrReportState.sortDirection = ivrReportState.sortDirection === "asc" ? "desc" : "asc";
