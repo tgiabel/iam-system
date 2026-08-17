@@ -4,7 +4,7 @@ const state = {
     roleMap: null,
     resourceMap: null,
     currentUserDetail: null,
-    currentUserActivity: null,
+    currentUserHistory: null,
     activeUserTab: "details",
     searchTerm: "",
     filters: {
@@ -12,6 +12,7 @@ const state = {
         secondaryRoles: { include: [], exclude: [] },
         skillRoles: { include: [], exclude: [] },
         severities: { include: [], exclude: [] },
+        overdue: { include: [], exclude: [] },
         actions: { include: [], exclude: [] },
         openCategory: null
     },
@@ -93,6 +94,10 @@ const SEVERITY_OPTIONS = [
     { id: "error", label: "Fehler" }
 ];
 
+const OVERDUE_OPTIONS = [
+    { id: "overdue", label: "Überfällig" }
+];
+
 const ACTION_OPTIONS = [
     { id: "onboarding", label: "Onboarding" },
     { id: "skill_assignment", label: "Neue Rolle" },
@@ -105,7 +110,7 @@ const ACTION_OPTIONS = [
 
 const ACTIVE_ROLE_ASSIGNMENT_CODES = new Set(["active"]);
 const REQUESTED_ROLE_ASSIGNMENT_CODES = new Set(["requested", "open", "pending", "in_progress"]);
-const DONE_TASK_STATUSES = new Set(["completed", "cancelled", "canceled"]);
+const USER_HISTORY_PAGE_SIZE = 50;
 
 const api = {
     async getUsers() {
@@ -125,11 +130,29 @@ const api = {
         return res.json();
     },
 
-    async getUserActivity(id) {
-        const res = await fetch(`/api/users/${id}/activity`);
+    async getUserAccountHistory(id) {
+        const res = await fetch(`/api/users/${id}/account-history`);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-            throw new Error(data.detail || data.error || `Aktivitäten konnten nicht geladen werden (${res.status})`);
+            throw new Error(data.detail || data.error || `Account-Historie konnte nicht geladen werden (${res.status})`);
+        }
+        return data;
+    },
+
+    async getUserRoleHistory(id, offset = 0) {
+        const res = await fetch(`/api/users/${id}/role-history?limit=${USER_HISTORY_PAGE_SIZE}&offset=${offset}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || `Rollen-Historie konnte nicht geladen werden (${res.status})`);
+        }
+        return data;
+    },
+
+    async getUserResourceHistory(id, offset = 0) {
+        const res = await fetch(`/api/users/${id}/resource-history?limit=${USER_HISTORY_PAGE_SIZE}&offset=${offset}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.detail || data.error || `Berechtigungs-Historie konnte nicht geladen werden (${res.status})`);
         }
         return data;
     },
@@ -585,35 +608,37 @@ function getSummaryStatus(user) {
     const normalized = normalizeValue(rawStatus).replace(/\s+/g, "_");
     const label = STATUS_LABELS[normalized] || humanizeToken(rawStatus);
 
-    let className = "users-status-progress";
+    let className = "ui-status-info";
     if (normalized === "active") {
-        className = "users-status-active";
+        className = "ui-status-success";
     } else if (normalized === "inactive") {
-        className = "users-status-inactive";
+        className = "ui-status-neutral";
     } else if (normalized.includes("request") || normalized === "requested") {
-        className = "users-status-pending";
+        className = "ui-status-warning";
     } else if (normalized.includes("warning") || normalized.includes("revocation")) {
-        className = "users-status-warning";
+        className = "ui-status-warning";
     } else if (normalized.includes("progress") || normalized.includes("pending")) {
-        className = "users-status-progress";
+        className = "ui-status-info";
     }
 
     return { code: normalized, label, className, count: 1, extraCount: 0, tooltip: label, source: "fallback" };
 }
 
+const SEVERITY_SORT_PRIORITIES = {
+    error: 0,
+    warning: 1,
+    info: 2,
+    low: 3,
+    none: 4
+};
+
 function getStatusSortPriority(user) {
     const derivedStatuses = getNormalizedDerivedStatuses(user);
 
-    if (derivedStatuses.some(status => status.isOverdue || status.severity === "error")) {
-        return 0;
-    }
-
-    if (derivedStatuses.some(status => status.severity === "warning")) {
-        return 1;
-    }
-
     if (derivedStatuses.length) {
-        return 2;
+        return Math.min(...derivedStatuses.map(status =>
+            SEVERITY_SORT_PRIORITIES[status.severity] ?? SEVERITY_SORT_PRIORITIES.info
+        ));
     }
 
     const fallbackStatus = normalizeValue(
@@ -623,11 +648,13 @@ function getStatusSortPriority(user) {
     ).replace(/\s+/g, "_");
 
     if (fallbackStatus === "inactive") {
-        return 3;
+        return SEVERITY_SORT_PRIORITIES.low;
     }
 
     if (fallbackStatus.includes("warning") || fallbackStatus.includes("revocation") || fallbackStatus.includes("error")) {
-        return 1;
+        return fallbackStatus.includes("error")
+            ? SEVERITY_SORT_PRIORITIES.error
+            : SEVERITY_SORT_PRIORITIES.warning;
     }
 
     if (
@@ -638,24 +665,28 @@ function getStatusSortPriority(user) {
         fallbackStatus.includes("revoked") ||
         (fallbackStatus && fallbackStatus !== "active")
     ) {
-        return 2;
+        return SEVERITY_SORT_PRIORITIES.info;
     }
 
-    return 4;
+    return SEVERITY_SORT_PRIORITIES.none;
 }
 
-function getSeverityBadgeClass(severity, isOverdue = false) {
+function hasOverdueDerivedStatus(user) {
+    return getNormalizedDerivedStatuses(user).some(status => status.isOverdue);
+}
+
+function getSeverityBadgeClass(severity) {
     const normalized = normalizeValue(severity) || "info";
-    if (isOverdue || normalized === "error") {
-        return "users-status-error";
+    if (normalized === "error") {
+        return "ui-status-error";
     }
     if (normalized === "warning") {
-        return "users-status-warning";
+        return "ui-status-warning";
     }
     if (normalized === "low" || normalized === "none") {
-        return "users-status-low";
+        return "ui-status-neutral";
     }
-    return "users-status-progress";
+    return "ui-status-info";
 }
 
 function getDerivedStatusProcessLabel(processType) {
@@ -725,7 +756,7 @@ function normalizeDerivedStatus(status) {
 
     return {
         ...normalized,
-        className: getSeverityBadgeClass(normalized.severity, normalized.isOverdue)
+        className: getSeverityBadgeClass(normalized.severity)
     };
 }
 
@@ -759,7 +790,7 @@ function renderDerivedStatusBadge(status, options = {}) {
     const tooltip = options.tooltip || status.label;
     return `
         <span class="users-derived-status-main" title="${escapeHtml(tooltip)}">
-            <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
+            <span class="ui-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
             ${extraCount > 0 ? `<span class="users-derived-status-count" aria-label="${escapeHtml(`${extraCount} weitere Status`)}">+${escapeHtml(extraCount)}</span>` : ""}
         </span>
     `;
@@ -783,15 +814,15 @@ function getAssignmentStatus(resourceOrRole) {
             inactive: "Inaktiv"
         })[normalized] || humanizeToken(rawStatus),
         className: {
-            requested: "user-assignment-requested",
-            open: "user-assignment-requested",
-            active: "user-assignment-active",
-            completed: "user-assignment-active",
-            in_progress: "users-status-progress",
-            revocation_requested: "user-assignment-revocation-requested",
-            revoked: "user-assignment-revoked",
-            inactive: "user-assignment-revoked"
-        }[normalized] || "users-status-progress"
+            requested: "ui-status-warning",
+            open: "ui-status-warning",
+            active: "ui-status-success",
+            completed: "ui-status-success",
+            in_progress: "ui-status-info",
+            revocation_requested: "ui-status-warning",
+            revoked: "ui-status-neutral",
+            inactive: "ui-status-neutral"
+        }[normalized] || "ui-status-info"
     };
 }
 
@@ -903,10 +934,25 @@ function compareByNameKey(left, right) {
 
 function parseDateValue(value) {
     if (!value) {
-        return -Infinity;
+        return null;
     }
     const time = new Date(value).getTime();
-    return Number.isNaN(time) ? -Infinity : time;
+    return Number.isNaN(time) ? null : time;
+}
+
+function compareByDateDescending(left, right, field) {
+    const leftDate = parseDateValue(left?.[field]);
+    const rightDate = parseDateValue(right?.[field]);
+
+    if (leftDate === null) {
+        return rightDate === null ? compareByNameKey(left, right) : 1;
+    }
+    if (rightDate === null) {
+        return -1;
+    }
+
+    const diff = rightDate - leftDate;
+    return diff !== 0 ? diff : compareByNameKey(left, right);
 }
 
 const SORT_COMPARATORS = {
@@ -917,16 +963,15 @@ const SORT_COMPARATORS = {
     },
     status: (left, right) => {
         const diff = getStatusSortPriority(left) - getStatusSortPriority(right);
-        return diff !== 0 ? diff : compareByNameKey(left, right);
+        if (diff !== 0) {
+            return diff;
+        }
+
+        const overdueDiff = Number(hasOverdueDerivedStatus(right)) - Number(hasOverdueDerivedStatus(left));
+        return overdueDiff !== 0 ? overdueDiff : compareByNameKey(left, right);
     },
-    entry_date: (left, right) => {
-        const diff = parseDateValue(left?.entry_date) - parseDateValue(right?.entry_date);
-        return diff !== 0 ? diff : compareByNameKey(left, right);
-    },
-    exit_date: (left, right) => {
-        const diff = parseDateValue(left?.exit_date) - parseDateValue(right?.exit_date);
-        return diff !== 0 ? diff : compareByNameKey(left, right);
-    }
+    entry_date: (left, right) => compareByDateDescending(left, right, "entry_date"),
+    exit_date: (left, right) => compareByDateDescending(left, right, "exit_date")
 };
 
 function buildUserLabel(user) {
@@ -1015,12 +1060,12 @@ function getResourceAssignmentStatusByResourceId(detail) {
 function getPackageResourceStatus(resourceStatusByResourceId, resourceId) {
     const code = resourceStatusByResourceId.get(resourceId);
     if (code === "active") {
-        return { label: "Zugewiesen", className: "users-status-active" };
+        return { label: "Zugewiesen", className: "ui-status-success" };
     }
     if (code) {
         return getAssignmentStatus({ assignment_status: code });
     }
-    return { label: "Fehlt", className: "users-status-warning" };
+    return { label: "Fehlt", className: "ui-status-warning" };
 }
 
 function groupResourcesBySystem(resources) {
@@ -1044,6 +1089,48 @@ function groupResourcesBySystem(resources) {
 
 function renderEmptyState(message) {
     return `<div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>`;
+}
+
+function createHistoryCategoryState() {
+    return {
+        items: [],
+        total: 0,
+        nextOffset: 0,
+        loaded: false,
+        loading: false,
+        error: null,
+        requestId: 0
+    };
+}
+
+function createUserHistoryState() {
+    return {
+        activeCategory: null,
+        accounts: createHistoryCategoryState(),
+        roles: createHistoryCategoryState(),
+        resources: createHistoryCategoryState()
+    };
+}
+
+function formatHistoryRoleType(value) {
+    const normalized = normalizeValue(value);
+    if (normalized === "primary") {
+        return "Hauptrolle";
+    }
+    if (normalized === "secondary") {
+        return "Nebenrolle";
+    }
+    return humanizeToken(value || "Rolle");
+}
+
+function formatHistoryAction(value) {
+    const normalized = normalizeValue(value);
+    return {
+        assigned: "Zugewiesen",
+        revoked: "Entzogen",
+        unassigned: "Entfernt",
+        status_changed: "Status geändert"
+    }[normalized] || humanizeToken(value || "Änderung");
 }
 
 const filterController = {
@@ -1218,9 +1305,27 @@ const filterController = {
             const includeSet = new Set(include.map(String));
             const excludeSet = new Set(exclude.map(String));
 
-            DOM.subfilterDropdown.innerHTML =
+            const optionsMarkup =
                 this.renderSelectAllRow(filterKey, options.map(option => option.id), includeSet, excludeSet) +
                 options.map(option => this.renderOptionRow(option.label, filterKey, option.id, includeSet, excludeSet)).join("");
+
+            if (category === "status") {
+                const overdueFilter = state.filters.overdue;
+                const overdueIncludeSet = new Set(overdueFilter.include.map(String));
+                const overdueExcludeSet = new Set(overdueFilter.exclude.map(String));
+                DOM.subfilterDropdown.innerHTML = optionsMarkup +
+                    '<div class="users-subfilter-section-label">Überfälligkeit</div>' +
+                    OVERDUE_OPTIONS.map(option => this.renderOptionRow(
+                        option.label,
+                        "overdue",
+                        option.id,
+                        overdueIncludeSet,
+                        overdueExcludeSet
+                    )).join("");
+                return;
+            }
+
+            DOM.subfilterDropdown.innerHTML = optionsMarkup;
             return;
         }
 
@@ -1276,10 +1381,6 @@ const filterController = {
     },
 
     renderActiveTags() {
-        if (!DOM.activeFilters) {
-            return;
-        }
-
         const tagLabel = (name, action) => action === "exclude" ? `Kein ${name}` : name;
 
         const roleTag = (filterKey, action, roleId) => ({
@@ -1307,9 +1408,17 @@ const filterController = {
             ...state.filters.skillRoles.exclude.map(id => roleTag("skillRoles", "exclude", id)),
             ...state.filters.severities.include.map(id => optionTag("severities", "include", id, SEVERITY_OPTIONS)),
             ...state.filters.severities.exclude.map(id => optionTag("severities", "exclude", id, SEVERITY_OPTIONS)),
+            ...state.filters.overdue.include.map(id => optionTag("overdue", "include", id, OVERDUE_OPTIONS)),
+            ...state.filters.overdue.exclude.map(id => optionTag("overdue", "exclude", id, OVERDUE_OPTIONS)),
             ...state.filters.actions.include.map(id => optionTag("actions", "include", id, ACTION_OPTIONS)),
             ...state.filters.actions.exclude.map(id => optionTag("actions", "exclude", id, ACTION_OPTIONS))
         ];
+
+        DOM.filterBtn?.classList.toggle("is-active", tags.length > 0);
+
+        if (!DOM.activeFilters) {
+            return;
+        }
 
         DOM.activeFilters.innerHTML = tags.map(tag => `
             <div class="users-filter-tag${tag.excluded ? " is-excluded" : ""}">
@@ -1350,6 +1459,7 @@ const tableController = {
             .filter(user => this.matchesSecondaryRoles(user))
             .filter(user => this.matchesSkillRoles(user))
             .filter(user => this.matchesSeverity(user))
+            .filter(user => this.matchesOverdue(user))
             .filter(user => this.matchesAction(user));
 
         const comparator = SORT_COMPARATORS[state.sortField] || SORT_COMPARATORS.last_name;
@@ -1365,6 +1475,7 @@ const tableController = {
         const haystacks = [
             user.pnr,
             user.racf,
+            user.xde,
             user.last_name,
             user.first_name,
             user.email,
@@ -1431,8 +1542,27 @@ const tableController = {
 
         const statuses = getNormalizedDerivedStatuses(user);
         const ids = statuses.length
-            ? [...new Set(statuses.map(status => status.isOverdue ? "error" : status.severity))]
+            ? [...new Set(statuses.map(status => status.severity))]
             : ["none"];
+
+        if (exclude.length && ids.some(id => exclude.includes(id))) {
+            return false;
+        }
+        if (include.length && !ids.some(id => include.includes(id))) {
+            return false;
+        }
+        return true;
+    },
+
+    matchesOverdue(user) {
+        const { include, exclude } = state.filters.overdue;
+        if (!include.length && !exclude.length) {
+            return true;
+        }
+
+        const ids = getNormalizedDerivedStatuses(user).some(status => status.isOverdue)
+            ? ["overdue"]
+            : [];
 
         if (exclude.length && ids.some(id => exclude.includes(id))) {
             return false;
@@ -1492,7 +1622,7 @@ const tableController = {
                     : "";
 
                 return `
-                    <tr class="users-table-row ${user.is_active ? "" : "is-inactive"}" data-user-id="${escapeHtml(user.user_id)}">
+                    <tr class="ui-table-row users-table-row ${user.is_active ? "" : "is-inactive"}" data-user-id="${escapeHtml(user.user_id)}">
                         <td class="users-identity-cell">
                             <div class="users-identity-block">
                                 <span class="users-identity-main">${escapeHtml(user.racf || "-")}</span>
@@ -1509,7 +1639,7 @@ const tableController = {
                         <td class="users-role-cell">${escapeHtml(user.primary_role?.name || "-")}</td>
                         <td class="users-secondary-cell">
                             <div class="users-secondary-block">
-                                <span class="users-secondary-count" title="${escapeHtml(secondaryRoles.map(role => role.name).join("\n") || "Keine Nebenrollen")}">${secondaryRoles.length}</span>
+                                <span class="ui-table-count" title="${escapeHtml(secondaryRoles.map(role => role.name).join("\n") || "Keine Nebenrollen")}">${secondaryRoles.length}</span>
                                 <span class="users-secondary-preview ${secondaryRoles.length ? "" : "is-empty"}">${escapeHtml(getRolePreview(secondaryRoles))}</span>
                             </div>
                         </td>
@@ -1610,19 +1740,15 @@ const sidebarController = {
             }
             this.setActiveTab(button.dataset.tab);
         });
+        DOM.userHistoryCategoryButtons.forEach(button => {
+            button.addEventListener("click", () => this.selectHistoryCategory(button.dataset.historyCategory));
+        });
     },
 
     async open(userId) {
         try {
-            const [detail, activity] = await Promise.all([
+            const [detail] = await Promise.all([
                 api.getUserDetails(userId),
-                api.getUserActivity(userId).catch(error => {
-                    console.error("User Activity Fehler", error);
-                    return {
-                        affected_processes: [],
-                        initiated_processes: []
-                    };
-                }),
                 api.getSystemMap().catch(() => state.systemMap || {})
             ]);
 
@@ -1652,8 +1778,8 @@ const sidebarController = {
             );
 
             state.currentUserDetail = detail;
-            state.currentUserActivity = activity;
-            await this.render(detail, activity);
+            state.currentUserHistory = createUserHistoryState();
+            await this.render(detail);
             this.setActiveTab(state.activeUserTab);
             openOverlay("sidebar-overlay");
         } catch (err) {
@@ -1665,7 +1791,7 @@ const sidebarController = {
     close() {
         closeOverlay("sidebar-overlay");
         state.currentUserDetail = null;
-        state.currentUserActivity = null;
+        state.currentUserHistory = null;
         state.activeUserTab = "details";
     },
 
@@ -1692,7 +1818,7 @@ const sidebarController = {
         });
     },
 
-    async render(user, activity) {
+    async render(user) {
         const status = getSummaryStatus(user);
         DOM.sidebarUsername.textContent = `${user.first_name || "-"} ${user.last_name || "-"}`.trim();
         DOM.sidebarSubtitle.textContent = user.email || user.racf || "Userdetails";
@@ -1723,7 +1849,7 @@ const sidebarController = {
         this.renderSofaAccessActions(user);
         this.renderRoles(user);
         this.renderResources(user);
-        this.renderActivity(activity);
+        this.renderHistory();
         this.bindActions(user);
     },
 
@@ -1774,9 +1900,9 @@ const sidebarController = {
             <article class="user-derived-status-card">
                 <div class="user-derived-status-top">
                     <div class="user-derived-status-head">
-                        <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
+                        <span class="ui-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
                         ${status.roleName ? `<span class="ui-chip ui-chip-neutral">${escapeHtml(status.roleName)}</span>` : ""}
-                        ${status.isOverdue ? '<span class="ui-chip ui-chip-warning">Überfällig</span>' : ""}
+                        ${status.isOverdue ? '<span class="ui-chip ui-chip-neutral">Überfällig</span>' : ""}
                     </div>
                     ${canCancel && status.processId ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
                 </div>
@@ -1868,7 +1994,7 @@ const sidebarController = {
                         <span class="user-account-id">${escapeHtml(account.account_identifier || "-")}</span>
                         <span class="user-account-system">${escapeHtml(system)}</span>
                     </div>
-                    <span class="users-status-badge users-status-active">${escapeHtml(humanizeToken(account.assignment_status || "active"))}</span>
+                    <span class="ui-status-badge ui-status-success">${escapeHtml(humanizeToken(account.assignment_status || "active"))}</span>
                 </div>
             `;
         });
@@ -1881,7 +2007,7 @@ const sidebarController = {
                         <span class="user-account-id">${escapeHtml(resource.display_name || resource.technical_identifier || "-")}</span>
                         <span class="user-account-system">${escapeHtml(system)}</span>
                     </div>
-                    <span class="users-status-badge users-status-warning">Fehlt</span>
+                    <span class="ui-status-badge ui-status-warning">Fehlt</span>
                 </div>
             `;
         });
@@ -1915,7 +2041,7 @@ const sidebarController = {
                             <span class="user-role-title">${escapeHtml(role.name || `Rolle #${role.role_id}`)}</span>
                             <div class="user-role-subline">
                                 <span class="ui-chip ${role.is_primary ? "ui-chip-primary" : "ui-chip-neutral"}">${escapeHtml(roleTypeLabel)}</span>
-                                <span class="users-status-badge ${escapeHtml(assignmentStatus.className)}">${escapeHtml(roleStatusLabel)}</span>
+                                <span class="ui-status-badge ${escapeHtml(assignmentStatus.className)}">${escapeHtml(roleStatusLabel)}</span>
                                 <span class="ui-chip ui-chip-neutral">${escapeHtml(countLabel)}</span>
                             </div>
                         </div>
@@ -1932,7 +2058,7 @@ const sidebarController = {
                                                 <span class="user-resource-identifier" title="${escapeHtml(resource.technical_identifier || "")}">${escapeHtml(resource.display_name || resource.technical_identifier || `#${resource.resource_id}`)}</span>
                                                 <span class="user-resource-system">${escapeHtml(resource.system_name || "")}</span>
                                             </div>
-                                            <span class="users-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
+                                            <span class="ui-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
                                         </div>
                                     `;
                                 }).join("")}
@@ -1980,7 +2106,7 @@ const sidebarController = {
                                     <span class="user-resource-identifier">${escapeHtml(getResourceDisplayName(resource))}</span>
                                     <span class="user-resource-system">${escapeHtml(getResourceIdentifier(resource))}</span>
                                 </div>
-                                <span class="users-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
+                                <span class="ui-status-badge ${escapeHtml(resourceStatus.className)}">${escapeHtml(resourceStatus.label)}</span>
                             </div>
                         `;
                     }).join("")}
@@ -1989,71 +2115,234 @@ const sidebarController = {
         `).join("");
     },
 
-    renderActivity(activity) {
-        const affected = Array.isArray(activity?.affected_processes) ? activity.affected_processes : [];
-        const initiated = Array.isArray(activity?.initiated_processes) ? activity.initiated_processes : [];
-
-        DOM.affectedProcesses.innerHTML = this.renderProcessEntries(affected, "Keine Prozesse gefunden, die diesen User betreffen.");
-        DOM.initiatedProcesses.innerHTML = this.renderProcessEntries(initiated, "Keine vom User ausgelösten Prozesse gefunden.");
-    },
-
-    renderProcessEntries(items, emptyMessage) {
-        if (!items.length) {
-            return renderEmptyState(emptyMessage);
+    selectHistoryCategory(category) {
+        if (!state.currentUserHistory?.[category]) {
+            return;
         }
 
-        return items.map(item => {
-            const status = getAssignmentStatus({ assignment_status: item.status || item.process_status || "active" });
-            const title = item.process_name || humanizeToken(item.process_type || "prozess");
-            const tasks = Array.isArray(item.tasks) ? item.tasks : [];
-            const doneTasks = tasks.filter(task => DONE_TASK_STATUSES.has(normalizeValue(task?.status)));
-            const openTasks = tasks.filter(task => !DONE_TASK_STATUSES.has(normalizeValue(task?.status)));
-            return `
-                <div class="user-activity-entry">
-                    <div class="user-activity-top">
-                        <span class="user-activity-title">${escapeHtml(title)}${item.process_id ? ` · #${escapeHtml(item.process_id)}` : ""}</span>
-                        <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
-                    </div>
-                    <div class="user-activity-meta">
-                        <span><strong>Ziel:</strong> ${escapeHtml(item.target_user_name || item.target_name || "-")}</span>
-                        <span><strong>Initiator:</strong> ${escapeHtml(item.initiator_name || item.triggered_by_name || "-")}</span>
-                        <span><strong>Gestartet:</strong> ${escapeHtml(formatDateTime(item.started_at || item.created_at))}</span>
-                        <span><strong>Abgeschlossen:</strong> ${escapeHtml(formatDateTime(item.completed_at || item.finished_at))}</span>
-                    </div>
-                    ${this.renderProcessTaskGroup("Offen", openTasks, "Keine offenen Tasks.")}
-                    ${this.renderProcessTaskGroup("Erledigt", doneTasks, "Keine erledigten Tasks.")}
-                </div>
-            `;
-        }).join("");
+        state.currentUserHistory.activeCategory = category;
+        this.renderHistory();
+
+        const entry = state.currentUserHistory[category];
+        if (!entry.loaded && !entry.loading) {
+            this.loadHistoryCategory(category);
+        }
     },
 
-    renderProcessTaskGroup(title, tasks, emptyMessage) {
-        if (!tasks.length) {
-            return `
-                <div class="user-activity-tasks">
-                    <span class="user-activity-tasks-title">${escapeHtml(title)}</span>
-                    <p class="user-activity-tasks-empty">${escapeHtml(emptyMessage)}</p>
-                </div>
-            `;
+    async loadHistoryCategory(category, append = false) {
+        const history = state.currentUserHistory;
+        const userId = state.currentUserDetail?.user_id;
+        const entry = history?.[category];
+        if (!history || !entry || !userId || entry.loading || (append && !this.hasMoreHistoryEntries(entry))) {
+            return;
         }
 
-        const rows = tasks.map(task => {
-            const status = getAssignmentStatus({ assignment_status: task?.status || "open" });
-            return `
-                <li class="user-activity-task">
-                    <span class="user-activity-task-title">${escapeHtml(humanizeToken(task?.task_type || "task"))}</span>
-                    <span class="user-activity-task-resource">${escapeHtml(task?.resource_name || "-")}</span>
-                    <span class="users-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
-                </li>
-            `;
-        }).join("");
+        entry.loading = true;
+        entry.error = null;
+        const requestId = ++entry.requestId;
+        const offset = append ? entry.nextOffset : 0;
+        if (history.activeCategory === category) {
+            this.renderHistory();
+        }
 
+        try {
+            let payload;
+            if (category === "accounts") {
+                payload = await api.getUserAccountHistory(userId);
+            } else if (category === "roles") {
+                payload = await api.getUserRoleHistory(userId, offset);
+            } else {
+                payload = await api.getUserResourceHistory(userId, offset);
+            }
+
+            if (state.currentUserHistory !== history || state.currentUserDetail?.user_id !== userId || entry.requestId !== requestId) {
+                return;
+            }
+
+            const items = category === "accounts"
+                ? (Array.isArray(payload) ? payload : [])
+                : (Array.isArray(payload?.items) ? payload.items : []);
+            entry.items = append ? [...entry.items, ...items] : items;
+            entry.total = category === "accounts"
+                ? entry.items.length
+                : Math.max(0, Number(payload?.total) || 0);
+            entry.nextOffset = category === "accounts" ? entry.items.length : offset + items.length;
+            entry.loaded = true;
+        } catch (error) {
+            if (state.currentUserHistory !== history || state.currentUserDetail?.user_id !== userId || entry.requestId !== requestId) {
+                return;
+            }
+            entry.error = error instanceof Error ? error.message : "Historie konnte nicht geladen werden.";
+        } finally {
+            if (state.currentUserHistory !== history || entry.requestId !== requestId) {
+                return;
+            }
+            entry.loading = false;
+            if (history.activeCategory === category) {
+                this.renderHistory();
+            }
+        }
+    },
+
+    hasMoreHistoryEntries(entry) {
+        return entry.nextOffset < entry.total;
+    },
+
+    renderHistory() {
+        const history = state.currentUserHistory;
+        if (!DOM.userHistoryContent || !history) {
+            return;
+        }
+
+        DOM.userHistoryCategoryButtons.forEach(button => {
+            const isActive = button.dataset.historyCategory === history.activeCategory;
+            button.classList.toggle("is-active", isActive);
+            button.setAttribute("aria-pressed", String(isActive));
+        });
+
+        if (!history.activeCategory) {
+            DOM.userHistoryContent.innerHTML = renderEmptyState("Kategorie auswählen, um die Historie zu laden.");
+            return;
+        }
+
+        const entry = history[history.activeCategory];
+        if (entry.loading && !entry.items.length) {
+            DOM.userHistoryContent.innerHTML = '<div class="user-history-feedback">Historie wird geladen …</div>';
+            return;
+        }
+
+        if (!entry.loaded && entry.error) {
+            DOM.userHistoryContent.innerHTML = this.renderHistoryError(entry.error);
+            this.bindHistoryActions(history.activeCategory, entry);
+            return;
+        }
+
+        if (history.activeCategory === "accounts") {
+            DOM.userHistoryContent.innerHTML = this.renderAccountHistory(entry.items);
+        } else if (history.activeCategory === "roles") {
+            DOM.userHistoryContent.innerHTML = this.renderRoleHistory(entry.items);
+        } else {
+            DOM.userHistoryContent.innerHTML = this.renderResourceHistory(entry.items);
+        }
+
+        if (entry.error) {
+            DOM.userHistoryContent.insertAdjacentHTML("beforeend", this.renderHistoryError(entry.error, true));
+        }
+        if (entry.loading && entry.items.length) {
+            DOM.userHistoryContent.insertAdjacentHTML("beforeend", '<div class="user-history-feedback">Weitere Einträge werden geladen …</div>');
+        } else if (history.activeCategory !== "accounts" && this.hasMoreHistoryEntries(entry)) {
+            DOM.userHistoryContent.insertAdjacentHTML("beforeend", '<button type="button" class="btn btn-secondary user-history-load-more" data-history-load-more>Weitere laden</button>');
+        }
+        this.bindHistoryActions(history.activeCategory, entry);
+    },
+
+    bindHistoryActions(category, entry) {
+        DOM.userHistoryContent?.querySelector("[data-history-retry]")?.addEventListener("click", () => {
+            this.loadHistoryCategory(category, entry.loaded);
+        });
+        DOM.userHistoryContent?.querySelector("[data-history-load-more]")?.addEventListener("click", () => {
+            this.loadHistoryCategory(category, true);
+        });
+    },
+
+    renderHistoryError(message, hasEntries = false) {
         return `
-            <div class="user-activity-tasks">
-                <span class="user-activity-tasks-title">${escapeHtml(title)}</span>
-                <ul class="user-activity-task-list">${rows}</ul>
+            <div class="user-history-error" role="alert">
+                <span>${escapeHtml(message)}</span>
+                <button type="button" class="btn btn-sm btn-secondary" data-history-retry>${hasEntries ? "Weitere Einträge erneut laden" : "Erneut versuchen"}</button>
             </div>
         `;
+    },
+
+    renderHistoryStatus(value, label = null) {
+        const status = getAssignmentStatus({ status: value || "active" });
+        return `<span class="ui-status-badge ${escapeHtml(status.className)}">${escapeHtml(label || status.label)}</span>`;
+    },
+
+    renderHistoryStatusChange(item) {
+        if (item?.old_status == null && item?.new_status == null) {
+            return "";
+        }
+        return `<span><strong>Status:</strong> ${escapeHtml(item.old_status ? humanizeToken(item.old_status) : "—")} <span aria-hidden="true">→</span> ${escapeHtml(item.new_status ? humanizeToken(item.new_status) : "—")}</span>`;
+    },
+
+    renderAccountHistory(items) {
+        if (!items.length) {
+            return renderEmptyState("Keine Account-Historie vorhanden.");
+        }
+        return items.map(item => {
+            const isArchived = Boolean(item.archived_at);
+            return `
+                <article class="user-history-entry">
+                    <div class="user-history-entry-top">
+                        <div class="user-history-entry-main">
+                            <span class="user-history-entry-title">${escapeHtml(item.account_identifier || "-")}</span>
+                            <span class="user-history-entry-subtitle">${escapeHtml(item.resource_name || "Unbekannte Ressource")} · ${escapeHtml(item.system_name || "Unbekanntes System")}</span>
+                        </div>
+                        ${this.renderHistoryStatus(isArchived ? "revoked" : "active", isArchived ? "Archiviert" : "Aktiv")}
+                    </div>
+                    <div class="user-history-meta">
+                        <span><strong>Erstellt:</strong> ${escapeHtml(formatDateTime(item.created_at))}</span>
+                        ${isArchived ? `<span><strong>Archiviert:</strong> ${escapeHtml(formatDateTime(item.archived_at))}</span>` : ""}
+                        ${item.assignment_id != null ? `<span><strong>Zuweisung:</strong> #${escapeHtml(item.assignment_id)}</span>` : ""}
+                    </div>
+                </article>
+            `;
+        }).join("");
+    },
+
+    renderRoleHistory(items) {
+        if (!items.length) {
+            return renderEmptyState("Keine Rollen-Historie vorhanden.");
+        }
+        return items.map(item => `
+            <article class="user-history-entry">
+                <div class="user-history-entry-top">
+                    <div class="user-history-entry-main">
+                        <span class="user-history-entry-title">${escapeHtml(item.role_name || `Rolle #${item.role_id || "-"}`)}</span>
+                        <div class="user-history-entry-chips">
+                            <span class="ui-chip ui-chip-neutral">${escapeHtml(formatHistoryRoleType(item.role_type))}</span>
+                            <span class="ui-chip ui-chip-neutral">${escapeHtml(formatHistoryAction(item.action))}</span>
+                        </div>
+                    </div>
+                    ${item.new_status ? this.renderHistoryStatus(item.new_status) : ""}
+                </div>
+                <div class="user-history-meta">
+                    <span><strong>Zeitpunkt:</strong> ${escapeHtml(formatDateTime(item.timestamp))}</span>
+                    ${this.renderHistoryStatusChange(item)}
+                    <span><strong>Geändert von:</strong> ${escapeHtml(item.changed_by_user_name || "Unbekannt")}</span>
+                    ${item.process_id != null ? `<span><strong>Prozess:</strong> #${escapeHtml(item.process_id)}</span>` : ""}
+                </div>
+                ${item.comment ? `<p class="user-history-comment">${escapeHtml(item.comment)}</p>` : ""}
+            </article>
+        `).join("");
+    },
+
+    renderResourceHistory(items) {
+        if (!items.length) {
+            return renderEmptyState("Keine Berechtigungs-Historie vorhanden.");
+        }
+        return items.map(item => `
+            <article class="user-history-entry">
+                <div class="user-history-entry-top">
+                    <div class="user-history-entry-main">
+                        <span class="user-history-entry-title">${escapeHtml(item.resource_name || `Ressource #${item.resource_id || "-"}`)}</span>
+                        <span class="user-history-entry-subtitle">${escapeHtml(item.system_name || "Unbekanntes System")}</span>
+                        <div class="user-history-entry-chips">
+                            ${item.resource_type_name ? `<span class="ui-chip ui-chip-neutral">${escapeHtml(item.resource_type_name)}</span>` : ""}
+                        </div>
+                    </div>
+                    ${item.new_status ? this.renderHistoryStatus(item.new_status) : ""}
+                </div>
+                <div class="user-history-meta">
+                    <span><strong>Zeitpunkt:</strong> ${escapeHtml(formatDateTime(item.timestamp))}</span>
+                    ${this.renderHistoryStatusChange(item)}
+                    <span><strong>Geändert von:</strong> ${escapeHtml(item.changed_by_user_name || "Unbekannt")}</span>
+                    ${item.assignment_id != null ? `<span><strong>Zuweisung:</strong> #${escapeHtml(item.assignment_id)}</span>` : ""}
+                </div>
+                ${item.comment ? `<p class="user-history-comment">${escapeHtml(item.comment)}</p>` : ""}
+            </article>
+        `).join("");
     },
 
     bindActions(user) {
@@ -2700,6 +2989,8 @@ const trainingModalController = {
             state.filters.skillRoles.exclude.length ||
             state.filters.severities.include.length ||
             state.filters.severities.exclude.length ||
+            state.filters.overdue.include.length ||
+            state.filters.overdue.exclude.length ||
             state.filters.actions.include.length ||
             state.filters.actions.exclude.length
         );
@@ -3477,8 +3768,8 @@ function cacheDOM() {
     DOM.skillRevokeActionBtn = document.getElementById("skill-revoke-action-btn");
     DOM.sidebarRoles = document.getElementById("user-roles-list");
     DOM.sidebarResources = document.getElementById("user-resources-list");
-    DOM.affectedProcesses = document.getElementById("user-affected-processes");
-    DOM.initiatedProcesses = document.getElementById("user-initiated-processes");
+    DOM.userHistoryCategoryButtons = document.querySelectorAll("[data-history-category]");
+    DOM.userHistoryContent = document.getElementById("user-history-content");
 
     DOM.onboardActionBtn = document.getElementById("onboard-action-btn");
     DOM.onboardOverlay = document.getElementById("onboard-overlay");

@@ -28,8 +28,8 @@ except ImportError:
 
 try:
     import httpx
-    from fastapi import HTTPException
-except ModuleNotFoundError:
+    from fastapi import APIRouter, HTTPException
+except (ModuleNotFoundError, ImportError):
     fastapi_module = types.ModuleType("fastapi")
     fastapi_exceptions_module = types.ModuleType("fastapi.exceptions")
     fastapi_responses_module = types.ModuleType("fastapi.responses")
@@ -80,6 +80,7 @@ except ModuleNotFoundError:
     class Jinja2Templates:
         def __init__(self, directory=None):
             self.directory = directory
+            self.env = SimpleNamespace(globals={})
 
         def TemplateResponse(self, *args, **kwargs):
             return {"args": args, "kwargs": kwargs}
@@ -146,15 +147,18 @@ except ModuleNotFoundError:
     httpx_module.Response = Response
     httpx_module.RequestError = Exception
 
-    sys.modules.setdefault("fastapi", fastapi_module)
-    sys.modules.setdefault("fastapi.exceptions", fastapi_exceptions_module)
-    sys.modules.setdefault("fastapi.responses", fastapi_responses_module)
-    sys.modules.setdefault("fastapi.templating", fastapi_templating_module)
-    sys.modules.setdefault("httpx", httpx_module)
+    sys.modules["fastapi"] = fastapi_module
+    sys.modules["fastapi.exceptions"] = fastapi_exceptions_module
+    sys.modules["fastapi.responses"] = fastapi_responses_module
+    sys.modules["fastapi.templating"] = fastapi_templating_module
+    sys.modules["httpx"] = httpx_module
 
     import httpx
 
 from app.routes.api import (
+    api_user_account_history,
+    api_user_resource_history,
+    api_user_role_history,
     api_create_word_template,
     api_delete_word_document,
     api_download_word_document,
@@ -167,7 +171,8 @@ from app.routes.api import (
     api_render_download_word_template,
     api_update_word_template,
 )
-from app.routes.pages import word_templates_tool
+from app.routes.pages import request_templates_tool
+from app.api_client import ACCESS_BASE_URL, api_client
 
 
 def run_async(awaitable):
@@ -214,22 +219,23 @@ class FakeUploadFile:
         self.closed = True
 
 
-class WordTemplatesPageTests(unittest.TestCase):
-    def test_word_templates_page_uses_expected_template(self):
+class RequestTemplatesPageTests(unittest.TestCase):
+    def test_request_templates_page_uses_expected_template(self):
         request = SimpleNamespace(headers={}, url=SimpleNamespace(scheme="http"))
         authz = SimpleNamespace(raw_user={"user_id": 7})
 
         with patch("app.routes.pages._build_template_context", return_value={"request": request, "user": authz.raw_user}) as context_mock:
             with patch("app.routes.pages.templates.TemplateResponse", side_effect=lambda name, context: {"name": name, "context": context}):
-                response = run_async(word_templates_tool(request, authz=authz))
+                response = run_async(request_templates_tool(request, authz=authz))
 
-        self.assertEqual(response["name"], "tools/word_templates_tool.html")
+        self.assertEqual(response["name"], "tools/request_templates_tool.html")
         context_mock.assert_called_once()
 
 
 class WordTemplatesApiTests(unittest.TestCase):
     def setUp(self):
         self.current_user = SimpleNamespace(user_id=42)
+
 
     @patch("app.routes.api.api_client.list_word_templates", new_callable=AsyncMock)
     def test_list_templates_returns_json_payload(self, list_mock):
@@ -493,6 +499,74 @@ class WordTemplatesApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 500)
         self.assertEqual(json_body(response), {"error": "boom"})
+
+
+class UserHistoryApiTests(unittest.TestCase):
+    def setUp(self):
+        self.current_user = SimpleNamespace(user_id=42)
+
+    @patch("app.routes.api.api_client.get_user_account_history", new_callable=AsyncMock)
+    def test_account_history_returns_payload(self, history_mock):
+        history_mock.return_value = [{"user_account_history_id": 91, "account_identifier": "name@example.com"}]
+
+        response = run_async(api_user_account_history(805, current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json_body(response), history_mock.return_value)
+        history_mock.assert_awaited_once_with(805)
+
+    @patch("app.routes.api.api_client.get_user_role_history", new_callable=AsyncMock)
+    def test_role_history_forwards_pagination(self, history_mock):
+        history_mock.return_value = {"items": [{"log_id": 9}], "total": 51, "limit": 50, "offset": 50}
+
+        response = run_async(api_user_role_history(805, limit=50, offset=50, current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json_body(response), history_mock.return_value)
+        history_mock.assert_awaited_once_with(805, limit=50, offset=50)
+
+    @patch("app.routes.api.api_client.get_user_resource_history", new_callable=AsyncMock)
+    def test_resource_history_propagates_not_found(self, history_mock):
+        history_mock.side_effect = make_http_error(404, {"detail": "User nicht gefunden"})
+
+        response = run_async(api_user_resource_history(805, current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(json_body(response), {"detail": "User nicht gefunden"})
+
+
+class UserHistoryClientTests(unittest.TestCase):
+    @patch.object(api_client, "_get", new_callable=AsyncMock)
+    def test_account_history_uses_access_service_path(self, get_mock):
+        get_mock.return_value = []
+
+        run_async(api_client.get_user_account_history(805))
+
+        get_mock.assert_awaited_once_with(ACCESS_BASE_URL, "/users/805/account-history")
+
+    @patch.object(api_client, "_get", new_callable=AsyncMock)
+    def test_role_history_uses_access_service_path_and_pagination(self, get_mock):
+        get_mock.return_value = {"items": [], "total": 0}
+
+        run_async(api_client.get_user_role_history(805, limit=50, offset=100))
+
+        get_mock.assert_awaited_once_with(
+            ACCESS_BASE_URL,
+            "/users/805/role-history",
+            params={"limit": 50, "offset": 100},
+        )
+
+    @patch.object(api_client, "_get", new_callable=AsyncMock)
+    def test_resource_history_uses_access_service_path_and_pagination(self, get_mock):
+        get_mock.return_value = {"items": [], "total": 0}
+
+        run_async(api_client.get_user_resource_history(805, limit=50, offset=100))
+
+        get_mock.assert_awaited_once_with(
+            ACCESS_BASE_URL,
+            "/users/805/resource-history",
+            params={"limit": 50, "offset": 100},
+        )
 
 
 if __name__ == "__main__":

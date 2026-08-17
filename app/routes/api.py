@@ -734,11 +734,43 @@ async def api_user_details(user_id: int, current_user=Depends(require_permission
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
-@router.get("/users/{user_id}/activity")
-async def api_user_activity(user_id: int, current_user=Depends(require_permission("SOFA-PAGE-USER"))):
+@router.get("/users/{user_id}/account-history")
+async def api_user_account_history(user_id: int, current_user=Depends(require_permission("SOFA-PAGE-USER"))):
     try:
-        activity = await api_client.get_user_activity(user_id)
-        return JSONResponse(content=activity)
+        history = await api_client.get_user_account_history(user_id)
+        return JSONResponse(content=history)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/users/{user_id}/role-history")
+async def api_user_role_history(
+    user_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    current_user=Depends(require_permission("SOFA-PAGE-USER")),
+):
+    try:
+        history = await api_client.get_user_role_history(user_id, limit=limit, offset=offset)
+        return JSONResponse(content=history)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/users/{user_id}/resource-history")
+async def api_user_resource_history(
+    user_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    current_user=Depends(require_permission("SOFA-PAGE-USER")),
+):
+    try:
+        history = await api_client.get_user_resource_history(user_id, limit=limit, offset=offset)
+        return JSONResponse(content=history)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:

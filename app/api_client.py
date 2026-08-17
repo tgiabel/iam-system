@@ -116,8 +116,22 @@ class APIClient:
     async def get_user_details(self, user_id: int) -> dict:
         return await self._get(ACCESS_BASE_URL, f"/users/{user_id}/details")
 
-    async def get_user_activity(self, user_id: int) -> dict:
-        return await self._get(SOFA_BASE_URL, f"/users/{user_id}/activity")
+    async def get_user_account_history(self, user_id: int) -> list[dict]:
+        return await self._get(ACCESS_BASE_URL, f"/users/{user_id}/account-history")
+
+    async def get_user_role_history(self, user_id: int, *, limit: int = 50, offset: int = 0) -> dict:
+        return await self._get(
+            ACCESS_BASE_URL,
+            f"/users/{user_id}/role-history",
+            params={"limit": limit, "offset": offset},
+        )
+
+    async def get_user_resource_history(self, user_id: int, *, limit: int = 50, offset: int = 0) -> dict:
+        return await self._get(
+            ACCESS_BASE_URL,
+            f"/users/{user_id}/resource-history",
+            params={"limit": limit, "offset": offset},
+        )
 
     async def get_user_by_pnr(self, pnr: str):
         return await self._get(ACCESS_BASE_URL, f"/users/{pnr}")

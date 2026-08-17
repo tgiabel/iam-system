@@ -42,7 +42,7 @@
 
                 <div class="users-toolbar-meta">
                     <div class="users-filter-container" id="users-filter-container">
-                        <button type="button" class="btn btn-secondary users-icon-btn users-filter-trigger" id="filter-btn" aria-haspopup="true" aria-expanded="false" aria-label="Filter" title="Filter">
+                        <button type="button" class="ui-flat-button ui-flat-button--icon users-icon-btn users-filter-trigger" id="filter-btn" aria-haspopup="true" aria-expanded="false" aria-label="Filter" title="Filter">
                             <img src="/static/img/filter-icon-black.png" alt="" class="users-icon-btn-img">
                         </button>
                         <div class="users-filter-dropdown" id="filter-dropdown">
@@ -55,12 +55,12 @@
                         <div class="users-subfilter-dropdown" id="subfilter-dropdown"></div>
                     </div>
 
-                    <button type="button" class="btn btn-secondary users-icon-btn users-inactive-toggle" id="users-inactive-toggle" aria-pressed="false" aria-label="Inaktive User anzeigen" title="Inaktive User anzeigen">
+                    <button type="button" class="ui-flat-button ui-flat-button--icon users-icon-btn users-inactive-toggle" id="users-inactive-toggle" aria-pressed="false" aria-label="Inaktive User anzeigen" title="Inaktive User anzeigen">
                         <img src="/static/img/no-user-icon-black.png" alt="" class="users-icon-btn-img">
                     </button>
 
                     <div class="users-filter-container" id="users-sort-container">
-                        <button type="button" class="btn btn-secondary users-sort-toggle" id="users-sort-toggle" aria-haspopup="true" aria-expanded="false">
+                        <button type="button" class="ui-flat-button users-sort-toggle" id="users-sort-toggle" aria-haspopup="true" aria-expanded="false">
                             <span class="users-sort-icon" aria-hidden="true">⇅</span>
                             <span class="users-sort-label" id="users-sort-label">Nachname</span>
                         </button>
@@ -75,7 +75,7 @@
             </div>
         </section>
 
-        <section class="ui-card users-table-card">
+        <section class="ui-table-card users-table-card">
             <div class="table-wrapper">
                 <table id="user-table">
                     <thead>
@@ -123,7 +123,7 @@
             <button type="button" class="user-panel-tab is-active" data-tab="details">Details</button>
             <button type="button" class="user-panel-tab" data-tab="rollen">Rollen</button>
             <button type="button" class="user-panel-tab" data-tab="ressourcen">Ressourcen</button>
-            <button type="button" class="user-panel-tab" data-tab="activity">Aktivität</button>
+            <button type="button" class="user-panel-tab" data-tab="logs">Logs</button>
         </div>
 
         <div class="ui-modal-body user-panel-body">
@@ -214,25 +214,16 @@
                 </div>
             </section>
 
-            <section class="user-panel-view" id="tab-activity">
-                <div class="user-activity-layout">
-                    <article class="ui-card user-detail-card">
-                        <div class="user-detail-card-header">
-                            <h3>Prozesse für den User</h3>
-                        </div>
-                        <div id="user-affected-processes" class="user-activity-list">
-                            <div class="ui-empty-state ui-empty-inline">Keine Prozesse gefunden.</div>
-                        </div>
-                    </article>
-
-                    <article class="ui-card user-detail-card">
-                        <div class="user-detail-card-header">
-                            <h3>Vom User ausgelöst</h3>
-                        </div>
-                        <div id="user-initiated-processes" class="user-activity-list">
-                            <div class="ui-empty-state ui-empty-inline">Keine Prozesse gefunden.</div>
-                        </div>
-                    </article>
+            <section class="user-panel-view" id="tab-logs">
+                <div class="user-history-layout">
+                    <div class="user-history-categories" role="group" aria-label="Historienkategorie">
+                        <button type="button" class="ui-flat-button user-history-category" data-history-category="accounts" aria-pressed="false">Accounts</button>
+                        <button type="button" class="ui-flat-button user-history-category" data-history-category="roles" aria-pressed="false">Rollen</button>
+                        <button type="button" class="ui-flat-button user-history-category" data-history-category="resources" aria-pressed="false">Berechtigungen</button>
+                    </div>
+                    <div id="user-history-content" class="user-history-content" aria-live="polite">
+                        <div class="ui-empty-state ui-empty-inline">Kategorie auswählen, um die Historie zu laden.</div>
+                    </div>
                 </div>
             </section>
         </div>
