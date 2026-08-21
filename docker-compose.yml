@@ -2,14 +2,17 @@ version: "3.9"
 services:
   app:
     build: .
+    environment:
+      SD_API_BASE_URL: ${SD_API_BASE_URL:-http://sd-api:8080}
     ports:
       - "8000:8000"
     volumes:
       - ./app:/app/app
       - ./requirements.txt:/app/requirements.txt
     networks:
-      - dev_default
+      - sd_api_backend
 
 networks:
-  dev_default:
+  sd_api_backend:
     external: true
+    name: sd-api-backend

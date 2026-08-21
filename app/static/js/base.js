@@ -168,6 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { selector: '[data-nav-target="console"]', path: "/console" },
             { selector: '[data-nav-target="users"]', path: "/users" },
             { selector: '[data-nav-target="systems"]', path: "/systems" },
+            { selector: '[data-nav-target="computers"]', path: "/computers" },
             { selector: '[data-nav-target="roles"]', path: "/roles" },
             { selector: '[data-nav-target="iks"]', path: "/iks" }
         ];

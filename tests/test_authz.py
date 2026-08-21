@@ -184,6 +184,10 @@ class TestHasPermission(unittest.TestCase):
         authz = self._make_authz(permissions=("SOFA-PAGE-USER",))
         self.assertTrue(authz.has_admin_access())
 
+    def test_computer_page_counts_as_admin_access(self):
+        authz = self._make_authz(permissions=("SOFA-PAGE-COMPUTER",))
+        self.assertTrue(authz.has_admin_access())
+
     def test_has_admin_access_false(self):
         authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
         self.assertFalse(authz.has_admin_access())

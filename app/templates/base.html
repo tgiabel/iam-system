@@ -85,6 +85,9 @@
                                 {% if "SOFA-PAGE-SYS" in authz.permissions %}
                                     <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems">Systemverwaltung</a>
                                 {% endif %}
+                                {% if "SOFA-PAGE-COMPUTER" in authz.permissions %}
+                                    <a href="/computers" role="menuitem" class="subnav-item" data-nav-target="computers">Rechnerverwaltung</a>
+                                {% endif %}
                                 {% if "SOFA-PAGE-ROLE" in authz.permissions %}
                                     <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
                                 {% endif %}
@@ -161,6 +164,9 @@
                         {% endif %}
                         {% if "SOFA-PAGE-SYS" in authz.permissions %}
                             <a href="/systems" class="mobile-nav-link" data-nav-target="systems">Systemverwaltung</a>
+                        {% endif %}
+                        {% if "SOFA-PAGE-COMPUTER" in authz.permissions %}
+                            <a href="/computers" class="mobile-nav-link" data-nav-target="computers">Rechnerverwaltung</a>
                         {% endif %}
                         {% if "SOFA-PAGE-ROLE" in authz.permissions %}
                             <a href="/roles" class="mobile-nav-link" data-nav-target="roles">Rollenmanagement</a>

@@ -44,7 +44,12 @@ class AuthorizationContext:
         return False
 
     def has_admin_access(self) -> bool:
-        return any(self.has_permission(p) for p in ("SOFA-PAGE-USER", "SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"))
+        return any(self.has_permission(p) for p in (
+            "SOFA-PAGE-USER",
+            "SOFA-PAGE-SYS",
+            "SOFA-PAGE-ROLE",
+            "SOFA-PAGE-COMPUTER",
+        ))
 
     def has_any_tool(self) -> bool:
         return any(

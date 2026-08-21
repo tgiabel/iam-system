@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/rechnerverwaltung.css">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/rechnerverwaltung.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% set page_title = "Rechnerverwaltung" %}
+
+{% block content %}
+<div class="computers-page">
+    <div class="computers-shell">
+        <section class="ui-card computers-header">
+            <div class="computers-header-main">
+                <div class="ui-section-heading">
+                    <span class="ui-section-kicker">Inventory Hub</span>
+                    <h1 class="ui-section-title">Rechnerverwaltung</h1>
+                    <p class="ui-section-copy">Rechnerzustände, Updates, Standorte und Softwareaufträge zentral verwalten.</p>
+                </div>
+                <div class="computers-quick-filters" aria-label="Schnellfilter">
+                    <button type="button" class="ui-flat-button computers-quick-filter" data-quick-filter="online">
+                        <span class="computers-quick-dot is-online" aria-hidden="true"></span>
+                        Online <span class="ui-chip ui-chip-neutral" id="computers-stat-online">0</span>
+                    </button>
+                    <button type="button" class="ui-flat-button computers-quick-filter" data-quick-filter="offline">
+                        <span class="computers-quick-dot is-offline" aria-hidden="true"></span>
+                        Offline <span class="ui-chip ui-chip-neutral" id="computers-stat-offline">0</span>
+                    </button>
+                    <button type="button" class="ui-flat-button computers-quick-filter" data-quick-filter="session">
+                        In Nutzung <span class="ui-chip ui-chip-neutral" id="computers-stat-session">0</span>
+                    </button>
+                    <button type="button" class="ui-flat-button computers-quick-filter" data-quick-filter="jobs">
+                        Offene Aufträge <span class="ui-chip ui-chip-neutral" id="computers-stat-jobs">0</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="computers-toolbar">
+                <div class="computers-search-block">
+                    <label class="ui-field-label" for="computers-search">Suche</label>
+                    <input
+                        id="computers-search"
+                        class="ui-input computers-search"
+                        type="search"
+                        placeholder="Computer, Modell, Kommentar, Nutzer, Besitzer oder Standort"
+                        autocomplete="off"
+                    >
+                </div>
+                <div class="computers-toolbar-actions">
+                    <div class="computers-filter-container" id="computers-filter-container">
+                        <button type="button" class="ui-flat-button" id="computers-filter-toggle" aria-expanded="false" aria-controls="computers-filter-panel">
+                            Filter <span class="ui-chip ui-chip-primary" id="computers-filter-count" hidden>0</span>
+                        </button>
+                        <div class="computers-filter-panel ui-card" id="computers-filter-panel" hidden>
+                            <div class="computers-filter-panel-header">
+                                <strong>Rechner filtern</strong>
+                                <button type="button" class="ui-flat-button" id="computers-filter-reset">Zurücksetzen</button>
+                            </div>
+                            <div class="computers-filter-grid">
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">FSV-Version</span>
+                                    <select class="ui-input" data-filter-field="fsvVersion"><option value="">Alle</option></select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">EFix-Version</span>
+                                    <select class="ui-input" data-filter-field="efixVersion"><option value="">Alle</option></select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">Gerätetyp</span>
+                                    <select class="ui-input" data-filter-field="deviceType"><option value="">Alle</option></select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">Tranche</span>
+                                    <select class="ui-input" data-filter-field="tranche">
+                                        <option value="">Alle</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="__missing__">Nicht zugeordnet</option>
+                                    </select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">Erreichbarkeit</span>
+                                    <select class="ui-input" data-filter-field="connectivity">
+                                        <option value="">Alle</option><option value="online">Online</option><option value="offline">Offline</option><option value="unknown">Unbekannt</option>
+                                    </select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">VPN</span>
+                                    <select class="ui-input" data-filter-field="vpn">
+                                        <option value="">Alle</option><option value="yes">Aktiviert</option><option value="no">Nicht aktiviert</option>
+                                    </select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">Standortart</span>
+                                    <select class="ui-input" data-filter-field="locationKind">
+                                        <option value="">Alle</option><option value="office">Büro</option><option value="warehouse">Lager</option><option value="home_office">Homeoffice</option><option value="unknown">Nicht zugeordnet</option>
+                                    </select>
+                                </label>
+                                <label class="ui-field-group computers-software-filter">
+                                    <span class="ui-field-label">Software</span>
+                                    <select class="ui-input" data-filter-field="softwareId"><option value="">Alle</option></select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">Software-Version</span>
+                                    <select class="ui-input" data-filter-field="softwareVersion" disabled><option value="">Alle</option></select>
+                                </label>
+                                <label class="ui-field-group">
+                                    <span class="ui-field-label">Installationsstatus</span>
+                                    <select class="ui-input" data-filter-field="softwarePresence" disabled>
+                                        <option value="installed">Installiert</option><option value="missing">Nicht installiert</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <span id="computers-visible-count" class="computers-visible-count" aria-live="polite">0 von 0 Rechnern</span>
+                </div>
+            </div>
+
+            <div class="computers-filter-tags" id="computers-filter-tags" aria-live="polite"></div>
+        </section>
+
+        <div class="ui-bulk-bar computers-bulk-bar" id="computers-bulk-bar" hidden>
+            <strong id="computers-selection-count">0 Rechner ausgewählt</strong>
+            <div class="ui-bulk-bar-actions">
+                <button type="button" class="btn btn-sm btn-primary" id="computers-bulk-install">Software installieren</button>
+                <button type="button" class="btn btn-sm btn-secondary" id="computers-bulk-uninstall">Software deinstallieren</button>
+                <button type="button" class="ui-flat-button" id="computers-selection-clear">Auswahl aufheben</button>
+            </div>
+        </div>
+
+        <section class="ui-table-card computers-table-card">
+            <div class="table-wrapper">
+                <table id="computers-table">
+                    <thead>
+                        <tr>
+                            <th class="computers-select-column">
+                                <input id="computers-select-all" type="checkbox" aria-label="Alle sichtbaren Rechner auswählen">
+                            </th>
+                            <th class="computers-sticky-identity"><button class="ui-table-sort-button is-active" type="button" data-sort-field="hostname">Rechner <span data-sort-indicator>↑</span></button></th>
+                            <th><button class="ui-table-sort-button" type="button" data-sort-field="device_type">Gerät <span data-sort-indicator></span></button></th>
+                            <th><button class="ui-table-sort-button" type="button" data-sort-field="fsv">FSV <span data-sort-indicator></span></button></th>
+                            <th><button class="ui-table-sort-button" type="button" data-sort-field="efix">EFix <span data-sort-indicator></span></button></th>
+                            <th><button class="ui-table-sort-button" type="button" data-sort-field="tranche">Tranche <span data-sort-indicator></span></button></th>
+                            <th><button class="ui-table-sort-button" type="button" data-sort-field="connectivity">Zustand <span data-sort-indicator></span></button></th>
+                            <th><button class="ui-table-sort-button" type="button" data-sort-field="vpn">VPN <span data-sort-indicator></span></button></th>
+                            <th><button class="ui-table-sort-button" type="button" data-sort-field="location">Einsatzort <span data-sort-indicator></span></button></th>
+                            <th>Kommentar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="computers-table-body">
+                        <tr class="computers-empty-row"><td colspan="10"><div class="ui-empty-state ui-empty-inline">Rechner werden geladen…</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
+
+<div class="ui-modal-overlay ui-sidepanel-overlay" id="computer-detail-overlay" aria-hidden="true">
+    <div class="ui-modal ui-sidepanel computer-detail-panel" role="dialog" aria-modal="true" aria-labelledby="computer-detail-title">
+        <div class="ui-modal-header computer-detail-header">
+            <div class="computer-detail-heading">
+                <span class="ui-section-kicker">Rechnerdetails</span>
+                <h2 id="computer-detail-title">–</h2>
+                <div class="computer-detail-meta">
+                    <span class="ui-chip ui-chip-neutral" id="computer-detail-asset">Kennung –</span>
+                    <span class="ui-status-badge ui-status-neutral" id="computer-detail-status">Unbekannt</span>
+                    <span class="ui-chip ui-chip-neutral" id="computer-detail-tranche">Tranche –</span>
+                </div>
+            </div>
+            <button type="button" class="ui-icon-button" id="computer-detail-close" aria-label="Rechnerdetails schließen">&times;</button>
+        </div>
+
+        <div class="ui-tabs" id="computer-detail-tabs" role="tablist">
+            <button type="button" class="ui-tab is-active" data-computer-tab="overview" role="tab" aria-selected="true">Übersicht</button>
+            <button type="button" class="ui-tab" data-computer-tab="software" role="tab" aria-selected="false">Software <span class="ui-chip ui-chip-neutral" id="computer-software-count">0</span></button>
+            <button type="button" class="ui-tab" data-computer-tab="jobs" role="tab" aria-selected="false">Aufträge &amp; Verlauf <span class="ui-chip ui-chip-neutral" id="computer-jobs-count">0</span></button>
+        </div>
+
+        <div class="ui-modal-body computer-detail-body">
+            <section class="computer-tab-view is-active" data-computer-view="overview">
+                <div class="computer-detail-grid">
+                    <article class="ui-card computer-detail-card">
+                        <h3>Gerät</h3>
+                        <dl class="computer-definition-grid">
+                            <div><dt>Typ</dt><dd id="computer-field-type">–</dd></div>
+                            <div><dt>Modell</dt><dd id="computer-field-model">–</dd></div>
+                            <div><dt>Seriennummer</dt><dd id="computer-field-serial">–</dd></div>
+                            <div><dt>Betriebssystem</dt><dd id="computer-field-os">–</dd></div>
+                            <div><dt>Architektur</dt><dd id="computer-field-architecture">–</dd></div>
+                            <div><dt>VPN-Client</dt><dd id="computer-field-vpn">–</dd></div>
+                        </dl>
+                    </article>
+                    <article class="ui-card computer-detail-card">
+                        <h3>Zustand &amp; Netzwerk</h3>
+                        <dl class="computer-definition-grid">
+                            <div><dt>Erreichbarkeit</dt><dd id="computer-field-connectivity">–</dd></div>
+                            <div><dt>Letzter Kontakt</dt><dd id="computer-field-last-seen">–</dd></div>
+                            <div><dt>Angemeldeter Nutzer</dt><dd id="computer-field-session">–</dd></div>
+                            <div><dt>Angemeldet seit</dt><dd id="computer-field-session-since">–</dd></div>
+                            <div class="computer-definition-wide"><dt>IP-Adressen</dt><dd id="computer-field-ips">–</dd></div>
+                            <div class="computer-definition-wide"><dt>MAC-Adressen</dt><dd id="computer-field-macs">–</dd></div>
+                        </dl>
+                    </article>
+                    <article class="ui-card computer-detail-card">
+                        <h3>Updates &amp; Rollout</h3>
+                        <dl class="computer-definition-grid">
+                            <div><dt>FSV-Version</dt><dd id="computer-field-fsv">–</dd></div>
+                            <div><dt>FSV installiert</dt><dd id="computer-field-fsv-date">–</dd></div>
+                            <div><dt>EFix-Version</dt><dd id="computer-field-efix">–</dd></div>
+                            <div><dt>EFix installiert</dt><dd id="computer-field-efix-date">–</dd></div>
+                            <div><dt>Tranche</dt><dd id="computer-field-tranche">–</dd></div>
+                        </dl>
+                    </article>
+                    <article class="ui-card computer-detail-card">
+                        <h3>Einsatzort</h3>
+                        <dl class="computer-definition-grid">
+                            <div><dt>Art</dt><dd id="computer-field-location-kind">–</dd></div>
+                            <div><dt>Bezeichnung</dt><dd id="computer-field-location-label">–</dd></div>
+                            <div><dt>Raum/Bereich</dt><dd id="computer-field-location-room">–</dd></div>
+                            <div><dt>Besitzer</dt><dd id="computer-field-owner">–</dd></div>
+                        </dl>
+                    </article>
+                    <article class="ui-card computer-detail-card computer-comment-card">
+                        <div class="computer-card-heading">
+                            <h3>Kommentar</h3>
+                            {% if "SOFA-FN-COMPUTER-COMMENT" in authz.permissions %}
+                            <button type="button" class="ui-flat-button" id="computer-comment-edit">Bearbeiten</button>
+                            {% endif %}
+                        </div>
+                        <p id="computer-comment-text" class="computer-comment-text">–</p>
+                        <div id="computer-comment-editor" hidden>
+                            <textarea id="computer-comment-input" class="ui-textarea" maxlength="4000" rows="5"></textarea>
+                            <div class="computer-inline-actions">
+                                <button type="button" class="btn btn-sm btn-secondary" id="computer-comment-cancel">Abbrechen</button>
+                                <button type="button" class="btn btn-sm btn-primary" id="computer-comment-save">Speichern</button>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="computer-tab-view" data-computer-view="software">
+                <input id="computer-software-search" class="ui-input" type="search" placeholder="Installierte Software durchsuchen" autocomplete="off">
+                <div id="computer-software-list" class="computer-list-stack"><div class="ui-empty-state ui-empty-inline">Software wird geladen…</div></div>
+            </section>
+
+            <section class="computer-tab-view" data-computer-view="jobs">
+                <div id="computer-jobs-list" class="computer-list-stack"><div class="ui-empty-state ui-empty-inline">Aufträge werden geladen…</div></div>
+            </section>
+        </div>
+
+        <div class="ui-sidepanel-actions computer-detail-actions">
+            {% if "SOFA-FN-COMPUTER-POWER" in authz.permissions %}
+            <button type="button" class="btn btn-sm btn-secondary" id="computer-reboot">Neustarten</button>
+            <button type="button" class="btn btn-sm btn-red" id="computer-shutdown">Herunterfahren</button>
+            {% endif %}
+            {% if "SOFA-FN-COMPUTER-SOFTWARE" in authz.permissions %}
+            <button type="button" class="btn btn-sm btn-secondary" id="computer-install">Software installieren</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="computer-uninstall">Software deinstallieren</button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="ui-modal-overlay" id="computer-software-action-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="computer-software-action-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Softwareauftrag</span>
+                <h3 id="computer-software-action-title">Software installieren</h3>
+                <p class="ui-section-copy" id="computer-software-action-targets">–</p>
+            </div>
+            <button type="button" class="ui-icon-button" data-close-overlay="computer-software-action-overlay" aria-label="Softwaredialog schließen">&times;</button>
+        </div>
+        <form id="computer-software-action-form">
+            <div class="ui-modal-body">
+                <label class="ui-field-group">
+                    <span class="ui-field-label">Software</span>
+                    <select class="ui-input" id="computer-action-software" required></select>
+                </label>
+                <label class="ui-field-group">
+                    <span class="ui-field-label">Version</span>
+                    <select class="ui-input" id="computer-action-version"></select>
+                </label>
+                <div class="computer-action-summary" id="computer-action-summary"></div>
+                <div id="computer-action-results" class="computer-action-results" hidden></div>
+            </div>
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" data-close-overlay="computer-software-action-overlay">Abbrechen</button>
+                <button type="submit" class="btn btn-primary" id="computer-software-action-submit">Auftrag starten</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="ui-modal-overlay" id="computer-power-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="computer-power-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Power-Aktion</span>
+                <h3 id="computer-power-title">Rechner neu starten</h3>
+            </div>
+            <button type="button" class="ui-icon-button" data-close-overlay="computer-power-overlay" aria-label="Power-Dialog schließen">&times;</button>
+        </div>
+        <form id="computer-power-form">
+            <div class="ui-modal-body">
+                <p id="computer-power-copy"></p>
+                <label class="computer-power-warning" id="computer-power-session-confirm" hidden>
+                    <input type="checkbox" id="computer-power-session-checkbox">
+                    <span id="computer-power-session-copy">Aktive Sitzung wurde geprüft.</span>
+                </label>
+            </div>
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" data-close-overlay="computer-power-overlay">Abbrechen</button>
+                <button type="submit" class="btn btn-red" id="computer-power-submit">Aktion ausführen</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

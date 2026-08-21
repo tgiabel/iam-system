@@ -171,6 +171,18 @@
           "permission": "systems.view"
         },
         {
+          "permission": "computers.view"
+        },
+        {
+          "permission": "computers.comment.manage"
+        },
+        {
+          "permission": "computers.power.execute"
+        },
+        {
+          "permission": "computers.software.manage"
+        },
+        {
           "permission": "console.view"
         }
       ]

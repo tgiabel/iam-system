@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import httpx  # type: ignore
+import os
 from typing import Any
 from urllib.parse import quote
 
+import httpx  # type: ignore
 
-BASE_URL = "http://dev-api:8080"
+
+BASE_URL = os.getenv("SD_API_BASE_URL", "http://dev-api:8080").rstrip("/")
 ACCESS_BASE_URL = f"{BASE_URL}/access"
 SOFA_BASE_URL = f"{BASE_URL}/sofa"
 TICKETING_BASE_URL = f"{BASE_URL}/ticketing"
@@ -13,6 +15,7 @@ MESSAGING_BASE_URL = f"{BASE_URL}/messaging"
 DATAPROCESSING_BASE_URL = f"{BASE_URL}/dataprocessing"
 Q_MANAGER_BASE_URL = f"{BASE_URL}/q-manager"
 REPORTING_BASE_URL = f"{BASE_URL}/reporting"
+INVENTORY_BASE_URL = f"{BASE_URL}/inventory"
 STOERUNG_BASE_URL = BASE_URL
 
 
@@ -139,6 +142,50 @@ class APIClient:
 
     async def get_user_by_id(self, user_id: int):
         return await self._get(ACCESS_BASE_URL, f"/users/{user_id}")
+
+    # Inventory / computer administration
+    async def get_computer_overview(self) -> dict:
+        return await self._get(INVENTORY_BASE_URL, "/computers/overview")
+
+    async def get_computer_detail(self, computer_id: str) -> dict:
+        return await self._get(
+            INVENTORY_BASE_URL,
+            f"/computers/{quote(str(computer_id), safe='')}",
+        )
+
+    async def update_computer_comment(self, computer_id: str, payload: dict) -> dict:
+        return await self._patch(
+            INVENTORY_BASE_URL,
+            f"/computers/{quote(str(computer_id), safe='')}/comment",
+            payload=payload,
+        )
+
+    async def create_computer_power_action(self, computer_id: str, payload: dict) -> dict:
+        return await self._post(
+            INVENTORY_BASE_URL,
+            f"/computers/{quote(str(computer_id), safe='')}/power-actions",
+            payload=payload,
+        )
+
+    async def create_computer_software_action(self, payload: dict) -> dict:
+        return await self._post(
+            INVENTORY_BASE_URL,
+            "/computers/software-actions",
+            payload=payload,
+        )
+
+    async def get_computer_jobs(self, computer_id: str, *, limit: int = 50) -> dict:
+        return await self._get(
+            INVENTORY_BASE_URL,
+            f"/computers/{quote(str(computer_id), safe='')}/jobs",
+            params={"limit": limit},
+        )
+
+    async def get_computer_job_batch(self, batch_id: str) -> dict:
+        return await self._get(
+            INVENTORY_BASE_URL,
+            f"/computer-job-batches/{quote(str(batch_id), safe='')}",
+        )
 
     async def get_role_resources(self, role_id: int) -> list[dict]:
         return await self._get(ACCESS_BASE_URL, f"/roles/{role_id}/resources")

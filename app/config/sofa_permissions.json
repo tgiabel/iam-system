@@ -343,6 +343,33 @@
       ]
     },
     {
+      "key": "computers.view",
+      "label": "Rechnerverwaltung anzeigen",
+      "category": "computers",
+      "description": "Erlaubt den Zugriff auf Rechneruebersicht und Rechnerdetails.",
+      "legacy": {
+        "page": "computers"
+      }
+    },
+    {
+      "key": "computers.comment.manage",
+      "label": "Rechnerkommentare bearbeiten",
+      "category": "computers",
+      "description": "Erlaubt das Bearbeiten administrativer Rechnerkommentare."
+    },
+    {
+      "key": "computers.power.execute",
+      "label": "Rechner neu starten oder herunterfahren",
+      "category": "computers",
+      "description": "Erlaubt Power-Aktionen auf verwalteten Rechnern."
+    },
+    {
+      "key": "computers.software.manage",
+      "label": "Rechnersoftware verwalten",
+      "category": "computers",
+      "description": "Erlaubt Softwareinstallationen und -deinstallationen auf einzelnen oder mehreren Rechnern."
+    },
+    {
       "key": "roles.view",
       "label": "Rollenmanagement anzeigen",
       "category": "roles",

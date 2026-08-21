@@ -1909,3 +1909,149 @@ async def api_stoerung_roles(authz=Depends(require_permission("SOFA-TOOL-SLOG"))
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
+# Rechnerverwaltung
+
+def _computer_proxy_error(exc: Exception) -> JSONResponse:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.get("/computers/overview")
+async def api_computer_overview(
+    current_user=Depends(require_permission("SOFA-PAGE-COMPUTER")),
+):
+    try:
+        return JSONResponse(content=await api_client.get_computer_overview())
+    except Exception as exc:
+        return _computer_proxy_error(exc)
+
+
+@router.post("/computers/software-actions")
+async def api_create_computer_software_action(
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-COMPUTER-SOFTWARE")),
+):
+    computer_ids = payload.get("computer_ids")
+    if not isinstance(computer_ids, list):
+        return JSONResponse(content={"detail": "computer_ids muss eine Liste sein."}, status_code=400)
+
+    normalized_ids = list(dict.fromkeys(
+        str(computer_id).strip()
+        for computer_id in computer_ids
+        if computer_id is not None
+        and not isinstance(computer_id, (dict, list, bool))
+        and str(computer_id).strip()
+    ))
+    if not normalized_ids:
+        return JSONResponse(content={"detail": "Mindestens ein Rechner muss ausgewählt sein."}, status_code=400)
+    if len(normalized_ids) > 500:
+        return JSONResponse(content={"detail": "Pro Auftrag sind maximal 500 Rechner erlaubt."}, status_code=400)
+
+    action = str(payload.get("action") or "").strip().lower()
+    if action not in {"install", "uninstall"}:
+        return JSONResponse(content={"detail": "action muss install oder uninstall sein."}, status_code=400)
+
+    software_id = str(payload.get("software_id") or "").strip()
+    if not software_id:
+        return JSONResponse(content={"detail": "software_id darf nicht leer sein."}, status_code=400)
+
+    upstream_payload = {
+        "computer_ids": normalized_ids,
+        "action": action,
+        "software_id": software_id,
+        "initiator_user_id": current_user.user_id,
+    }
+    version = str(payload.get("version") or "").strip()
+    if version:
+        upstream_payload["version"] = version
+
+    try:
+        return JSONResponse(content=await api_client.create_computer_software_action(upstream_payload))
+    except Exception as exc:
+        return _computer_proxy_error(exc)
+
+
+@router.get("/computers/{computer_id}")
+async def api_get_computer_detail(
+    computer_id: str,
+    current_user=Depends(require_permission("SOFA-PAGE-COMPUTER")),
+):
+    try:
+        return JSONResponse(content=await api_client.get_computer_detail(computer_id))
+    except Exception as exc:
+        return _computer_proxy_error(exc)
+
+
+@router.patch("/computers/{computer_id}/comment")
+async def api_update_computer_comment(
+    computer_id: str,
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-COMPUTER-COMMENT")),
+):
+    comment = payload.get("comment")
+    if not isinstance(comment, str):
+        return JSONResponse(content={"detail": "comment muss ein Text sein."}, status_code=400)
+    if len(comment) > 4000:
+        return JSONResponse(content={"detail": "Der Kommentar darf maximal 4000 Zeichen enthalten."}, status_code=400)
+
+    try:
+        result = await api_client.update_computer_comment(
+            computer_id,
+            {"comment": comment.strip(), "initiator_user_id": current_user.user_id},
+        )
+        return JSONResponse(content=result)
+    except Exception as exc:
+        return _computer_proxy_error(exc)
+
+
+@router.post("/computers/{computer_id}/power-actions")
+async def api_create_computer_power_action(
+    computer_id: str,
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-COMPUTER-POWER")),
+):
+    action = str(payload.get("action") or "").strip().lower()
+    if action not in {"reboot", "shutdown"}:
+        return JSONResponse(content={"detail": "action muss reboot oder shutdown sein."}, status_code=400)
+
+    upstream_payload = {
+        "action": action,
+        "confirm_active_session": _coerce_bool(payload.get("confirm_active_session"), False),
+        "initiator_user_id": current_user.user_id,
+    }
+    try:
+        return JSONResponse(content=await api_client.create_computer_power_action(computer_id, upstream_payload))
+    except Exception as exc:
+        return _computer_proxy_error(exc)
+
+
+@router.get("/computers/{computer_id}/jobs")
+async def api_get_computer_jobs(
+    computer_id: str,
+    limit: int = 50,
+    current_user=Depends(require_permission("SOFA-PAGE-COMPUTER")),
+):
+    normalized_limit = max(1, min(limit, 100))
+    try:
+        return JSONResponse(content=await api_client.get_computer_jobs(computer_id, limit=normalized_limit))
+    except Exception as exc:
+        return _computer_proxy_error(exc)
+
+
+@router.get("/computer-job-batches/{batch_id}")
+async def api_get_computer_job_batch(
+    batch_id: str,
+    current_user=Depends(require_any_permission(
+        "SOFA-FN-COMPUTER-SOFTWARE",
+        "SOFA-FN-COMPUTER-POWER",
+        "SOFA-PAGE-COMPUTER",
+    )),
+):
+    try:
+        return JSONResponse(content=await api_client.get_computer_job_batch(batch_id))
+    except Exception as exc:
+        return _computer_proxy_error(exc)

@@ -55,7 +55,16 @@
 > - Detail-Funktionen (Bearbeiten, Res. bearbeiten, Res. hinzufügen)
 >   - für alle/ für bestimmte Systeme
 
-6. #### ROLLENMANAGEMENT
+6. #### RECHNERVERWALTUNG
+> - view-page
+>
+> - Kommentare bearbeiten
+>
+> - Neustart und Herunterfahren ausführen
+>
+> - Software installieren und deinstallieren
+
+7. #### ROLLENMANAGEMENT
 > - view-page
 >
 > - Neue Rolle anlegen
@@ -63,10 +72,10 @@
 > - Detail-Funktionen (Bearbeiten, Res. entfernen, Res. hinzufügen)
 >   - für alle/ für bestimmte Rollen
 
-7. #### KONSOLE
+8. #### KONSOLE
 > - view-page
 
-8. MISC
+9. MISC
 
 ## POLICY GROUPS/KEYS
 

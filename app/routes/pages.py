@@ -113,6 +113,17 @@ async def system_details(request: Request, system_id: str, authz=Depends(require
     )
 
 
+@router.get("/computers", response_class=HTMLResponse)
+async def computers(
+    request: Request,
+    authz=Depends(require_permission("SOFA-PAGE-COMPUTER", redirect_to="/")),
+):
+    return templates.TemplateResponse(
+        "rechnerverwaltung.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
+    )
+
+
 @router.get("/roles", response_class=HTMLResponse)
 async def roles(request: Request, authz=Depends(require_permission("SOFA-PAGE-ROLE", redirect_to="/"))):
     return templates.TemplateResponse(
