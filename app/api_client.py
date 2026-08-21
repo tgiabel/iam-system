@@ -144,20 +144,34 @@ class APIClient:
         return await self._get(ACCESS_BASE_URL, f"/users/{user_id}")
 
     # Inventory / computer administration
-    async def get_computer_overview(self) -> dict:
-        return await self._get(INVENTORY_BASE_URL, "/computers/overview")
+    #
+    # SD-API prueft die SOFA-Berechtigungen erneut und verlangt dafuer die
+    # serverseitig bestimmte Benutzer-ID im Kopf X-User-Id. Der Browser
+    # uebermittelt sie nie selbst; sie stammt immer aus current_user.
+    @staticmethod
+    def _inventory_headers(user_id: int) -> dict:
+        return {"X-User-Id": str(user_id)}
 
-    async def get_computer_detail(self, computer_id: str) -> dict:
+    async def get_computer_overview(self, user_id: int) -> dict:
+        return await self._get(
+            INVENTORY_BASE_URL,
+            "/computers/overview",
+            headers=self._inventory_headers(user_id),
+        )
+
+    async def get_computer_detail(self, computer_id: str, user_id: int) -> dict:
         return await self._get(
             INVENTORY_BASE_URL,
             f"/computers/{quote(str(computer_id), safe='')}",
+            headers=self._inventory_headers(user_id),
         )
 
-    async def update_computer_comment(self, computer_id: str, payload: dict) -> dict:
+    async def update_computer_comment(self, computer_id: str, payload: dict, user_id: int) -> dict:
         return await self._patch(
             INVENTORY_BASE_URL,
             f"/computers/{quote(str(computer_id), safe='')}/comment",
             payload=payload,
+            headers=self._inventory_headers(user_id),
         )
 
     async def create_computer_power_action(self, computer_id: str, payload: dict) -> dict:
@@ -174,11 +188,12 @@ class APIClient:
             payload=payload,
         )
 
-    async def get_computer_jobs(self, computer_id: str, *, limit: int = 50) -> dict:
+    async def get_computer_jobs(self, computer_id: str, user_id: int, *, limit: int = 50) -> dict:
         return await self._get(
             INVENTORY_BASE_URL,
             f"/computers/{quote(str(computer_id), safe='')}/jobs",
             params={"limit": limit},
+            headers=self._inventory_headers(user_id),
         )
 
     async def get_computer_job_batch(self, batch_id: str) -> dict:

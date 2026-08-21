@@ -123,10 +123,15 @@
         <div class="ui-bulk-bar computers-bulk-bar" id="computers-bulk-bar" hidden>
             <strong id="computers-selection-count">0 Rechner ausgewählt</strong>
             <div class="ui-bulk-bar-actions">
-                <button type="button" class="btn btn-sm btn-primary" id="computers-bulk-install">Software installieren</button>
-                <button type="button" class="btn btn-sm btn-secondary" id="computers-bulk-uninstall">Software deinstallieren</button>
+                <button type="button" class="btn btn-sm btn-primary" id="computers-bulk-install" disabled title="Softwareverteilung folgt in einer späteren Stufe.">Software installieren</button>
+                <button type="button" class="btn btn-sm btn-secondary" id="computers-bulk-uninstall" disabled title="Softwareverteilung folgt in einer späteren Stufe.">Software deinstallieren</button>
                 <button type="button" class="ui-flat-button" id="computers-selection-clear">Auswahl aufheben</button>
             </div>
+        </div>
+
+        <div class="computers-notice" id="computers-truncation-notice" hidden role="status">
+            Es werden nur die ersten <span id="computers-truncation-limit">500</span> Rechner
+            angezeigt. Die Liste ist unvollständig.
         </div>
 
         <section class="ui-table-card computers-table-card">
@@ -167,6 +172,7 @@
                     <span class="ui-chip ui-chip-neutral" id="computer-detail-asset">Kennung –</span>
                     <span class="ui-status-badge ui-status-neutral" id="computer-detail-status">Unbekannt</span>
                     <span class="ui-chip ui-chip-neutral" id="computer-detail-tranche">Tranche –</span>
+                    <span class="ui-status-badge ui-status-neutral" id="computer-detail-disabled" hidden>Deaktiviert</span>
                 </div>
             </div>
             <button type="button" class="ui-icon-button" id="computer-detail-close" aria-label="Rechnerdetails schließen">&times;</button>
@@ -185,8 +191,12 @@
                         <h3>Gerät</h3>
                         <dl class="computer-definition-grid">
                             <div><dt>Typ</dt><dd id="computer-field-type">–</dd></div>
+                            <div><dt>Hersteller</dt><dd id="computer-field-manufacturer">–</dd></div>
                             <div><dt>Modell</dt><dd id="computer-field-model">–</dd></div>
                             <div><dt>Seriennummer</dt><dd id="computer-field-serial">–</dd></div>
+                            <div><dt>Prozessor</dt><dd id="computer-field-cpu">–</dd></div>
+                            <div><dt>Kerne</dt><dd id="computer-field-cpu-cores">–</dd></div>
+                            <div><dt>Arbeitsspeicher</dt><dd id="computer-field-memory">–</dd></div>
                             <div><dt>Betriebssystem</dt><dd id="computer-field-os">–</dd></div>
                             <div><dt>Architektur</dt><dd id="computer-field-architecture">–</dd></div>
                             <div><dt>VPN-Client</dt><dd id="computer-field-vpn">–</dd></div>
@@ -202,6 +212,13 @@
                             <div class="computer-definition-wide"><dt>IP-Adressen</dt><dd id="computer-field-ips">–</dd></div>
                             <div class="computer-definition-wide"><dt>MAC-Adressen</dt><dd id="computer-field-macs">–</dd></div>
                         </dl>
+                        <div class="computer-adapter-list" id="computer-adapter-list"></div>
+                    </article>
+
+                    <article class="ui-card computer-detail-card computer-datastatus-card">
+                        <h3>Datenstand</h3>
+                        <p class="computer-card-hint">Woher die angezeigten Werte stammen und wie alt sie sind.</p>
+                        <ul class="computer-datastatus-list" id="computer-datastatus-list"></ul>
                     </article>
                     <article class="ui-card computer-detail-card">
                         <h3>Updates &amp; Rollout</h3>
@@ -252,13 +269,16 @@
         </div>
 
         <div class="ui-sidepanel-actions computer-detail-actions">
+            {# Power- und Softwareaktionen haben im Backend noch keine Route. Die
+               Schaltflaechen bleiben sichtbar, damit der Umfang erkennbar ist, sind
+               aber eindeutig deaktiviert statt in einen 404 zu laufen. #}
             {% if "SOFA-FN-COMPUTER-POWER" in authz.permissions %}
-            <button type="button" class="btn btn-sm btn-secondary" id="computer-reboot">Neustarten</button>
-            <button type="button" class="btn btn-sm btn-red" id="computer-shutdown">Herunterfahren</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="computer-reboot" disabled title="Power-Aktionen folgen in einer späteren Stufe.">Neustarten</button>
+            <button type="button" class="btn btn-sm btn-red" id="computer-shutdown" disabled title="Power-Aktionen folgen in einer späteren Stufe.">Herunterfahren</button>
             {% endif %}
             {% if "SOFA-FN-COMPUTER-SOFTWARE" in authz.permissions %}
-            <button type="button" class="btn btn-sm btn-secondary" id="computer-install">Software installieren</button>
-            <button type="button" class="btn btn-sm btn-secondary" id="computer-uninstall">Software deinstallieren</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="computer-install" disabled title="Softwareverteilung folgt in einer späteren Stufe.">Software installieren</button>
+            <button type="button" class="btn btn-sm btn-secondary" id="computer-uninstall" disabled title="Softwareverteilung folgt in einer späteren Stufe.">Software deinstallieren</button>
             {% endif %}
         </div>
     </div>

@@ -1925,7 +1925,7 @@ async def api_computer_overview(
     current_user=Depends(require_permission("SOFA-PAGE-COMPUTER")),
 ):
     try:
-        return JSONResponse(content=await api_client.get_computer_overview())
+        return JSONResponse(content=await api_client.get_computer_overview(current_user.user_id))
     except Exception as exc:
         return _computer_proxy_error(exc)
 
@@ -1981,7 +1981,9 @@ async def api_get_computer_detail(
     current_user=Depends(require_permission("SOFA-PAGE-COMPUTER")),
 ):
     try:
-        return JSONResponse(content=await api_client.get_computer_detail(computer_id))
+        return JSONResponse(
+            content=await api_client.get_computer_detail(computer_id, current_user.user_id)
+        )
     except Exception as exc:
         return _computer_proxy_error(exc)
 
@@ -2002,6 +2004,7 @@ async def api_update_computer_comment(
         result = await api_client.update_computer_comment(
             computer_id,
             {"comment": comment.strip(), "initiator_user_id": current_user.user_id},
+            current_user.user_id,
         )
         return JSONResponse(content=result)
     except Exception as exc:
@@ -2037,7 +2040,9 @@ async def api_get_computer_jobs(
 ):
     normalized_limit = max(1, min(limit, 100))
     try:
-        return JSONResponse(content=await api_client.get_computer_jobs(computer_id, limit=normalized_limit))
+        return JSONResponse(content=await api_client.get_computer_jobs(
+            computer_id, current_user.user_id, limit=normalized_limit
+        ))
     except Exception as exc:
         return _computer_proxy_error(exc)
 

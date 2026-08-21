@@ -1,6 +1,7 @@
 import asyncio
 import json
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -102,30 +103,35 @@ class ComputerClientTests(unittest.TestCase):
     def test_overview_uses_inventory_service(self, get_mock):
         get_mock.return_value = {"computers": [], "software_catalog": []}
 
-        result = run_async(api_client.get_computer_overview())
+        result = run_async(api_client.get_computer_overview(42))
 
         self.assertEqual(result, {"computers": [], "software_catalog": []})
-        get_mock.assert_awaited_once_with(INVENTORY_BASE_URL, "/computers/overview")
+        get_mock.assert_awaited_once_with(
+            INVENTORY_BASE_URL, "/computers/overview", headers={"X-User-Id": "42"}
+        )
 
     @patch.object(api_client, "_get", new_callable=AsyncMock)
     def test_detail_encodes_computer_id(self, get_mock):
         get_mock.return_value = {"id": "pc/a"}
 
-        run_async(api_client.get_computer_detail("pc/a"))
+        run_async(api_client.get_computer_detail("pc/a", 42))
 
-        get_mock.assert_awaited_once_with(INVENTORY_BASE_URL, "/computers/pc%2Fa")
+        get_mock.assert_awaited_once_with(
+            INVENTORY_BASE_URL, "/computers/pc%2Fa", headers={"X-User-Id": "42"}
+        )
 
     @patch.object(api_client, "_patch", new_callable=AsyncMock)
     def test_comment_uses_patch(self, patch_mock):
         patch_mock.return_value = {"comment": "Hinweis"}
         payload = {"comment": "Hinweis", "initiator_user_id": 42}
 
-        run_async(api_client.update_computer_comment("pc-1", payload))
+        run_async(api_client.update_computer_comment("pc-1", payload, 42))
 
         patch_mock.assert_awaited_once_with(
             INVENTORY_BASE_URL,
             "/computers/pc-1/comment",
             payload=payload,
+            headers={"X-User-Id": "42"},
         )
 
     @patch.object(api_client, "_post", new_callable=AsyncMock)
@@ -145,12 +151,13 @@ class ComputerClientTests(unittest.TestCase):
     def test_jobs_include_limit(self, get_mock):
         get_mock.return_value = {"jobs": []}
 
-        run_async(api_client.get_computer_jobs("pc-1", limit=25))
+        run_async(api_client.get_computer_jobs("pc-1", 42, limit=25))
 
         get_mock.assert_awaited_once_with(
             INVENTORY_BASE_URL,
             "/computers/pc-1/jobs",
             params={"limit": 25},
+            headers={"X-User-Id": "42"},
         )
 
 
@@ -166,6 +173,43 @@ class ComputerApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(json_body(response)["computers"][0]["id"], "pc-1")
+
+    @patch("app.routes.api.api_client.get_computer_overview", new_callable=AsyncMock)
+    def test_overview_forwards_the_server_side_user(self, overview_mock):
+        """Die Benutzer-ID stammt aus current_user und nie aus dem Browser."""
+        overview_mock.return_value = {"computers": [], "software_catalog": []}
+
+        run_async(api_computer_overview(current_user=self.current_user))
+
+        overview_mock.assert_awaited_once_with(42)
+
+    @patch("app.routes.api.api_client.get_computer_detail", new_callable=AsyncMock)
+    def test_detail_forwards_the_server_side_user(self, detail_mock):
+        detail_mock.return_value = {"id": "pc-1"}
+
+        run_async(api_get_computer_detail("pc-1", current_user=self.current_user))
+
+        detail_mock.assert_awaited_once_with("pc-1", 42)
+
+    @patch("app.routes.api.api_client.get_computer_overview", new_callable=AsyncMock)
+    def test_an_upstream_401_reaches_the_browser_unchanged(self, overview_mock):
+        """SD-API prueft die Rechte erneut; sein Urteil darf hier nicht verschwinden."""
+        overview_mock.side_effect = make_http_error(401, {"detail": "X-User-Id fehlt."})
+
+        response = run_async(api_computer_overview(current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(json_body(response), {"detail": "X-User-Id fehlt."})
+
+    @patch("app.routes.api.api_client.get_computer_overview", new_callable=AsyncMock)
+    def test_an_upstream_403_reaches_the_browser_unchanged(self, overview_mock):
+        overview_mock.side_effect = make_http_error(
+            403, {"detail": "Berechtigung SOFA-PAGE-COMPUTER erforderlich."}
+        )
+
+        response = run_async(api_computer_overview(current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 403)
 
     @patch("app.routes.api.api_client.get_computer_detail", new_callable=AsyncMock)
     def test_detail_propagates_upstream_status(self, detail_mock):
@@ -190,6 +234,7 @@ class ComputerApiTests(unittest.TestCase):
         comment_mock.assert_awaited_once_with(
             "pc-1",
             {"comment": "Hinweis", "initiator_user_id": 42},
+            42,
         )
 
     def test_comment_rejects_non_string(self):
@@ -255,7 +300,7 @@ class ComputerApiTests(unittest.TestCase):
         response = run_async(api_get_computer_jobs("pc-1", limit=999, current_user=self.current_user))
 
         self.assertEqual(response.status_code, 200)
-        jobs_mock.assert_awaited_once_with("pc-1", limit=100)
+        jobs_mock.assert_awaited_once_with("pc-1", 42, limit=100)
 
     @patch("app.routes.api.api_client.get_computer_job_batch", new_callable=AsyncMock)
     def test_job_batch_is_proxied(self, batch_mock):
@@ -277,6 +322,64 @@ class ComputerPageTests(unittest.TestCase):
                 response = run_async(computers(request, authz=authz))
 
         self.assertEqual(response["name"], "rechnerverwaltung.html")
+
+
+class ComputerFrontendContractTests(unittest.TestCase):
+    """Der Vertrag von SD-API und die Oberflaeche muessen zusammenpassen.
+
+    Fuer reine Renderlogik gibt es in diesem Repository keinen JavaScript-Harness.
+    Diese Tests sichern deshalb nur, dass die Anschlusspunkte vorhanden sind —
+    die Darstellung selbst wird am Geraet abgenommen.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        root = Path(__file__).resolve().parent.parent
+        cls.template = (root / "app" / "templates" / "rechnerverwaltung.html").read_text(encoding="utf-8")
+        cls.script = (root / "app" / "static" / "js" / "rechnerverwaltung.js").read_text(encoding="utf-8")
+
+    def test_the_template_has_a_place_for_the_hardware_fields(self):
+        for element in ("computer-field-manufacturer", "computer-field-cpu",
+                        "computer-field-cpu-cores", "computer-field-memory"):
+            with self.subTest(element=element):
+                self.assertIn(element, self.template)
+
+    def test_the_template_has_a_place_for_adapters_and_data_status(self):
+        self.assertIn("computer-adapter-list", self.template)
+        self.assertIn("computer-datastatus-list", self.template)
+
+    def test_the_template_can_show_truncation_and_disabled_computers(self):
+        self.assertIn("computers-truncation-notice", self.template)
+        self.assertIn("computer-detail-disabled", self.template)
+
+    def test_actions_without_a_backend_route_are_offered_as_disabled(self):
+        """Power- und Softwareaktionen duerfen nicht in einen 404 laufen."""
+        for element in ("computer-reboot", "computer-shutdown",
+                        "computers-bulk-install", "computers-bulk-uninstall"):
+            with self.subTest(element=element):
+                marker = self.template.split(f'id="{element}"', 1)[1][:120]
+                self.assertIn("disabled", marker)
+
+    def test_the_script_translates_the_technical_device_types(self):
+        """Uebersetzt wird nur in der Anzeige; die Filterwerte bleiben technisch."""
+        for technical in ("desktop", "laptop", "virtual", "server", "unknown"):
+            with self.subTest(technical=technical):
+                self.assertIn(f"{technical}:", self.script)
+        self.assertIn("Notebook", self.script)
+
+    def test_the_script_knows_all_five_read_states(self):
+        for status in ("ok", "stale", "error", "not_found", "unknown"):
+            with self.subTest(status=status):
+                self.assertIn(f"{status}:", self.script)
+
+    def test_the_script_prefers_installed_software_over_the_overview_key(self):
+        """Das Detail liefert `installed_software`, die Uebersicht `software`."""
+        line = next(row for row in self.script.splitlines() if "software_inventory" in row)
+        self.assertLess(line.index("installed_software"), line.index("?? computer?.software "))
+
+    def test_the_script_reads_the_date_without_inventing_a_time(self):
+        self.assertIn("installed_on", self.script)
+
 
 if __name__ == "__main__":
     unittest.main()

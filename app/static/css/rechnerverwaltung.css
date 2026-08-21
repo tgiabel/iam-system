@@ -478,3 +478,97 @@
     .computer-definition-wide { grid-column: auto; }
     .computer-list-item { flex-direction: column; }
 }
+
+/* Abgeschnittene Uebersicht, deaktivierte Rechner, Netzwerkadapter und Datenstand
+   — die vier Anzeigen, die der Leseweg der Rechnerverwaltung ergaenzt. */
+
+.computers-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding: 0.7rem 0.95rem;
+    border: 1px solid color-mix(in srgb, var(--ui-border) 80%, transparent);
+    border-left: 4px solid var(--color-primary);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--ui-surface-soft) 92%, transparent);
+    color: var(--ui-text);
+    font-size: 0.9rem;
+}
+
+.computer-disabled-badge {
+    margin-left: 0.4rem;
+    vertical-align: middle;
+}
+
+.computers-table-row.is-disabled .computer-cell-main,
+.computers-table-row.is-disabled .computer-cell-meta {
+    color: var(--ui-text-muted);
+}
+
+.computer-adapter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+}
+
+.computer-adapter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--ui-border) 90%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--ui-surface-muted) 90%, transparent);
+}
+
+.computer-adapter-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.computer-adapter-name {
+    color: var(--ui-text-strong);
+    font-weight: 600;
+}
+
+.computer-adapter-meta {
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+    word-break: break-all;
+}
+
+.computer-card-hint {
+    margin: 0 0 0.6rem;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.computer-datastatus-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.computer-datastatus-item {
+    display: grid;
+    grid-template-columns: minmax(6rem, 1fr) auto;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+}
+
+.computer-datastatus-name {
+    color: var(--ui-text-strong);
+    font-weight: 600;
+}
+
+.computer-datastatus-meta {
+    grid-column: 1 / -1;
+    color: var(--ui-text-muted);
+    font-size: 0.82rem;
+}

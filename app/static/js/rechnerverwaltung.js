@@ -19,6 +19,7 @@
     const state = {
         computers: [],
         softwareCatalog: [],
+        meta: null,
         selectedIds: new Set(),
         visibleComputers: [],
         searchTerm: "",
@@ -195,14 +196,102 @@
         return { office: "Büro", warehouse: "Lager", home_office: "Homeoffice", unknown: "Nicht zugeordnet" }[kind] || "Nicht zugeordnet";
     }
 
+    // Das Backend liefert den technischen Wert; uebersetzt wird ausschliesslich
+    // hier in der Anzeige. Die Filterwerte bleiben technisch und damit stabil.
+    const DEVICE_TYPE_LABELS = {
+        desktop: "Desktop",
+        laptop: "Notebook",
+        virtual: "Virtuell",
+        server: "Server",
+        unknown: "Unbekannt"
+    };
+
+    function deviceTypeLabel(value) {
+        const key = String(value ?? "").trim();
+        if (!key) return "–";
+        return DEVICE_TYPE_LABELS[key.toLowerCase()] || key;
+    }
+
+    const SOFTWARE_SOURCE_LABELS = {
+        msi: "MSI-Paket",
+        exe: "Setup",
+        appx: "Store-Paket",
+        fsv: "FSV",
+        efix: "EFix",
+        unknown: "Unbekannte Quelle"
+    };
+
+    function softwareSourceLabel(value) {
+        const key = String(value ?? "").trim().toLowerCase();
+        return SOFTWARE_SOURCE_LABELS[key] || "";
+    }
+
+    // `stale` und `error` sind Warnungen, `not_found` und `unknown` neutrale
+    // Zustaende. Technische Fehlertexte liefert das Backend bewusst nicht.
+    const DATA_STATUS_LABELS = {
+        ok: { label: "Aktuell", className: "ui-status-success" },
+        stale: { label: "Veraltet", className: "ui-status-warning" },
+        error: { label: "Erhebung fehlgeschlagen", className: "ui-status-warning" },
+        not_found: { label: "Nicht vorhanden", className: "ui-status-neutral" },
+        unknown: { label: "Noch nicht gemeldet", className: "ui-status-neutral" }
+    };
+
+    const DATA_STATUS_SECTIONS = [
+        ["hardware", "Hardware"],
+        ["operating_system", "Betriebssystem"],
+        ["network", "Netzwerk"],
+        ["software", "Software"],
+        ["session", "Sitzung"]
+    ];
+
+    function dataStatusPresentation(entry) {
+        const raw = normalize(entry?.status) || "unknown";
+        return DATA_STATUS_LABELS[raw] || DATA_STATUS_LABELS.unknown;
+    }
+
+    function getOperatingSystem(computer) {
+        const value = computer?.operating_system;
+        if (value && typeof value === "object") {
+            // Ohne Dopplung: eine Version, die den Namen schon enthaelt, wird nicht
+            // noch einmal angehaengt.
+            const parts = [value.name, value.version, value.build ? `Build ${value.build}` : null]
+                .map(part => String(part ?? "").trim())
+                .filter(Boolean);
+            return parts.filter((part, index) => !parts.slice(0, index).some(earlier => earlier.includes(part))).join(" · ");
+        }
+        return String(value ?? computer?.os?.name ?? computer?.os ?? "").trim();
+    }
+
+    function formatBytes(value) {
+        const bytes = Number(value);
+        if (!Number.isFinite(bytes) || bytes <= 0) return "";
+        const units = ["Byte", "KB", "MB", "GB", "TB"];
+        let index = 0;
+        let size = bytes;
+        while (size >= 1024 && index < units.length - 1) {
+            size /= 1024;
+            index += 1;
+        }
+        const rounded = index >= 3 ? Math.round(size * 10) / 10 : Math.round(size);
+        return `${rounded.toLocaleString("de-DE")} ${units[index]}`;
+    }
+
     function getSoftwareFacts(computer) {
-        const items = computer?.software ?? computer?.software_inventory ?? computer?.installed_software ?? [];
+        // Das Detail liefert `installed_software`, die Uebersicht die kompakte
+        // Liste unter `software`. Das Detail hat Vorrang, sobald es da ist.
+        const items = computer?.installed_software ?? computer?.software ?? computer?.software_inventory ?? [];
         return Array.isArray(items) ? items.map(item => ({
             ...item,
+            // Ohne Software-Onboarding gibt es keine stabile ID; gefuehrt wird
+            // dann ueber den Namen.
             software_id: String(item?.software_id ?? item?.id ?? "").trim(),
             name: String(item?.name ?? item?.display_name ?? "").trim(),
             version: String(item?.version ?? "").trim(),
-            installed_at: item?.installed_at ?? item?.installation_date ?? null
+            // `installed_on` ist ein Datum ohne Uhrzeit. `installed_at` bleibt
+            // leer, solange keine echte Zeitquelle existiert.
+            installed_on: String(item?.installed_on ?? "").trim(),
+            installed_at: item?.installed_at ?? item?.installation_date ?? null,
+            source: String(item?.source ?? "").trim()
         })).filter(item => item.software_id || item.name) : [];
     }
 
@@ -231,11 +320,23 @@
     function normalizeOverview(payload) {
         const computers = Array.isArray(payload) ? payload : payload?.computers;
         const catalog = Array.isArray(payload?.software_catalog) ? payload.software_catalog : [];
+        // Abschneiden bleibt nicht still: das Backend sagt es, die Seite zeigt es.
+        state.meta = payload?.meta && typeof payload.meta === "object" ? payload.meta : null;
         state.computers = (Array.isArray(computers) ? computers : [])
             .filter(computer => getComputerId(computer));
         state.softwareCatalog = catalog
             .filter(item => catalogItemId(item))
             .sort((left, right) => catalogItemName(left).localeCompare(catalogItemName(right), "de"));
+        renderTruncationNotice();
+    }
+
+    function renderTruncationNotice() {
+        if (!DOM.truncationNotice) return;
+        const truncated = Boolean(state.meta?.truncated);
+        DOM.truncationNotice.hidden = !truncated;
+        if (truncated && DOM.truncationLimit) {
+            DOM.truncationLimit.textContent = String(state.meta?.limit ?? state.computers.length);
+        }
     }
 
     function loadSavedState() {
@@ -417,10 +518,10 @@
                 const selected = state.selectedIds.has(id);
                 const comment = String(computer.comment ?? "").trim();
                 return `
-                    <tr class="ui-table-row computers-table-row${selected ? " is-selected" : ""}" data-computer-id="${escapeHtml(id)}" tabindex="0">
+                    <tr class="ui-table-row computers-table-row${selected ? " is-selected" : ""}${computer.is_disabled ? " is-disabled" : ""}" data-computer-id="${escapeHtml(id)}" tabindex="0">
                         <td class="computers-select-column"><input type="checkbox" data-computer-select="${escapeHtml(id)}" aria-label="${escapeHtml(getHostname(computer))} auswählen" ${selected ? "checked" : ""} ${canSelect ? "" : "disabled"}></td>
-                        <td class="computers-sticky-identity"><div class="computer-cell-stack"><span class="computer-cell-main">${escapeHtml(getHostname(computer))}</span><span class="computer-cell-meta">${escapeHtml(computer.asset_tag || computer.identifier || "Keine zusätzliche Kennung")}</span></div></td>
-                        <td><div class="computer-cell-stack"><span class="computer-cell-main">${escapeHtml(computer.device_type || "–")}</span><span class="computer-cell-meta">${escapeHtml(computer.model || "Kein Modell")}</span></div></td>
+                        <td class="computers-sticky-identity"><div class="computer-cell-stack"><span class="computer-cell-main">${escapeHtml(getHostname(computer))}${computer.is_disabled ? ` <span class="ui-status-badge ui-status-neutral computer-disabled-badge">Deaktiviert</span>` : ""}</span><span class="computer-cell-meta">${escapeHtml(computer.asset_tag || computer.identifier || "Keine zusätzliche Kennung")}</span></div></td>
+                        <td><div class="computer-cell-stack"><span class="computer-cell-main">${escapeHtml(deviceTypeLabel(computer.device_type))}</span><span class="computer-cell-meta">${escapeHtml(computer.model || "Kein Modell")}</span></div></td>
                         <td>${renderUpdateCell(fsv)}</td>
                         <td>${renderUpdateCell(efix)}</td>
                         <td><span class="ui-chip ${computer.tranche ? "ui-chip-primary" : "ui-chip-neutral"}">${escapeHtml(computer.tranche || "–")}</span></td>
@@ -486,7 +587,7 @@
         const deviceSelect = DOM.filterFields.deviceType;
         const currentType = state.filters.deviceType;
         deviceSelect.innerHTML = `<option value="">Alle</option>` + uniqueSorted(state.computers.map(computer => computer.device_type))
-            .map(type => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("");
+            .map(type => `<option value="${escapeHtml(type)}">${escapeHtml(deviceTypeLabel(type))}</option>`).join("");
         deviceSelect.value = currentType;
 
         const softwareSelect = DOM.filterFields.softwareId;
@@ -609,10 +710,14 @@
         DOM.detailStatus.textContent = status.label;
         DOM.detailTranche.textContent = `Tranche ${valueOrDash(computer.tranche)}`;
 
-        setField("computer-field-type", computer.device_type);
+        setField("computer-field-type", deviceTypeLabel(computer.device_type));
+        setField("computer-field-manufacturer", computer.manufacturer);
         setField("computer-field-model", computer.model);
         setField("computer-field-serial", computer.serial_number ?? computer.serial);
-        setField("computer-field-os", computer.operating_system ?? computer.os?.name ?? computer.os);
+        setField("computer-field-cpu", computer.cpu_model);
+        setField("computer-field-cpu-cores", computer.cpu_cores);
+        setField("computer-field-memory", formatBytes(computer.memory_bytes));
+        setField("computer-field-os", getOperatingSystem(computer));
         setField("computer-field-architecture", computer.architecture ?? computer.os?.architecture);
         setField("computer-field-vpn", computer.vpn_enabled ? "Aktiviert" : "Nicht aktiviert");
         setField("computer-field-connectivity", status.label);
@@ -631,6 +736,11 @@
         setField("computer-field-location-room", location.room);
         setField("computer-field-owner", location.owner?.display_name);
 
+        renderAdapters(computer);
+        renderDataStatus(computer);
+
+        if (DOM.detailDisabled) DOM.detailDisabled.hidden = !computer.is_disabled;
+
         DOM.commentText.textContent = valueOrDash(computer.comment);
         DOM.commentInput.value = String(computer.comment ?? "");
         cancelCommentEdit();
@@ -640,11 +750,61 @@
         renderSoftwareList();
         renderJobs();
 
-        const online = getConnectivity(computer) === "online";
-        [DOM.rebootButton, DOM.shutdownButton].filter(Boolean).forEach(button => {
-            button.disabled = !online;
-            button.title = online ? "" : "Power-Aktionen sind nur bei erreichbaren Rechnern möglich.";
+        // Bewusst kein Wiederaktivieren nach Erreichbarkeit: die Routen gibt es im
+        // Backend noch nicht. Sobald sie existieren, kommt die Online-Pruefung
+        // hierher zurueck.
+        [DOM.rebootButton, DOM.shutdownButton, DOM.installButton, DOM.uninstallButton]
+            .filter(Boolean)
+            .forEach(button => { button.disabled = true; });
+    }
+
+    function renderAdapters(computer) {
+        if (!DOM.adapterList) return;
+        const adapters = Array.isArray(computer?.network_addresses) ? computer.network_addresses : [];
+        if (!adapters.length) {
+            DOM.adapterList.innerHTML = "";
+            return;
+        }
+        const byInterface = new Map();
+        adapters.forEach(entry => {
+            const name = String(entry?.interface_name ?? "").trim() || "Unbenannte Schnittstelle";
+            if (!byInterface.has(name)) byInterface.set(name, []);
+            byInterface.get(name).push(entry);
         });
+        DOM.adapterList.innerHTML = [...byInterface.entries()].map(([name, entries]) => {
+            const mac = entries.map(entry => entry?.mac_address).find(Boolean);
+            const vpn = entries.some(entry => entry?.is_vpn);
+            const addresses = uniqueSorted(entries.map(entry => entry?.ip_address));
+            return `<div class="computer-adapter">
+                <div class="computer-adapter-head">
+                    <span class="computer-adapter-name">${escapeHtml(name)}</span>
+                    ${vpn ? `<span class="ui-status-badge ui-status-success">VPN</span>` : ""}
+                </div>
+                <div class="computer-adapter-meta">${escapeHtml(addresses.join(", ") || "Keine Adresse")}</div>
+                <div class="computer-adapter-meta">${escapeHtml(mac || "Keine MAC-Adresse")}</div>
+            </div>`;
+        }).join("");
+    }
+
+    function renderDataStatus(computer) {
+        if (!DOM.dataStatusList) return;
+        const status = computer?.data_status && typeof computer.data_status === "object"
+            ? computer.data_status
+            : {};
+        DOM.dataStatusList.innerHTML = DATA_STATUS_SECTIONS.map(([key, label]) => {
+            const entry = status[key];
+            const presentation = dataStatusPresentation(entry);
+            // Bei `stale` und `error` zeigt `observed_at` das Alter der weiterhin
+            // ausgelieferten Werte, `status_updated_at` den letzten Zustandswechsel.
+            const observed = entry?.observed_at ? formatDate(entry.observed_at, true) : null;
+            const changed = entry?.status_updated_at ? formatRelative(entry.status_updated_at) : null;
+            const meta = observed ? `Stand ${observed}` : (changed ? `Gemeldet ${changed}` : "Keine Meldung");
+            return `<li class="computer-datastatus-item">
+                <span class="computer-datastatus-name">${escapeHtml(label)}</span>
+                <span class="ui-status-badge ${presentation.className}">${escapeHtml(presentation.label)}</span>
+                <span class="computer-datastatus-meta">${escapeHtml(meta)}</span>
+            </li>`;
+        }).join("");
     }
 
     function arrayDisplay(value) {
@@ -670,7 +830,7 @@
                 <div class="computer-list-item-main">
                     <span class="computer-list-item-title">${escapeHtml(softwareNameForFact(item))}</span>
                     <span class="computer-list-item-meta">Version ${escapeHtml(item.version || "–")} · ${escapeHtml(item.publisher || item.manufacturer || "Hersteller unbekannt")}</span>
-                    <span class="computer-list-item-meta">Installiert ${escapeHtml(item.installed_at ? formatDate(item.installed_at) : "–")}</span>
+                    <span class="computer-list-item-meta">Installiert ${escapeHtml(item.installed_on || (item.installed_at ? formatDate(item.installed_at) : "–"))}${softwareSourceLabel(item.source) ? ` · ${escapeHtml(softwareSourceLabel(item.source))}` : ""}</span>
                 </div>
                 <span class="ui-chip ui-chip-success">Installiert</span>
             </article>`).join("") : `<div class="ui-empty-state ui-empty-inline">${term ? "Keine passende Software gefunden." : "Keine installierte Software gemeldet."}</div>`;
@@ -1128,6 +1288,8 @@
         DOM.selectionClear = document.getElementById("computers-selection-clear");
         DOM.bulkInstall = document.getElementById("computers-bulk-install");
         DOM.bulkUninstall = document.getElementById("computers-bulk-uninstall");
+        DOM.truncationNotice = document.getElementById("computers-truncation-notice");
+        DOM.truncationLimit = document.getElementById("computers-truncation-limit");
 
         DOM.detailOverlay = document.getElementById("computer-detail-overlay");
         DOM.detailClose = document.getElementById("computer-detail-close");
@@ -1135,6 +1297,9 @@
         DOM.detailAsset = document.getElementById("computer-detail-asset");
         DOM.detailStatus = document.getElementById("computer-detail-status");
         DOM.detailTranche = document.getElementById("computer-detail-tranche");
+        DOM.detailDisabled = document.getElementById("computer-detail-disabled");
+        DOM.adapterList = document.getElementById("computer-adapter-list");
+        DOM.dataStatusList = document.getElementById("computer-datastatus-list");
         DOM.tabButtons = [...document.querySelectorAll("[data-computer-tab]")];
         DOM.tabViews = [...document.querySelectorAll("[data-computer-view]")];
         DOM.softwareCount = document.getElementById("computer-software-count");
