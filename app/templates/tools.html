@@ -266,6 +266,37 @@
                     </a>
                     {% endif %}
 
+                    {% if "SOFA-RPRT-TIVR" in authz.permissions %}
+                    <a href="/tools/ivr-call-details" class="overview-card overview-card-link report-card">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/process.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-warning">IVR</span>
+                                <span class="ui-chip ui-chip-primary">Details</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Telekom</p>
+                                <h3 class="overview-card-title">IVR Call-Detailreport</h3>
+                            </div>
+                            <p class="overview-card-copy">Calls beider Servicerufnummern mit ihrem vollständigen Routingverlauf analysieren.</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">Report öffnen</span>
+                            <button type="button" class="overview-card-popout" aria-label="In neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1 2-2V8a2 2 0 0 1 2-2h6"/>
+                                    <polyline points="15 3 21 3 21 9"/>
+                                    <line x1="10" y1="14" x2="21" y2="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </a>
+                    {% endif %}
+
                                         {% if "SOFA-TOOL-IKS" in authz.permissions %}
                     <a href="/tools" class="overview-card overview-card-link report-card overview-card-disabled">
                         <div class="overview-card-top">

@@ -1,0 +1,418 @@
+.ivr-call-details-page {
+    width: 100%;
+    max-width: 1500px;
+    margin: 40px auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.ivr-call-details-heading {
+    margin-bottom: 1.25rem;
+}
+
+.ivr-call-details-import-note {
+    max-width: 31rem;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(var(--color-primary-rgb), 0.18);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-info-bg);
+    color: var(--ui-info-text);
+    font-size: 0.88rem;
+}
+
+.ivr-call-details-toolbar,
+.ivr-call-details-filterbar,
+.ivr-call-details-filtermeta,
+.ivr-call-details-daynav,
+.ivr-call-details-pagination {
+    display: flex;
+    align-items: center;
+}
+
+.ivr-call-details-toolbar {
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ivr-call-details-daynav {
+    position: relative;
+    gap: 6px;
+}
+
+.ivr-call-details-icon-btn,
+.ivr-call-details-export-btn,
+.ivr-call-details-day-label {
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.ivr-call-details-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.ivr-call-details-icon-btn:hover:not(:disabled),
+.ivr-call-details-export-btn:hover:not(:disabled),
+.ivr-call-details-day-label:hover {
+    border-color: var(--color-primary);
+    background: var(--ui-surface-soft);
+}
+
+.ivr-call-details-icon-btn:disabled,
+.ivr-call-details-export-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.ivr-call-details-day-label {
+    min-width: 11rem;
+    padding: 0.5rem 1rem;
+    font-weight: 700;
+    text-align: center;
+}
+
+.ivr-call-details-day-picker {
+    position: absolute;
+    inset: auto 0 0 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+}
+
+.ivr-call-details-filterbar {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ivr-call-details-search {
+    flex: 1 1 330px;
+    max-width: 520px;
+}
+
+.ivr-call-details-issue-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.2rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ivr-call-details-issue-filter:has(input:checked) {
+    border-color: color-mix(in srgb, var(--ui-error-text) 42%, transparent);
+    background: var(--ui-error-bg);
+    color: var(--ui-error-text);
+}
+
+.ivr-call-details-issue-filter input {
+    accent-color: var(--ui-error-text);
+}
+
+.ivr-call-details-issue-filter > span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    background: var(--ui-error-text);
+    color: var(--ui-error-bg);
+    font-weight: 900;
+}
+
+.ivr-call-details-filtermeta {
+    gap: 8px;
+    margin-left: auto;
+}
+
+.ivr-call-details-export-btn {
+    min-height: 2.2rem;
+    padding: 0.45rem 0.85rem;
+    font-weight: 700;
+}
+
+.ivr-call-details-status {
+    min-height: 1.25rem;
+    margin: 0 0 8px;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.ivr-call-details-status.is-error {
+    color: var(--ui-error-text);
+    font-weight: 700;
+}
+
+.ivr-call-details-table-card .table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    max-height: 65vh;
+    overflow: auto;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+}
+
+.ivr-call-details-table {
+    width: 100%;
+    min-width: 1180px;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.ivr-call-details-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 0.85rem 0.75rem;
+    background: var(--table-header-bg);
+    color: var(--text-inverse);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+}
+
+.ivr-call-details-toggle-heading {
+    width: 2.75rem;
+}
+
+.ivr-call-details-sort-btn {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+}
+
+.ivr-call-row {
+    cursor: pointer;
+    outline: none;
+}
+
+.ivr-call-row:hover,
+.ivr-call-row:focus-visible,
+.ivr-call-row.is-expanded {
+    background: rgba(var(--color-primary-rgb), 0.055);
+}
+
+.ivr-call-row:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.ivr-call-details-table tbody td {
+    padding: 0.9rem 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 92%, transparent);
+    color: var(--ui-text);
+    font-size: 0.9rem;
+    vertical-align: middle;
+}
+
+.ivr-call-row td {
+    white-space: nowrap;
+}
+
+.ivr-call-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: 50%;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    cursor: pointer;
+}
+
+.ivr-call-toggle-chevron {
+    transform: rotate(-90deg);
+    transition: transform 0.15s ease;
+}
+
+.ivr-call-row.is-expanded .ivr-call-toggle-chevron {
+    transform: rotate(0deg);
+}
+
+.ivr-call-primary,
+.ivr-call-secondary {
+    display: block;
+}
+
+.ivr-call-primary {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.ivr-call-secondary {
+    max-width: 18rem;
+    margin-top: 0.18rem;
+    overflow: hidden;
+    color: var(--ui-text-muted);
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+}
+
+.ivr-call-result {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 18rem;
+    padding: 0.25rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-weight: 700;
+    white-space: normal;
+}
+
+.ivr-call-result.is-connected {
+    border-color: color-mix(in srgb, var(--ui-success-text) 22%, transparent);
+    background: var(--ui-success-bg);
+    color: var(--ui-success-text);
+}
+
+.ivr-call-result.is-issue {
+    border-color: color-mix(in srgb, var(--ui-error-text) 24%, transparent);
+    background: var(--ui-error-bg);
+    color: var(--ui-error-text);
+}
+
+.ivr-call-result-symbol {
+    flex: 0 0 auto;
+    font-weight: 900;
+}
+
+.ivr-call-detail-row > td {
+    padding: 0;
+    white-space: normal;
+    background: var(--ui-surface-muted);
+}
+
+.ivr-call-sections {
+    padding: 1rem 1.25rem 1.25rem 4.1rem;
+}
+
+.ivr-call-sections-title {
+    margin: 0 0 0.75rem;
+    color: var(--ui-text-strong);
+    font-size: 0.9rem;
+}
+
+.ivr-call-section-list {
+    display: grid;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ivr-call-section {
+    display: grid;
+    grid-template-columns: minmax(7rem, 0.7fr) minmax(15rem, 2fr) minmax(12rem, 1.2fr) minmax(8rem, 0.6fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    border-left: 3px solid var(--color-primary);
+    border-radius: 0 var(--ui-radius-sm) var(--ui-radius-sm) 0;
+    background: var(--ui-surface-card);
+}
+
+.ivr-call-section-number {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.ivr-call-section-duration {
+    color: var(--ui-text-muted);
+    text-align: right;
+    white-space: nowrap;
+}
+
+.ivr-call-details-state-row td {
+    padding: 0 !important;
+    white-space: normal !important;
+}
+
+.ivr-call-details-state-row .ui-empty-state {
+    min-height: 10rem;
+    border: 0;
+    border-radius: 0;
+}
+
+.ivr-call-details-pagination {
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    color: var(--ui-text-muted);
+    font-size: 0.88rem;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 900px) {
+    .ivr-call-details-page {
+        margin-top: 20px;
+        padding: 12px;
+    }
+
+    .ivr-call-details-heading {
+        flex-direction: column;
+    }
+
+    .ivr-call-details-filtermeta {
+        width: 100%;
+        margin-left: 0;
+        flex-wrap: wrap;
+    }
+
+    .ivr-call-details-table-card .table-wrapper {
+        max-height: 70vh;
+    }
+
+    .ivr-call-sections {
+        padding-left: 1rem;
+    }
+
+    .ivr-call-section {
+        grid-template-columns: 1fr;
+    }
+
+    .ivr-call-section-duration {
+        text-align: left;
+    }
+}

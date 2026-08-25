@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from io import BytesIO
 import json
 from urllib.parse import quote
@@ -684,6 +684,40 @@ async def api_get_ivr_report(
 ):
     try:
         result = await api_client.get_ivr_report(day=day)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+def _resolve_ivr_report_day(day: str | None) -> str:
+    yesterday = date.today() - timedelta(days=1)
+    if not day:
+        return yesterday.isoformat()
+    try:
+        report_day = date.fromisoformat(day)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Tag muss das Format YYYY-MM-DD haben.") from exc
+    if report_day >= date.today():
+        raise HTTPException(
+            status_code=400,
+            detail="IVR-Reportdaten stehen regulär nur bis einschließlich Vortag zur Verfügung.",
+        )
+    return report_day.isoformat()
+
+
+@router.get("/reporting/ivr/call-details")
+async def api_get_ivr_call_details(
+    day: str | None = None,
+    current_user=Depends(require_permission("SOFA-RPRT-TIVR")),
+):
+    report_day = _resolve_ivr_report_day(day)
+    try:
+        result = await api_client.get_ivr_call_details(day=report_day)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(

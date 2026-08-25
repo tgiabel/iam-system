@@ -50,7 +50,9 @@ class AuthorizationContext:
         return any(
             self.has_permission(p) for p in self.permissions
             if p.startswith("SOFA-TOOL-")
-        ) or "SOFA-TOOL-ALL" in self.permissions
+        ) or "SOFA-TOOL-ALL" in self.permissions or any(
+            permission.startswith("SOFA-RPRT-") for permission in self.permissions
+        )
 
 
 def _extract_identifiers(items: list[dict] | None) -> frozenset[str]:

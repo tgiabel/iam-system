@@ -539,6 +539,13 @@ class APIClient:
         params = {"day": day} if day else None
         return await self._get(REPORTING_BASE_URL, "/ivr/report", params=params)
 
+    async def get_ivr_call_details(self, day: str) -> dict:
+        return await self._get(
+            REPORTING_BASE_URL,
+            "/ivr/call-details",
+            params={"day": day},
+        )
+
     # Störungsprotokoll
     def _stoerung_headers(self, authz: Any) -> dict:
         return {
