@@ -204,6 +204,10 @@ class TestHasPermission(unittest.TestCase):
         authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
         self.assertFalse(authz.has_any_tool())
 
+    def test_report_counts_as_workspace_access(self):
+        authz = self._make_authz(permissions=("SOFA-RPRT-TIVR",))
+        self.assertTrue(authz.has_any_tool())
+
 
 class TestRequirePermission(unittest.TestCase):
 
