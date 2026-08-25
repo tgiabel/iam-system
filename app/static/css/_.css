@@ -77,6 +77,7 @@
     --main-background-size: auto;
     --main-background-repeat: repeat;
     --main-background-position: center top;
+    --main-background-blend: normal;
 
     /* Status Colors */
     --status-blue-bg: #e6f7ff;
@@ -255,6 +256,9 @@ html[data-theme="servodata"] {
     --main-background-size: 520px auto;
     --main-background-repeat: repeat;
     --main-background-position: center top;
+    /* Zwei Layer: das helle Entenbild wird gegen die dunkle Seitenfarbe
+       multipliziert, damit der Hintergrund dunkel bleibt (kein Verlauf). */
+    --main-background-blend: multiply;
     --btn-primary-bg: #3857b2;
     --btn-primary-hover-bg: #4364c0;
     --btn-primary-border: rgba(143, 176, 255, 0.34);
@@ -299,6 +303,7 @@ main {
     background-size: var(--main-background-size);
     background-repeat: var(--main-background-repeat);
     background-position: var(--main-background-position);
+    background-blend-mode: var(--main-background-blend);
     transition: background-color 0.2s ease, color 0.2s ease;
 }
 

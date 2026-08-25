@@ -20,8 +20,8 @@
     width: fit-content;
     padding: 0.35rem;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--ui-surface-card) 82%, transparent);
-    border: 1px solid color-mix(in srgb, var(--ui-border) 95%, transparent);
+    background: var(--ui-surface-card);
+    border: 1px solid var(--ui-border);
     box-shadow: var(--ui-shadow-sm);
 }
 
@@ -106,19 +106,33 @@
 }
 
 .report-card {
-    background-color: var(--ui-orange-bg);
+    background-color: var(--ui-surface-card);
 }
 
 .report-card::before {
     background-color: var(--ui-orange-text);
 }
 
+/* Deaktivierte Cards bleiben deckend; der Inaktiv-Zustand kommt ueber
+   gedaempfte Flaeche und Textfarben statt ueber Transparenz. */
 .overview-card-disabled {
-    opacity: 30%;
+    background-color: var(--ui-surface-muted);
+    box-shadow: none;
 }
 
 .overview-card-disabled::before {
-    background-color: var(--ui-orange-text);
+    background-color: color-mix(in srgb, var(--ui-orange-text) 45%, var(--ui-border));
+}
+
+.overview-card-disabled .overview-card-kicker,
+.overview-card-disabled .overview-card-title,
+.overview-card-disabled .overview-card-copy,
+.overview-card-disabled .overview-card-cta {
+    color: var(--ui-text-muted);
+}
+
+.overview-card-disabled .overview-card-icon {
+    opacity: 0.45;
 }
 
 .overview-card-top {
@@ -207,7 +221,7 @@
     height: 2.25rem;
     border-radius: 999px;
     border: 1px solid var(--ui-border);
-    background: color-mix(in srgb, var(--ui-surface-card) 85%, transparent);
+    background: var(--ui-surface-card);
     color: var(--ui-text-muted);
     cursor: pointer;
     transition: transform 0.18s ease, color 0.18s ease, border-color 0.18s ease;

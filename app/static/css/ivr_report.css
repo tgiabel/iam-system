@@ -175,7 +175,7 @@
 .ivr-report-table-card .table-wrapper {
     width: 100%;
     max-width: 100%;
-    background: transparent;
+    background: var(--ui-surface-card);
     box-shadow: none;
     border-radius: var(--ui-radius-sm);
     border: 1px solid var(--ui-border);
