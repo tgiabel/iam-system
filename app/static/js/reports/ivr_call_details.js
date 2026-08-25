@@ -8,6 +8,7 @@ const ivrCallState = {
     error: null,
     allCalls: [],
     searchTerm: "",
+    serviceNumber: "",
     issuesOnly: false,
     sortDirection: "asc",
     page: 1,
@@ -154,7 +155,6 @@ function normalizeCall(rawCall, index = 0) {
     };
     normalized.searchText = normalizeValue([
         normalized.callId,
-        normalized.serviceNumber,
         normalized.callingPartyNumber,
         normalized.origin,
         normalized.finalTarget,
@@ -179,6 +179,7 @@ function getFilteredSortedCalls() {
     const direction = ivrCallState.sortDirection === "desc" ? -1 : 1;
     return ivrCallState.allCalls
         .filter(call => callMatchesSearch(call, ivrCallState.searchTerm))
+        .filter(call => !ivrCallState.serviceNumber || String(call.serviceNumber ?? "") === ivrCallState.serviceNumber)
         .filter(call => !ivrCallState.issuesOnly || !isConnectedResult(call.finalResult))
         .sort((left, right) => {
             const timeComparison = String(left.startedAt ?? "").localeCompare(String(right.startedAt ?? ""));
@@ -194,7 +195,7 @@ function resultBadge(value) {
     const label = formatPlainValue(value);
     return `
         <span class="ivr-call-result ${connected ? "is-connected" : "is-issue"}">
-            <span class="ivr-call-result-symbol" aria-hidden="true">${connected ? "✓" : "!"}</span>
+            ${connected ? "" : '<span class="ivr-call-result-symbol" aria-hidden="true">!</span>'}
             <span>${escapeHtml(label)}</span>
         </span>`;
 }
@@ -264,7 +265,9 @@ function renderTable(calls, startIndex) {
                 aria-controls="${panelId}">
                 <td>
                     <button type="button" class="ivr-call-toggle" aria-expanded="${expanded}" aria-controls="${panelId}" aria-label="Routingdetails für Call ${escapeHtml(formatPlainValue(call.callId))} ${expanded ? "schließen" : "öffnen"}">
-                        <span class="ivr-call-toggle-chevron" aria-hidden="true">⌄</span>
+                        <svg class="ivr-call-toggle-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+                            <path d="M5.5 7.5 10 12l4.5-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
                     </button>
                 </td>
                 <td>
@@ -334,6 +337,24 @@ function renderPage() {
     renderTable(filtered.slice(startIndex, startIndex + IVR_CALL_PAGE_SIZE), startIndex);
     updateStatus(filtered);
     updateControls(filtered.length, totalPages);
+}
+
+function updateServiceFilterOptions() {
+    const serviceNumbers = Array.from(new Set(
+        ivrCallState.allCalls
+            .map(call => call.serviceNumber)
+            .filter(value => value !== null && value !== undefined && value !== "")
+            .map(String),
+    )).sort((left, right) => left.localeCompare(right, "de", { numeric: true }));
+
+    if (ivrCallState.serviceNumber && !serviceNumbers.includes(ivrCallState.serviceNumber)) {
+        ivrCallState.serviceNumber = "";
+    }
+    ivrCallDom.serviceFilter.innerHTML = [
+        '<option value="">Alle Servicenummern</option>',
+        ...serviceNumbers.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`),
+    ].join("");
+    ivrCallDom.serviceFilter.value = ivrCallState.serviceNumber;
 }
 
 function escapeCsvValue(value) {
@@ -440,6 +461,7 @@ async function loadReport(day, { forceRefresh = false } = {}) {
         ivrCallState.error = null;
         ivrCallState.page = 1;
         ivrCallState.expandedKeys.clear();
+        updateServiceFilterOptions();
         savePersistedDay();
         renderPage();
         return;
@@ -471,6 +493,7 @@ async function loadReport(day, { forceRefresh = false } = {}) {
         ivrCallState.allCalls = entry.calls;
         ivrCallState.metadata = entry.metadata;
         ivrCallState.page = 1;
+        updateServiceFilterOptions();
         savePersistedDay();
     } catch (error) {
         if (requestToken !== ivrCallState.requestToken) {
@@ -479,6 +502,7 @@ async function loadReport(day, { forceRefresh = false } = {}) {
         console.error("IVR Call-Detailreport Fehler", error);
         ivrCallState.allCalls = [];
         ivrCallState.metadata = {};
+        updateServiceFilterOptions();
         ivrCallState.error = error.message || "Call-Detailreport konnte nicht geladen werden.";
     } finally {
         if (requestToken === ivrCallState.requestToken) {
@@ -526,6 +550,7 @@ function cacheDom() {
     ivrCallDom.dayPicker = document.getElementById("ivrCallDayPicker");
     ivrCallDom.retry = document.getElementById("ivrCallRetryBtn");
     ivrCallDom.search = document.getElementById("ivrCallSearchInput");
+    ivrCallDom.serviceFilter = document.getElementById("ivrCallServiceFilter");
     ivrCallDom.issuesOnly = document.getElementById("ivrCallIssueOnly");
     ivrCallDom.count = document.getElementById("ivrCallCount");
     ivrCallDom.sectionCount = document.getElementById("ivrCallSectionCount");
@@ -557,6 +582,11 @@ function bindEvents() {
         ivrCallState.page = 1;
         clearTimeout(ivrCallSearchTimer);
         ivrCallSearchTimer = window.setTimeout(renderPage, 180);
+    });
+    ivrCallDom.serviceFilter.addEventListener("change", event => {
+        ivrCallState.serviceNumber = event.target.value || "";
+        ivrCallState.page = 1;
+        renderPage();
     });
     ivrCallDom.issuesOnly.addEventListener("change", event => {
         ivrCallState.issuesOnly = event.target.checked;

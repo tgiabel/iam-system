@@ -129,6 +129,7 @@ class TestIvrCallDetailsFrontendContract(unittest.TestCase):
     def test_search_filter_pagination_and_lazy_details_are_call_scoped(self):
         self.assertIn("const IVR_CALL_PAGE_SIZE = 100", self.script)
         self.assertIn("...sections.flatMap(section => [section.target, section.targetLabel, section.result])", self.script)
+        self.assertIn("String(call.serviceNumber ?? \"\") === ivrCallState.serviceNumber", self.script)
         self.assertIn("!isConnectedResult(call.finalResult)", self.script)
         self.assertIn("ivrCallState.expandedKeys.has(call.key)", self.script)
         self.assertIn("if (!expanded)", self.script)
@@ -140,6 +141,9 @@ class TestIvrCallDetailsFrontendContract(unittest.TestCase):
 
     def test_template_exposes_accessible_controls_and_data_note(self):
         self.assertIn('id="ivrCallIssueOnly"', self.template)
+        self.assertIn('id="ivrCallServiceFilter"', self.template)
+        self.assertIn("Alle Servicenummern", self.template)
+        self.assertIn('aria-label="Servicerufnummer filtern"', self.template)
         self.assertIn('id="ivrCallExportCsv"', self.template)
         self.assertIn('aria-live="polite"', self.template)
         self.assertIn("bis einschließlich Vortag", self.template)
@@ -172,6 +176,7 @@ class TestIvrCallDetailsUiLogic(unittest.TestCase):
             assert.strictEqual(call.totalDurationSeconds, 187);
             assert.strictEqual(ui.callMatchesSearch(call, 'Fehlerziel'), true);
             assert.strictEqual(ui.callMatchesSearch(call, 'verbunden'), true);
+            assert.strictEqual(ui.callMatchesSearch(call, '03040504050'), false);
             assert.strictEqual(ui.callMatchesSearch(call, 'nicht vorhanden'), false);
             assert.strictEqual(ui.isConnectedResult(' Verbunden '), true);
             assert.strictEqual(ui.isConnectedResult('Sonstiges(15)'), false);

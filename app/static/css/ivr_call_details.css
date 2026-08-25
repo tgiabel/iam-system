@@ -103,6 +103,21 @@
     max-width: 520px;
 }
 
+.ivr-call-details-service-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--ui-text-muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.ivr-call-details-service-filter select {
+    min-width: 11.5rem;
+    min-height: 2.2rem;
+    padding: 0.4rem 2rem 0.4rem 0.7rem;
+}
+
 .ivr-call-details-issue-filter {
     display: inline-flex;
     align-items: center;
@@ -126,18 +141,6 @@
 
 .ivr-call-details-issue-filter input {
     accent-color: var(--ui-error-text);
-}
-
-.ivr-call-details-issue-filter > span {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
-    border-radius: 50%;
-    background: var(--ui-error-text);
-    color: var(--ui-error-bg);
-    font-weight: 900;
 }
 
 .ivr-call-details-filtermeta {
@@ -248,9 +251,19 @@
     background: var(--ui-surface-card);
     color: var(--ui-text-strong);
     cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.ivr-call-toggle:hover,
+.ivr-call-row:focus-visible .ivr-call-toggle {
+    border-color: var(--color-primary);
+    background: var(--ui-blue-bg);
+    color: var(--color-primary);
 }
 
 .ivr-call-toggle-chevron {
+    width: 1rem;
+    height: 1rem;
     transform: rotate(-90deg);
     transition: transform 0.15s ease;
 }
@@ -398,6 +411,15 @@
         width: 100%;
         margin-left: 0;
         flex-wrap: wrap;
+    }
+
+    .ivr-call-details-service-filter {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .ivr-call-details-service-filter select {
+        flex: 1;
     }
 
     .ivr-call-details-table-card .table-wrapper {

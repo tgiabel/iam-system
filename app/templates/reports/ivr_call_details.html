@@ -42,12 +42,16 @@
             type="search"
             id="ivrCallSearchInput"
             class="ui-input ivr-call-details-search"
-            placeholder="Call-ID, Rufnummer, Herkunft, Ziel, Bezeichnung oder Ergebnis suchen…"
+            placeholder="Call-ID, Anrufer, Herkunft, Ziel, Bezeichnung oder Ergebnis suchen…"
             autocomplete="off"
             aria-label="Calls durchsuchen">
+        <label class="ivr-call-details-service-filter" for="ivrCallServiceFilter">
+            <select id="ivrCallServiceFilter" class="ui-input" aria-label="Servicerufnummer filtern">
+                <option value="">Alle Servicenummern</option>
+            </select>
+        </label>
         <label class="ivr-call-details-issue-filter" for="ivrCallIssueOnly">
             <input type="checkbox" id="ivrCallIssueOnly">
-            <span aria-hidden="true">!</span>
             Nur nicht verbundene Calls
         </label>
         <div class="ivr-call-details-filtermeta" aria-live="polite">
