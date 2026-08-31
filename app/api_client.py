@@ -430,8 +430,13 @@ class APIClient:
     async def get_task_logs(self, task_id):
         return await self._get(SOFA_BASE_URL, f"/tasks/{task_id}/logs")
 
-    async def send_task_mail(self, task_id, payload: dict):
-        return await self._post(SOFA_BASE_URL, f"/tasks/{task_id}/send_mail", payload=payload)
+    async def send_task_mail(self, task_id, payload: dict, user_id: int):
+        return await self._post(
+            SOFA_BASE_URL,
+            f"/tasks/{task_id}/send_mail",
+            payload=payload,
+            headers={"X-User-Id": str(user_id)},
+        )
 
     async def dispatch_bot(self, task_id):
         return await self._post(SOFA_BASE_URL, f"/tasks/{task_id}/dispatch_bot", payload={"task_id": task_id})

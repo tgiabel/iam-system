@@ -4,6 +4,7 @@
 <link rel="stylesheet" href="/static/css/userverwaltung.css">
 {% endblock %}
 {% block scripts %}
+<script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
 <script src="/static/js/userverwaltung.js?v={{ static_v }}"></script>
 {% endblock %}
 {% set page_title = "Userverwaltung" %}
@@ -339,6 +340,30 @@
             <button type="button" class="ui-icon-button" id="skill-revoke-close-btn" aria-label="Rollenentzug schließen">&times;</button>
         </div>
         <div class="ui-modal-body"></div>
+    </div>
+</div>
+
+<div class="ui-modal-overlay" id="process-cancel-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" id="process-cancel-modal" role="dialog" aria-modal="true" aria-labelledby="process-cancel-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessabbruch</span>
+                <h3 class="ui-section-title" id="process-cancel-title">Prozess abbrechen</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="process-cancel-close-btn" aria-label="Prozessabbruch schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body">
+            <p class="user-action-note" id="process-cancel-description"></p>
+            <div class="ui-field-group">
+                <label class="ui-field-label" for="process-cancel-reason">Grund</label>
+                <textarea id="process-cancel-reason" class="ui-textarea" rows="5" maxlength="500" required></textarea>
+                <span class="ui-field-hint">Pflichtfeld, maximal 500 Zeichen</span>
+            </div>
+        </div>
+        <div class="ui-modal-footer">
+            <button type="button" class="btn btn-secondary" id="process-cancel-back-btn">Zurück</button>
+            <button type="button" class="btn btn-red" id="process-cancel-submit-btn">Prozess abbrechen</button>
+        </div>
     </div>
 </div>
 

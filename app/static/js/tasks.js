@@ -1,3 +1,5 @@
+const sofaContract = window.SofaContract;
+
 if (!window.taskOverlayInitialized) {
     document.addEventListener("DOMContentLoaded", () => {
         initTaskOverlay();
@@ -171,19 +173,20 @@ const api = {
                 })
             });
 
-            const data = await res.json();
+            const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                showFlash(data.detail || "Fehler beim Senden der E-Mail", "failure");
-                return null;
+                const message = sofaContract.mailErrorMessage(res.status, data.detail || data.error);
+                showFlash(message, "failure");
+                return { ok: false, status: res.status, message };
             }
 
-            showFlash("E-Mail erfolgreich gesendet", "success");
-            return data;
+            showFlash("E-Mail zur Zustellung eingestellt", "success");
+            return { ok: true, data };
         } catch (err) {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
-            return null;
+            return { ok: false, status: 0, message: "Netzwerkfehler oder Server nicht erreichbar" };
         }
     },
 
@@ -750,6 +753,9 @@ function renderTaskTile(task) {
     const handlingChip = task.uiListState === "blocked"
         ? ""
         : `<span class="ui-chip ${getHandlingChipClass(task.handling_type)}">${escapeHtml(formatHandlingType(task.handling_type))}</span>`;
+    const targetDateRow = sofaContract.parseDateKey(task.target_date)
+        ? `<div class="task-card-row"><span>Stichtag</span><strong>${escapeHtml(sofaContract.formatDateKey(task.target_date))}</strong></div>`
+        : "";
 
     return `
         <a href="#" class="task-tile task-card ${getTaskStateClass(task)}" data-task-id="${escapeHtml(task.task_id)}">
@@ -778,6 +784,7 @@ function renderTaskTile(task) {
                         <span>Backlog</span>
                         <span>${escapeHtml(backlogLabel)}</span>
                     </div>
+                    ${targetDateRow}
                 </div>
             </div>
         </a>
@@ -900,7 +907,7 @@ function renderTaskActions(task) {
 
     actionsEl.append(createActionButton("Freigeben", "release", "red"));
 
-    if (task.handling_type === "EXTERNAL") {
+    if (sofaContract.canSendTaskMail(task, window.currentUserId)) {
         actionsEl.append(createActionButton("Mail versenden", "external", "secondary"));
     }
 
@@ -1193,6 +1200,8 @@ function populateTaskModal(task) {
     const resourceEl = document.getElementById("task-modal-resource");
     const handlingEl = document.getElementById("task-modal-handling");
     const statusEl = document.getElementById("task-modal-status");
+    const targetDateItemEl = document.getElementById("task-modal-target-date-item");
+    const targetDateEl = document.getElementById("task-modal-target-date");
 
     if (titleEl) {
         titleEl.textContent = formatTaskType(task.task_type);
@@ -1215,6 +1224,13 @@ function populateTaskModal(task) {
     if (statusEl) {
         statusEl.className = `ui-status-badge ${getStatusBadgeClass(task.status, task)}`;
         statusEl.textContent = formatStatus(task.status, task);
+    }
+    const hasTargetDate = Boolean(sofaContract.parseDateKey(task.target_date));
+    if (targetDateItemEl) {
+        targetDateItemEl.hidden = !hasTargetDate;
+    }
+    if (targetDateEl) {
+        targetDateEl.textContent = hasTargetDate ? sofaContract.formatDateKey(task.target_date) : "-";
     }
 }
 
@@ -1310,6 +1326,7 @@ function showTaskWarningDialog(actionLabel, warningEntries) {
     const titleEl = document.getElementById("task-warning-title");
     const textEl = document.getElementById("task-warning-text");
     const listEl = document.getElementById("task-warning-list");
+    const confirmEl = document.getElementById("task-warning-confirm-btn");
     const recentEntries = warningEntries.slice(-5).reverse();
 
     if (titleEl) {
@@ -1328,9 +1345,42 @@ function showTaskWarningDialog(actionLabel, warningEntries) {
             </li>
         `).join("");
     }
+    if (confirmEl) {
+        confirmEl.textContent = "Trotzdem ausführen";
+    }
 
     openOverlay("task-warning-overlay");
 
+    return new Promise(resolve => {
+        taskWarningState.resolver = resolve;
+    });
+}
+
+function showFutureRevocationWarning(task) {
+    const titleEl = document.getElementById("task-warning-title");
+    const textEl = document.getElementById("task-warning-text");
+    const listEl = document.getElementById("task-warning-list");
+    const confirmEl = document.getElementById("task-warning-confirm-btn");
+
+    if (titleEl) {
+        titleEl.textContent = "Entzug vor Stichtag abschließen?";
+    }
+    if (textEl) {
+        textEl.textContent = "Der Entzug ist erst für einen zukünftigen Stichtag vorgesehen. Mit dem Abschluss wird er trotzdem jetzt als erledigt behandelt. Bitte ausdrücklich bestätigen.";
+    }
+    if (listEl) {
+        listEl.innerHTML = `
+            <li>
+                <strong>${escapeHtml(task.resource_name || formatTaskType(task.task_type))}</strong>
+                <span>Stichtag: ${escapeHtml(sofaContract.formatDateKey(task.target_date))} · Zukünftig</span>
+            </li>
+        `;
+    }
+    if (confirmEl) {
+        confirmEl.textContent = "Ja, vor Stichtag erledigen";
+    }
+
+    openOverlay("task-warning-overlay");
     return new Promise(resolve => {
         taskWarningState.resolver = resolve;
     });
@@ -1351,17 +1401,25 @@ function showRelatedRevocationsDialog(relatedTasks) {
     const listEl = document.getElementById("related-revocations-list");
     const [{ target_user_name: targetUserName, system_name: systemName }] = relatedTasks;
 
+    const includesFutureTasks = relatedTasks.some(task => sofaContract.isFutureRevocationTask(task));
+
     if (textEl) {
-        textEl.textContent = `Für ${targetUserName || "diesen Nutzer"} gibt es im System ${systemName || "-"} weitere offene Entzugs-Aufgaben. Sollen diese mit abgeschlossen werden?`;
+        textEl.textContent = includesFutureTasks
+            ? `Für ${targetUserName || "diesen Nutzer"} gibt es im System ${systemName || "-"} weitere offene Entzugs-Aufgaben. Die Auswahl enthält zukünftige Stichtage. Sollen ausdrücklich auch diese jetzt mit abgeschlossen werden?`
+            : `Für ${targetUserName || "diesen Nutzer"} gibt es im System ${systemName || "-"} weitere offene Entzugs-Aufgaben. Sollen diese mit abgeschlossen werden?`;
     }
 
     if (listEl) {
-        listEl.innerHTML = relatedTasks.map(task => `
+        listEl.innerHTML = relatedTasks.map(task => {
+            const targetDate = sofaContract.parseDateKey(task.target_date);
+            const futureLabel = sofaContract.isFutureRevocationTask(task) ? " · Zukünftig" : "";
+            return `
             <li>
                 <strong>${escapeHtml(formatTaskType(task.task_type))}</strong>
-                <span>${escapeHtml(task.resource_name || "-")}</span>
+                <span>${escapeHtml(task.resource_name || "-")}${targetDate ? ` · Stichtag: ${escapeHtml(sofaContract.formatDateKey(targetDate))}${futureLabel}` : ""}</span>
             </li>
-        `).join("");
+        `;
+        }).join("");
     }
 
     openOverlay("related-revocations-overlay");
@@ -1633,6 +1691,13 @@ function initTaskActionHandling() {
                 return;
             }
 
+            if (sofaContract.isFutureRevocationTask(task)) {
+                const confirmed = await showFutureRevocationWarning(task);
+                if (!confirmed) {
+                    return;
+                }
+            }
+
             const completeBtn = document.getElementById("task-complete-btn");
             if (completeBtn) {
                 completeBtn.disabled = true;
@@ -1779,11 +1844,11 @@ async function openMailDialog(task) {
         }
 
         sendBtn.disabled = true;
-        sendBtn.textContent = "E-Mail wird gesendet...";
+        sendBtn.textContent = "Wird eingestellt...";
 
         try {
             const result = await api.sendMail(task.task_id, mailToSend);
-            if (result) {
+            if (result.ok) {
                 closeOverlay("mail-dialog-overlay");
                 await loadTaskHistory(task.task_id, { showLoading: false });
             }
@@ -1792,7 +1857,7 @@ async function openMailDialog(task) {
             showFlash("Fehler beim Senden der E-Mail. Bitte erneut versuchen.", "failure");
         } finally {
             sendBtn.disabled = false;
-            sendBtn.textContent = "E-Mail jetzt senden";
+            sendBtn.textContent = "E-Mail einstellen";
         }
     };
 }

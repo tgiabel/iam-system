@@ -1,3 +1,5 @@
+const sofaContract = window.SofaContract;
+
 const state = {
     users: [],
     systemMap: null,
@@ -393,8 +395,7 @@ const api = {
                 return false;
             }
 
-            const roleName = state.roleMap?.[payload.role_id]?.name || payload.role_id;
-            showFlash(`Funktion erfolgreich auf ${roleName} gewechselt`, "success");
+            showFlash(`Abteilungswechsel zum ${sofaContract.formatDateKey(payload.effective_date)} beantragt`, "success");
             return true;
         } catch (err) {
             console.error(err);
@@ -417,8 +418,7 @@ const api = {
                 return false;
             }
 
-            const roleName = state.roleMap?.[payload.role_id]?.name || payload.role_id;
-            showFlash(`Rollen-Entzug für ${roleName} beantragt`, "success");
+            showFlash(`Rollenentzug zum ${sofaContract.formatDateKey(payload.effective_date)} beantragt`, "success");
             return true;
         } catch (err) {
             console.error(err);
@@ -457,15 +457,10 @@ const api = {
 
     async cancelProcess(processId, reason) {
         try {
-            const payload = {};
-            if (reason) {
-                payload.reason = reason;
-            }
-
             const res = await fetch(`/api/processes/${processId}/cancel`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ reason })
             });
             const data = await res.json().catch(() => ({}));
 
@@ -722,6 +717,13 @@ function buildDerivedStatusLabel(processType, label) {
         return resolvedLabel;
     }
 
+    if (
+        normalizeValue(processType) === "change" &&
+        normalizeValue(resolvedLabel) === "altrechte werden noch entzogen"
+    ) {
+        return "Abteilungswechsel: Altrechte werden noch entzogen";
+    }
+
     const loweredLabel = `${resolvedLabel.charAt(0).toLocaleLowerCase("de-DE")}${resolvedLabel.slice(1)}`;
     return `${processLabel} ${loweredLabel}`;
 }
@@ -748,6 +750,10 @@ function normalizeDerivedStatus(status) {
         completedAt: status.completed_at || null,
         roleId: status.role_id ?? null,
         roleName: status.role_name || null,
+        sourceRoleId: status.source_role_id ?? null,
+        sourceRoleName: status.source_role_name || null,
+        targetRoleId: status.target_role_id ?? null,
+        targetRoleName: status.target_role_name || null,
         eventId: status.event_id ?? null,
         eventType: status.event_type || null,
         eventStatus: status.event_status || null,
@@ -769,7 +775,9 @@ function getNormalizedDerivedStatuses(user) {
 
 function formatDerivedStatusSummary(status) {
     const parts = [status.label];
-    if (status.roleName) {
+    if (normalizeValue(status.processType) === "change" && (status.sourceRoleName || status.targetRoleName)) {
+        parts.push(`Rolle: ${status.sourceRoleName || "-"} → ${status.targetRoleName || "-"}`);
+    } else if (status.roleName) {
         parts.push(`Rolle: ${status.roleName}`);
     }
     if (status.referenceDate) {
@@ -1896,12 +1904,17 @@ const sidebarController = {
 
         const canCancel = hasPerm("SOFA-FN-PCNCL");
 
-        DOM.userDerivedStatusList.innerHTML = statuses.map(status => `
+        DOM.userDerivedStatusList.innerHTML = statuses.map(status => {
+            const changeRoleLabel = normalizeValue(status.processType) === "change" && (status.sourceRoleName || status.targetRoleName)
+                ? `${status.sourceRoleName || "-"} → ${status.targetRoleName || "-"}`
+                : null;
+            const roleLabel = changeRoleLabel || status.roleName;
+            return `
             <article class="user-derived-status-card">
                 <div class="user-derived-status-top">
                     <div class="user-derived-status-head">
                         <span class="ui-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
-                        ${status.roleName ? `<span class="ui-chip ui-chip-neutral">${escapeHtml(status.roleName)}</span>` : ""}
+                        ${roleLabel ? `<span class="ui-chip ui-chip-neutral">${escapeHtml(roleLabel)}</span>` : ""}
                         ${status.isOverdue ? '<span class="ui-chip ui-chip-neutral">Überfällig</span>' : ""}
                     </div>
                     ${canCancel && status.processId ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
@@ -1915,24 +1928,15 @@ const sidebarController = {
                 </div>
                 ${status.lastError ? `<p class="user-derived-status-error"><strong>Letzter Fehler:</strong> ${escapeHtml(status.lastError)}</p>` : ""}
             </article>
-        `).join("");
+        `;
+        }).join("");
 
         if (canCancel) {
             DOM.userDerivedStatusList.querySelectorAll(".user-derived-status-cancel-btn").forEach(button => {
-                button.addEventListener("click", async () => {
+                button.addEventListener("click", () => {
                     const processId = button.dataset.processId;
                     const processLabel = button.dataset.processLabel;
-                    if (!window.confirm(`Prozess "${processLabel}" wirklich abbrechen?`)) {
-                        return;
-                    }
-
-                    const success = await api.cancelProcess(processId);
-                    if (!success) {
-                        return;
-                    }
-
-                    await tableController.loadUsers();
-                    await sidebarController.refreshCurrentUser();
+                    processCancellationModalController.open(processId, processLabel);
                 });
             });
         }
@@ -3499,6 +3503,10 @@ const primaryRoleChangeModalController = {
                         <option value="" disabled selected>Hauptrolle auswählen…</option>
                     </select>
                 </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="primary-role-change-date">Stichtag</label>
+                    <input type="date" id="primary-role-change-date" class="ui-input" min="${sofaContract.localDateKey()}" required>
+                </div>
                 ${buildButtonRow("Weiter")}
             </div>
         `;
@@ -3533,37 +3541,37 @@ const primaryRoleChangeModalController = {
         document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
         document.getElementById("modal-submit-btn")?.addEventListener("click", () => {
             const roleId = document.getElementById("primary-role-change-select")?.value;
+            const effectiveDate = document.getElementById("primary-role-change-date")?.value;
+            const request = sofaContract.buildPlannedRolePayload(user.user_id, roleId, effectiveDate);
 
-            if (!roleId) {
-                showFlash("Bitte eine Hauptrolle auswählen", "failure");
+            if (!request.ok) {
+                showFlash(request.message, "failure");
                 return;
             }
 
             const roleName = state.roleMap?.[roleId]?.name || `Rolle #${roleId}`;
-            this.renderConfirmation(user, roleId, roleName);
+            this.renderConfirmation(user, request.payload, roleName);
         });
     },
 
-    renderConfirmation(user, roleId, roleName) {
+    renderConfirmation(user, payload, roleName) {
         const currentRoleName = user.primary_role?.name || "die aktuelle Funktion";
         DOM.primaryRoleChangeModalTitle.textContent = `Wechsel der Hauptrolle für ${user.first_name} ${user.last_name}`;
         DOM.primaryRoleChangeModalBody.innerHTML = `
             <div class="user-action-form">
                 <p class="user-action-note">
-                    Die bestehende Funktion <strong>${escapeHtml(currentRoleName)}</strong> wird entzogen und durch
-                    <strong>${escapeHtml(roleName)}</strong> ersetzt.
+                    Der Wechsel von <strong>${escapeHtml(currentRoleName)}</strong> zu
+                    <strong>${escapeHtml(roleName)}</strong> wird zum Stichtag
+                    <strong>${escapeHtml(sofaContract.formatDateKey(payload.effective_date))}</strong> beantragt.
                 </p>
-                <p class="user-action-note">Bitte den Wechsel der Hauptrolle noch einmal ausdrücklich bestätigen.</p>
+                <p class="user-action-note">Die Änderung wird nicht sofort wirksam. Bitte die Beantragung ausdrücklich bestätigen.</p>
                 ${buildButtonRow("Bestätigen", "btn-red")}
             </div>
         `;
 
         document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.renderSelection(user));
         document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
-            const success = await api.startPrimaryRoleChange({
-                user_id: user.user_id,
-                role_id: roleId
-            });
+            const success = await api.startPrimaryRoleChange(payload);
 
             if (!success) {
                 return;
@@ -3602,8 +3610,8 @@ const skillRevokeModalController = {
                     </select>
                 </div>
                 <div class="ui-field-group">
-                    <label class="ui-field-label" for="skill-revoke-startdate">Ab wann (optional)</label>
-                    <input type="date" id="skill-revoke-startdate" class="ui-input">
+                    <label class="ui-field-label" for="skill-revoke-effective-date">Stichtag</label>
+                    <input type="date" id="skill-revoke-effective-date" class="ui-input" min="${sofaContract.localDateKey()}" required>
                 </div>
                 ${buildButtonRow("Beantragen")}
             </div>
@@ -3635,23 +3643,15 @@ const skillRevokeModalController = {
         document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
         document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
             const roleId = document.getElementById("skill-revoke-select")?.value;
-            const startDate = document.getElementById("skill-revoke-startdate")?.value || null;
+            const effectiveDate = document.getElementById("skill-revoke-effective-date")?.value;
+            const request = sofaContract.buildPlannedRolePayload(user.user_id, roleId, effectiveDate);
 
-            if (!roleId) {
-                showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
+            if (!request.ok) {
+                showFlash(request.message, "failure");
                 return;
             }
 
-            const payload = {
-                user_id: user.user_id,
-                role_id: roleId
-            };
-
-            if (startDate) {
-                payload.start_date = startDate;
-            }
-
-            const success = await api.startSkillRevoke(payload);
+            const success = await api.startSkillRevoke(request.payload);
 
             if (!success) {
                 return;
@@ -3660,6 +3660,55 @@ const skillRevokeModalController = {
             await sidebarController.refreshCurrentUser();
             this.close();
         });
+    }
+};
+
+const processCancellationModalController = {
+    processId: null,
+
+    init() {
+        bindModalOverlayDismiss(DOM.processCancelOverlay, () => this.close());
+        DOM.processCancelCloseBtn?.addEventListener("click", () => this.close());
+        DOM.processCancelBackBtn?.addEventListener("click", () => this.close());
+        DOM.processCancelSubmitBtn?.addEventListener("click", () => this.submit());
+    },
+
+    open(processId, processLabel) {
+        this.processId = processId;
+        DOM.processCancelDescription.textContent = `Der Prozess „${processLabel || `#${processId}`}“ wird auditierbar abgebrochen.`;
+        DOM.processCancelReason.value = "";
+        openOverlay("process-cancel-overlay");
+        DOM.processCancelReason.focus();
+    },
+
+    close() {
+        closeOverlay("process-cancel-overlay");
+        this.processId = null;
+        if (DOM.processCancelReason) {
+            DOM.processCancelReason.value = "";
+        }
+    },
+
+    async submit() {
+        const request = sofaContract.buildCancelPayload(DOM.processCancelReason?.value);
+        if (!request.ok) {
+            showFlash(request.message, "failure");
+            DOM.processCancelReason?.focus();
+            return;
+        }
+
+        DOM.processCancelSubmitBtn.disabled = true;
+        try {
+            const success = await api.cancelProcess(this.processId, request.payload.reason);
+            if (!success) {
+                return;
+            }
+            this.close();
+            await tableController.loadUsers();
+            await sidebarController.refreshCurrentUser();
+        } finally {
+            DOM.processCancelSubmitBtn.disabled = false;
+        }
     }
 };
 
@@ -3811,6 +3860,13 @@ function cacheDOM() {
     DOM.skillRevokeModalBody = DOM.skillRevokeModal?.querySelector(".ui-modal-body");
     DOM.skillRevokeCloseBtn = document.getElementById("skill-revoke-close-btn");
 
+    DOM.processCancelOverlay = document.getElementById("process-cancel-overlay");
+    DOM.processCancelDescription = document.getElementById("process-cancel-description");
+    DOM.processCancelReason = document.getElementById("process-cancel-reason");
+    DOM.processCancelCloseBtn = document.getElementById("process-cancel-close-btn");
+    DOM.processCancelBackBtn = document.getElementById("process-cancel-back-btn");
+    DOM.processCancelSubmitBtn = document.getElementById("process-cancel-submit-btn");
+
     DOM.offboardOverlay = document.getElementById("offboard-overlay");
     DOM.offboardModal = document.getElementById("offboard-modal");
     DOM.offboardModalTitle = DOM.offboardModal?.querySelector(".ui-section-title");
@@ -3841,5 +3897,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     newSkillModalController.init();
     primaryRoleChangeModalController.init();
     skillRevokeModalController.init();
+    processCancellationModalController.init();
     offboardModalController.init();
 });

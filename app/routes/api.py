@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 from io import BytesIO
 import json
+import re
 from urllib.parse import quote
 
 import httpx  # type: ignore
@@ -43,6 +44,50 @@ IKS_REPORT_PERMISSIONS = {
     "role": "SOFA-IKS-ROLE",
     "system": "SOFA-IKS-SYS",
 }
+
+ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _build_planned_role_request(payload: dict, initiator_user_id: int) -> dict:
+    user_id = _coerce_int((payload or {}).get("user_id"))
+    role_id = _coerce_int((payload or {}).get("role_id"))
+    effective_date = (payload or {}).get("effective_date")
+
+    if user_id is None or user_id <= 0 or role_id is None or role_id <= 0:
+        raise ValueError("User und Rolle müssen gültige positive IDs sein.")
+    if not isinstance(effective_date, str) or not ISO_DATE_PATTERN.fullmatch(effective_date):
+        raise ValueError("Der Stichtag ist erforderlich und muss das Format YYYY-MM-DD haben.")
+
+    try:
+        parsed_date = date.fromisoformat(effective_date)
+    except ValueError as exc:
+        raise ValueError("Der Stichtag ist ungültig.") from exc
+    if parsed_date < date.today():
+        raise ValueError("Der Stichtag darf nicht in der Vergangenheit liegen.")
+
+    return {
+        "user_id": user_id,
+        "role_id": role_id,
+        "effective_date": effective_date,
+        "initiator_user_id": initiator_user_id,
+    }
+
+
+def _build_process_cancellation_request(payload: dict, initiator_user_id: int) -> dict:
+    reason = (payload or {}).get("reason")
+    if not isinstance(reason, str):
+        raise ValueError("Ein Abbruchgrund ist erforderlich.")
+
+    normalized_reason = reason.strip()
+    if not normalized_reason:
+        raise ValueError("Ein Abbruchgrund ist erforderlich.")
+    if len(normalized_reason) > 500:
+        raise ValueError("Der Abbruchgrund darf höchstens 500 Zeichen lang sein.")
+
+    return {
+        "reason": normalized_reason,
+        "initiator_user_id": initiator_user_id,
+    }
 
 
 def _normalize_iks_export_links(report: dict) -> dict:
@@ -1050,11 +1095,21 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(require_permissio
 async def api_send_task_mail(task_id: int, payload: dict, current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
-        payload["initiator_user_id"] = current_user.user_id
-        result = await api_client.send_task_mail(task_id, payload)
+        request_payload = {
+            "recipient": (payload or {}).get("recipient"),
+            "cc": (payload or {}).get("cc", ""),
+            "bcc": (payload or {}).get("bcc", ""),
+            "subject": (payload or {}).get("subject"),
+            "body": (payload or {}).get("body"),
+            "initiator_user_id": current_user.user_id,
+        }
+        result = await api_client.send_task_mail(task_id, request_payload, current_user.user_id)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
-        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
     except HTTPException as exc:
         raise exc
     except Exception as exc:
@@ -1530,9 +1585,11 @@ async def api_start_skill_assignment_process(payload: dict, current_user=Depends
 @router.post("/processes/change")
 async def api_start_primary_role_change_process(payload: dict, current_user=Depends(require_permission("SOFA-FN-ROLE"))):
     try:
-        payload["initiator_user_id"] = current_user.user_id
-        result = await api_client.trigger_primary_role_change(payload)
+        request_payload = _build_planned_role_request(payload, current_user.user_id)
+        result = await api_client.trigger_primary_role_change(request_payload)
         return JSONResponse(content=result)
+    except ValueError as exc:
+        return JSONResponse(content={"detail": str(exc)}, status_code=400)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
@@ -1613,9 +1670,11 @@ async def api_start_training_schedule_process(payload: dict, current_user=Depend
 @router.post("/processes/skill_revocation")
 async def api_start_skill_removal_process(payload: dict, current_user=Depends(require_permission("SOFA-FN-RMRL"))):
     try:
-        payload["initiator_user_id"] = current_user.user_id
-        result = await api_client.trigger_skill_removal(payload)
+        request_payload = _build_planned_role_request(payload, current_user.user_id)
+        result = await api_client.trigger_skill_removal(request_payload)
         return JSONResponse(content=result)
+    except ValueError as exc:
+        return JSONResponse(content={"detail": str(exc)}, status_code=400)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
@@ -1625,12 +1684,11 @@ async def api_start_skill_removal_process(payload: dict, current_user=Depends(re
 @router.post("/processes/{process_id}/cancel")
 async def api_cancel_process(process_id: int, payload: dict, current_user=Depends(require_permission("SOFA-FN-PCNCL"))):
     try:
-        request_payload = {"initiator_user_id": current_user.user_id}
-        reason = (payload or {}).get("reason")
-        if reason:
-            request_payload["reason"] = reason
+        request_payload = _build_process_cancellation_request(payload, current_user.user_id)
         result = await api_client.cancel_process(process_id, request_payload)
         return JSONResponse(content=result)
+    except ValueError as exc:
+        return JSONResponse(content={"detail": str(exc)}, status_code=400)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
