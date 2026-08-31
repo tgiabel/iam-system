@@ -124,6 +124,7 @@ class TestIvrCallDetailsFrontendContract(unittest.TestCase):
     def setUp(self):
         root = Path(__file__).parents[1]
         self.script = (root / "app/static/js/reports/ivr_call_details.js").read_text(encoding="utf-8")
+        self.stylesheet = (root / "app/static/css/ivr_call_details.css").read_text(encoding="utf-8")
         self.template = (root / "app/templates/reports/ivr_call_details.html").read_text(encoding="utf-8")
 
     def test_search_filter_pagination_and_lazy_details_are_call_scoped(self):
@@ -147,6 +148,17 @@ class TestIvrCallDetailsFrontendContract(unittest.TestCase):
         self.assertIn('id="ivrCallExportCsv"', self.template)
         self.assertIn('aria-live="polite"', self.template)
         self.assertIn("bis einschließlich Vortag", self.template)
+        self.assertIn('id="ivrCallKpiStrip"', self.template)
+        self.assertIn('id="ivrCallKpiDetails"', self.template)
+        self.assertIn('aria-controls="ivrCallKpiDetails"', self.script)
+
+    def test_kpi_details_stack_without_clipping_on_narrow_screens(self):
+        mobile_rules = self.stylesheet[self.stylesheet.index("@media (max-width: 420px)"):]
+        self.assertIn("grid-template-columns: minmax(0, 1fr)", mobile_rules)
+        self.assertIn("overflow-wrap: anywhere", mobile_rules)
+        self.assertIn("text-align: left", mobile_rules)
+        self.assertIn("white-space: normal", mobile_rules)
+        self.assertIn("grid-column: 1", mobile_rules)
 
 
 @unittest.skipUnless(shutil.which("node"), "Node.js ist für die JavaScript-Logiktests nicht verfügbar")
@@ -181,6 +193,94 @@ class TestIvrCallDetailsUiLogic(unittest.TestCase):
             assert.strictEqual(ui.isConnectedResult(' Verbunden '), true);
             assert.strictEqual(ui.isConnectedResult('Sonstiges(15)'), false);
             assert.strictEqual(ui.isConnectedResult(''), false);
+            const kpis = ui.aggregateCallDurationKpis([
+                call,
+                ui.normalizeCall({
+                    call_id: 's-direkt',
+                    total_duration_seconds: 999,
+                    sections: [
+                        { sequence: 1, target: 'Fehlerziel', target_label: 'Fehlerziel', result: 'Sonstiges(15)', duration_seconds: 40 },
+                        { sequence: 2, target: '0691302597', target_label: 'S-Direkt', result: 'Verbunden', duration_seconds: 60 }
+                    ]
+                }),
+                ui.normalizeCall({
+                    call_id: 'rest',
+                    sections: [
+                        { sequence: 1, target: '18', target_label: 'Hotline', result: 'Verbunden', duration_seconds: 20 },
+                        { sequence: 2, target: '18', target_label: 'Hotline', result: 'Besetzt', duration_seconds: 30 }
+                    ]
+                }),
+                ui.normalizeCall({
+                    call_id: 'fallback',
+                    sections: [{ sequence: 1, target: '0691302598', result: 'Verbunden', duration_seconds: 25 }]
+                }),
+                ui.normalizeCall({
+                    call_id: 'internal-18',
+                    sections: [{ sequence: 1, target: '0691302597', target_label: 'DNIS 18', result: 'Verbunden', duration_seconds: 30 }]
+                }),
+                ui.normalizeCall({
+                    call_id: 'internal-42',
+                    sections: [{ sequence: 1, target: '0691302598', target_label: 'DNIS 42', result: 'Verbunden', duration_seconds: 20 }]
+                })
+            ]);
+            assert.strictEqual(kpis.totalDurationSeconds, 412);
+            assert.strictEqual(kpis.targets[0].label, 'S-Direkt');
+            assert.strictEqual(kpis.targets[0].durationSeconds, 100);
+            assert.deepStrictEqual(kpis.targets[0].detailItems, [{ label: '0691302597', secondaryLabel: null, durationSeconds: 100 }]);
+            const internal = kpis.targets.find(target => target.label === 'Intern');
+            assert.strictEqual(internal.durationSeconds, 50);
+            assert.deepStrictEqual(internal.detailItems, [
+                { label: 'DNIS 18', secondaryLabel: '0691302597', durationSeconds: 30 },
+                { label: 'DNIS 42', secondaryLabel: '0691302598', durationSeconds: 20 }
+            ]);
+            assert.strictEqual(kpis.targets.find(target => target.label === '0691302598').durationSeconds, 25);
+            assert.strictEqual(kpis.rest.durationSeconds, 237);
+            assert.deepStrictEqual(kpis.rest.results, [
+                { label: 'Sonstiges(15)', durationSeconds: 187 },
+                { label: 'Besetzt', durationSeconds: 50 }
+            ]);
+            const realInternAndDnis = ui.aggregateCallDurationKpis([
+                ui.normalizeCall({
+                    call_id: 'dnis-internal',
+                    sections: [{ sequence: 1, target: '18', target_label: 'DNIS 18', result: 'Verbunden', duration_seconds: 30 }]
+                }),
+                ui.normalizeCall({
+                    call_id: 'real-intern',
+                    sections: [{ sequence: 1, target: 'external', target_label: 'Intern', result: 'Verbunden', duration_seconds: 20 }]
+                })
+            ]);
+            assert.strictEqual(realInternAndDnis.targets.length, 2);
+            assert.strictEqual(realInternAndDnis.targets.find(target => target.key === 'group:dnis-internal').durationSeconds, 30);
+            assert.strictEqual(realInternAndDnis.targets.find(target => target.key === 'target:intern').durationSeconds, 20);
+
+            const emptyKpis = ui.aggregateCallDurationKpis([]);
+            const emptyCards = ui.buildKpiCardModels(emptyKpis);
+            assert.deepStrictEqual(emptyCards, [{
+                key: null,
+                label: 'Gesamt IVR-Zeit',
+                durationSeconds: 0,
+                clickable: false
+            }]);
+            const emptyFilterCards = ui.buildKpiCardModels(ui.aggregateCallDurationKpis([
+                ui.normalizeCall({
+                    call_id: 'filtered-out',
+                    sections: [{ sequence: 1, target: '18', target_label: 'Hotline', result: 'Besetzt', duration_seconds: 30 }]
+                })
+            ].filter(candidate => ui.callMatchesSearch(candidate, 'kein Treffer'))));
+            assert.deepStrictEqual(emptyFilterCards, emptyCards);
+            const cardsWithRest = ui.buildKpiCardModels(ui.aggregateCallDurationKpis([
+                ui.normalizeCall({
+                    call_id: 'rest-card',
+                    sections: [{ sequence: 1, target: '18', target_label: 'Hotline', result: 'Besetzt', duration_seconds: 30 }]
+                })
+            ]));
+            assert.strictEqual(cardsWithRest.length, 2);
+            assert.deepStrictEqual(cardsWithRest[1], {
+                key: 'rest',
+                label: 'Restpositionen',
+                durationSeconds: 30,
+                clickable: true
+            });
             const csv = ui.buildCsv([call]);
             assert.strictEqual(csv.trim().split('\r\n').length, 3);
             assert.ok(csv.includes("'=danger"));

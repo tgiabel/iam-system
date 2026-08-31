@@ -10,6 +10,158 @@
     margin-bottom: 1.25rem;
 }
 
+.ivr-call-kpi-section {
+    margin-bottom: 12px;
+}
+
+.ivr-call-kpi-strip {
+    display: flex;
+    gap: 12px;
+    padding: 2px 2px 8px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-border) transparent;
+}
+
+.ivr-call-kpi {
+    display: flex;
+    flex: 0 0 min(15.5rem, 78vw);
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-strong);
+    font: inherit;
+    text-align: left;
+}
+
+.ivr-call-kpi.is-total {
+    position: relative;
+    margin-right: 12px;
+    border-color: rgba(var(--color-primary-rgb), 0.25);
+    background: var(--ui-surface-card);
+}
+
+.ivr-call-kpi.is-total::after {
+    position: absolute;
+    top: 16%;
+    right: -7px;
+    width: 1px;
+    height: 68%;
+    background: var(--ui-border);
+    content: "";
+}
+
+.ivr-call-kpi.is-action {
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ivr-call-kpi.is-action:hover,
+.ivr-call-kpi.is-action:focus-visible,
+.ivr-call-kpi.is-action.is-active {
+    border-color: var(--color-primary);
+    background: var(--ui-surface-card);
+}
+
+.ivr-call-kpi.is-action:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.ivr-call-kpi.is-action.is-active {
+    box-shadow: inset 0 -3px 0 var(--color-primary);
+}
+
+.ivr-call-kpi-value {
+    overflow: hidden;
+    color: var(--ui-text-strong);
+    font-size: 1.08rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ivr-call-kpi-label {
+    overflow: hidden;
+    color: var(--ui-text-muted);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.ivr-call-kpi-details {
+    overflow: hidden;
+    margin-top: 2px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+}
+
+.ivr-call-kpi-details-heading,
+.ivr-call-kpi-detail-list li {
+    display: grid;
+    grid-template-columns: minmax(10rem, 1fr) minmax(9rem, auto);
+    gap: 1rem;
+    align-items: center;
+}
+
+.ivr-call-kpi-details-heading {
+    padding: 0.65rem 1rem;
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.ivr-call-kpi-detail-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ivr-call-kpi-detail-list li {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid color-mix(in srgb, var(--ui-border) 90%, transparent);
+    color: var(--ui-text);
+    font-size: 0.88rem;
+}
+
+.ivr-call-kpi-detail-target {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    min-width: 0;
+}
+
+.ivr-call-kpi-detail-target > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ivr-call-kpi-detail-secondary {
+    flex: 0 0 auto;
+    color: var(--ui-text-muted);
+    font-size: 0.78rem;
+}
+
+.ivr-call-kpi-detail-list strong {
+    grid-column: 2;
+    color: var(--ui-text-strong);
+    text-align: right;
+    white-space: nowrap;
+}
+
 .ivr-call-details-import-note {
     max-width: 31rem;
     margin: 0;
@@ -407,6 +559,12 @@
         flex-direction: column;
     }
 
+    .ivr-call-kpi-details-heading,
+    .ivr-call-kpi-detail-list li {
+        grid-template-columns: minmax(8rem, 1fr) minmax(8rem, auto);
+        gap: 0.75rem;
+    }
+
     .ivr-call-details-filtermeta {
         width: 100%;
         margin-left: 0;
@@ -436,5 +594,36 @@
 
     .ivr-call-section-duration {
         text-align: left;
+    }
+}
+
+@media (max-width: 420px) {
+    .ivr-call-kpi-details {
+        overflow: visible;
+    }
+
+    .ivr-call-kpi-details-heading,
+    .ivr-call-kpi-detail-list li {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35rem;
+    }
+
+    .ivr-call-kpi-details-heading > span,
+    .ivr-call-kpi-detail-target > span,
+    .ivr-call-kpi-detail-list strong {
+        overflow: visible;
+        overflow-wrap: anywhere;
+        text-align: left;
+        text-overflow: clip;
+        white-space: normal;
+    }
+
+    .ivr-call-kpi-detail-target {
+        flex-wrap: wrap;
+    }
+
+    .ivr-call-kpi-detail-secondary,
+    .ivr-call-kpi-detail-list strong {
+        grid-column: 1;
     }
 }

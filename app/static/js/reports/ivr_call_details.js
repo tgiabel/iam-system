@@ -13,6 +13,7 @@ const ivrCallState = {
     sortDirection: "asc",
     page: 1,
     expandedKeys: new Set(),
+    expandedKpiKey: null,
     metadata: {},
     requestToken: 0,
 };
@@ -190,6 +191,202 @@ function getFilteredSortedCalls() {
         });
 }
 
+function getKpiTargetLabel(call) {
+    const targetLabel = String(call.finalTargetLabel ?? "").trim();
+    if (targetLabel) {
+        return targetLabel;
+    }
+    const target = String(call.finalTarget ?? "").trim();
+    return target || "Unbekanntes Ziel";
+}
+
+function getKpiResultLabel(call) {
+    const result = String(call.finalResult ?? "").trim();
+    return result || "Ohne Ergebnis";
+}
+
+function isInternalDnisTarget(call) {
+    return /^dnis\b/i.test(String(call.finalTargetLabel ?? "").trim());
+}
+
+function aggregateCallDurationKpis(calls) {
+    const targetsByKey = new Map();
+    const restByResult = new Map();
+    let totalDurationSeconds = 0;
+    let restDurationSeconds = 0;
+
+    calls.forEach(call => {
+        const durationSeconds = Math.max(0, toFiniteNumber(call.totalDurationSeconds, 0));
+        totalDurationSeconds += durationSeconds;
+        if (!isConnectedResult(call.finalResult)) {
+            const resultLabel = getKpiResultLabel(call);
+            const resultKey = normalizeValue(resultLabel) || "ohne-ergebnis";
+            const result = restByResult.get(resultKey) || { label: resultLabel, durationSeconds: 0 };
+            result.durationSeconds += durationSeconds;
+            restByResult.set(resultKey, result);
+            restDurationSeconds += durationSeconds;
+            return;
+        }
+
+        const internalDnis = isInternalDnisTarget(call);
+        const sourceLabel = getKpiTargetLabel(call);
+        const label = internalDnis ? "Intern" : sourceLabel;
+        const targetKey = internalDnis
+            ? "group:dnis-internal"
+            : `target:${normalizeValue(label) || "unbekanntes-ziel"}`;
+        const target = targetsByKey.get(targetKey) || {
+            key: targetKey,
+            label,
+            durationSeconds: 0,
+            isInternalDnis: internalDnis,
+            detailItems: new Map(),
+        };
+        const targetCode = String(call.finalTarget ?? "").trim() || "Unbekanntes Ziel";
+        const detailLabel = internalDnis ? sourceLabel : targetCode;
+        const detailSecondaryLabel = internalDnis ? targetCode : null;
+        const detailKey = `${detailLabel}\u0000${detailSecondaryLabel || ""}`;
+        target.durationSeconds += durationSeconds;
+        const detailItem = target.detailItems.get(detailKey) || {
+            label: detailLabel,
+            secondaryLabel: detailSecondaryLabel,
+            durationSeconds: 0,
+        };
+        detailItem.durationSeconds += durationSeconds;
+        target.detailItems.set(detailKey, detailItem);
+        targetsByKey.set(targetKey, target);
+    });
+
+    return {
+        totalDurationSeconds,
+        targets: Array.from(targetsByKey.values())
+            .map(target => ({
+                ...target,
+                detailItems: Array.from(target.detailItems.values())
+                    .sort((left, right) => right.durationSeconds - left.durationSeconds || left.label.localeCompare(right.label, "de")),
+            }))
+            .sort((left, right) => right.durationSeconds - left.durationSeconds || left.label.localeCompare(right.label, "de")),
+        rest: {
+            key: "rest",
+            durationSeconds: restDurationSeconds,
+            results: Array.from(restByResult.values())
+                .sort((left, right) => right.durationSeconds - left.durationSeconds || left.label.localeCompare(right.label, "de")),
+        },
+    };
+}
+
+function renderKpiDetails(kpis) {
+    if (!ivrCallDom.kpiDetails) {
+        return;
+    }
+    const activeKey = ivrCallState.expandedKpiKey;
+    if (!activeKey) {
+        ivrCallDom.kpiDetails.hidden = true;
+        ivrCallDom.kpiDetails.innerHTML = "";
+        return;
+    }
+    const target = kpis.targets.find(candidate => candidate.key === activeKey);
+    const detail = target
+        ? {
+            title: target.label,
+            itemLabel: target.isInternalDnis ? "Zielbezeichnung / Zielcode" : "Zielcode",
+            items: target.detailItems,
+        }
+        : activeKey === kpis.rest.key
+            ? { title: "Restpositionen", itemLabel: "Finales Ergebnis", items: kpis.rest.results }
+            : null;
+    if (!detail) {
+        ivrCallState.expandedKpiKey = null;
+        ivrCallDom.kpiDetails.hidden = true;
+        ivrCallDom.kpiDetails.innerHTML = "";
+        return;
+    }
+
+    ivrCallDom.kpiDetails.hidden = false;
+    ivrCallDom.kpiDetails.innerHTML = `
+        <div class="ivr-call-kpi-details-heading">
+            <span>${escapeHtml(detail.title)} · ${escapeHtml(detail.itemLabel)}</span>
+            <span>IVR-Zeit</span>
+        </div>
+        <ul class="ivr-call-kpi-detail-list">
+            ${detail.items.map(item => `
+                <li>
+                    <span class="ivr-call-kpi-detail-target">
+                        <span>${escapeHtml(item.label)}</span>
+                        ${item.secondaryLabel ? `<span class="ivr-call-kpi-detail-secondary">${escapeHtml(item.secondaryLabel)}</span>` : ""}
+                    </span>
+                    <strong>${escapeHtml(formatDuration(item.durationSeconds))}</strong>
+                </li>
+            `).join("")}
+        </ul>`;
+}
+
+function kpiCard({ key, label, durationSeconds, active = false, clickable = false }) {
+    const content = `
+        <span class="ivr-call-kpi-value">${escapeHtml(formatDuration(durationSeconds))}</span>
+        <span class="ivr-call-kpi-label">${escapeHtml(label)}</span>`;
+    if (!clickable) {
+        return `<div class="ivr-call-kpi is-total" title="${escapeHtml(label)}">${content}</div>`;
+    }
+    return `
+        <button type="button" class="ivr-call-kpi is-action${active ? " is-active" : ""}"
+            data-kpi-key="${escapeHtml(key)}" aria-expanded="${active}" aria-controls="ivrCallKpiDetails" title="${escapeHtml(label)}">
+            ${content}
+        </button>`;
+}
+
+function buildKpiCardModels(kpis) {
+    const cards = [{
+        key: null,
+        label: "Gesamt IVR-Zeit",
+        durationSeconds: kpis.totalDurationSeconds,
+        clickable: false,
+    }];
+    cards.push(...kpis.targets.map(target => ({
+        ...target,
+        clickable: true,
+    })));
+    if (kpis.rest.results.length) {
+        cards.push({
+            key: kpis.rest.key,
+            label: "Restpositionen",
+            durationSeconds: kpis.rest.durationSeconds,
+            clickable: true,
+        });
+    }
+    return cards;
+}
+
+function renderKpis(filteredCalls) {
+    if (!ivrCallDom.kpiStrip || !ivrCallDom.kpiDetails) {
+        return;
+    }
+    const hasReportData = !ivrCallState.loading && !ivrCallState.error;
+    ivrCallDom.kpiStrip.setAttribute("aria-busy", String(ivrCallState.loading));
+    if (!hasReportData) {
+        ivrCallState.expandedKpiKey = null;
+        ivrCallDom.kpiStrip.innerHTML = `
+            <div class="ivr-call-kpi is-total">
+                <span class="ivr-call-kpi-value">–</span>
+                <span class="ivr-call-kpi-label">Gesamt IVR-Zeit</span>
+            </div>`;
+        renderKpiDetails({ targets: [], rest: { key: "rest", results: [] } });
+        return;
+    }
+
+    const kpis = aggregateCallDurationKpis(filteredCalls);
+    ivrCallDom.kpiStrip.innerHTML = buildKpiCardModels(kpis)
+        .map(card => kpiCard({
+            ...card,
+            active: ivrCallState.expandedKpiKey === card.key,
+        }))
+        .join("");
+    renderKpiDetails(kpis);
+}
+
+function resetKpiDetails() {
+    ivrCallState.expandedKpiKey = null;
+}
+
 function resultBadge(value) {
     const connected = isConnectedResult(value);
     const label = formatPlainValue(value);
@@ -335,6 +532,7 @@ function renderPage() {
     ivrCallState.page = Math.min(Math.max(ivrCallState.page, 1), totalPages);
     const startIndex = (ivrCallState.page - 1) * IVR_CALL_PAGE_SIZE;
     renderTable(filtered.slice(startIndex, startIndex + IVR_CALL_PAGE_SIZE), startIndex);
+    renderKpis(filtered);
     updateStatus(filtered);
     updateControls(filtered.length, totalPages);
 }
@@ -461,6 +659,7 @@ async function loadReport(day, { forceRefresh = false } = {}) {
         ivrCallState.error = null;
         ivrCallState.page = 1;
         ivrCallState.expandedKeys.clear();
+        resetKpiDetails();
         updateServiceFilterOptions();
         savePersistedDay();
         renderPage();
@@ -473,6 +672,7 @@ async function loadReport(day, { forceRefresh = false } = {}) {
     ivrCallState.allCalls = [];
     ivrCallState.metadata = {};
     ivrCallState.expandedKeys.clear();
+    resetKpiDetails();
     renderPage();
     try {
         const payload = await ivrCallApi.getCallDetails(day);
@@ -549,6 +749,8 @@ function cacheDom() {
     ivrCallDom.dayLabel = document.getElementById("ivrCallDayLabel");
     ivrCallDom.dayPicker = document.getElementById("ivrCallDayPicker");
     ivrCallDom.retry = document.getElementById("ivrCallRetryBtn");
+    ivrCallDom.kpiStrip = document.getElementById("ivrCallKpiStrip");
+    ivrCallDom.kpiDetails = document.getElementById("ivrCallKpiDetails");
     ivrCallDom.search = document.getElementById("ivrCallSearchInput");
     ivrCallDom.serviceFilter = document.getElementById("ivrCallServiceFilter");
     ivrCallDom.issuesOnly = document.getElementById("ivrCallIssueOnly");
@@ -580,17 +782,21 @@ function bindEvents() {
     ivrCallDom.search.addEventListener("input", event => {
         ivrCallState.searchTerm = event.target.value || "";
         ivrCallState.page = 1;
+        resetKpiDetails();
+        renderKpis(getFilteredSortedCalls());
         clearTimeout(ivrCallSearchTimer);
         ivrCallSearchTimer = window.setTimeout(renderPage, 180);
     });
     ivrCallDom.serviceFilter.addEventListener("change", event => {
         ivrCallState.serviceNumber = event.target.value || "";
         ivrCallState.page = 1;
+        resetKpiDetails();
         renderPage();
     });
     ivrCallDom.issuesOnly.addEventListener("change", event => {
         ivrCallState.issuesOnly = event.target.checked;
         ivrCallState.page = 1;
+        resetKpiDetails();
         renderPage();
     });
     ivrCallDom.sortStart.addEventListener("click", () => {
@@ -607,6 +813,18 @@ function bindEvents() {
         renderPage();
     });
     ivrCallDom.exportCsv.addEventListener("click", downloadCsv);
+    ivrCallDom.kpiStrip.addEventListener("click", event => {
+        const card = event.target.closest("[data-kpi-key]");
+        if (!card) {
+            return;
+        }
+        const key = card.dataset.kpiKey;
+        ivrCallState.expandedKpiKey = ivrCallState.expandedKpiKey === key ? null : key;
+        renderKpis(getFilteredSortedCalls());
+        Array.from(ivrCallDom.kpiStrip.querySelectorAll("[data-kpi-key]"))
+            .find(candidate => candidate.dataset.kpiKey === key)
+            ?.focus();
+    });
     ivrCallDom.tableBody.addEventListener("click", event => {
         const row = event.target.closest(".ivr-call-row");
         if (row) {
@@ -639,9 +857,11 @@ if (typeof document !== "undefined") {
 if (typeof module !== "undefined" && module.exports) {
     module.exports = {
         buildCsv,
+        buildKpiCardModels,
         callMatchesSearch,
         escapeCsvValue,
         formatDuration,
+        aggregateCallDurationKpis,
         isConnectedResult,
         isValidDayKey,
         normalizeCall,
