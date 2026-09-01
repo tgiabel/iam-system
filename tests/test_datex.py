@@ -254,6 +254,8 @@ class DatexExportTests(unittest.TestCase):
 
     def test_supplied_kredit_fixture_matches_footer(self):
         fixture = Path(__file__).parents[1] / "misc/datex/SPEDGVerlag_Kredit_2026_07-01_2026_08-01.dat"
+        if not fixture.is_file():
+            self.skipTest("optionale lokale Kredit-Fixture ist im sauberen Repository-Snapshot nicht enthalten")
         payload = fixture.read_bytes()
         parsed = parse_dat_payload(payload)
 
