@@ -1,13 +1,15 @@
 (function () {
     "use strict";
 
-    const REPORT_TYPES = Object.freeze(["process", "role", "system"]);
-    const EXPORT_FORMATS = Object.freeze(["html", "csv", "json"]);
+    const REPORT_TYPES = Object.freeze(["process", "role", "system", "access_review"]);
+    const CATALOG_REPORT_TYPES = Object.freeze(["process", "role", "system"]);
+    const EXPORT_FORMATS = Object.freeze(["html", "csv", "json", "xlsx"]);
+    const ACCESS_REVIEW_TYPE = "access_review";
     const ALL_PROCESSES_VALUE = "__all_process_types__";
     const REPORT_TIMEZONE = "Europe/Berlin";
 
     const state = {
-        catalog: { process_types: [], roles: [], systems: [] },
+        catalog: { process_types: [], roles: [], systems: [], available_report_types: [] },
         report: null,
         loading: false
     };
@@ -156,11 +158,16 @@
     function cacheDom() {
         DOM.form = document.getElementById("iks-report-form");
         DOM.typeInputs = document.querySelectorAll('input[name="report_type"]');
+        DOM.typeGrid = document.querySelector(".iks-type-grid");
+        DOM.targetStep = document.getElementById("iks-target-step");
         DOM.targetSearch = document.getElementById("iks-target-search");
         DOM.targetSelect = document.getElementById("iks-target-select");
         DOM.targetLabel = document.getElementById("iks-target-label");
         DOM.targetHelp = document.getElementById("iks-target-help");
         DOM.catalogStatus = document.getElementById("iks-catalog-status");
+        DOM.periodStepNumber = document.getElementById("iks-period-step-number");
+        DOM.periodHelp = document.getElementById("iks-period-help");
+        DOM.accessReviewNote = document.getElementById("iks-access-review-note");
         DOM.preset = document.getElementById("iks-period-preset");
         DOM.from = document.getElementById("iks-period-from");
         DOM.to = document.getElementById("iks-period-to");
@@ -173,6 +180,7 @@
         DOM.kpis = document.getElementById("iks-kpis");
         DOM.dataQuality = document.getElementById("iks-data-quality");
         DOM.findings = document.getElementById("iks-findings");
+        DOM.findingsBlock = document.getElementById("iks-findings-block");
         DOM.findingsCount = document.getElementById("iks-findings-count");
         DOM.details = document.getElementById("iks-report-details");
         DOM.technical = document.getElementById("iks-technical-content");
@@ -225,6 +233,8 @@
 
     function renderTargetOptions({ reset = false } = {}) {
         const type = getReportType();
+        // The access review has no control object; its step is hidden entirely.
+        if (type === ACCESS_REVIEW_TYPE) return;
         if (!type) {
             DOM.targetLabel.textContent = "Kontrollobjekt";
             DOM.targetHelp.textContent = "Für keine Kontrollart liegt eine IKS-Berechtigung vor.";
@@ -298,7 +308,54 @@
                 .filter(item => isObject(item) && item.id !== undefined && item.id !== null && item.name)
                 .map(item => ({ ...item, id: String(item.id), name: String(item.name) }));
         }
+        // Older backends do not send available_report_types. Falling back to the three
+        // legacy controls keeps a newly added type hidden until the backend offers it.
+        normalized.available_report_types = Array.isArray(data.available_report_types)
+            ? data.available_report_types.filter(entry => typeof entry === "string")
+            : CATALOG_REPORT_TYPES.slice();
         return normalized;
+    }
+
+    function isReportTypeAvailable(catalog, reportType) {
+        return asArray(catalog && catalog.available_report_types).includes(reportType);
+    }
+
+    function applyCatalogAvailability() {
+        let visibleOptionalTypes = 0;
+        DOM.typeInputs.forEach(input => {
+            const requiredType = input.dataset.requiresCatalogType;
+            if (!requiredType) return;
+            // Visibility follows the backend catalog only - no permission logic here.
+            const available = isReportTypeAvailable(state.catalog, requiredType);
+            input.dataset.authorized = available ? "true" : "false";
+            input.disabled = !available;
+            const option = input.closest("[data-iks-type-option]");
+            if (option) option.hidden = !available;
+            if (available) {
+                visibleOptionalTypes += 1;
+                // A review-only user has no other selectable control, so preselect the
+                // option the catalog just revealed instead of leaving the form empty.
+                if (!document.querySelector('input[name="report_type"]:checked')) {
+                    input.checked = true;
+                }
+            } else if (input.checked) {
+                input.checked = false;
+            }
+        });
+        if (DOM.typeGrid) {
+            DOM.typeGrid.classList.toggle("has-access-review", visibleOptionalTypes > 0);
+        }
+    }
+
+    function applyReportTypeSelection({ reset = false } = {}) {
+        const targetless = getReportType() === ACCESS_REVIEW_TYPE;
+        DOM.targetStep.hidden = targetless;
+        DOM.periodStepNumber.textContent = targetless ? "2" : "3";
+        DOM.periodHelp.textContent = targetless
+            ? "Beginn und Ende des organisatorischen Reviewzeitraums sind Pflichtfelder."
+            : "Start- und Enddatum werden einschließlich ausgewertet.";
+        DOM.accessReviewNote.hidden = !targetless;
+        renderTargetOptions({ reset });
     }
 
     function applyPreset() {
@@ -319,33 +376,45 @@
         DOM.preset.disabled = loading;
         DOM.from.disabled = loading;
         DOM.to.disabled = loading;
-        renderTargetOptions();
+        applyReportTypeSelection();
     }
 
-    function buildRequestPayload() {
-        const reportType = getReportType();
-        const targetId = DOM.targetSelect.value;
+    function buildReportRequest({ reportType, targetId, from, to }) {
+        // The access review covers the whole organisation; the backend answers any
+        // non-empty target for it with 422, so the target is always null here.
+        const targetless = reportType === ACCESS_REVIEW_TYPE;
         if (!REPORT_TYPES.includes(reportType)) {
             throw new Error("Bitte eine gültige Kontrollart wählen.");
         }
-        if (reportType !== "process" && !targetId) {
+        if (!targetless && reportType !== "process" && !targetId) {
             throw new Error(`Bitte ${reportType === "role" ? "eine Rolle" : "ein System"} wählen.`);
         }
-        if (!DOM.from.value || !DOM.to.value) {
-            throw new Error("Bitte einen vollständigen Kontrollzeitraum wählen.");
+        if (!from || !to) {
+            throw new Error(targetless
+                ? "Bitte Beginn und Ende des Reviewzeitraums wählen."
+                : "Bitte einen vollständigen Kontrollzeitraum wählen.");
         }
-        if (DOM.from.value > DOM.to.value) {
+        if (from > to) {
             throw new Error("Das Startdatum darf nicht nach dem Enddatum liegen.");
         }
 
         return {
             report_type: reportType,
-            target: reportType === "process" && targetId === ALL_PROCESSES_VALUE
+            target: targetless || (reportType === "process" && targetId === ALL_PROCESSES_VALUE)
                 ? null
                 : { id: targetId },
-            period: { from: DOM.from.value, to: DOM.to.value },
+            period: { from, to },
             timezone: REPORT_TIMEZONE
         };
+    }
+
+    function buildRequestPayload() {
+        return buildReportRequest({
+            reportType: getReportType(),
+            targetId: DOM.targetSelect.value,
+            from: DOM.from.value,
+            to: DOM.to.value
+        });
     }
 
     function validateReport(report) {
@@ -360,14 +429,27 @@
         if (!isObject(report.generated_by) || !report.generated_by.name) errors.push("generated_by.name fehlt");
         if (!report.data_as_of) errors.push("data_as_of fehlt");
         if (!isObject(report.period) || !report.period.from || !report.period.to) errors.push("period ist unvollständig");
-        if (report.report_type !== "process" && (!isObject(report.target) || !report.target.name)) errors.push("target.name fehlt");
-        if (report.report_type === "process" && report.target !== null && (!isObject(report.target) || !report.target.name)) errors.push("target.name fehlt");
+        const targetOptional = report.report_type === "process" || report.report_type === ACCESS_REVIEW_TYPE;
+        if (!targetOptional && (!isObject(report.target) || !report.target.name)) errors.push("target.name fehlt");
+        if (targetOptional && report.target !== null && (!isObject(report.target) || !report.target.name)) errors.push("target.name fehlt");
         if (!isObject(report.assessment) || !report.assessment.status || !report.assessment.label) errors.push("assessment ist unvollständig");
         if (!Array.isArray(report.kpis)) errors.push("kpis ist keine Liste");
-        if (!Array.isArray(report.findings)) errors.push("findings ist keine Liste");
-        if (!isObject(report.data_quality) || !report.data_quality.status || !Array.isArray(report.data_quality.sources)) errors.push("data_quality ist unvollständig");
-        if (!isObject(report.details)) errors.push("details fehlt");
-        if (!isObject(report.integrity) || !report.integrity.algorithm || !report.integrity.digest) errors.push("integrity ist unvollständig");
+        // For the access review only the header, assessment and KPIs are guaranteed.
+        // The remaining blocks belong to the snapshot and are validated when delivered,
+        // so an unexpected snapshot shape never blocks the report and its export.
+        const optionalForAccessReview = report.report_type === ACCESS_REVIEW_TYPE;
+        if (!optionalForAccessReview || report.findings !== undefined) {
+            if (!Array.isArray(report.findings)) errors.push("findings ist keine Liste");
+        }
+        if (!optionalForAccessReview || report.data_quality !== undefined) {
+            if (!isObject(report.data_quality) || !report.data_quality.status || !Array.isArray(report.data_quality.sources)) errors.push("data_quality ist unvollständig");
+        }
+        if (!optionalForAccessReview || report.details !== undefined) {
+            if (!isObject(report.details)) errors.push("details fehlt");
+        }
+        if (!optionalForAccessReview || report.integrity !== undefined) {
+            if (!isObject(report.integrity) || !report.integrity.algorithm || !report.integrity.digest) errors.push("integrity ist unvollständig");
+        }
         if (!isObject(report.exports)) errors.push("exports fehlt");
 
         if (isObject(report.details)) {
@@ -394,11 +476,13 @@
     }
 
     function renderMeta(report) {
-        const target = report.target ? labelOf(report.target) : "Alle Prozessarten";
+        const isAccessReview = report.report_type === ACCESS_REVIEW_TYPE;
+        const emptyTargetLabel = isAccessReview ? "Gesamte Organisation" : "Alle Prozessarten";
+        const target = report.target ? labelOf(report.target) : emptyTargetLabel;
         DOM.meta.innerHTML = [
             metaCard("Berichts-ID", report.report_id),
-            metaCard("Kontrollobjekt", target),
-            metaCard("Zeitraum", `${formatDate(report.period.from)} – ${formatDate(report.period.to)}`),
+            metaCard(isAccessReview ? "Prüfumfang" : "Kontrollobjekt", target),
+            metaCard(isAccessReview ? "Reviewzeitraum" : "Zeitraum", `${formatDate(report.period.from)} – ${formatDate(report.period.to)}`),
             metaCard("Datenstand", formatDateTime(report.data_as_of)),
             metaCard("Erstellt von", report.generated_by.name),
             metaCard("Erstellt am", formatDateTime(report.generated_at)),
@@ -431,6 +515,12 @@
 
     function renderDataQuality(report) {
         const quality = report.data_quality;
+        if (!isObject(quality)) {
+            DOM.dataQuality.innerHTML = "";
+            DOM.dataQuality.hidden = true;
+            return;
+        }
+        DOM.dataQuality.hidden = false;
         const qualityStatus = statusCodeOf(quality.status);
         const sources = quality.sources.map(source => {
             const sourceLabel = source.label || source.status_label || labelOf(source.status);
@@ -449,7 +539,8 @@
     }
 
     function renderFindings(report) {
-        const findings = report.findings;
+        DOM.findingsBlock.hidden = !Array.isArray(report.findings);
+        const findings = asArray(report.findings);
         DOM.findingsCount.textContent = String(findings.length);
         if (!findings.length) {
             DOM.findings.innerHTML = `<div class="iks-empty">Das Backend hat keine separaten Auffälligkeiten für diesen Bericht geliefert.</div>`;
@@ -623,18 +714,28 @@
             <section class="iks-detail-section"><h4>Änderungen im Zeitraum</h4>${renderChanges(details.changes, "Person oder Ressource")}</section>`;
     }
 
+    function renderAccessReviewDetails() {
+        return renderEmpty(
+            "Der vollständige Bestandsnachweis – Person × Rolle, effektive Rollenpakete, Ist-Abgleich "
+            + "und Person × System-Matrix – wird ausschließlich in der XLSX-Datei ausgeliefert und hier "
+            + "bewusst nicht dargestellt. Kommentare, Bewertung und Managementfreigabe erfolgen dort."
+        );
+    }
+
     function renderDetails(report) {
+        if (report.report_type === ACCESS_REVIEW_TYPE) return renderAccessReviewDetails();
         if (report.report_type === "role") return renderRoleDetails(report.details);
         if (report.report_type === "system") return renderSystemDetails(report.details);
         return renderProcessDetails(report.details);
     }
 
     function renderTechnicalDetails(report) {
+        const integrity = isObject(report.integrity) ? report.integrity : {};
         DOM.technical.innerHTML = `<div class="iks-technical-grid">
             <div><span class="iks-secondary-text">Berichts-ID</span><code>${escapeHtml(report.report_id)}</code></div>
             <div><span class="iks-secondary-text">Regelwerk</span><code>${escapeHtml(report.ruleset_version)}</code></div>
-            <div><span class="iks-secondary-text">Integritätsverfahren</span><code>${escapeHtml(report.integrity.algorithm)}</code></div>
-            <div><span class="iks-secondary-text">Prüfsumme</span><code>${escapeHtml(report.integrity.digest)}</code></div>
+            <div><span class="iks-secondary-text">Integritätsverfahren</span><code>${escapeHtml(valueOrDash(integrity.algorithm))}</code></div>
+            <div><span class="iks-secondary-text">Prüfsumme</span><code>${escapeHtml(valueOrDash(integrity.digest))}</code></div>
         </div>`;
     }
 
@@ -653,10 +754,14 @@
         DOM.exportButtons.forEach(button => {
             const format = button.dataset.iksExport;
             const url = getSafeExportUrl(report.exports?.[format]);
+            const label = button.dataset.exportLabel || format.toUpperCase();
             button.dataset.exportUrl = url || "";
             button.disabled = !url;
-            button.textContent = url ? format.toUpperCase() : `${format.toUpperCase()} nicht verfügbar`;
+            button.textContent = url ? label : `${format.toUpperCase()} nicht verfügbar`;
             button.title = url ? `${format.toUpperCase()}-Snapshot herunterladen` : "Export nicht verfügbar";
+            if (button.dataset.hideWhenUnavailable !== undefined) {
+                button.hidden = !url;
+            }
         });
     }
 
@@ -711,7 +816,11 @@
             DOM.report.hidden = true;
             DOM.contractError.hidden = false;
             DOM.contractErrorMessage.textContent = `Der Backend-Vertrag ist unvollständig: ${errors.join(", ")}.`;
-            DOM.exportButtons.forEach(button => { button.disabled = true; button.dataset.exportUrl = ""; });
+            DOM.exportButtons.forEach(button => {
+                button.disabled = true;
+                button.dataset.exportUrl = "";
+                if (button.dataset.hideWhenUnavailable !== undefined) button.hidden = true;
+            });
             return false;
         }
 
@@ -759,7 +868,7 @@
     function bindEvents() {
         DOM.typeInputs.forEach(input => input.addEventListener("change", () => {
             DOM.targetSearch.value = "";
-            renderTargetOptions({ reset: true });
+            applyReportTypeSelection({ reset: true });
         }));
         DOM.targetSearch.addEventListener("input", () => renderTargetOptions());
         DOM.preset.addEventListener("change", applyPreset);
@@ -777,7 +886,8 @@
         DOM.catalogStatus.textContent = "IKS-Katalog wird geladen …";
         try {
             state.catalog = normalizeCatalog(await api.getCatalog());
-            renderTargetOptions({ reset: true });
+            applyCatalogAvailability();
+            applyReportTypeSelection({ reset: true });
         } catch (error) {
             DOM.catalogStatus.textContent = error.message || "IKS-Katalog konnte nicht geladen werden.";
             showMessage(DOM.catalogStatus.textContent);
@@ -786,5 +896,16 @@
         }
     }
 
-    document.addEventListener("DOMContentLoaded", init);
+    if (typeof document !== "undefined") {
+        document.addEventListener("DOMContentLoaded", init);
+    }
+
+    if (typeof module !== "undefined" && module.exports) {
+        module.exports = {
+            buildReportRequest,
+            isReportTypeAvailable,
+            normalizeCatalog,
+            validateReport
+        };
+    }
 }());

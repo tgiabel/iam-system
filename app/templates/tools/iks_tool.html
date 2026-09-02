@@ -8,6 +8,7 @@
 {% set can_process_reports = "SOFA-IKS-PRCS" in authz.permissions %}
 {% set can_role_reports = "SOFA-IKS-ROLE" in authz.permissions %}
 {% set can_system_reports = "SOFA-IKS-SYS" in authz.permissions %}
+{% set can_access_review = "SOFA-IKS-REVIEW" in authz.permissions %}
 
 {% block favicon %}/static/img/roles.png{% endblock %}
 
@@ -79,10 +80,22 @@
                         {% if not can_system_reports %}<span class="iks-type-denied">Keine Berechtigung</span>{% endif %}
                     </span>
                 </label>
+                {% if can_access_review %}
+                <label class="iks-type-option" data-iks-type-option="access_review" hidden>
+                    <input type="radio" name="report_type" value="access_review"
+                           data-requires-catalog-type="access_review"
+                           data-authorized="false" disabled>
+                    <span class="iks-type-card">
+                        <span class="iks-type-icon" aria-hidden="true">B</span>
+                        <strong>Berechtigungsreview (PCI)</strong>
+                        <small>Stichtagsbezogenen Bestandsnachweis für den organisatorischen Review erzeugen</small>
+                    </span>
+                </label>
+                {% endif %}
             </div>
         </section>
 
-        <section class="iks-builder-step" aria-labelledby="iks-target-heading">
+        <section id="iks-target-step" class="iks-builder-step" aria-labelledby="iks-target-heading">
             <div class="iks-step-heading">
                 <span class="iks-step-number" aria-hidden="true">2</span>
                 <div>
@@ -106,10 +119,10 @@
 
         <section class="iks-builder-step" aria-labelledby="iks-period-heading">
             <div class="iks-step-heading">
-                <span class="iks-step-number" aria-hidden="true">3</span>
+                <span id="iks-period-step-number" class="iks-step-number" aria-hidden="true">3</span>
                 <div>
                     <h3 id="iks-period-heading">Kontrollzeitraum bestimmen</h3>
-                    <p>Start- und Enddatum werden einschließlich ausgewertet.</p>
+                    <p id="iks-period-help">Start- und Enddatum werden einschließlich ausgewertet.</p>
                 </div>
             </div>
 
@@ -135,6 +148,12 @@
             </div>
         </section>
 
+        <p id="iks-access-review-note" class="iks-scope-note" hidden>
+            <strong>Berechtigungsreview:</strong> SOFA erzeugt den Bestandsnachweis als unveränderlichen
+            Snapshot. Kommentare, Bewertung und Managementfreigabe werden ausschließlich in der
+            heruntergeladenen XLSX-Datei erfasst und nicht in SOFA gespeichert.
+        </p>
+
         <div class="iks-builder-footer">
             <p>Bewertungen und Kennzahlen werden unverändert vom IKS-Backend übernommen.</p>
             <button id="iks-submit" type="submit" class="btn btn-primary">Bericht generieren</button>
@@ -149,9 +168,12 @@
                 <p id="iks-report-subtitle" class="iks-report-subtitle"></p>
             </div>
             <div class="iks-export-actions" aria-label="Bericht exportieren">
-                <button type="button" class="btn btn-secondary" data-iks-export="html" disabled>HTML</button>
-                <button type="button" class="btn btn-secondary" data-iks-export="csv" disabled>CSV</button>
-                <button type="button" class="btn btn-secondary" data-iks-export="json" disabled>JSON</button>
+                <button type="button" class="btn btn-primary" data-iks-export="xlsx"
+                        data-export-label="XLSX herunterladen" data-hide-when-unavailable
+                        hidden disabled>XLSX herunterladen</button>
+                <button type="button" class="btn btn-secondary" data-iks-export="html" data-export-label="HTML" disabled>HTML</button>
+                <button type="button" class="btn btn-secondary" data-iks-export="csv" data-export-label="CSV" disabled>CSV</button>
+                <button type="button" class="btn btn-secondary" data-iks-export="json" data-export-label="JSON" disabled>JSON</button>
             </div>
         </header>
 
@@ -160,7 +182,7 @@
         <div id="iks-kpis" class="iks-kpi-grid"></div>
         <div id="iks-data-quality"></div>
 
-        <section class="iks-report-block" aria-labelledby="iks-findings-title">
+        <section id="iks-findings-block" class="iks-report-block" aria-labelledby="iks-findings-title">
             <div class="iks-block-heading">
                 <div>
                     <p class="ui-section-kicker">Automatische Hinweise</p>

@@ -81,9 +81,21 @@
     gap: 14px;
 }
 
+/* Vierte Karte nur, wenn der Katalog das Berechtigungsreview anbietet. */
+.iks-type-grid.has-access-review {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .iks-type-option {
     position: relative;
     cursor: pointer;
+}
+
+/* .btn sets display: inline-flex and would beat the UA rule for [hidden]. */
+.iks-type-option[hidden],
+.iks-builder-step[hidden],
+.iks-export-actions .btn[hidden] {
+    display: none;
 }
 
 .iks-type-option input {
@@ -649,10 +661,26 @@
     margin: 8px 0 0;
 }
 
+.iks-scope-note {
+    margin: 0;
+    padding: 14px 16px;
+    border: 1px solid var(--ui-border);
+    border-left: 3px solid var(--ui-blue-text);
+    border-radius: 12px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-muted);
+    line-height: 1.55;
+}
+
+.iks-scope-note strong {
+    color: var(--ui-text-strong);
+}
+
 @media (max-width: 980px) {
     .iks-meta-grid,
     .iks-kpi-grid,
-    .iks-role-overview {
+    .iks-role-overview,
+    .iks-type-grid.has-access-review {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
@@ -677,6 +705,7 @@
     }
 
     .iks-type-grid,
+    .iks-type-grid.has-access-review,
     .iks-field-grid,
     .iks-period-grid,
     .iks-technical-grid {

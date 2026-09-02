@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import types
 import unittest
@@ -164,7 +166,12 @@ except (ModuleNotFoundError, ImportError):
 
     import httpx
 
-from app.api_client import APIClient, SOFA_BASE_URL, api_client
+from app.api_client import (
+    APIClient,
+    IKS_REPORT_TIMEOUT_SECONDS,
+    SOFA_BASE_URL,
+    api_client,
+)
 from app.routes.api import (
     _normalize_iks_export_links,
     api_create_iks_report,
@@ -211,6 +218,55 @@ class IksFrontendContractTests(unittest.TestCase):
         self.assertIn("In SOFA dokumentierter Ist-Zugriff", script)
 
 
+class IksAccessReviewContractTests(unittest.TestCase):
+    def setUp(self):
+        self.template = (REPO_ROOT / "app/templates/tools/iks_tool.html").read_text(encoding="utf-8")
+        self.script = (REPO_ROOT / "app/static/js/tools/iks.js").read_text(encoding="utf-8")
+        self.stylesheet = (REPO_ROOT / "app/static/css/iks.css").read_text(encoding="utf-8")
+
+    def test_elements_toggled_by_script_actually_collapse(self):
+        # .btn carries display: inline-flex and .iks-type-option/.iks-builder-step are
+        # grid items, so the UA rule for [hidden] loses on specificity without these.
+        self.assertIn(".iks-export-actions .btn[hidden]", self.stylesheet)
+        self.assertIn(".iks-type-option[hidden]", self.stylesheet)
+        self.assertIn(".iks-builder-step[hidden]", self.stylesheet)
+
+    def test_option_is_revealed_by_the_backend_catalog_only(self):
+        # The markup ships the option hidden and disabled; nothing but
+        # available_report_types turns it on, so no permission logic is rebuilt here.
+        self.assertIn('"SOFA-IKS-REVIEW" in authz.permissions', self.template)
+        self.assertIn('data-requires-catalog-type="access_review"', self.template)
+        self.assertIn('data-authorized="false" disabled>', self.template)
+        self.assertIn("Berechtigungsreview (PCI)", self.template)
+        self.assertIn("isReportTypeAvailable(state.catalog, requiredType)", self.script)
+        self.assertIn("available_report_types", self.script)
+
+    def test_no_target_is_offered_for_the_access_review(self):
+        self.assertIn('id="iks-target-step"', self.template)
+        self.assertIn("DOM.targetStep.hidden = targetless;", self.script)
+        self.assertIn("if (type === ACCESS_REVIEW_TYPE) return;", self.script)
+
+    def test_primary_xlsx_download_runs_through_the_local_bff(self):
+        self.assertIn('class="btn btn-primary" data-iks-export="xlsx"', self.template)
+        self.assertIn('data-export-label="XLSX herunterladen"', self.template)
+        self.assertIn('"xlsx"', self.script)
+        self.assertIn('url.pathname.startsWith("/api/iks/")', self.script)
+        self.assertNotIn("/sofa/iks/", self.script)
+
+    def test_snapshot_detail_lists_are_not_rendered_in_the_browser(self):
+        self.assertIn(
+            "if (report.report_type === ACCESS_REVIEW_TYPE) return renderAccessReviewDetails();",
+            self.script,
+        )
+        self.assertIn("wird ausschließlich in der XLSX-Datei ausgeliefert", self.script)
+
+    def test_repeated_submit_is_blocked_while_the_report_is_generated(self):
+        self.assertIn("DOM.submit.disabled = loading || !getReportType();", self.script)
+        self.assertIn('DOM.submit.textContent = loading ? "Bericht wird erstellt …"', self.script)
+        self.assertIn("setLoading(true);", self.script)
+        self.assertIn("setLoading(false);", self.script)
+
+
 class IksApiClientTests(unittest.TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -235,7 +291,12 @@ class IksApiClientTests(unittest.TestCase):
             "/iks/reports",
             payload=payload,
             headers={"X-User-Id": "18"},
+            timeout=IKS_REPORT_TIMEOUT_SECONDS,
         )
+
+    def test_report_calls_raise_the_timeout_above_the_shared_default(self):
+        self.assertEqual(self.client.timeout, 10)
+        self.assertGreater(IKS_REPORT_TIMEOUT_SECONDS, self.client.timeout)
 
     def test_export_download_uses_raw_request_for_binary_response(self):
         upstream = httpx.Response(200, content=b"snapshot")
@@ -248,6 +309,7 @@ class IksApiClientTests(unittest.TestCase):
             SOFA_BASE_URL,
             "/iks/reports/IKS-42/exports/json",
             headers={"X-User-Id": "18"},
+            timeout=IKS_REPORT_TIMEOUT_SECONDS,
         )
 
 
@@ -361,6 +423,121 @@ class IksProxyRouteTests(unittest.TestCase):
         self.assertEqual(response_json(response)["detail"]["code"], "iks_report_access_denied")
         report_mock.assert_not_awaited()
 
+    def test_catalog_hides_report_types_the_user_may_not_run(self):
+        catalog = {
+            "available_report_types": ["access_review", "process", "role", "system"],
+            "process_types": [{"id": "OFFBOARDING", "name": "Offboarding"}],
+            "roles": [],
+            "systems": [],
+        }
+        process_authz = SimpleNamespace(
+            user_id=18,
+            has_permission=lambda permission: permission == "SOFA-IKS-PRCS",
+        )
+
+        with patch.object(api_client, "get_iks_catalog", new_callable=AsyncMock, return_value=catalog):
+            response = run_async(api_get_iks_catalog(authz=process_authz))
+
+        self.assertEqual(response_json(response)["available_report_types"], ["process"])
+
+    def test_catalog_keeps_access_review_for_the_review_permission(self):
+        catalog = {
+            "available_report_types": ["access_review", "process"],
+            "process_types": [],
+            "roles": [],
+            "systems": [],
+        }
+        review_authz = SimpleNamespace(
+            user_id=18,
+            has_permission=lambda permission: permission == "SOFA-IKS-REVIEW",
+        )
+
+        with patch.object(api_client, "get_iks_catalog", new_callable=AsyncMock, return_value=catalog):
+            response = run_async(api_get_iks_catalog(authz=review_authz))
+
+        self.assertEqual(response_json(response)["available_report_types"], ["access_review"])
+
+    def test_access_review_is_forwarded_with_an_empty_target(self):
+        backend_report = {
+            "report_id": "IKS-2026-000184",
+            "report_type": "access_review",
+            "exports": {"xlsx": "/sofa/iks/reports/IKS-2026-000184/exports/xlsx"},
+        }
+        browser_payload = {
+            "report_type": "access_review",
+            "target": None,
+            "period": {"from": "2026-03-01", "to": "2026-08-31"},
+            "timezone": "Europe/Berlin",
+        }
+
+        with patch.object(api_client, "create_iks_report", new_callable=AsyncMock, return_value=backend_report) as report_mock:
+            response = run_async(api_create_iks_report(browser_payload, authz=self.authz))
+
+        self.assertEqual(response.status_code, 200)
+        report_mock.assert_awaited_once_with(18, {
+            "report_type": "access_review",
+            "target": None,
+            "period": {"from": "2026-03-01", "to": "2026-08-31"},
+            "timezone": "Europe/Berlin",
+        })
+        self.assertEqual(
+            response_json(response)["exports"]["xlsx"],
+            "/api/iks/reports/IKS-2026-000184/exports/xlsx",
+        )
+
+    def test_access_review_without_review_permission_is_blocked_locally(self):
+        process_authz = SimpleNamespace(
+            user_id=18,
+            has_permission=lambda permission: permission == "SOFA-IKS-PRCS",
+        )
+        payload = {
+            "report_type": "access_review",
+            "target": None,
+            "period": {"from": "2026-03-01", "to": "2026-08-31"},
+            "timezone": "Europe/Berlin",
+        }
+
+        with patch.object(api_client, "create_iks_report", new_callable=AsyncMock) as report_mock:
+            response = run_async(api_create_iks_report(payload, authz=process_authz))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response_json(response)["detail"]["code"], "iks_report_access_denied")
+        report_mock.assert_not_awaited()
+
+    def test_xlsx_export_preserves_office_mime_type_and_filename(self):
+        filename = "SOFA_Access_Review_2026-08-31_IKS-2026-000184.xlsx"
+        request = httpx.Request("GET", "http://dev-api:8080/sofa/iks/reports/IKS-2026-000184/exports/xlsx")
+        upstream = httpx.Response(
+            200,
+            request=request,
+            content=b"PK\x03\x04 binary-workbook",
+            headers={
+                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "Content-Disposition": f'attachment; filename="{filename}"',
+            },
+        )
+
+        with patch.object(api_client, "download_iks_report_export", new_callable=AsyncMock, return_value=upstream) as export_mock:
+            response = run_async(
+                api_download_iks_report_export("IKS-2026-000184", "xlsx", authz=self.authz)
+            )
+
+        async def consume_body():
+            if not hasattr(response, "body_iterator"):
+                return response.content.read()
+            chunks = []
+            async for chunk in response.body_iterator:
+                chunks.append(chunk)
+            return b"".join(chunks)
+
+        self.assertEqual(run_async(consume_body()), upstream.content)
+        self.assertEqual(
+            response.headers["content-type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertEqual(response.headers["content-disposition"], f'attachment; filename="{filename}"')
+        export_mock.assert_awaited_once_with(18, "IKS-2026-000184", "xlsx")
+
     def test_unknown_export_format_is_rejected_before_backend_call(self):
         with patch.object(api_client, "download_iks_report_export", new_callable=AsyncMock) as export_mock:
             response = run_async(api_download_iks_report_export("IKS-42", "pdf", authz=self.authz))
@@ -397,6 +574,105 @@ class IksProxyRouteTests(unittest.TestCase):
         self.assertEqual(response.headers["content-disposition"], 'attachment; filename="iks-42.csv"')
         self.assertEqual(response.headers["etag"], '"snapshot-hash"')
         export_mock.assert_awaited_once_with(18, "IKS-42", "csv")
+
+
+@unittest.skipUnless(shutil.which("node"), "Node.js ist für die JavaScript-Logiktests nicht verfügbar")
+class IksAccessReviewUiLogicTests(unittest.TestCase):
+    def test_request_building_validation_and_catalog_gate(self):
+        javascript_path = REPO_ROOT / "app/static/js/tools/iks.js"
+        script = r"""
+            const assert = require('assert');
+            const ui = require(process.argv[1]);
+
+            // The access review always posts report_type access_review with target null.
+            assert.deepStrictEqual(
+                ui.buildReportRequest({ reportType: 'access_review', targetId: '5', from: '2026-03-01', to: '2026-08-31' }),
+                {
+                    report_type: 'access_review',
+                    target: null,
+                    period: { from: '2026-03-01', to: '2026-08-31' },
+                    timezone: 'Europe/Berlin'
+                }
+            );
+
+            // Existing controls keep their target handling unchanged.
+            assert.deepStrictEqual(
+                ui.buildReportRequest({ reportType: 'role', targetId: '5', from: '2026-07-01', to: '2026-07-31' }).target,
+                { id: '5' }
+            );
+            assert.strictEqual(
+                ui.buildReportRequest({ reportType: 'process', targetId: '__all_process_types__', from: '2026-07-01', to: '2026-07-31' }).target,
+                null
+            );
+            assert.throws(
+                () => ui.buildReportRequest({ reportType: 'system', targetId: '', from: '2026-07-01', to: '2026-07-31' }),
+                /System/
+            );
+
+            // Shared period validation: both dates required, from must not follow to.
+            assert.throws(
+                () => ui.buildReportRequest({ reportType: 'access_review', targetId: null, from: '', to: '2026-08-31' }),
+                /Reviewzeitraum/
+            );
+            assert.throws(
+                () => ui.buildReportRequest({ reportType: 'access_review', targetId: null, from: '2026-08-31', to: '2026-03-01' }),
+                /Startdatum/
+            );
+            assert.throws(
+                () => ui.buildReportRequest({ reportType: 'unbekannt', targetId: null, from: '2026-03-01', to: '2026-08-31' }),
+                /Kontrollart/
+            );
+
+            // The option follows available_report_types, never a locally rebuilt permission.
+            const withReview = ui.normalizeCatalog({
+                process_types: [], roles: [], systems: [],
+                available_report_types: ['access_review', 'process', 'role', 'system']
+            });
+            const withoutReview = ui.normalizeCatalog({
+                process_types: [], roles: [], systems: [],
+                available_report_types: ['process', 'role', 'system']
+            });
+            assert.strictEqual(ui.isReportTypeAvailable(withReview, 'access_review'), true);
+            assert.strictEqual(ui.isReportTypeAvailable(withoutReview, 'access_review'), false);
+
+            // A backend without the field keeps the new type hidden.
+            const legacy = ui.normalizeCatalog({ process_types: [], roles: [], systems: [] });
+            assert.deepStrictEqual(legacy.available_report_types, ['process', 'role', 'system']);
+            assert.strictEqual(ui.isReportTypeAvailable(legacy, 'access_review'), false);
+
+            // Report validation accepts the empty target only where the contract allows it.
+            const base = {
+                schema_version: '1.0', ruleset_version: 'r-1', report_id: 'IKS-2026-000184',
+                title: 'Berechtigungsreview', generated_at: '2026-09-01T08:00:00Z',
+                generated_by: { name: 'SD-IT' }, data_as_of: '2026-08-31T22:00:00Z',
+                period: { from: '2026-03-01', to: '2026-08-31' },
+                assessment: { status: 'ok', label: 'Ohne Befund' }, kpis: [],
+                exports: { xlsx: '/api/iks/reports/IKS-2026-000184/exports/xlsx' }
+            };
+            assert.deepStrictEqual(
+                ui.validateReport(Object.assign({}, base, { report_type: 'access_review', target: null })),
+                []
+            );
+            assert.ok(
+                ui.validateReport(Object.assign({}, base, { report_type: 'system', target: null }))
+                    .includes('target.name fehlt')
+            );
+            // Optional snapshot blocks are still validated once the backend sends them.
+            assert.ok(
+                ui.validateReport(Object.assign({}, base, {
+                    report_type: 'access_review', target: null, data_quality: {}
+                })).includes('data_quality ist unvollständig')
+            );
+        """
+
+        completed = subprocess.run(
+            ["node", "-e", script, str(javascript_path)],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 if __name__ == "__main__":

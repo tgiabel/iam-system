@@ -38,8 +38,9 @@ from app.routes.shared import (
 router = APIRouter(prefix="/api")
 
 
-IKS_EXPORT_FORMATS = frozenset({"html", "csv", "json"})
+IKS_EXPORT_FORMATS = frozenset({"html", "csv", "json", "xlsx"})
 IKS_REPORT_PERMISSIONS = {
+    "access_review": "SOFA-IKS-REVIEW",
     "process": "SOFA-IKS-PRCS",
     "role": "SOFA-IKS-ROLE",
     "system": "SOFA-IKS-SYS",
@@ -88,6 +89,12 @@ def _build_process_cancellation_request(payload: dict, initiator_user_id: int) -
         "reason": normalized_reason,
         "initiator_user_id": initiator_user_id,
     }
+
+
+def _iks_report_type_allowed(authz, report_type) -> bool:
+    """Local pre-check mirroring the backend permission for a control type."""
+    required_permission = IKS_REPORT_PERMISSIONS.get(report_type)
+    return not required_permission or authz.has_permission(required_permission)
 
 
 def _normalize_iks_export_links(report: dict) -> dict:
@@ -1708,6 +1715,15 @@ async def api_get_iks_catalog(authz=Depends(require_permission("SOFA-TOOL-IKS"))
             ):
                 if not authz.has_permission(IKS_REPORT_PERMISSIONS[report_type]):
                     result[catalog_key] = []
+            # The browser derives the offered control types from this list, so it must
+            # never advertise a control the authenticated user is not allowed to run.
+            available_report_types = result.get("available_report_types")
+            if isinstance(available_report_types, list):
+                result["available_report_types"] = [
+                    report_type
+                    for report_type in available_report_types
+                    if _iks_report_type_allowed(authz, report_type)
+                ]
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(
@@ -1718,6 +1734,10 @@ async def api_get_iks_catalog(authz=Depends(require_permission("SOFA-TOOL-IKS"))
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+# The backend contract also exposes GET /sofa/iks/reports/{report_id}. It is
+# deliberately not proxied here: the POST below already returns the complete
+# report and SOFA shows no report history, so the route would have no caller.
+# Add it here alongside api_client.get_iks_report() if a consumer ever appears.
 @router.post("/iks/reports")
 async def api_create_iks_report(payload: dict, authz=Depends(require_permission("SOFA-TOOL-IKS"))):
     # Only forward fields from the public report contract. In particular, the
@@ -1743,8 +1763,7 @@ async def api_create_iks_report(payload: dict, authz=Depends(require_permission(
         request_payload["timezone"] = payload["timezone"]
 
     report_type = request_payload.get("report_type")
-    required_permission = IKS_REPORT_PERMISSIONS.get(report_type)
-    if required_permission and not authz.has_permission(required_permission):
+    if not _iks_report_type_allowed(authz, report_type):
         return JSONResponse(
             content={
                 "detail": {

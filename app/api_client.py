@@ -18,6 +18,12 @@ REPORTING_BASE_URL = f"{BASE_URL}/reporting"
 INVENTORY_BASE_URL = f"{BASE_URL}/inventory"
 STOERUNG_BASE_URL = BASE_URL
 
+# Ausnahme vom Standard-Timeout: Ein IKS-Bericht ist ein stichtagsbezogener
+# Bestandsnachweis ueber die gesamte Organisation (Person x Rolle, Person x System)
+# und wird serverseitig zusaetzlich als XLSX gerendert. Das dauert regelmaessig
+# laenger als die 10 Sekunden, die fuer die uebrigen Backendaufrufe genuegen.
+IKS_REPORT_TIMEOUT_SECONDS = 120
+
 
 class APIClient:
     def __init__(self, timeout: int = 10):
@@ -34,9 +40,10 @@ class APIClient:
         data: dict | None = None,
         files: dict | None = None,
         headers: dict | None = None,
+        timeout: float | None = None,
     ) -> httpx.Response:
         try:
-            async with httpx.AsyncClient(base_url=base_url, timeout=self.timeout) as client:
+            async with httpx.AsyncClient(base_url=base_url, timeout=timeout or self.timeout) as client:
                 response = await client.request(
                     method,
                     path,
@@ -62,6 +69,7 @@ class APIClient:
         data: dict | None = None,
         files: dict | None = None,
         headers: dict | None = None,
+        timeout: float | None = None,
     ) -> Any:
         response = await self._request(
             method,
@@ -72,6 +80,7 @@ class APIClient:
             data=data,
             files=files,
             headers=headers,
+            timeout=timeout,
         )
         if not response.content:
             return {}
@@ -80,8 +89,8 @@ class APIClient:
     async def _get(self, base_url: str, path: str, *, params: dict | None = None, headers: dict | None = None) -> Any:
         return await self._request_json("GET", base_url, path, params=params, headers=headers)
 
-    async def _post(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None, headers: dict | None = None) -> Any:
-        return await self._request_json("POST", base_url, path, params=params, payload=payload, headers=headers)
+    async def _post(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None, headers: dict | None = None, timeout: float | None = None) -> Any:
+        return await self._request_json("POST", base_url, path, params=params, payload=payload, headers=headers, timeout=timeout)
 
     async def _post_form(
         self,
@@ -416,6 +425,7 @@ class APIClient:
             "/iks/reports",
             payload=payload,
             headers=self._iks_headers(user_id),
+            timeout=IKS_REPORT_TIMEOUT_SECONDS,
         )
 
     async def download_iks_report_export(self, user_id: int, report_id: str, export_format: str) -> httpx.Response:
@@ -425,6 +435,7 @@ class APIClient:
             SOFA_BASE_URL,
             f"/iks/reports/{encoded_report_id}/exports/{export_format}",
             headers=self._iks_headers(user_id),
+            timeout=IKS_REPORT_TIMEOUT_SECONDS,
         )
 
     async def get_task_logs(self, task_id):
