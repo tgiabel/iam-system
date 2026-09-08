@@ -4,8 +4,9 @@
 
 Das SD-API-Backend kennt zusaetzlich zu `process`, `role` und `system` den Typ
 `access_review`. Der Bericht ist ein stichtagsbezogener Bestandsnachweis ueber die
-gesamte Organisation und wird als XLSX mit fuenf Blaettern ausgeliefert: Deckblatt und
-Freigabe, Person x Rolle, effektive Rollenpakete, Ist-Abgleich sowie Person x System.
+gesamte Organisation. Die primaere Darstellung ist eine eigenstaendige, offline nutzbare
+interaktive HTML-Datei. XLSX bleibt als Fallback sowie gegebenenfalls fuer Kommentare,
+Bewertung und Managementfreigabe verfuegbar.
 
 Der Snapshot-Digest deckt die spaeter in Excel eingetragenen Bewertungen nicht ab. Der
 technische Accountabgleich des PCI-relevanten Kundensystems bleibt ein eigener Nachweis.
@@ -23,7 +24,7 @@ Sonderfall. Bestehenden Rollen wird das Recht nicht automatisch zugewiesen.
 | `GET /sofa/iks/catalog` | `GET /api/iks/catalog` | proxied |
 | `POST /sofa/iks/reports` | `POST /api/iks/reports` | proxied |
 | `GET /sofa/iks/reports/{report_id}` | - | bewusst nicht proxied |
-| `GET /sofa/iks/reports/{report_id}/exports/xlsx` | `GET /api/iks/reports/{report_id}/exports/xlsx` | proxied |
+| `GET /sofa/iks/reports/{report_id}/exports/{format}` | `GET /api/iks/reports/{report_id}/exports/{format}` | proxied |
 
 `GET /sofa/iks/reports/{report_id}` ist Teil des Backendvertrags, hat in SOFA aber
 keinen Aufrufer: der POST liefert den vollstaendigen Bericht zurueck und es gibt keine
@@ -33,8 +34,10 @@ Luecke bei Aenderungen an diesen Routen bewusst bleibt. Beim Nachruesten gehoert
 
 `X-User-Id` setzt ausschliesslich die BFF aus der serverseitigen Session
 (`APIClient._iks_headers`). Der Browser kann die Identitaet nicht bestimmen. Der
-Download laeuft ueber die lokale BFF-Route; `getSafeExportUrl` laesst im Browser nur
-Same-Origin-Pfade unterhalb von `/api/iks/` zu.
+Exportzugriff laeuft ueber die lokale BFF-Route; `getSafeExportUrl` laesst im Browser nur
+Same-Origin-Pfade unterhalb von `/api/iks/` zu. Der Access-Review-HTML-Export oeffnet
+direkt aus der Benutzeraktion einen neuen Tab mit `noopener`; alle anderen Exporte
+verwenden weiterhin den bestehenden Blob-Download.
 
 ## Sichtbarkeit der Option
 
@@ -67,10 +70,11 @@ bestehende Validierung (`from` darf nicht nach `to` liegen).
 ## Anzeige und Abgrenzung
 
 Angezeigt werden Bericht-ID, Datenstand, Assessment und Kennzahlen. Die umfangreichen
-Detaillisten des Snapshots werden bewusst nicht im Browser gerendert; es gibt keine
-Person x Ressource-Tabelle. Kommentare, Bewertung und Managementfreigabe erfolgen
-ausschliesslich in der heruntergeladenen XLSX-Datei und werden in SOFA nicht
-gespeichert. Es gibt keine Reviewkampagnen, Erinnerungen oder Terminplanung.
+Detaillisten des Snapshots werden bewusst nicht in der SOFA-Seite gerendert; stattdessen
+oeffnet die primaere Aktion den interaktiven HTML-Bericht. XLSX bleibt als Fallback und
+gegebenenfalls fuer Kommentare, Bewertung und Managementfreigabe verfuegbar. Solche
+Eingaben werden nicht in SOFA gespeichert. Es gibt keine Reviewkampagnen, Erinnerungen
+oder Terminplanung.
 
 Fuer `access_review` sind nur Kopfdaten, Assessment und Kennzahlen vertraglich
 zugesichert. `findings`, `data_quality`, `details` und `integrity` prueft das Frontend

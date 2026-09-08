@@ -716,9 +716,9 @@
 
     function renderAccessReviewDetails() {
         return renderEmpty(
-            "Der vollständige Bestandsnachweis – Person × Rolle, effektive Rollenpakete, Ist-Abgleich "
-            + "und Person × System-Matrix – wird ausschließlich in der XLSX-Datei ausgeliefert und hier "
-            + "bewusst nicht dargestellt. Kommentare, Bewertung und Managementfreigabe erfolgen dort."
+            "Der interaktive HTML-Bericht ist die primäre Darstellung des vollständigen Bestandsnachweises. "
+            + "XLSX bleibt als Fallback und gegebenenfalls für Kommentare, Bewertung und Managementfreigabe "
+            + "verfügbar. Solche Eingaben werden weiterhin nicht in SOFA gespeichert."
         );
     }
 
@@ -750,15 +750,51 @@
         }
     }
 
+    function isInteractiveAccessReviewExport(report, format) {
+        return report?.report_type === ACCESS_REVIEW_TYPE && format === "html";
+    }
+
+    function getExportOrder(reportType) {
+        return reportType === ACCESS_REVIEW_TYPE
+            ? ["html", "xlsx", "csv", "json"]
+            : ["xlsx", "html", "csv", "json"];
+    }
+
+    function getExportPresentation(reportType, format, defaultLabel) {
+        const interactiveHtml = reportType === ACCESS_REVIEW_TYPE && format === "html";
+        return {
+            label: interactiveHtml ? "Interaktiven Bericht öffnen" : defaultLabel,
+            primary: reportType === ACCESS_REVIEW_TYPE ? interactiveHtml : format === "xlsx",
+            title: interactiveHtml
+                ? "Interaktiven HTML-Bericht in neuem Tab öffnen"
+                : `${format.toUpperCase()}-Snapshot herunterladen`
+        };
+    }
+
     function configureExports(report) {
+        const buttons = Array.from(DOM.exportButtons);
+        const container = buttons[0]?.parentElement;
+        if (container) {
+            getExportOrder(report.report_type).forEach(format => {
+                const button = buttons.find(candidate => candidate.dataset.iksExport === format);
+                if (button) container.appendChild(button);
+            });
+        }
+
         DOM.exportButtons.forEach(button => {
             const format = button.dataset.iksExport;
             const url = getSafeExportUrl(report.exports?.[format]);
-            const label = button.dataset.exportLabel || format.toUpperCase();
+            const presentation = getExportPresentation(
+                report.report_type,
+                format,
+                button.dataset.exportLabel || format.toUpperCase()
+            );
             button.dataset.exportUrl = url || "";
             button.disabled = !url;
-            button.textContent = url ? label : `${format.toUpperCase()} nicht verfügbar`;
-            button.title = url ? `${format.toUpperCase()}-Snapshot herunterladen` : "Export nicht verfügbar";
+            button.textContent = url ? presentation.label : `${format.toUpperCase()} nicht verfügbar`;
+            button.title = url ? presentation.title : "Export nicht verfügbar";
+            button.classList.toggle("btn-primary", presentation.primary);
+            button.classList.toggle("btn-secondary", !presentation.primary);
             if (button.dataset.hideWhenUnavailable !== undefined) {
                 button.hidden = !url;
             }
@@ -775,10 +811,20 @@
         return simple?.[1] || fallback;
     }
 
-    async function downloadExport(button) {
+    function openInteractiveExport(url) {
+        const link = document.createElement("a");
+        link.href = url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    }
+
+    async function downloadExport(button, report = state.report) {
         const format = button.dataset.iksExport;
-        const url = button.dataset.exportUrl;
-        if (!EXPORT_FORMATS.includes(format) || !url || !state.report) return;
+        const url = getSafeExportUrl(button.dataset.exportUrl);
+        if (!EXPORT_FORMATS.includes(format) || !url || !report) return;
 
         const originalText = button.textContent;
         button.disabled = true;
@@ -791,7 +837,7 @@
                 throw new Error(detail || data.error || `Export fehlgeschlagen (${response.status})`);
             }
             const blob = await response.blob();
-            const fallback = `${state.report.report_id}.${format}`;
+            const fallback = `${report.report_id}.${format}`;
             const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), fallback);
             const objectUrl = URL.createObjectURL(blob);
             const link = document.createElement("a");
@@ -807,6 +853,18 @@
             button.textContent = originalText;
             button.disabled = !button.dataset.exportUrl;
         }
+    }
+
+    function handleExportClick(button, report = state.report) {
+        const format = button.dataset.iksExport;
+        const url = getSafeExportUrl(button.dataset.exportUrl);
+        if (!EXPORT_FORMATS.includes(format) || !url || !report) return;
+
+        if (isInteractiveAccessReviewExport(report, format)) {
+            openInteractiveExport(url);
+            return;
+        }
+        return downloadExport(button, report);
     }
 
     function renderReport(report) {
@@ -875,7 +933,7 @@
         DOM.from.addEventListener("change", () => { DOM.preset.value = "custom"; });
         DOM.to.addEventListener("change", () => { DOM.preset.value = "custom"; });
         DOM.form.addEventListener("submit", handleSubmit);
-        DOM.exportButtons.forEach(button => button.addEventListener("click", () => downloadExport(button)));
+        DOM.exportButtons.forEach(button => button.addEventListener("click", () => handleExportClick(button)));
     }
 
     async function init() {
@@ -903,6 +961,10 @@
     if (typeof module !== "undefined" && module.exports) {
         module.exports = {
             buildReportRequest,
+            getExportOrder,
+            getExportPresentation,
+            getSafeExportUrl,
+            handleExportClick,
             isReportTypeAvailable,
             normalizeCatalog,
             validateReport

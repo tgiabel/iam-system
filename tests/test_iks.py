@@ -246,10 +246,13 @@ class IksAccessReviewContractTests(unittest.TestCase):
         self.assertIn("DOM.targetStep.hidden = targetless;", self.script)
         self.assertIn("if (type === ACCESS_REVIEW_TYPE) return;", self.script)
 
-    def test_primary_xlsx_download_runs_through_the_local_bff(self):
+    def test_access_review_html_is_primary_and_uses_the_local_bff(self):
         self.assertIn('class="btn btn-primary" data-iks-export="xlsx"', self.template)
         self.assertIn('data-export-label="XLSX herunterladen"', self.template)
-        self.assertIn('"xlsx"', self.script)
+        self.assertIn('label: interactiveHtml ? "Interaktiven Bericht öffnen"', self.script)
+        self.assertIn('["html", "xlsx", "csv", "json"]', self.script)
+        self.assertIn('link.target = "_blank"', self.script)
+        self.assertIn('link.rel = "noopener"', self.script)
         self.assertIn('url.pathname.startsWith("/api/iks/")', self.script)
         self.assertNotIn("/sofa/iks/", self.script)
 
@@ -258,7 +261,10 @@ class IksAccessReviewContractTests(unittest.TestCase):
             "if (report.report_type === ACCESS_REVIEW_TYPE) return renderAccessReviewDetails();",
             self.script,
         )
-        self.assertIn("wird ausschließlich in der XLSX-Datei ausgeliefert", self.script)
+        self.assertIn("Der interaktive HTML-Bericht ist die primäre Darstellung", self.script)
+        self.assertNotIn("wird ausschließlich in der XLSX-Datei ausgeliefert", self.script)
+        self.assertIn("Der interaktive HTML-Bericht ist die primäre Darstellung", self.template)
+        self.assertIn("werden weiterhin nicht in SOFA gespeichert", self.template)
 
     def test_repeated_submit_is_blocked_while_the_report_is_generated(self):
         self.assertIn("DOM.submit.disabled = loading || !getReportType();", self.script)
@@ -538,6 +544,37 @@ class IksProxyRouteTests(unittest.TestCase):
         self.assertEqual(response.headers["content-disposition"], f'attachment; filename="{filename}"')
         export_mock.assert_awaited_once_with(18, "IKS-2026-000184", "xlsx")
 
+    def test_access_review_html_preserves_inline_content_type_and_filename(self):
+        filename = "SOFA_Access_Review_2026-08-31_IKS-2026-000184.html"
+        request = httpx.Request("GET", "http://dev-api:8080/sofa/iks/reports/IKS-2026-000184/exports/html")
+        upstream = httpx.Response(
+            200,
+            request=request,
+            content=b"<!doctype html><title>Access Review</title>",
+            headers={
+                "Content-Type": "text/html; charset=utf-8",
+                "Content-Disposition": f'inline; filename="{filename}"',
+            },
+        )
+
+        with patch.object(api_client, "download_iks_report_export", new_callable=AsyncMock, return_value=upstream) as export_mock:
+            response = run_async(
+                api_download_iks_report_export("IKS-2026-000184", "html", authz=self.authz)
+            )
+
+        async def consume_body():
+            if not hasattr(response, "body_iterator"):
+                return response.content.read()
+            chunks = []
+            async for chunk in response.body_iterator:
+                chunks.append(chunk)
+            return b"".join(chunks)
+
+        self.assertEqual(run_async(consume_body()), upstream.content)
+        self.assertEqual(response.headers["content-type"], "text/html; charset=utf-8")
+        self.assertEqual(response.headers["content-disposition"], f'inline; filename="{filename}"')
+        export_mock.assert_awaited_once_with(18, "IKS-2026-000184", "html")
+
     def test_unknown_export_format_is_rejected_before_backend_call(self):
         with patch.object(api_client, "download_iks_report_export", new_callable=AsyncMock) as export_mock:
             response = run_async(api_download_iks_report_export("IKS-42", "pdf", authz=self.authz))
@@ -642,12 +679,16 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
 
             // Report validation accepts the empty target only where the contract allows it.
             const base = {
-                schema_version: '1.0', ruleset_version: 'r-1', report_id: 'IKS-2026-000184',
+                schema_version: '1.1', ruleset_version: 'r-1', report_id: 'IKS-2026-000184',
                 title: 'Berechtigungsreview', generated_at: '2026-09-01T08:00:00Z',
                 generated_by: { name: 'SD-IT' }, data_as_of: '2026-08-31T22:00:00Z',
                 period: { from: '2026-03-01', to: '2026-08-31' },
                 assessment: { status: 'ok', label: 'Ohne Befund' }, kpis: [],
-                exports: { xlsx: '/api/iks/reports/IKS-2026-000184/exports/xlsx' }
+                exports: {
+                    html: '/api/iks/reports/IKS-2026-000184/exports/html',
+                    xlsx: '/api/iks/reports/IKS-2026-000184/exports/xlsx'
+                },
+                access_review_summary: { additional_schema_1_1_field: true }
             };
             assert.deepStrictEqual(
                 ui.validateReport(Object.assign({}, base, { report_type: 'access_review', target: null })),
@@ -663,6 +704,151 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
                     report_type: 'access_review', target: null, data_quality: {}
                 })).includes('data_quality ist unvollständig')
             );
+        """
+
+        completed = subprocess.run(
+            ["node", "-e", script, str(javascript_path)],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_export_priority_navigation_downloads_and_url_safety(self):
+        javascript_path = REPO_ROOT / "app/static/js/tools/iks.js"
+        script = r"""
+            const assert = require('assert');
+            const ui = require(process.argv[1]);
+
+            (async () => {
+                assert.deepStrictEqual(ui.getExportOrder('access_review'), ['html', 'xlsx', 'csv', 'json']);
+                assert.deepStrictEqual(ui.getExportOrder('role'), ['xlsx', 'html', 'csv', 'json']);
+                assert.deepStrictEqual(
+                    ui.getExportPresentation('access_review', 'html', 'HTML'),
+                    {
+                        label: 'Interaktiven Bericht öffnen',
+                        primary: true,
+                        title: 'Interaktiven HTML-Bericht in neuem Tab öffnen'
+                    }
+                );
+                assert.deepStrictEqual(
+                    ui.getExportPresentation('access_review', 'xlsx', 'XLSX herunterladen'),
+                    {
+                        label: 'XLSX herunterladen',
+                        primary: false,
+                        title: 'XLSX-Snapshot herunterladen'
+                    }
+                );
+                for (const reportType of ['process', 'role', 'system']) {
+                    assert.deepStrictEqual(ui.getExportOrder(reportType), ['xlsx', 'html', 'csv', 'json']);
+                    assert.deepStrictEqual(
+                        ui.getExportPresentation(reportType, 'html', 'HTML'),
+                        { label: 'HTML', primary: false, title: 'HTML-Snapshot herunterladen' }
+                    );
+                    assert.strictEqual(ui.getExportPresentation(reportType, 'xlsx', 'XLSX herunterladen').primary, true);
+                }
+
+                const createdLinks = [];
+                const fetchCalls = [];
+                const revokedUrls = [];
+                global.window = {
+                    location: { origin: 'https://sofa.example' },
+                    showFlash: () => { throw new Error('unexpected flash message'); }
+                };
+                global.document = {
+                    body: { appendChild: link => { link.appended = true; } },
+                    createElement: tag => {
+                        assert.strictEqual(tag, 'a');
+                        const attributes = {};
+                        const link = {
+                            attributes,
+                            set href(value) { attributes.href = value; },
+                            get href() { return attributes.href; },
+                            set target(value) { attributes.target = value; },
+                            set rel(value) { attributes.rel = value; },
+                            set download(value) { attributes.download = value; },
+                            click() { this.clicked = true; },
+                            remove() { this.removed = true; }
+                        };
+                        createdLinks.push(link);
+                        return link;
+                    }
+                };
+                global.fetch = async (url, options) => {
+                    fetchCalls.push({ url, options });
+                    const format = url.split('/').pop();
+                    return {
+                        ok: true,
+                        headers: { get: () => `attachment; filename="download.${format}"` },
+                        blob: async () => ({ format })
+                    };
+                };
+                URL.createObjectURL = blob => `blob:${blob.format}`;
+                URL.revokeObjectURL = url => revokedUrls.push(url);
+
+                const button = (format, url) => ({
+                    dataset: { iksExport: format, exportUrl: url },
+                    textContent: format.toUpperCase(),
+                    disabled: false
+                });
+                const accessReview = { report_type: 'access_review', report_id: 'IKS-2026-000184' };
+
+                // The interactive HTML navigation happens synchronously in the click call.
+                const htmlResult = ui.handleExportClick(
+                    button('html', '/api/iks/reports/IKS-2026-000184/exports/html'),
+                    accessReview
+                );
+                assert.strictEqual(htmlResult, undefined);
+                assert.strictEqual(fetchCalls.length, 0);
+                assert.deepStrictEqual(createdLinks[0].attributes, {
+                    href: '/api/iks/reports/IKS-2026-000184/exports/html',
+                    target: '_blank',
+                    rel: 'noopener'
+                });
+                assert.strictEqual(Object.hasOwn(createdLinks[0].attributes, 'download'), false);
+                assert.strictEqual(createdLinks[0].clicked, true);
+                assert.strictEqual(createdLinks[0].removed, true);
+
+                // XLSX remains a Blob download for the access review.
+                await ui.handleExportClick(
+                    button('xlsx', '/api/iks/reports/IKS-2026-000184/exports/xlsx'),
+                    accessReview
+                );
+                assert.strictEqual(fetchCalls[0].url, '/api/iks/reports/IKS-2026-000184/exports/xlsx');
+                assert.strictEqual(createdLinks[1].attributes.download, 'download.xlsx');
+
+                // Every format of the existing report types retains the Blob download path.
+                for (const format of ['html', 'xlsx', 'csv', 'json']) {
+                    const previousFetchCount = fetchCalls.length;
+                    const previousLinkCount = createdLinks.length;
+                    await ui.handleExportClick(
+                        button(format, `/api/iks/reports/IKS-42/exports/${format}`),
+                        { report_type: 'role', report_id: 'IKS-42' }
+                    );
+                    assert.strictEqual(fetchCalls.length, previousFetchCount + 1);
+                    assert.strictEqual(createdLinks.length, previousLinkCount + 1);
+                    assert.strictEqual(createdLinks.at(-1).attributes.download, `download.${format}`);
+                    assert.strictEqual(Object.hasOwn(createdLinks.at(-1).attributes, 'target'), false);
+                }
+
+                const fetchCountBeforeUnsafeUrls = fetchCalls.length;
+                const linkCountBeforeUnsafeUrls = createdLinks.length;
+                ui.handleExportClick(button('html', 'https://evil.example/api/iks/reports/1/exports/html'), accessReview);
+                ui.handleExportClick(button('html', '/outside/iks/reports/1/exports/html'), accessReview);
+                assert.strictEqual(fetchCalls.length, fetchCountBeforeUnsafeUrls);
+                assert.strictEqual(createdLinks.length, linkCountBeforeUnsafeUrls);
+                assert.strictEqual(ui.getSafeExportUrl('https://evil.example/api/iks/reports/1/exports/html'), null);
+                assert.strictEqual(ui.getSafeExportUrl('/outside/iks/reports/1/exports/html'), null);
+                assert.strictEqual(
+                    ui.getSafeExportUrl('https://sofa.example/api/iks/reports/1/exports/html?token=local'),
+                    '/api/iks/reports/1/exports/html?token=local'
+                );
+                assert.ok(revokedUrls.length >= 5);
+            })().catch(error => {
+                console.error(error);
+                process.exit(1);
+            });
         """
 
         completed = subprocess.run(
