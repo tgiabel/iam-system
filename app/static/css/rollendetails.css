@@ -126,6 +126,48 @@
     line-height: 1.45;
 }
 
+.requirement-choice {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.requirement-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 14px;
+    border: 1px solid var(--ui-border);
+    background: var(--surface-card);
+    cursor: pointer;
+}
+
+.requirement-option:has(input:checked) {
+    border-color: rgba(var(--color-primary-rgb), 0.48);
+    box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.12);
+}
+
+.requirement-option:has(input:disabled) {
+    cursor: not-allowed;
+    color: var(--ui-text-muted);
+}
+
+.requirement-option input {
+    margin-top: 0.2rem;
+}
+
+.requirement-option-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.requirement-option-copy small {
+    color: var(--ui-text-muted);
+    line-height: 1.4;
+}
+
 .resource-form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -242,7 +284,8 @@
 }
 
 @media (max-width: 900px) {
-    .resource-form-grid {
+    .resource-form-grid,
+    .requirement-choice {
         grid-template-columns: 1fr;
     }
 }

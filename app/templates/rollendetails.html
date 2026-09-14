@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
 <script src="/static/js/rollendetails.js?v={{ static_v }}"></script>
 {% endblock %}
 
@@ -236,6 +237,17 @@
                                 <tbody id="res-list-to-add"></tbody>
                             </table>
                         </div>
+                    </section>
+
+                    <section class="resource-panel">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Bereitstellung</span>
+                                <h4 class="resource-panel-title">Klassifikation der Auswahl</h4>
+                                <p class="resource-panel-copy">Gilt für alle ausgewählten Ressourcen. Ressourcen mit unterschiedlicher Klassifikation in getrennten Schritten hinzufügen.</p>
+                            </div>
+                        </div>
+                        <div class="requirement-choice" id="add-requirement-choice" role="radiogroup" aria-label="Bereitstellung der Auswahl"></div>
                     </section>
                 </div>
 

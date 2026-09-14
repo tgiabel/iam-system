@@ -8,7 +8,7 @@ from unittest.mock import patch
 from tests.test_computers import AsyncMock, json_body, make_http_error, run_async
 
 from app.api_client import api_client
-from app.routes.api import api_start_onboarding_process, router
+from app.routes.api import api_add_resources_to_role, api_start_onboarding_process, router
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -167,6 +167,70 @@ class OnboardingWithoutLookupTests(unittest.TestCase):
                 self.assertNotIn(removed, script)
                 self.assertNotIn(removed, template)
         self.assertIn("sofaContract.extractDetailMessage(data.detail)", script)
+
+
+class RoleResourceRequirementTests(unittest.TestCase):
+    def setUp(self):
+        self.current_user = SimpleNamespace(user_id=7)
+
+    @patch("app.routes.api.api_client.add_resources_to_role", new_callable=AsyncMock)
+    def test_add_forwards_the_selected_requirement(self, add_mock):
+        add_mock.return_value = {"status": "ok"}
+
+        response = run_async(api_add_resources_to_role(
+            17,
+            {"resource_ids": [27, 115], "provisioning_requirement": "DEFERRED", "initiator_user_id": 999},
+            current_user=self.current_user,
+        ))
+
+        self.assertEqual(response.status_code, 200)
+        add_mock.assert_awaited_once_with({
+            "role_id": 17,
+            "resource_ids": [27, 115],
+            "initiator_user_id": 7,
+            "provisioning_requirement": "DEFERRED",
+        })
+
+    @patch("app.routes.api.api_client.add_resources_to_role", new_callable=AsyncMock)
+    def test_add_without_requirement_leaves_the_backend_default(self, add_mock):
+        add_mock.return_value = {}
+
+        run_async(api_add_resources_to_role(17, {"resource_ids": [27]}, current_user=self.current_user))
+
+        add_mock.assert_awaited_once_with({"role_id": 17, "resource_ids": [27], "initiator_user_id": 7})
+
+    @patch("app.routes.api.api_client.add_resources_to_role", new_callable=AsyncMock)
+    def test_add_rejects_unknown_requirement_before_upstream(self, add_mock):
+        for value in ("OPTIONAL", "deferred", ""):
+            with self.subTest(value=value):
+                response = run_async(api_add_resources_to_role(
+                    17,
+                    {"resource_ids": [27], "provisioning_requirement": value},
+                    current_user=self.current_user,
+                ))
+                self.assertEqual(response.status_code, 400)
+        self.assertEqual(add_mock.await_count, 0)
+
+    @patch("app.routes.api.api_client.add_resources_to_role", new_callable=AsyncMock)
+    def test_add_passes_package_conflicts_through(self, add_mock):
+        add_mock.side_effect = make_http_error(409, {"detail": "Paketkonflikt: Ressource 27 schliesst 115 aus."})
+
+        response = run_async(api_add_resources_to_role(17, {"resource_ids": [27]}, current_user=self.current_user))
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(json_body(response), {"detail": "Paketkonflikt: Ressource 27 schliesst 115 aus."})
+
+    def test_role_detail_page_sends_requirement_and_shows_backend_messages(self):
+        template = read("app/templates/rollendetails.html")
+        script = read("app/static/js/rollendetails.js")
+
+        self.assertLess(
+            template.index("/static/js/sofa_contract.js"),
+            template.index("/static/js/rollendetails.js"),
+        )
+        self.assertIn('id="add-requirement-choice"', template)
+        self.assertIn("provisioning_requirement: provisioningRequirement", script)
+        self.assertIn('await readErrorMessage(res, "Fehler beim Hinzufügen der Ressourcen")', script)
 
 
 class BrowserErrorMessageTests(unittest.TestCase):

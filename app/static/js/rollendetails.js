@@ -24,6 +24,32 @@ const ROLE_STATUS_OPTIONS = [
     { value: "INACTIVE", label: "Inaktiv" }
 ];
 
+// Klassifikation je Zuordnung Rolle <-> Ressource. DEFERRED heisst nicht optional:
+// Der Task entsteht sofort, blockiert aber nur den Prozessabschluss.
+const PROVISIONING_REQUIREMENTS = [
+    {
+        value: "REQUIRED",
+        label: "Erforderlich",
+        chipClass: "ui-chip-primary",
+        description: "Blockiert Rollenaktivierung und Prozessabschluss."
+    },
+    {
+        value: "DEFERRED",
+        label: "Nachlieferung",
+        chipClass: "ui-chip-accent",
+        description: "Wird sofort beantragt, blockiert die Rollenaktivierung nicht, aber den Prozessabschluss."
+    }
+];
+
+const DEFAULT_PROVISIONING_REQUIREMENT = "REQUIRED";
+
+async function readErrorMessage(res, fallback) {
+    const data = await res.json().catch(() => ({}));
+    return window.SofaContract.extractDetailMessage(data.detail)
+        || window.SofaContract.extractDetailMessage(data.error)
+        || fallback;
+}
+
 const api = {
     async getSystemMap() {
         if (STATE.systemMap) return STATE.systemMap;
@@ -62,13 +88,16 @@ const api = {
         return data;
     },
 
-    async addResourcesToRole(roleId, resourceIds) {
+    async addResourcesToRole(roleId, resourceIds, provisioningRequirement) {
         const res = await fetch(`/api/roles/${roleId}/resources`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ resource_ids: resourceIds })
+            body: JSON.stringify({
+                resource_ids: resourceIds,
+                provisioning_requirement: provisioningRequirement
+            })
         });
-        if (!res.ok) throw new Error("Fehler beim Hinzufügen der Ressourcen");
+        if (!res.ok) throw new Error(await readErrorMessage(res, "Fehler beim Hinzufügen der Ressourcen"));
         return await res.json();
     },
 
@@ -78,7 +107,7 @@ const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ resource_ids: resourceIds })
         });
-        if (!res.ok) throw new Error("Fehler beim Entfernen der Ressourcen");
+        if (!res.ok) throw new Error(await readErrorMessage(res, "Fehler beim Entfernen der Ressourcen"));
         return await res.json();
     }
 };
@@ -112,6 +141,7 @@ function cacheDOM() {
     DOM.selectSys = document.getElementById("sys-select");
     DOM.tableContainer = document.getElementById("resource-table-container");
     DOM.availableResContainer = document.getElementById("available-res-container");
+    DOM.addRequirementChoice = document.getElementById("add-requirement-choice");
 
     DOM.title = document.getElementById("resource-modal-title");
     DOM.subtitle = document.getElementById("resource-modal-subtitle");
@@ -205,6 +235,26 @@ function getAllRoleResources() {
         ...getOwnResources().map(resource => ({ ...resource, isInherited: false })),
         ...getInheritedResources().map(resource => ({ ...resource, isInherited: true }))
     ];
+}
+
+function renderRequirementChoice(container, name, selectedValue, disabledValues = []) {
+    if (!container) return;
+
+    container.innerHTML = PROVISIONING_REQUIREMENTS.map(option => `
+        <label class="requirement-option">
+            <input type="radio" name="${escapeHtml(name)}" value="${escapeHtml(option.value)}"
+                ${option.value === selectedValue ? "checked" : ""}
+                ${disabledValues.includes(option.value) ? "disabled" : ""}>
+            <span class="requirement-option-copy">
+                <strong>${escapeHtml(option.label)}</strong>
+                <small>${escapeHtml(option.description)}</small>
+            </span>
+        </label>
+    `).join("");
+}
+
+function getSelectedRequirement(container) {
+    return container?.querySelector("input[type='radio']:checked")?.value || "";
 }
 
 function sortResourcesByShortCode(resources) {
@@ -576,6 +626,7 @@ async function openOverlay(mode, resource = null) {
         };
 
         addList.innerHTML = "<tr class='empty-row'><td colspan='2'>Noch keine Ressourcen zum Hinzufügen ausgewählt.</td></tr>";
+        renderRequirementChoice(DOM.addRequirementChoice, "add-requirement", DEFAULT_PROVISIONING_REQUIREMENT);
 
         DOM.selectSys.onchange = async e => {
             const sysId = e.target.value;
@@ -667,7 +718,8 @@ async function saveResourceOverlay() {
             const rows = document.querySelectorAll("#res-list-to-add tr");
             resourceIds = Array.from(rows).map(tr => tr.dataset.id);
             if (resourceIds.length > 0) {
-                await api.addResourcesToRole(roleIdToUpdate, resourceIds);
+                const requirement = getSelectedRequirement(DOM.addRequirementChoice) || DEFAULT_PROVISIONING_REQUIREMENT;
+                await api.addResourcesToRole(roleIdToUpdate, resourceIds, requirement);
             } else {
                 showFlash("Keine Ressourcen zum Hinzufügen ausgewählt", "failure");
                 return;

@@ -1783,18 +1783,34 @@ async def api_start_iks_process_report(payload: dict, current_user=Depends(requi
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+PROVISIONING_REQUIREMENTS = frozenset({"REQUIRED", "DEFERRED"})
+
+
 @router.post("/roles/{role_id}/resources")
 async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_user=Depends(require_permission("SOFA-PAGE-ROLE"))):
+    requirement = resource_ids.get("provisioning_requirement")
+    if requirement is not None and requirement not in PROVISIONING_REQUIREMENTS:
+        return JSONResponse(
+            content={"detail": "Die Bereitstellung muss REQUIRED oder DEFERRED sein."},
+            status_code=400,
+        )
+
     try:
         payload = {
             "role_id": role_id,
             "resource_ids": resource_ids["resource_ids"],
             "initiator_user_id": current_user.user_id,
         }
+        # Ohne Angabe klassifiziert SD-API als REQUIRED; der Wert gilt fuer alle resource_ids des Aufrufs.
+        if requirement is not None:
+            payload["provisioning_requirement"] = requirement
         result = await api_client.add_resources_to_role(payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
-        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
