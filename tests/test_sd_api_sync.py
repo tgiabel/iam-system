@@ -8,7 +8,12 @@ from unittest.mock import patch
 from tests.test_computers import AsyncMock, json_body, make_http_error, run_async
 
 from app.api_client import api_client
-from app.routes.api import api_add_resources_to_role, api_start_onboarding_process, router
+from app.routes.api import (
+    api_add_resources_to_role,
+    api_set_role_resource_requirement,
+    api_start_onboarding_process,
+    router,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -231,6 +236,143 @@ class RoleResourceRequirementTests(unittest.TestCase):
         self.assertIn('id="add-requirement-choice"', template)
         self.assertIn("provisioning_requirement: provisioningRequirement", script)
         self.assertIn('await readErrorMessage(res, "Fehler beim Hinzufügen der Ressourcen")', script)
+
+
+class RoleResourceReclassificationTests(unittest.TestCase):
+    def setUp(self):
+        self.current_user = SimpleNamespace(user_id=7)
+
+    @patch("app.routes.api.api_client.set_role_resource_requirement", new_callable=AsyncMock)
+    def test_reclassification_forwards_reason_and_server_side_initiator(self, set_mock):
+        mapping = [{"map_id": 1, "role_id": 17, "resource_id": 27, "provisioning_requirement": "DEFERRED", "added_at": "2026-09-01T10:00:00"}]
+        set_mock.return_value = mapping
+
+        response = run_async(api_set_role_resource_requirement(
+            17,
+            {
+                "resource_ids": ["27"],
+                "requirement": "DEFERRED",
+                "reason": "  Kundensystem, Bereitstellung dauert Wochen  ",
+                "initiator_user_id": 999,
+            },
+            current_user=self.current_user,
+        ))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json_body(response), mapping)
+        set_mock.assert_awaited_once_with(17, {
+            "resource_ids": [27],
+            "requirement": "DEFERRED",
+            "initiator_user_id": 7,
+            "reason": "Kundensystem, Bereitstellung dauert Wochen",
+        })
+
+    @patch("app.routes.api.api_client.set_role_resource_requirement", new_callable=AsyncMock)
+    def test_reclassification_validates_before_upstream(self, set_mock):
+        valid = {"resource_ids": [27], "requirement": "REQUIRED", "reason": "Begründung"}
+        for override in (
+            {"resource_ids": []},
+            {"resource_ids": "27"},
+            {"resource_ids": [27, "x"]},
+            {"requirement": "OPTIONAL"},
+            {"requirement": None},
+            {"reason": "   "},
+            {"reason": None},
+        ):
+            with self.subTest(override=override):
+                response = run_async(api_set_role_resource_requirement(
+                    17, {**valid, **override}, current_user=self.current_user,
+                ))
+                self.assertEqual(response.status_code, 400)
+        self.assertEqual(set_mock.await_count, 0)
+
+    @patch("app.routes.api.api_client.set_role_resource_requirement", new_callable=AsyncMock)
+    def test_inherited_resource_conflict_is_passed_through(self, set_mock):
+        detail = "Die Ressourcen [115] sind Rolle [17] nicht direkt zugeordnet."
+        set_mock.side_effect = make_http_error(409, {"detail": detail})
+
+        response = run_async(api_set_role_resource_requirement(
+            17,
+            {"resource_ids": [115], "requirement": "DEFERRED", "reason": "Kundensystem"},
+            current_user=self.current_user,
+        ))
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(json_body(response), {"detail": detail})
+
+    @patch("app.api_client.APIClient._post", new_callable=AsyncMock)
+    def test_client_uses_the_requirement_route(self, post_mock):
+        from app.api_client import ACCESS_BASE_URL
+
+        payload = {"resource_ids": [27], "requirement": "DEFERRED", "initiator_user_id": 7, "reason": "x"}
+        run_async(api_client.set_role_resource_requirement(17, payload))
+
+        post_mock.assert_awaited_once_with(ACCESS_BASE_URL, "/roles/17/resources/requirement", payload=payload)
+
+    def test_role_detail_requirement_helpers(self):
+        script = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+const context = {
+  window: {SofaContract: require('./app/static/js/sofa_contract.js')},
+  document: {addEventListener() {}},
+  console,
+};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync('./app/static/js/rollendetails.js', 'utf8'), context);
+const run = code => vm.runInContext(code, context);
+
+context.probe = {provisioning_requirement: 'DEFERRED', isInherited: false};
+assert.strictEqual(run('getResourceRequirement(probe).label'), 'Nachlieferung');
+assert.ok(run('renderRequirementChip(probe)').includes('ui-chip-accent'));
+assert.strictEqual(run('formatInheritance(probe)'), 'Nein');
+
+context.probe = {provisioning_requirement: 'required', isInherited: true, source_role_name: 'Agent <Basis>'};
+assert.strictEqual(run('getResourceRequirement(probe).value'), 'REQUIRED');
+assert.ok(run('renderRequirementChip(probe)').includes('Änderbar an der Rolle Agent &lt;Basis&gt;.'));
+assert.strictEqual(run('formatInheritance(probe)'), 'Ja (Agent &lt;Basis&gt;)');
+
+context.probe = {isInherited: true};
+assert.strictEqual(run('getResourceRequirement(probe)'), null);
+assert.strictEqual(run('renderRequirementChip(probe)'), '-');
+assert.strictEqual(run('formatInheritance(probe)'), 'Ja');
+
+context.probe = {provisioning_requirement: 'OPTIONAL'};
+assert.strictEqual(run('renderRequirementChip(probe)'), '-');
+
+(async () => {
+  const response = body => ({json: async () => body});
+  context.res = response({detail: {code: 'x', message: 'Paketfehler'}});
+  assert.strictEqual(await run('readErrorMessage(res, "Fallback")'), 'Paketfehler');
+  context.res = response({detail: 'Rolle nicht gefunden.'});
+  assert.strictEqual(await run('readErrorMessage(res, "Fallback")'), 'Rolle nicht gefunden.');
+  context.res = {json: async () => { throw new Error('kein JSON'); }};
+  assert.strictEqual(await run('readErrorMessage(res, "Fallback")'), 'Fallback');
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        try:
+            completed = subprocess.run(
+                [os.environ.get("SOFA_NODE_BINARY", "node"), "-e", script],
+                cwd=str(ROOT),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True,
+            )
+        except FileNotFoundError as exc:
+            self.fail("Node.js ist Pflicht für die JavaScript-Logiktests: {}".format(exc))
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_role_detail_page_exposes_reclassification_controls(self):
+        template = read("app/templates/rollendetails.html")
+        script = read("app/static/js/rollendetails.js")
+
+        self.assertIn('id="req-resources-btn"', template)
+        self.assertIn("<th>Bereitstellung</th>", template)
+        self.assertIn('id="requirement-reason"', template)
+        self.assertIn("Laufende Prozesse und offene Tasks behalten ihre bisherige Klassifikation.", template)
+        self.assertIn("/resources/requirement", script)
 
 
 class BrowserErrorMessageTests(unittest.TestCase):

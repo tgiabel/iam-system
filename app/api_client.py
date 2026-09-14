@@ -262,6 +262,9 @@ class APIClient:
     async def remove_resources_from_role(self, payload: dict):
         return await self._post(ACCESS_BASE_URL, f"/roles/{payload['role_id']}/resources/remove", payload=payload)
 
+    async def set_role_resource_requirement(self, role_id: int, payload: dict) -> list[dict]:
+        return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}/resources/requirement", payload=payload)
+
     # SOFA
     async def get_events(self) -> list[dict]:
         return await self._get(SOFA_BASE_URL, "/events")

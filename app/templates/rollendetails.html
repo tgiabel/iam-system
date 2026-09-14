@@ -32,6 +32,9 @@
                 <button class="btn btn-red" id="rm-resources-btn">
                     Ressourcen entfernen
                 </button>
+                <button class="btn btn-secondary" id="req-resources-btn">
+                    Bereitstellung ändern
+                </button>
                 <button class="btn btn-primary" id="add-resource-btn">
                     Ressource hinzufügen
                 </button>
@@ -137,6 +140,7 @@
                         <th>Name</th>
                         <th>Ressourcen-Typ</th>
                         <th>Zuweisung</th>
+                        <th>Bereitstellung</th>
                         <th>Geerbt</th>
                     </tr>
                 </thead>
@@ -248,6 +252,42 @@
                             </div>
                         </div>
                         <div class="requirement-choice" id="add-requirement-choice" role="radiogroup" aria-label="Bereitstellung der Auswahl"></div>
+                    </section>
+                </div>
+
+                <div id="resource-requirement-container" class="resource-stack-panel" style="display:none;">
+                    <section class="resource-panel">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Ziel</span>
+                                <h4 class="resource-panel-title">Neue Bereitstellung</h4>
+                                <p class="resource-panel-copy">Gilt nur für künftige Tasks. Laufende Prozesse und offene Tasks behalten ihre bisherige Klassifikation.</p>
+                            </div>
+                        </div>
+                        <div class="requirement-choice" id="target-requirement-choice" role="radiogroup" aria-label="Neue Bereitstellung"></div>
+                    </section>
+
+                    <section class="resource-panel">
+                        <div class="resource-panel-heading">
+                            <div>
+                                <span class="ui-section-kicker">Auswahl</span>
+                                <h4 class="resource-panel-title">Eigene Ressourcen</h4>
+                                <p class="resource-panel-copy">Geerbte Ressourcen werden an der Rolle umklassifiziert, der sie direkt gehören.</p>
+                            </div>
+                        </div>
+                        <div class="resource-list-table-wrap resource-list-table-scroll">
+                            <table class="resource-list-table">
+                                <tbody id="res-list-requirement"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section class="resource-panel resource-panel-accent">
+                        <div class="form-field">
+                            <label for="requirement-reason">Begründung</label>
+                            <textarea id="requirement-reason" class="form-input requirement-reason" rows="3" required
+                                placeholder="z. B. Kundensystem, Bereitstellung dauert Wochen"></textarea>
+                        </div>
                     </section>
                 </div>
 

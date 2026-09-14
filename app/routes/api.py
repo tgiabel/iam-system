@@ -1815,6 +1815,53 @@ async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_us
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.post("/roles/{role_id}/resources/requirement")
+async def api_set_role_resource_requirement(
+    role_id: int,
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-PAGE-ROLE")),
+):
+    raw_resource_ids = payload.get("resource_ids")
+    resource_ids = (
+        [_coerce_int(value) for value in raw_resource_ids]
+        if isinstance(raw_resource_ids, list)
+        else []
+    )
+    requirement = payload.get("requirement")
+    reason = payload.get("reason")
+    reason = reason.strip() if isinstance(reason, str) else ""
+
+    if not resource_ids or any(resource_id is None for resource_id in resource_ids):
+        return JSONResponse(content={"detail": "Bitte mindestens eine Ressource auswählen."}, status_code=400)
+    if requirement not in PROVISIONING_REQUIREMENTS:
+        return JSONResponse(
+            content={"detail": "Die Bereitstellung muss REQUIRED oder DEFERRED sein."},
+            status_code=400,
+        )
+    if not reason:
+        return JSONResponse(content={"detail": "Bitte eine Begründung angeben."}, status_code=400)
+
+    try:
+        # Umklassifiziert nur direkt zugeordnete Ressourcen und wirkt nur auf kuenftige Tasks.
+        result = await api_client.set_role_resource_requirement(
+            role_id,
+            {
+                "resource_ids": resource_ids,
+                "requirement": requirement,
+                "initiator_user_id": current_user.user_id,
+                "reason": reason,
+            },
+        )
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.delete("/roles/{role_id}/resources")
 async def api_remove_resources_from_role(role_id: int, resource_ids: dict, current_user=Depends(require_permission("SOFA-PAGE-ROLE"))):
     try:

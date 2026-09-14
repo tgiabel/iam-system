@@ -101,6 +101,16 @@ const api = {
         return await res.json();
     },
 
+    async setResourceRequirement(roleId, resourceIds, requirement, reason) {
+        const res = await fetch(`/api/roles/${roleId}/resources/requirement`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ resource_ids: resourceIds, requirement, reason })
+        });
+        if (!res.ok) throw new Error(await readErrorMessage(res, "Bereitstellung konnte nicht geändert werden"));
+        return await res.json();
+    },
+
     async removeResourcesFromRole(roleId, resourceIds) {
         const res = await fetch(`/api/roles/${roleId}/resources`, {
             method: "DELETE",
@@ -142,6 +152,10 @@ function cacheDOM() {
     DOM.tableContainer = document.getElementById("resource-table-container");
     DOM.availableResContainer = document.getElementById("available-res-container");
     DOM.addRequirementChoice = document.getElementById("add-requirement-choice");
+    DOM.requirementContainer = document.getElementById("resource-requirement-container");
+    DOM.targetRequirementChoice = document.getElementById("target-requirement-choice");
+    DOM.requirementList = document.getElementById("res-list-requirement");
+    DOM.requirementReason = document.getElementById("requirement-reason");
 
     DOM.title = document.getElementById("resource-modal-title");
     DOM.subtitle = document.getElementById("resource-modal-subtitle");
@@ -151,6 +165,7 @@ function cacheDOM() {
 
     DOM.addResBtn = document.getElementById("add-resource-btn");
     DOM.rmResBtn = document.getElementById("rm-resources-btn");
+    DOM.reqResBtn = document.getElementById("req-resources-btn");
 
     DOM.editBtn = document.querySelector("#edit-role-btn");
     DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
@@ -253,6 +268,39 @@ function renderRequirementChoice(container, name, selectedValue, disabledValues 
     `).join("");
 }
 
+// Direkte Ressourcen tragen ihre eigene Klassifikation, geerbte die wirksame Klassifikation
+// und die Rolle, der sie direkt gehoeren (source_role_*). Fehlt das Feld, bleibt der Wert unbekannt.
+function getResourceRequirement(resource) {
+    const value = String(resource?.provisioning_requirement || "").toUpperCase();
+    return PROVISIONING_REQUIREMENTS.find(option => option.value === value) || null;
+}
+
+function getRequirementSourceRoleName(resource) {
+    return String(resource?.source_role_name || "").trim();
+}
+
+function renderRequirementChip(resource) {
+    const requirement = getResourceRequirement(resource);
+    if (!requirement) {
+        return "-";
+    }
+
+    const sourceRoleName = resource.isInherited ? getRequirementSourceRoleName(resource) : "";
+    const title = sourceRoleName
+        ? `${requirement.description} Änderbar an der Rolle ${sourceRoleName}.`
+        : requirement.description;
+
+    return `<span class="ui-chip ${requirement.chipClass}" title="${escapeHtml(title)}">${escapeHtml(requirement.label)}</span>`;
+}
+
+function formatInheritance(resource) {
+    if (!resource.isInherited) {
+        return "Nein";
+    }
+    const sourceRoleName = getRequirementSourceRoleName(resource);
+    return sourceRoleName ? `Ja (${escapeHtml(sourceRoleName)})` : "Ja";
+}
+
 function getSelectedRequirement(container) {
     return container?.querySelector("input[type='radio']:checked")?.value || "";
 }
@@ -291,7 +339,8 @@ function renderResourceTable() {
             <td>${escapeHtml(res.display_name || "-")}</td>
             <td>${escapeHtml(res.type_name || "-")}</td>
             <td>${escapeHtml(res.override_handling_type || "")}</td>
-            <td>${res.isInherited ? "Ja" : "Nein"}</td>
+            <td>${renderRequirementChip(res)}</td>
+            <td>${formatInheritance(res)}</td>
         `;
 
         DOM.tableBody.appendChild(tr);
@@ -358,6 +407,7 @@ function bindBaseEvents() {
     DOM.saveEdit.addEventListener("click", saveRoleEdit);
     DOM.addResBtn.addEventListener("click", () => openOverlay("add"));
     DOM.rmResBtn.addEventListener("click", () => openOverlay("rm"));
+    DOM.reqResBtn.addEventListener("click", () => openOverlay("req"));
 
     [DOM.closeBtn, DOM.cancelBtn].forEach(btn => {
         btn.addEventListener("click", closeOverlay);
@@ -498,6 +548,7 @@ async function openOverlay(mode, resource = null) {
 
     DOM.overlay.classList.add("active");
 
+    DOM.requirementContainer.style.display = "none";
     DOM.selectContainer.style.display = "none";
     DOM.tableContainer.style.display = "none";
     DOM.form.style.display = "block";
@@ -574,6 +625,18 @@ async function openOverlay(mode, resource = null) {
         if (removeList.innerHTML === "") {
             removeList.innerHTML = "<tr class='empty-row'><td colspan='2'>Noch keine Ressourcen zum Entfernen markiert.</td></tr>";
         }
+    }
+
+    if (mode === "req") {
+        DOM.title.textContent = "Bereitstellung ändern";
+        DOM.subtitle.textContent = "Eigene Ressourcen als erforderlich oder als Nachlieferung klassifizieren. Die Änderung wird mit Begründung im Rollen-Log protokolliert.";
+        DOM.form.style.display = "none";
+        DOM.requirementContainer.style.display = "block";
+        DOM.requirementReason.value = "";
+
+        renderRequirementChoice(DOM.targetRequirementChoice, "target-requirement", "");
+        renderRequirementSelection();
+        DOM.targetRequirementChoice.onchange = renderRequirementSelection;
     }
 
     if (mode === "add") {
@@ -661,11 +724,45 @@ async function openOverlay(mode, resource = null) {
     }
 }
 
+function renderRequirementSelection() {
+    const target = getSelectedRequirement(DOM.targetRequirementChoice);
+    const selectedIds = new Set(
+        Array.from(DOM.requirementList.querySelectorAll("input[type='checkbox']:checked")).map(input => input.value)
+    );
+    const ownResources = sortResourcesByShortCode(getOwnResources());
+
+    if (!ownResources.length) {
+        DOM.requirementList.innerHTML = "<tr class='empty-row'><td colspan='2'>Keine eigenen Ressourcen vorhanden.</td></tr>";
+        return;
+    }
+
+    DOM.requirementList.innerHTML = ownResources.map(res => {
+        const current = getResourceRequirement(res);
+        const alreadyTarget = Boolean(target && current?.value === target);
+        const checked = !alreadyTarget && selectedIds.has(String(res.resource_id));
+        return `
+            <tr>
+                <td>
+                    <label class="requirement-resource-row">
+                        <input type="checkbox" value="${escapeHtml(res.resource_id)}"
+                            ${checked ? "checked" : ""} ${target && !alreadyTarget ? "" : "disabled"}>
+                        <span>${escapeHtml(res.display_name || "-")}</span>
+                    </label>
+                </td>
+                <td>${current
+                    ? `<span class="ui-chip ${current.chipClass}">${escapeHtml(current.label)}</span>`
+                    : "-"}</td>
+            </tr>
+        `;
+    }).join("");
+}
+
 function closeOverlay() {
     DOM.overlay.classList.remove("active");
     DOM.form.style.display = "none";
     DOM.selectContainer.style.display = "none";
     DOM.tableContainer.style.display = "none";
+    DOM.requirementContainer.style.display = "none";
     if (DOM.availableResContainer) {
         DOM.availableResContainer.style.display = "none";
     }
@@ -724,6 +821,25 @@ async function saveResourceOverlay() {
                 showFlash("Keine Ressourcen zum Hinzufügen ausgewählt", "failure");
                 return;
             }
+        } else if (mode === "req") {
+            const requirement = getSelectedRequirement(DOM.targetRequirementChoice);
+            const reason = String(DOM.requirementReason.value || "").trim();
+            resourceIds = Array.from(DOM.requirementList.querySelectorAll("input[type='checkbox']:checked"))
+                .map(input => Number(input.value));
+
+            if (!requirement) {
+                showFlash("Bitte die neue Bereitstellung auswählen", "failure");
+                return;
+            }
+            if (!resourceIds.length) {
+                showFlash("Keine Ressourcen zum Ändern ausgewählt", "failure");
+                return;
+            }
+            if (!reason) {
+                showFlash("Bitte eine Begründung angeben", "failure");
+                return;
+            }
+            await api.setResourceRequirement(roleIdToUpdate, resourceIds, requirement, reason);
         } else if (mode === "rm") {
             const rows = document.querySelectorAll("#res-list-to-remove tr");
             resourceIds = Array.from(rows).map(tr => tr.dataset.id);

@@ -168,6 +168,23 @@
     line-height: 1.4;
 }
 
+.requirement-resource-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    cursor: pointer;
+}
+
+.requirement-resource-row:has(input:disabled) {
+    cursor: not-allowed;
+    color: var(--ui-text-muted);
+}
+
+.requirement-reason {
+    min-height: 5.5rem;
+    resize: vertical;
+}
+
 .resource-form-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
