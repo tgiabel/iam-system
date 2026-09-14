@@ -160,6 +160,7 @@
         buildCancelPayload,
         buildPlannedRolePayload,
         canSendTaskMail,
+        extractDetailMessage,
         formatDateKey,
         isFutureRevocationTask,
         localDateKey,

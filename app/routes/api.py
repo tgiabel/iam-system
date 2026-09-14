@@ -27,7 +27,6 @@ from app.routes.shared import (
     _build_session_user_from_login,
     _error_content_from_response,
     _normalize_session_user,
-    _filter_processes_for_scope,
     _filter_tasks_for_scope,
     _get_relevant_task_or_raise,
     _normalize_events_payload,
@@ -1165,36 +1164,18 @@ async def api_change_own_password(payload: dict, current_user=Depends(require_lo
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
-@router.post("/processes/onboarding/lookup")
-async def api_lookup_onboarding_candidate(
-    payload: dict,
-    current_user=Depends(require_permission("SOFA-FN-ONB")),
-):
-    pnr = str(payload.get("pnr") or "").strip()
-    if not pnr:
-        return JSONResponse(content={"detail": "Die Personalnummer ist erforderlich."}, status_code=400)
-
-    try:
-        result = await api_client.lookup_onboarding_candidate(
-            {"pnr": pnr, "initiator_user_id": current_user.user_id}
-        )
-        return JSONResponse(content=result)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
 @router.post("/processes/onboarding")
 async def api_start_onboarding_process(
     payload: dict,
     current_user=Depends(require_permission("SOFA-FN-ONB")),
 ):
-    mode = str(payload.get("mode") or "").strip().lower()
+    # Das Onboarding arbeitet ausschliesslich mit den im Dialog erfassten Daten.
+    # Einen Lookup gegen ein HR-System gibt es nicht; "mode" darf fehlen oder "manual" sein.
+    mode = str(payload.get("mode") or "manual").strip().lower()
     confirmed = bool(payload.get("confirmed"))
+
+    if mode != "manual":
+        return JSONResponse(content={"detail": "Unbekannter Onboarding-Modus."}, status_code=400)
 
     if not confirmed:
         return JSONResponse(
@@ -1202,62 +1183,40 @@ async def api_start_onboarding_process(
             status_code=400,
         )
 
+    pnr = str(payload.get("pnr") or "").strip()
+    first_name = str(payload.get("first_name") or "").strip()
+    last_name = str(payload.get("last_name") or "").strip()
+    primary_role_id = _coerce_int(payload.get("primary_role_id"))
+    telephone = str(payload.get("telephone") or "").strip()
+    entry_date = str(payload.get("entry_date") or "").strip()
+    weekly_hours = _coerce_int(payload.get("weekly_hours"))
+
+    if (
+        not pnr
+        or not first_name
+        or not last_name
+        or primary_role_id is None
+        or not telephone
+        or not entry_date
+        or weekly_hours is None
+    ):
+        return JSONResponse(
+            content={"detail": "Für das Onboarding sind alle Pflichtfelder erforderlich."},
+            status_code=400,
+        )
+
     forwarded_payload = {
-        "mode": mode,
+        "mode": "manual",
         "confirmed": True,
         "initiator_user_id": current_user.user_id,
+        "pnr": pnr,
+        "first_name": first_name,
+        "last_name": last_name,
+        "primary_role_id": primary_role_id,
+        "telephone": telephone,
+        "entry_date": entry_date,
+        "weekly_hours": weekly_hours,
     }
-
-    if mode == "helix":
-        lookup_token = str(payload.get("lookup_token") or "").strip()
-        telephone = str(payload.get("telephone") or "").strip()
-        entry_date = str(payload.get("entry_date") or "").strip()
-        weekly_hours = _coerce_int(payload.get("weekly_hours"))
-        if not lookup_token:
-            return JSONResponse(content={"detail": "Der Lookup-Token ist erforderlich."}, status_code=400)
-        forwarded_payload["lookup_token"] = lookup_token
-        if telephone:
-            forwarded_payload["telephone"] = telephone
-        if entry_date:
-            forwarded_payload["entry_date"] = entry_date
-        if weekly_hours is not None:
-            forwarded_payload["weekly_hours"] = weekly_hours
-    elif mode == "manual":
-        pnr = str(payload.get("pnr") or "").strip()
-        first_name = str(payload.get("first_name") or "").strip()
-        last_name = str(payload.get("last_name") or "").strip()
-        primary_role_id = _coerce_int(payload.get("primary_role_id"))
-        telephone = str(payload.get("telephone") or "").strip()
-        entry_date = str(payload.get("entry_date") or "").strip()
-        weekly_hours = _coerce_int(payload.get("weekly_hours"))
-
-        if (
-            not pnr
-            or not first_name
-            or not last_name
-            or primary_role_id is None
-            or not telephone
-            or not entry_date
-            or weekly_hours is None
-        ):
-            return JSONResponse(
-                content={"detail": "Für das manuelle Onboarding sind alle Pflichtfelder erforderlich."},
-                status_code=400,
-            )
-
-        forwarded_payload.update(
-            {
-                "pnr": pnr,
-                "first_name": first_name,
-                "last_name": last_name,
-                "primary_role_id": primary_role_id,
-                "telephone": telephone,
-                "entry_date": entry_date,
-                "weekly_hours": weekly_hours,
-            }
-        )
-    else:
-        return JSONResponse(content={"detail": "Unbekannter Onboarding-Modus."}, status_code=400)
 
     try:
         result = await api_client.trigger_onboarding(forwarded_payload)
@@ -1304,25 +1263,6 @@ async def api_tasks_overview(current_user=Depends(require_permission("SOFA-PAGE-
                 tasks[key] = _filter_tasks_for_scope(tasks[key], current_user)
         tasks.pop("completed_tasks", None)
         return JSONResponse(content=tasks)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
-    except HTTPException as exc:
-        raise exc
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-@router.get("/processes/overview")
-async def api_processes_overview(current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
-    try:
-        user_id = current_user.user_id
-        processes = await api_client.get_process_overview(user_id)
-
-        for key in ("running_processes", "completed_processes"):
-            if isinstance(processes.get(key), list):
-                processes[key] = _filter_processes_for_scope(processes[key], current_user)
-
-        return JSONResponse(content=processes)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except HTTPException as exc:

@@ -221,41 +221,6 @@ def _filter_tasks_for_scope(tasks: list[dict], authz: AuthorizationContext) -> l
     return [task for task in tasks if _task_is_visible_to_user(task, authz)]
 
 
-def _process_is_relevant_to_user(process: dict, authz: AuthorizationContext) -> bool:
-    user_id = authz.user_id
-    user_detail = authz.raw_user
-    full_name = _normalize_text(f"{user_detail.get('first_name', '')} {user_detail.get('last_name', '')}")
-    user_pnr = _normalize_text(user_detail.get("pnr"))
-
-    target_user_id = _first_defined_value(process, ["target_user_id", "user_id", "for_user_id"])
-    if str(target_user_id or "") == str(user_id):
-        return True
-
-    initiator_user_id = _first_defined_value(process, ["initiator_user_id", "created_by_user_id", "triggered_by_user_id"])
-    if str(initiator_user_id or "") == str(user_id):
-        return True
-
-    target_name = _normalize_text(_first_defined_value(process, ["target_name", "target_user_name", "user_name"], ""))
-    if full_name and target_name == full_name:
-        return True
-
-    initiator_name = _normalize_text(_first_defined_value(process, ["initiator_name", "triggered_by_name", "created_by_name"], ""))
-    if full_name and initiator_name == full_name:
-        return True
-
-    target_pnr = _normalize_text(_first_defined_value(process, ["target_user_pnr", "user_pnr", "pnr"], ""))
-    if user_pnr and target_pnr == user_pnr:
-        return True
-
-    return False
-
-
-def _filter_processes_for_scope(processes: list[dict], authz: AuthorizationContext) -> list[dict]:
-    if not authz.has_permission("SOFA-PAGE-TODO"):
-        return []
-    return processes
-
-
 async def _get_relevant_task_or_raise(task_id: int, authz: AuthorizationContext) -> dict:
     tasks = await api_client.list_tasks()
     for task in tasks:

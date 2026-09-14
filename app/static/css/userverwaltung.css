@@ -600,20 +600,6 @@ html[data-theme="servodata"] .users-icon-btn-img {
     letter-spacing: 0.05em;
 }
 
-.user-inline-link {
-    display: inline-flex;
-    margin-top: 1rem;
-    color: var(--color-primary);
-    text-decoration: none;
-    font-weight: 700;
-}
-
-.user-inline-link:hover,
-.user-inline-link:focus-visible {
-    text-decoration: underline;
-    outline: none;
-}
-
 .user-account-list {
     display: flex;
     flex-direction: column;

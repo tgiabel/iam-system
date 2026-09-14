@@ -146,12 +146,6 @@ class APIClient:
             params={"limit": limit, "offset": offset},
         )
 
-    async def get_user_by_pnr(self, pnr: str):
-        return await self._get(ACCESS_BASE_URL, f"/users/{pnr}")
-
-    async def get_user_by_id(self, user_id: int):
-        return await self._get(ACCESS_BASE_URL, f"/users/{user_id}")
-
     # Inventory / computer administration
     #
     # SD-API prueft die SOFA-Berechtigungen erneut und verlangt dafuer die
@@ -259,15 +253,6 @@ class APIClient:
     async def update_role(self, role_id: int, payload: dict) -> dict:
         return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}", payload=payload)
 
-    async def get_sofa_authorization_catalog(self) -> dict:
-        return await self._get(ACCESS_BASE_URL, "/sofa-authorization/catalog")
-
-    async def get_role_sofa_grants(self, role_id: int) -> list[dict]:
-        return await self._get(ACCESS_BASE_URL, f"/roles/{role_id}/sofa-grants")
-
-    async def replace_role_sofa_grants(self, role_id: int, payload: dict) -> dict:
-        return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}/sofa-grants", payload=payload)
-
     async def reevaluate_role_resources(self, role_id: int, payload: dict) -> dict:
         return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}/resources/reevaluate", payload=payload)
 
@@ -371,9 +356,6 @@ class APIClient:
             headers={"Content-Type": "application/json"},
         )
 
-    async def lookup_onboarding_candidate(self, payload: dict) -> dict:
-        return await self._post(SOFA_BASE_URL, "/processes/onboarding/lookup", payload=payload)
-
     async def trigger_onboarding(self, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/onboarding", payload=payload)
 
@@ -382,9 +364,6 @@ class APIClient:
 
     async def get_task_overview(self, user_id: int) -> dict:
         return await self._get(SOFA_BASE_URL, "/tasks/overview", params={"user_id": user_id})
-
-    async def get_process_overview(self, user_id: int) -> dict:
-        return await self._get(SOFA_BASE_URL, f"/processes/overview/{user_id}")
 
     async def trigger_skill_assignment(self, payload) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/skill_assignment", payload=payload)
