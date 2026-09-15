@@ -1072,7 +1072,23 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(re
         user_id = current_user.user_id
         account_identifier = payload.get("account_identifier")
         comment = payload.get("comment")
-        task = await api_client.complete_task(task_id, user_id, account_identifier, comment)
+        # Wiederherstellen eines archivierten Kontos; schliesst sich mit account_identifier aus,
+        # die Pruefung dafuer liegt bei SD-API (400 ambiguous_account_completion).
+        reactivate_history_id = payload.get("reactivate_user_account_history_id")
+        if reactivate_history_id is not None:
+            reactivate_history_id = _coerce_int(reactivate_history_id)
+            if reactivate_history_id is None:
+                return JSONResponse(
+                    content={"detail": "Das archivierte Konto ist ungültig."},
+                    status_code=400,
+                )
+        task = await api_client.complete_task(
+            task_id,
+            user_id,
+            account_identifier,
+            comment,
+            reactivate_user_account_history_id=reactivate_history_id,
+        )
         return JSONResponse(content=task)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
@@ -1220,6 +1236,64 @@ async def api_start_onboarding_process(
 
     try:
         result = await api_client.trigger_onboarding(forwarded_payload)
+        return JSONResponse(
+            content={
+                "process_id": result.get("process_id"),
+                "status": result.get("status", "started"),
+            }
+        )
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+REHIRE_TEXT_FIELDS = ("pnr", "first_name", "last_name", "telephone", "entry_date")
+REHIRE_INT_FIELDS = ("primary_role_id", "weekly_hours")
+
+
+def _build_rehire_form(payload: dict) -> dict:
+    # Nur die Formulardaten des Vertrags weiterreichen. Die fachliche Pruefung macht SD-API
+    # und liefert strukturierte Codes, die der Dialog auswertet.
+    form = {key: str(payload.get(key) or "").strip() for key in REHIRE_TEXT_FIELDS}
+    for key in REHIRE_INT_FIELDS:
+        form[key] = _coerce_int(payload.get(key))
+    return form
+
+
+@router.post("/processes/rehire/preview")
+async def api_preview_rehire(
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-ONB")),
+):
+    try:
+        result = await api_client.preview_rehire(_build_rehire_form(payload), current_user.user_id)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(
+            content=_error_content_from_response(exc.response),
+            status_code=exc.response.status_code,
+        )
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/processes/rehire")
+async def api_start_rehire(
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-ONB")),
+):
+    request_payload = {
+        **_build_rehire_form(payload),
+        "state_fingerprint": str(payload.get("state_fingerprint") or "").strip(),
+        "confirmed": payload.get("confirmed") is True,
+        "business_reference": str(payload.get("business_reference") or "").strip(),
+    }
+    try:
+        result = await api_client.start_rehire(request_payload, current_user.user_id)
         return JSONResponse(
             content={
                 "process_id": result.get("process_id"),

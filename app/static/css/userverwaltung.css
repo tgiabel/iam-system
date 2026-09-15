@@ -1013,8 +1013,94 @@ html[data-theme="servodata"] .users-icon-btn-img {
 #new-skill-overlay,
 #skill-revoke-overlay,
 #offboard-overlay,
+#rehire-overlay,
 #sofa-access-overlay {
     z-index: 4300;
+}
+
+.rehire-modal {
+    width: min(760px, calc(100vw - 2rem));
+}
+
+.rehire-callout {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.85rem 1rem;
+    border-radius: 14px;
+    border: 1px solid var(--ui-border);
+    border-left-width: 4px;
+    background: var(--surface-card);
+    color: var(--ui-text-strong);
+}
+
+.rehire-callout span {
+    color: var(--ui-text-muted);
+}
+
+.rehire-callout.is-error {
+    border-left-color: var(--danger-text);
+}
+
+.rehire-callout.is-warning {
+    border-left-color: var(--ui-warning-text);
+}
+
+.rehire-table-wrap {
+    overflow-x: auto;
+}
+
+.rehire-compare-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.rehire-compare-table th,
+.rehire-compare-table td {
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--ui-border);
+    text-align: left;
+}
+
+.rehire-compare-table th {
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.rehire-resource-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 14rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.rehire-resource-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.7rem;
+    border-radius: 10px;
+    border: 1px solid var(--ui-border);
+    background: var(--surface-card);
+}
+
+.rehire-resource-list li span {
+    color: var(--ui-text-muted);
+}
+
+.rehire-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    cursor: pointer;
+}
+
+.rehire-check input {
+    margin-top: 0.2rem;
 }
 
 .user-action-choice-grid {

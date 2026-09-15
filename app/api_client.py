@@ -345,12 +345,15 @@ class APIClient:
         user_id: int,
         account_identifier: str | None = None,
         comment: str | None = None,
+        reactivate_user_account_history_id: int | None = None,
     ) -> dict:
         payload = {}
         if account_identifier:
             payload["account_identifier"] = account_identifier
         if comment:
             payload["comment"] = comment
+        if reactivate_user_account_history_id is not None:
+            payload["reactivate_user_account_history_id"] = reactivate_user_account_history_id
 
         return await self._post(
             SOFA_BASE_URL,
@@ -361,6 +364,23 @@ class APIClient:
 
     async def trigger_onboarding(self, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/onboarding", payload=payload)
+
+    # Wiedereintritt: Der Bearbeiter kommt fuer SD-API ausschliesslich aus X-User-Id.
+    async def preview_rehire(self, payload: dict, user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            "/processes/rehire/preview",
+            payload=payload,
+            headers={"X-User-Id": str(user_id)},
+        )
+
+    async def start_rehire(self, payload: dict, user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            "/processes/rehire",
+            payload=payload,
+            headers={"X-User-Id": str(user_id)},
+        )
 
     async def trigger_ext_onboarding(self, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/onboarding-ext", payload=payload)

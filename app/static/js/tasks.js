@@ -846,6 +846,105 @@ function createFieldGroup({ label, id, placeholder, type = "text", required = fa
     return { wrapper, field };
 }
 
+function createArchivedAccountNotice(task) {
+    const accounts = sofaContract.getArchivedAccounts(task);
+    if (!accounts.length) {
+        return null;
+    }
+
+    const notice = document.createElement("section");
+    notice.className = "task-archived-accounts";
+    notice.setAttribute("aria-label", "Archivierte Konten");
+    notice.innerHTML = `
+        <strong class="task-archived-accounts-title">Archiviertes Konto vorhanden</strong>
+        <p class="task-archived-accounts-text">
+            Für ${escapeHtml(task.target_user_name || "diese Person")} gibt es in dieser Ressource ein archiviertes Konto.
+            Bitte vor „Bot beauftragen“ oder dem Anlegen eines neuen Kontos prüfen, ob es wiederhergestellt werden kann.
+        </p>
+        <ul class="task-archived-accounts-list">
+            ${accounts.map(account => `
+                <li>
+                    <span class="task-archived-account-main">
+                        <strong>${escapeHtml(account.accountIdentifier || "-")}</strong>
+                        <span>${account.archivedAt ? `archiviert am ${escapeHtml(formatDateTime(account.archivedAt))}` : "archiviert"}</span>
+                    </span>
+                    ${account.restorable
+                        ? `<button type="button" class="btn btn-secondary task-archived-account-restore-btn" data-history-id="${escapeHtml(account.userAccountHistoryId)}">Archiviertes Konto wiederherstellen</button>`
+                        : `<span class="task-archived-account-blocked">Kennung gehört inzwischen einer anderen Person</span>`}
+                </li>
+            `).join("")}
+        </ul>
+    `;
+
+    notice.querySelectorAll(".task-archived-account-restore-btn").forEach(button => {
+        const account = accounts.find(entry => String(entry.userAccountHistoryId) === button.dataset.historyId);
+        button.addEventListener("click", () => restoreArchivedAccount(task, account, button));
+    });
+
+    return notice;
+}
+
+async function restoreArchivedAccount(task, account, button) {
+    const confirmed = await showArchivedAccountRestoreWarning(task, account);
+    if (!confirmed) {
+        return;
+    }
+
+    const payload = { reactivate_user_account_history_id: account.userAccountHistoryId };
+    const comment = document.getElementById("task-comment")?.value?.trim();
+    if (comment) {
+        payload.comment = comment;
+    }
+
+    button.disabled = true;
+    try {
+        const result = await api.completeTask(task.task_id, payload);
+        if (!result.ok) {
+            showFlash(result.message, "failure");
+            return;
+        }
+
+        showFlash(`Konto ${account.accountIdentifier} wiederhergestellt, Task erledigt.`, "success");
+        closeOverlay("task-overlay");
+        await loadTasks();
+    } finally {
+        if (button.isConnected) {
+            button.disabled = false;
+        }
+    }
+}
+
+function showArchivedAccountRestoreWarning(task, account) {
+    const titleEl = document.getElementById("task-warning-title");
+    const textEl = document.getElementById("task-warning-text");
+    const listEl = document.getElementById("task-warning-list");
+    const confirmEl = document.getElementById("task-warning-confirm-btn");
+    const systemName = task.system_name || "dem Zielsystem";
+
+    if (titleEl) {
+        titleEl.textContent = "Archiviertes Konto wiederherstellen?";
+    }
+    if (textEl) {
+        textEl.textContent = `Das Konto ${account.accountIdentifier} wird dieser Person wieder zugeordnet. Stelle das Konto zuerst in ${systemName} wieder her. Die Aufgabe wird danach abgeschlossen, ein neues Konto wird nicht angelegt.`;
+    }
+    if (listEl) {
+        listEl.innerHTML = `
+            <li>
+                <strong>${escapeHtml(account.accountIdentifier || "-")}</strong>
+                <span>${escapeHtml(task.resource_name || "-")} · ${escapeHtml(task.target_user_name || "-")}</span>
+            </li>
+        `;
+    }
+    if (confirmEl) {
+        confirmEl.textContent = "Wiederhergestellt, Task abschließen";
+    }
+
+    openOverlay("task-warning-overlay");
+    return new Promise(resolve => {
+        taskWarningState.resolver = resolve;
+    });
+}
+
 function renderTaskActions(task) {
     const { isMine, isOpen } = getTaskContext(task);
     const formEl = document.getElementById("task-form");
@@ -884,6 +983,13 @@ function renderTaskActions(task) {
             </div>
         `;
         return;
+    }
+
+    // Der Hinweis steht vor Kommentar und Aktionen: Wer den Bot beauftragt oder eine neue
+    // Kennung eintraegt, legt ein neues Konto an, obwohl ein archiviertes existiert.
+    const archivedAccountNotice = createArchivedAccountNotice(task);
+    if (archivedAccountNotice) {
+        formEl.appendChild(archivedAccountNotice);
     }
 
     const commentField = createFieldGroup({
@@ -1770,7 +1876,9 @@ async function completeInternal(task) {
         });
 
         if (!res.ok) {
-            throw new Error(await res.text());
+            const data = await res.json().catch(() => ({}));
+            showFlash(extractErrorMessage(data.detail || data.error, "Task konnte nicht erledigt werden."), "failure");
+            return;
         }
 
         showFlash("Task erfolgreich erledigt.", "success");

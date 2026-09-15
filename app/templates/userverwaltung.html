@@ -233,6 +233,9 @@
                 {% if "SOFA-FN-ACC" in authz.permissions %}
                 <div id="sofa-access-actions" class="user-panel-action-buttons"></div>
                 {% endif %}
+                {% if "SOFA-FN-ONB" in authz.permissions %}
+                <button type="button" class="btn btn-sm btn-primary" id="rehire-action-btn" title="Wiedereintritt starten" hidden>Wiedereintritt</button>
+                {% endif %}
                 {% if "SOFA-FN-OFFB" in authz.permissions %}
                 <button type="button" class="btn btn-sm btn-red" id="offboard-action-btn" title="Offboarding starten">Offboarding</button>
                 {% endif %}
@@ -274,6 +277,19 @@
                 <button id="onboard-employee-btn" class="btn btn-primary">Mitarbeiter</button>
             </div>
         </div>
+    </div>
+</div>
+
+<div class="ui-modal-overlay" id="rehire-overlay" aria-hidden="true">
+    <div class="ui-modal user-action-modal rehire-modal" id="rehire-modal" role="dialog" aria-modal="true" aria-labelledby="rehire-modal-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Prozessstart</span>
+                <h3 class="ui-section-title" id="rehire-modal-title">Wiedereintritt</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="rehire-close-btn" aria-label="Wiedereintritt schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body" id="rehire-modal-body"></div>
     </div>
 </div>
 

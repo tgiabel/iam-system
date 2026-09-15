@@ -156,8 +156,121 @@
         })[Number(status)] || "Die E-Mail konnte nicht zur Zustellung eingestellt werden.";
     }
 
+    // Wiedereintritt: Preview und Start bekommen dieselben Formulardaten.
+    function buildRehireForm(draft) {
+        const text = key => (typeof draft?.[key] === "string" ? draft[key].trim() : "");
+        const form = {
+            pnr: text("pnr"),
+            first_name: text("first_name"),
+            last_name: text("last_name"),
+            primary_role_id: toPositiveInteger(draft?.primary_role_id),
+            telephone: text("telephone"),
+            entry_date: parseDateKey(text("entry_date"), { exact: true }),
+            weekly_hours: toPositiveInteger(draft?.weekly_hours)
+        };
+
+        if (!form.pnr || !form.first_name || !form.last_name || !form.telephone) {
+            return { ok: false, message: "Bitte alle Pflichtfelder ausfüllen." };
+        }
+        if (!form.primary_role_id) {
+            return { ok: false, message: "Bitte eine Hauptrolle auswählen." };
+        }
+        if (!form.entry_date) {
+            return { ok: false, message: "Bitte ein gültiges Eintrittsdatum angeben." };
+        }
+        if (!form.weekly_hours) {
+            return { ok: false, message: "Bitte gültige Wochenstunden angeben." };
+        }
+        return { ok: true, payload: form };
+    }
+
+    const BUSINESS_REFERENCE_MAX_LENGTH = 100;
+
+    function buildRehireStartPayload(form, stateFingerprint, businessReference, confirmed) {
+        const reference = typeof businessReference === "string" ? businessReference.trim() : "";
+        if (!reference) {
+            return { ok: false, message: "Bitte eine Geschäftsreferenz angeben." };
+        }
+        if (reference.length > BUSINESS_REFERENCE_MAX_LENGTH) {
+            return { ok: false, message: "Die Geschäftsreferenz darf höchstens 100 Zeichen lang sein." };
+        }
+        if (confirmed !== true) {
+            return { ok: false, message: "Bitte die Prüfung der Daten bestätigen." };
+        }
+        if (typeof stateFingerprint !== "string" || !stateFingerprint) {
+            return { ok: false, message: "Die Vorschau fehlt. Bitte die Vorschau neu laden." };
+        }
+        return {
+            ok: true,
+            payload: {
+                ...form,
+                state_fingerprint: stateFingerprint,
+                confirmed: true,
+                business_reference: reference
+            }
+        };
+    }
+
+    // Einordnung der SD-API-Codes fuer den Dialog:
+    // form    = Formulardaten korrigieren, zurueck zum Formular
+    // stale   = Bestand hat sich geaendert, Vorschau neu laden und erneut bestaetigen
+    // blocked = fachlich kein Wiedereintritt moeglich, Dialog kann nur geschlossen werden
+    // review  = auf der Pruefseite korrigierbar oder unbekannt, Meldung anzeigen
+    const REHIRE_ERROR_KINDS = {
+        invalid_request: "form",
+        entry_before_exit: "form",
+        primary_role_invalid: "form",
+        empty_role_package: "form",
+        preview_stale: "stale",
+        state_fingerprint_missing: "stale",
+        user_not_found: "blocked",
+        user_active: "blocked",
+        open_process: "blocked",
+        no_completed_offboarding: "blocked",
+        exit_date_missing: "blocked",
+        remaining_role_assignments: "blocked",
+        remaining_resource_assignments: "blocked",
+        remaining_user_accounts: "blocked"
+    };
+
+    function classifyRehireError(detail, fallback) {
+        const code = detail && typeof detail === "object" && typeof detail.code === "string" ? detail.code : "";
+        return {
+            code,
+            kind: REHIRE_ERROR_KINDS[code] || "review",
+            message: extractDetailMessage(detail) || fallback,
+            context: detail && typeof detail === "object" && detail.context && typeof detail.context === "object"
+                ? detail.context
+                : {}
+        };
+    }
+
+    function isAccountAssignmentTask(task) {
+        return Number(task?.resource_type_id) === 1 && String(task?.task_type || "").toUpperCase() === "ASSIGNMENT";
+    }
+
+    // Archivierte Konten derselben Person und Ressource, die im Task wiederhergestellt werden koennen.
+    function getArchivedAccounts(task) {
+        if (!isAccountAssignmentTask(task) || !Array.isArray(task?.archived_accounts)) {
+            return [];
+        }
+        return task.archived_accounts
+            .filter(account => toPositiveInteger(account?.user_account_history_id))
+            .map(account => ({
+                userAccountHistoryId: toPositiveInteger(account.user_account_history_id),
+                accountIdentifier: String(account.account_identifier || ""),
+                archivedAt: account.archived_at || null,
+                restorable: account.identifier_in_use_by_other !== true
+            }));
+    }
+
     return {
         buildCancelPayload,
+        buildRehireForm,
+        buildRehireStartPayload,
+        classifyRehireError,
+        getArchivedAccounts,
+        isAccountAssignmentTask,
         buildPlannedRolePayload,
         canSendTaskMail,
         extractDetailMessage,

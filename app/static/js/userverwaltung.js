@@ -254,17 +254,41 @@ const api = {
             if (!res.ok) {
                 // SD-API liefert detail teils als String, teils als {code, message, context}.
                 const message = sofaContract.extractDetailMessage(data.detail) || sofaContract.extractDetailMessage(data.error);
-                showFlash(message || "Unbekannter Fehler", "failure");
-                return false;
+                return { ok: false, detail: data.detail, message: message || "Unbekannter Fehler" };
             }
 
             showFlash("Onboarding gestartet", "success");
-            return true;
+            return { ok: true };
         } catch (err) {
             console.error(err);
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            return false;
+            return { ok: false, detail: null, message: "Netzwerkfehler oder Server nicht erreichbar" };
         }
+    },
+
+    async postRehire(url, payload, fallback) {
+        try {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                return { ok: false, error: sofaContract.classifyRehireError(data.detail ?? data.error, fallback) };
+            }
+            return { ok: true, data };
+        } catch (err) {
+            console.error(err);
+            return { ok: false, error: sofaContract.classifyRehireError(null, "Netzwerkfehler oder Server nicht erreichbar") };
+        }
+    },
+
+    previewRehire(form) {
+        return this.postRehire("/api/processes/rehire/preview", form, "Die Vorschau konnte nicht geladen werden.");
+    },
+
+    startRehire(payload) {
+        return this.postRehire("/api/processes/rehire", payload, "Der Wiedereintritt konnte nicht gestartet werden.");
     },
 
     async startExternalOnboarding(payload) {
@@ -1827,6 +1851,10 @@ const sidebarController = {
         DOM.sidebarEintritt.textContent = formatDate(user.entry_date);
         DOM.sidebarAustritt.textContent = formatDate(user.exit_date);
 
+        if (DOM.rehireActionBtn) {
+            DOM.rehireActionBtn.hidden = !isInactiveUser(user);
+        }
+
         this.renderDerivedStatuses(user);
         await this.renderAccounts(user.accounts || [], user);
         this.renderSofaAccessActions(user);
@@ -2352,6 +2380,9 @@ const sidebarController = {
         if (DOM.offboardActionBtn) {
             DOM.offboardActionBtn.onclick = () => offboardModalController.open(user);
         }
+        if (DOM.rehireActionBtn) {
+            DOM.rehireActionBtn.onclick = () => rehireModalController.openForUser(user);
+        }
     }
 };
 
@@ -2663,7 +2694,7 @@ const onboardModalController = {
 
         document.getElementById("modal-cancel-btn")?.addEventListener("click", async () => this.renderManualForm());
         document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
-            const success = await api.startOnboarding({
+            const result = await api.startOnboarding({
                 mode: "manual",
                 confirmed: true,
                 pnr: payload.pnr,
@@ -2674,12 +2705,39 @@ const onboardModalController = {
                 entry_date: payload.entry_date,
                 weekly_hours: payload.weekly_hours
             });
-            if (!success) {
+            if (!result.ok) {
+                if (result.detail?.code === "rehire_required") {
+                    this.renderRehireRequired(result.message);
+                    return;
+                }
+                showFlash(result.message, "failure");
                 return;
             }
 
             await tableController.loadUsers();
             this.close();
+        });
+    },
+
+    renderRehireRequired(message) {
+        const draft = { ...(this.state.manualDraft || {}) };
+        DOM.onboardModalTitle.textContent = "Wiedereintritt erforderlich";
+        DOM.onboardModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="rehire-callout">
+                    <strong>${escapeHtml(message)}</strong>
+                    <span>Für ausgetretene Mitarbeitende wird kein neues Onboarding angelegt, sondern ein Wiedereintritt. Die erfassten Daten werden übernommen und können dort noch angepasst werden.</span>
+                </div>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-primary" id="modal-rehire-btn">Zum Wiedereintritt</button>
+                    <button type="button" class="btn btn-secondary" id="modal-cancel-btn">Zurück</button>
+                </div>
+            </div>
+        `;
+        document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.renderManualConfirmation());
+        document.getElementById("modal-rehire-btn")?.addEventListener("click", () => {
+            this.close();
+            rehireModalController.open(draft);
         });
     },
 
@@ -2729,6 +2787,313 @@ const onboardModalController = {
             await tableController.loadUsers();
             this.close();
         });
+    }
+};
+
+function isInactiveUser(user) {
+    return user?.is_active === false || user?.is_active === 0;
+}
+
+const REHIRE_COMPARE_FIELDS = [
+    { key: "first_name", label: "Vorname" },
+    { key: "last_name", label: "Nachname" },
+    { key: "telephone", label: "Telefon" },
+    { key: "weekly_hours", label: "Wochenstunden" },
+    { key: "entry_date", label: "Eintritt", date: true },
+    { key: "exit_date", label: "Austritt", date: true }
+];
+
+const rehireModalController = {
+    state: {
+        draft: null,
+        form: null,
+        preview: null,
+        notice: "",
+        businessReference: ""
+    },
+
+    init() {
+        bindModalOverlayDismiss(DOM.rehireOverlay, () => this.close());
+        DOM.rehireCloseBtn?.addEventListener("click", () => this.close());
+    },
+
+    // draft: Formularwerte aus der Detailansicht oder aus einem abgewiesenen Onboarding.
+    open(draft) {
+        this.state = { draft: { ...draft }, form: null, preview: null, notice: "", businessReference: "" };
+        openOverlay("rehire-overlay");
+        this.renderForm();
+    },
+
+    openForUser(user) {
+        this.open({
+            pnr: String(user.pnr || ""),
+            first_name: String(user.first_name || ""),
+            last_name: String(user.last_name || ""),
+            primary_role_id: "",
+            telephone: String(user.telephone || ""),
+            entry_date: "",
+            weekly_hours: user.weekly_hours === null || user.weekly_hours === undefined ? "" : String(user.weekly_hours)
+        });
+    },
+
+    close() {
+        closeOverlay("rehire-overlay");
+        this.state = { draft: null, form: null, preview: null, notice: "", businessReference: "" };
+        if (DOM.rehireModalBody) {
+            DOM.rehireModalBody.innerHTML = "";
+        }
+    },
+
+    setTitle(text) {
+        if (DOM.rehireModalTitle) {
+            DOM.rehireModalTitle.textContent = text;
+        }
+    },
+
+    async renderForm(message = "") {
+        try {
+            await api.getRoleMap();
+        } catch (err) {
+            console.error(err);
+            showFlash("Rollen konnten nicht geladen werden", "failure");
+            return;
+        }
+
+        const draft = this.state.draft || {};
+        const roleOptions = getRoleOptionsByType("PRIMARY")
+            .map(([roleId, role]) => `
+                <option value="${escapeHtml(roleId)}" ${String(draft.primary_role_id) === String(roleId) ? "selected" : ""}>
+                    ${escapeHtml(role.name)}
+                </option>
+            `)
+            .join("");
+
+        this.setTitle("Wiedereintritt");
+        DOM.rehireModalBody.innerHTML = `
+            <div class="user-action-form">
+                ${message ? `<div class="rehire-callout is-error" role="alert">${escapeHtml(message)}</div>` : ""}
+                <p class="user-action-note">Die Person behält Personalnummer und User-ID. Das Rechtepaket entsteht neu aus der gewählten Hauptrolle.</p>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-pnr">Personalnummer</label>
+                    <input id="rehire-pnr" class="ui-input" value="${escapeHtml(draft.pnr || "")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-first-name">Vorname</label>
+                    <input id="rehire-first-name" class="ui-input" value="${escapeHtml(draft.first_name || "")}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-last-name">Nachname</label>
+                    <input id="rehire-last-name" class="ui-input" value="${escapeHtml(draft.last_name || "")}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-role">Hauptrolle</label>
+                    <select id="rehire-role" class="ui-input">
+                        <option value="" disabled ${draft.primary_role_id ? "" : "selected"}>Hauptrolle auswählen…</option>
+                        ${roleOptions}
+                    </select>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-telephone">Telefon</label>
+                    <input id="rehire-telephone" class="ui-input" type="tel" value="${escapeHtml(draft.telephone || "")}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-entry-date">Eintrittsdatum</label>
+                    <input id="rehire-entry-date" class="ui-input" type="date" value="${escapeHtml(draft.entry_date || "")}">
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-weekly-hours">Wochenstunden</label>
+                    <input id="rehire-weekly-hours" class="ui-input" type="number" min="1" step="1" value="${escapeHtml(draft.weekly_hours || "")}">
+                </div>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-primary" id="rehire-preview-btn">Vorschau laden</button>
+                    <button type="button" class="btn btn-secondary" id="rehire-cancel-btn">Abbrechen</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById("rehire-cancel-btn")?.addEventListener("click", () => this.close());
+        document.getElementById("rehire-preview-btn")?.addEventListener("click", () => {
+            this.state.draft = {
+                pnr: document.getElementById("rehire-pnr")?.value,
+                first_name: document.getElementById("rehire-first-name")?.value,
+                last_name: document.getElementById("rehire-last-name")?.value,
+                primary_role_id: document.getElementById("rehire-role")?.value,
+                telephone: document.getElementById("rehire-telephone")?.value,
+                entry_date: document.getElementById("rehire-entry-date")?.value,
+                weekly_hours: document.getElementById("rehire-weekly-hours")?.value
+            };
+            const request = sofaContract.buildRehireForm(this.state.draft);
+            if (!request.ok) {
+                showFlash(request.message, "failure");
+                return;
+            }
+            this.state.form = request.payload;
+            this.loadPreview();
+        });
+    },
+
+    async loadPreview(notice = "") {
+        const button = document.getElementById("rehire-preview-btn") || document.getElementById("rehire-start-btn");
+        if (button) {
+            button.disabled = true;
+        }
+
+        const result = await api.previewRehire(this.state.form);
+        if (!result.ok) {
+            if (button?.isConnected) {
+                button.disabled = false;
+            }
+            this.handleError(result.error);
+            return;
+        }
+
+        this.state.preview = result.data;
+        this.state.notice = notice;
+        this.renderReview();
+    },
+
+    renderReview() {
+        const preview = this.state.preview || {};
+        const previous = preview.previous_state || {};
+        const next = preview.new_state || {};
+        const resources = Array.isArray(preview.resources) ? preview.resources : [];
+        const formatValue = (field, value) => (field.date ? formatDate(value) : formatPlainValue(value));
+
+        this.setTitle("Wiedereintritt prüfen");
+        DOM.rehireModalBody.innerHTML = `
+            <div class="user-action-form">
+                ${this.state.notice ? `<div class="rehire-callout is-warning" role="alert">${escapeHtml(this.state.notice)}</div>` : ""}
+                <p class="user-action-note">
+                    Wiedereintritt für PNR <strong>${escapeHtml(preview.pnr || this.state.form?.pnr || "-")}</strong>
+                    mit der Hauptrolle <strong>${escapeHtml(preview.primary_role?.name || "-")}</strong>.
+                </p>
+                <div class="rehire-table-wrap">
+                    <table class="rehire-compare-table">
+                        <thead>
+                            <tr><th>Feld</th><th>Bisher</th><th>Neu</th></tr>
+                        </thead>
+                        <tbody>
+                            ${REHIRE_COMPARE_FIELDS.map(field => `
+                                <tr>
+                                    <td>${escapeHtml(field.label)}</td>
+                                    <td>${escapeHtml(formatValue(field, previous[field.key]))}</td>
+                                    <td>${escapeHtml(formatValue(field, next[field.key]))}</td>
+                                </tr>
+                            `).join("")}
+                            <tr>
+                                <td>Status</td>
+                                <td>${Number(previous.is_active) === 1 ? "Aktiv" : "Inaktiv"}</td>
+                                <td>${Number(next.is_active) === 1 ? "Aktiv" : "Inaktiv"}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="ui-field-group">
+                    <span class="ui-field-label">Rollenpaket (${escapeHtml(resources.length)} Ressourcen)</span>
+                    <ul class="rehire-resource-list">
+                        ${resources.map(resource => `
+                            <li>
+                                <strong>${escapeHtml(resource.resource_name || `Ressource #${resource.resource_id}`)}</strong>
+                                <span>${escapeHtml(resource.system_name || "-")}</span>
+                            </li>
+                        `).join("") || "<li>Keine Ressourcen</li>"}
+                    </ul>
+                    <span class="ui-field-hint">Archivierte Konten werden nicht hier entschieden. Sie können in den Konto-Aufgaben wiederhergestellt werden.</span>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-business-reference">Geschäftsreferenz</label>
+                    <input id="rehire-business-reference" class="ui-input" maxlength="100" placeholder="z. B. INC-4711" value="${escapeHtml(this.state.businessReference)}">
+                    <span class="ui-field-hint">Pflichtfeld, maximal 100 Zeichen</span>
+                </div>
+                <label class="rehire-check">
+                    <input type="checkbox" id="rehire-confirmed">
+                    <span>Ich habe die Daten geprüft und bestätige den Wiedereintritt.</span>
+                </label>
+                <div class="btn-row">
+                    <button type="button" class="btn btn-primary" id="rehire-start-btn">Wiedereintritt starten</button>
+                    <button type="button" class="btn btn-secondary" id="rehire-back-btn">Zurück</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById("rehire-back-btn")?.addEventListener("click", () => this.renderForm());
+        document.getElementById("rehire-start-btn")?.addEventListener("click", () => this.start());
+    },
+
+    async start() {
+        this.state.businessReference = document.getElementById("rehire-business-reference")?.value || "";
+        const request = sofaContract.buildRehireStartPayload(
+            this.state.form,
+            this.state.preview?.state_fingerprint,
+            this.state.businessReference,
+            document.getElementById("rehire-confirmed")?.checked === true
+        );
+        if (!request.ok) {
+            showFlash(request.message, "failure");
+            return;
+        }
+
+        const button = document.getElementById("rehire-start-btn");
+        if (button) {
+            button.disabled = true;
+        }
+
+        const result = await api.startRehire(request.payload);
+        if (!result.ok) {
+            if (button?.isConnected) {
+                button.disabled = false;
+            }
+            this.handleError(result.error);
+            return;
+        }
+
+        showFlash("Wiedereintritt gestartet", "success");
+        this.close();
+        await tableController.loadUsers();
+        await sidebarController.refreshCurrentUser();
+    },
+
+    handleError(error) {
+        if (error.kind === "form") {
+            this.renderForm(error.message);
+            return;
+        }
+        if (error.kind === "stale") {
+            this.loadPreview(`${error.message} Die Vorschau wurde neu geladen, bitte erneut prüfen und bestätigen.`);
+            return;
+        }
+        if (error.kind === "blocked") {
+            this.renderBlocked(error);
+            return;
+        }
+        showFlash(error.message, "failure");
+    },
+
+    renderBlocked(error) {
+        const processes = Array.isArray(error.context?.processes) ? error.context.processes : [];
+        this.setTitle("Wiedereintritt nicht möglich");
+        DOM.rehireModalBody.innerHTML = `
+            <div class="user-action-form">
+                <div class="rehire-callout is-error" role="alert">
+                    <strong>${escapeHtml(error.message)}</strong>
+                    <span>Dieser Wiedereintritt kann erst gestartet werden, wenn der Bestand bereinigt ist.</span>
+                </div>
+                ${processes.length ? `
+                    <ul class="rehire-resource-list">
+                        ${processes.map(process => `
+                            <li>
+                                <strong>${escapeHtml(humanizeToken(process.process_type || "Prozess"))}${process.process_id ? ` #${escapeHtml(process.process_id)}` : ""}</strong>
+                                <span>${escapeHtml(humanizeToken(process.status || ""))}</span>
+                            </li>
+                        `).join("")}
+                    </ul>
+                ` : ""}
+                <div class="btn-row">
+                    <button type="button" class="btn btn-secondary" id="rehire-blocked-close-btn">Schließen</button>
+                </div>
+            </div>
+        `;
+        document.getElementById("rehire-blocked-close-btn")?.addEventListener("click", () => this.close());
     }
 };
 
@@ -3659,6 +4024,11 @@ function cacheDOM() {
     DOM.processCancelBackBtn = document.getElementById("process-cancel-back-btn");
     DOM.processCancelSubmitBtn = document.getElementById("process-cancel-submit-btn");
 
+    DOM.rehireActionBtn = document.getElementById("rehire-action-btn");
+    DOM.rehireOverlay = document.getElementById("rehire-overlay");
+    DOM.rehireModalTitle = document.getElementById("rehire-modal-title");
+    DOM.rehireModalBody = document.getElementById("rehire-modal-body");
+    DOM.rehireCloseBtn = document.getElementById("rehire-close-btn");
     DOM.offboardOverlay = document.getElementById("offboard-overlay");
     DOM.offboardModal = document.getElementById("offboard-modal");
     DOM.offboardModalTitle = DOM.offboardModal?.querySelector(".ui-section-title");
@@ -3691,4 +4061,5 @@ document.addEventListener("DOMContentLoaded", async () => {
     skillRevokeModalController.init();
     processCancellationModalController.init();
     offboardModalController.init();
+    rehireModalController.init();
 });
