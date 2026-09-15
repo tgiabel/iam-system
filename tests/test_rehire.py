@@ -279,7 +279,7 @@ assert.deepStrictEqual(c.getArchivedAccounts({task_type: 'ASSIGNMENT', resource_
         self.assertIn('id="rehire-action-btn"', onboarding_block[:400])
         self.assertIn(" hidden>Wiedereintritt</button>", onboarding_block[:400])
         self.assertIn('id="rehire-overlay"', user_template)
-        self.assertIn("DOM.rehireActionBtn.hidden = !isInactiveUser(user);", user_script)
+        self.assertIn("[DOM.rehireActionBtn, actions.rehire]", user_script)
         self.assertIn('result.detail?.code === "rehire_required"', user_script)
         self.assertNotIn("account_decisions", user_script)
         self.assertNotIn("X-User-Id", user_script)
@@ -291,6 +291,49 @@ assert.deepStrictEqual(c.getArchivedAccounts({task_type: 'ASSIGNMENT', resource_
         )
         self.assertIn("reactivate_user_account_history_id: account.userAccountHistoryId", task_script)
         self.assertNotIn("account_identifier_deviation", task_script)
+
+
+class UserPanelLifecycleActionTests(unittest.TestCase):
+    def test_actions_follow_the_employment_state(self):
+        completed = run_node(r"""
+const assert = require('assert');
+const c = require('./app/static/js/sofa_contract.js');
+
+assert.deepStrictEqual(c.getUserPanelActions({is_active: true, has_sofa_access: false}), {
+  rehire: false, offboarding: true, roleActions: true, sofaSetup: true, sofaReset: false, sofaRevoke: false
+});
+assert.deepStrictEqual(c.getUserPanelActions({is_active: true, has_sofa_access: true}), {
+  rehire: false, offboarding: true, roleActions: true, sofaSetup: false, sofaReset: true, sofaRevoke: true
+});
+assert.deepStrictEqual(c.getUserPanelActions({is_active: false, has_sofa_access: false}), {
+  rehire: true, offboarding: false, roleActions: false, sofaSetup: false, sofaReset: false, sofaRevoke: false
+});
+// Ein verbliebener SOFA-Zugang einer ausgetretenen Person bleibt entziehbar.
+assert.deepStrictEqual(c.getUserPanelActions({is_active: 0, has_sofa_access: true}), {
+  rehire: true, offboarding: false, roleActions: false, sofaSetup: false, sofaReset: false, sofaRevoke: true
+});
+// Ohne Angabe gilt die Person nicht als ausgetreten.
+assert.strictEqual(c.getUserPanelActions({}).rehire, false);
+assert.strictEqual(c.isInactiveUser({is_active: null}), false);
+""")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_panel_buttons_are_toggled_and_hidden_really_hides(self):
+        script = read("app/static/js/userverwaltung.js")
+        styles = read("app/static/css/userverwaltung.css")
+
+        for button in (
+            "DOM.rehireActionBtn, actions.rehire",
+            "DOM.offboardActionBtn, actions.offboarding",
+            "DOM.primaryRoleChangeActionBtn, actions.roleActions",
+            "DOM.newSkillActionBtn, actions.roleActions",
+            "DOM.tmpRightsActionBtn, actions.roleActions",
+            "DOM.detailTrainingActionBtn, actions.roleActions",
+            "DOM.skillRevokeActionBtn, actions.roleActions",
+        ):
+            with self.subTest(button=button):
+                self.assertIn(f"[{button}]", script)
+        self.assertIn(".user-panel-actions [hidden] {\n    display: none !important;", styles)
 
 
 if __name__ == "__main__":

@@ -393,6 +393,26 @@
             : label;
     }
 
+    // Welche Aktionen im User-Sidepanel fachlich passen. Ausgetretene Personen bekommen nur den
+    // Wiedereintritt und das Entziehen eines verbliebenen SOFA-Zugangs; alles, was eine laufende
+    // Beschaeftigung voraussetzt, gilt nur fuer aktive Personen. Rechte prueft der Aufrufer.
+    function isInactiveUser(user) {
+        return user?.is_active === false || user?.is_active === 0;
+    }
+
+    function getUserPanelActions(user) {
+        const active = !isInactiveUser(user);
+        const hasSofaAccess = Boolean(user?.has_sofa_access);
+        return {
+            rehire: !active,
+            offboarding: active,
+            roleActions: active,
+            sofaSetup: active && !hasSofaAccess,
+            sofaReset: active && hasSofaAccess,
+            sofaRevoke: hasSofaAccess
+        };
+    }
+
     return {
         accountIdentifierOutcomeMessage,
         buildAccountIdentifierPayload,
@@ -402,6 +422,8 @@
         buildRehireStartPayload,
         classifyRehireError,
         getArchivedAccounts,
+        getUserPanelActions,
+        isInactiveUser,
         isAccountAssignmentTask,
         buildPlannedRolePayload,
         canSendTaskMail,

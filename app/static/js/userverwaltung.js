@@ -1898,9 +1898,7 @@ const sidebarController = {
         DOM.sidebarEintritt.textContent = formatDate(user.entry_date);
         DOM.sidebarAustritt.textContent = formatDate(user.exit_date);
 
-        if (DOM.rehireActionBtn) {
-            DOM.rehireActionBtn.hidden = !isInactiveUser(user);
-        }
+        this.renderLifecycleActions(user);
 
         this.renderDerivedStatuses(user);
         this.renderAccounts(user);
@@ -1911,15 +1909,34 @@ const sidebarController = {
         this.bindActions(user);
     },
 
+    renderLifecycleActions(user) {
+        const actions = sofaContract.getUserPanelActions(user);
+        const visibility = [
+            [DOM.rehireActionBtn, actions.rehire],
+            [DOM.offboardActionBtn, actions.offboarding],
+            [DOM.primaryRoleChangeActionBtn, actions.roleActions],
+            [DOM.newSkillActionBtn, actions.roleActions],
+            [DOM.tmpRightsActionBtn, actions.roleActions],
+            [DOM.detailTrainingActionBtn, actions.roleActions],
+            [DOM.skillRevokeActionBtn, actions.roleActions]
+        ];
+        visibility.forEach(([button, visible]) => {
+            if (button) {
+                button.hidden = !visible;
+            }
+        });
+    },
+
     renderSofaAccessActions(user) {
         if (!DOM.sofaAccessActions) return;
 
-        const hasSofaAccess = Boolean(user.has_sofa_access);
-        const canSetup = hasPerm("SOFA-FN-ACC");
-        const canReset = hasPerm("SOFA-FN-ACC");
-        const canRevoke = hasPerm("SOFA-FN-ACC");
+        const actions = sofaContract.getUserPanelActions(user);
+        const canManage = hasPerm("SOFA-FN-ACC");
+        const canSetup = canManage && actions.sofaSetup;
+        const canReset = canManage && actions.sofaReset;
+        const canRevoke = canManage && actions.sofaRevoke;
 
-        if (!hasSofaAccess) {
+        if (!actions.sofaReset && !actions.sofaRevoke) {
             DOM.sofaAccessActions.innerHTML = canSetup
                 ? '<button type="button" class="btn btn-sm btn-secondary" id="sofa-access-setup-btn" title="SOFA Zugriff einrichten">SOFA einrichten</button>'
                 : "";
@@ -2968,10 +2985,6 @@ function getAccountRowBadge(row) {
         return { label: "Ohne Zuweisung", className: "ui-status-neutral" };
     }
     return getAssignmentStatus({ assignment_status: row.status });
-}
-
-function isInactiveUser(user) {
-    return user?.is_active === false || user?.is_active === 0;
 }
 
 const REHIRE_COMPARE_FIELDS = [

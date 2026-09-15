@@ -854,6 +854,11 @@ html[data-theme="servodata"] .users-icon-btn-img {
     display: flex;
 }
 
+/* .btn setzt display: inline-flex und wuerde das hidden-Attribut sonst ueberstimmen. */
+.user-panel-actions [hidden] {
+    display: none !important;
+}
+
 .user-panel-action-buttons {
     display: contents;
 }
