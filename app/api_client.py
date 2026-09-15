@@ -311,6 +311,22 @@ class APIClient:
     async def cancel_process(self, process_id: int, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, f"/processes/{process_id}/cancel", payload=payload)
 
+    async def preview_process_reschedule(self, process_id: int, payload: dict, user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            f"/processes/{process_id}/reschedule/preview",
+            payload=payload,
+            headers={"X-User-Id": str(user_id)},
+        )
+
+    async def reschedule_process(self, process_id: int, payload: dict, user_id: int) -> dict:
+        return await self._patch(
+            SOFA_BASE_URL,
+            f"/processes/{process_id}/reschedule",
+            payload=payload,
+            headers={"X-User-Id": str(user_id)},
+        )
+
     async def list_tasks(
         self,
         status: str | None = None,

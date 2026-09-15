@@ -13,7 +13,11 @@ from app.api_client import SOFA_BASE_URL, api_client
 from app.routes.api import (
     _build_planned_role_request,
     _build_process_cancellation_request,
+    _build_process_reschedule_preview,
+    _build_process_reschedule_request,
     api_cancel_process,
+    api_preview_process_reschedule,
+    api_reschedule_process,
     api_send_task_mail,
     api_start_primary_role_change_process,
     api_start_skill_removal_process,
@@ -120,6 +124,33 @@ class PlannedProcessApiTests(unittest.TestCase):
         )
         self.assertEqual(len(_build_process_cancellation_request({"reason": "x" * 500}, 42)["reason"]), 500)
 
+    def test_reschedule_payloads_are_allowlisted_and_validated(self):
+        self.assertEqual(
+            _build_process_reschedule_preview({"effective_date": self.future, "reason": "discard"}),
+            {"effective_date": self.future},
+        )
+        self.assertEqual(
+            _build_process_reschedule_request({
+                "effective_date": self.future,
+                "expected_effective_date": self.today,
+                "reason": "  HR-Korrektur  ",
+                "initiator_user_id": 999,
+                "extra": True,
+            }),
+            {
+                "effective_date": self.future,
+                "expected_effective_date": self.today,
+                "reason": "HR-Korrektur",
+            },
+        )
+        for payload in (
+            {"effective_date": self.past, "expected_effective_date": self.today, "reason": "x"},
+            {"effective_date": self.future, "expected_effective_date": "31.12.2026", "reason": "x"},
+            {"effective_date": self.future, "expected_effective_date": self.today, "reason": " "},
+        ):
+            with self.assertRaises(ValueError):
+                _build_process_reschedule_request(payload)
+
     @patch("app.routes.api.api_client.cancel_process", new_callable=AsyncMock)
     def test_cancel_discards_foreign_fields(self, cancel_mock):
         cancel_mock.return_value = {"status": "cancelled"}
@@ -134,6 +165,37 @@ class PlannedProcessApiTests(unittest.TestCase):
         cancel_mock.assert_awaited_once_with(
             123,
             {"reason": "Nicht mehr benötigt", "initiator_user_id": 42},
+        )
+
+    @patch("app.routes.api.api_client.preview_process_reschedule", new_callable=AsyncMock)
+    def test_reschedule_preview_uses_server_identity(self, preview_mock):
+        preview_mock.return_value = {"status": "preview"}
+        response = run_async(api_preview_process_reschedule(
+            2055,
+            {"effective_date": self.future, "initiator_user_id": 999, "extra": True},
+            current_user=self.current_user,
+        ))
+        self.assertEqual(response.status_code, 200)
+        preview_mock.assert_awaited_once_with(2055, {"effective_date": self.future}, 42)
+
+    @patch("app.routes.api.api_client.reschedule_process", new_callable=AsyncMock)
+    def test_reschedule_apply_uses_allowlist_and_server_identity(self, reschedule_mock):
+        reschedule_mock.return_value = {"status": "rescheduled"}
+        response = run_async(api_reschedule_process(
+            2055,
+            {
+                "effective_date": self.future,
+                "expected_effective_date": self.today,
+                "reason": "  Korrektur  ",
+                "initiator_user_id": 999,
+            },
+            current_user=self.current_user,
+        ))
+        self.assertEqual(response.status_code, 200)
+        reschedule_mock.assert_awaited_once_with(
+            2055,
+            {"effective_date": self.future, "expected_effective_date": self.today, "reason": "Korrektur"},
+            42,
         )
 
     @patch("app.routes.api._get_relevant_task_or_raise", new_callable=AsyncMock)
@@ -187,6 +249,18 @@ class PlannedProcessClientTests(unittest.TestCase):
             headers={"X-User-Id": "42"},
         )
 
+    @patch.object(api_client, "_patch", new_callable=AsyncMock)
+    def test_reschedule_client_sets_server_identity_header(self, patch_mock):
+        patch_mock.return_value = {"status": "rescheduled"}
+        payload = {"effective_date": "2026-09-30", "expected_effective_date": "2026-09-23", "reason": "x"}
+        run_async(api_client.reschedule_process(2055, payload, 42))
+        patch_mock.assert_awaited_once_with(
+            SOFA_BASE_URL,
+            "/processes/2055/reschedule",
+            payload=payload,
+            headers={"X-User-Id": "42"},
+        )
+
 
 class BrowserContractTests(unittest.TestCase):
     def test_node_contract_logic(self):
@@ -207,6 +281,17 @@ assert.deepStrictEqual(c.buildCancelPayload('  Grund  '), {ok: true, payload: {r
 assert.strictEqual(c.buildCancelPayload('   ').ok, false);
 assert.strictEqual(c.buildCancelPayload('x'.repeat(500)).ok, true);
 assert.strictEqual(c.buildCancelPayload('x'.repeat(501)).ok, false);
+
+assert.deepStrictEqual(c.buildReschedulePayload('2026-09-30', '2026-09-23', undefined, '2026-09-15'), {
+  ok: true,
+  payload: {effective_date: '2026-09-30'}
+});
+assert.deepStrictEqual(c.buildReschedulePayload('2026-09-30', '2026-09-23', '  HR-Korrektur  ', '2026-09-15'), {
+  ok: true,
+  payload: {effective_date: '2026-09-30', expected_effective_date: '2026-09-23', reason: 'HR-Korrektur'}
+});
+assert.strictEqual(c.buildReschedulePayload('2026-09-14', '2026-09-23', 'x', '2026-09-15').ok, false);
+assert.strictEqual(c.buildReschedulePayload('2026-09-30', '2026-09-23', ' ', '2026-09-15').ok, false);
 
 assert.strictEqual(c.isFutureRevocationTask({task_type: 'REVOCATION'}, '2026-08-31'), false);
 assert.strictEqual(c.isFutureRevocationTask({task_type: 'REVOCATION', target_date: '2026-08-30'}, '2026-08-31'), false);
@@ -245,6 +330,10 @@ for (const status of [400, 401, 403, 404, 409, 422]) {
 
         self.assertNotIn("window.confirm", user_script)
         self.assertIn('id="process-cancel-reason"', user_template)
+        self.assertIn('id="process-reschedule-date"', user_template)
+        self.assertIn('id="process-reschedule-reason"', user_template)
+        self.assertIn("Aufgaben aktiv", user_template)
+        self.assertIn("processRescheduleModalController", user_script)
         self.assertIn('maxlength="500"', user_template)
         self.assertIn('id="primary-role-change-date"', user_script)
         self.assertIn('id="skill-revoke-effective-date"', user_script)

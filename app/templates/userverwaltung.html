@@ -359,6 +359,40 @@
     </div>
 </div>
 
+<div class="ui-modal-overlay" id="process-reschedule-overlay" aria-hidden="true">
+    <div class="ui-modal ui-modal-compact user-action-modal" role="dialog" aria-modal="true" aria-labelledby="process-reschedule-title">
+        <div class="ui-modal-header">
+            <div class="ui-section-heading">
+                <span class="ui-section-kicker">Offboarding</span>
+                <h3 class="ui-section-title" id="process-reschedule-title">Stichtag verschieben</h3>
+            </div>
+            <button type="button" class="ui-icon-button" id="process-reschedule-close-btn" aria-label="Terminänderung schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body">
+            <p class="user-action-note" id="process-reschedule-description"></p>
+            <p class="user-action-note">Bei bereits erfolgtem Unlock bleiben Aufgaben aktiv; frühere Meldungen und Prozesswirkungen werden nicht zurückgenommen.</p>
+            <div class="process-reschedule-dates">
+                <div><span>Aktueller Stichtag</span><strong id="process-reschedule-current-date">–</strong></div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label" for="process-reschedule-date">Neuer Stichtag</label>
+                    <input id="process-reschedule-date" class="ui-input" type="date" required>
+                </div>
+            </div>
+            <div id="process-reschedule-preview" class="process-reschedule-preview" hidden></div>
+            <div class="ui-field-group" id="process-reschedule-reason-group" hidden>
+                <label class="ui-field-label" for="process-reschedule-reason">Grund</label>
+                <textarea id="process-reschedule-reason" class="ui-textarea" rows="4" maxlength="500" required></textarea>
+                <span class="ui-field-hint">Pflichtfeld, maximal 500 Zeichen. Der Grund wird nicht an Task-Bearbeiter veröffentlicht.</span>
+            </div>
+        </div>
+        <div class="ui-modal-footer">
+            <button type="button" class="btn btn-secondary" id="process-reschedule-back-btn">Zurück</button>
+            <button type="button" class="btn btn-primary" id="process-reschedule-preview-btn">Auswirkungen prüfen</button>
+            <button type="button" class="btn btn-red" id="process-reschedule-submit-btn" hidden>Verbindlich verschieben</button>
+        </div>
+    </div>
+</div>
+
 <div class="ui-modal-overlay" id="process-cancel-overlay" aria-hidden="true">
     <div class="ui-modal ui-modal-compact user-action-modal" id="process-cancel-modal" role="dialog" aria-modal="true" aria-labelledby="process-cancel-title">
         <div class="ui-modal-header">

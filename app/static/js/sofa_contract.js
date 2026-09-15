@@ -96,6 +96,33 @@
         return { ok: true, payload: { reason: normalized } };
     }
 
+    function buildReschedulePayload(effectiveDate, expectedEffectiveDate, reason, todayKey) {
+        const dateResult = validateEffectiveDate(effectiveDate, todayKey);
+        if (!dateResult.ok) return dateResult;
+        const expected = parseDateKey(expectedEffectiveDate);
+        if (!expected) {
+            return { ok: false, message: "Der erwartete bisherige Stichtag fehlt." };
+        }
+        if (reason === undefined) {
+            return { ok: true, payload: { effective_date: dateResult.value } };
+        }
+        if (typeof reason !== "string" || !reason.trim()) {
+            return { ok: false, message: "Bitte einen Grund für die Terminänderung angeben." };
+        }
+        const normalizedReason = reason.trim();
+        if (normalizedReason.length > 500) {
+            return { ok: false, message: "Der Änderungsgrund darf höchstens 500 Zeichen lang sein." };
+        }
+        return {
+            ok: true,
+            payload: {
+                effective_date: dateResult.value,
+                expected_effective_date: expected,
+                reason: normalizedReason
+            }
+        };
+    }
+
     function formatDateKey(value) {
         const dateKey = parseDateKey(value);
         if (!dateKey) {
@@ -418,6 +445,7 @@
         buildAccountIdentifierPayload,
         buildAccountRows,
         buildCancelPayload,
+        buildReschedulePayload,
         buildRehireForm,
         buildRehireStartPayload,
         classifyRehireError,

@@ -90,6 +90,38 @@ def _build_process_cancellation_request(payload: dict, initiator_user_id: int) -
     }
 
 
+def _validated_reschedule_date(value, field_name: str) -> str:
+    if not isinstance(value, str) or not ISO_DATE_PATTERN.fullmatch(value):
+        raise ValueError(f"{field_name} ist erforderlich und muss das Format YYYY-MM-DD haben.")
+    try:
+        parsed = date.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError(f"{field_name} ist ungültig.") from exc
+    if field_name == "effective_date" and parsed < date.today():
+        raise ValueError("Der neue Stichtag darf nicht in der Vergangenheit liegen.")
+    return value
+
+
+def _build_process_reschedule_preview(payload: dict) -> dict:
+    return {"effective_date": _validated_reschedule_date((payload or {}).get("effective_date"), "effective_date")}
+
+
+def _build_process_reschedule_request(payload: dict) -> dict:
+    reason = (payload or {}).get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("Ein Änderungsgrund ist erforderlich.")
+    normalized_reason = reason.strip()
+    if len(normalized_reason) > 500:
+        raise ValueError("Der Änderungsgrund darf höchstens 500 Zeichen lang sein.")
+    return {
+        "effective_date": _validated_reschedule_date(payload.get("effective_date"), "effective_date"),
+        "expected_effective_date": _validated_reschedule_date(
+            payload.get("expected_effective_date"), "expected_effective_date"
+        ),
+        "reason": normalized_reason,
+    }
+
+
 def _iks_report_type_allowed(authz, report_type) -> bool:
     """Local pre-check mirroring the backend permission for a control type."""
     required_permission = IKS_REPORT_PERMISSIONS.get(report_type)
@@ -1761,6 +1793,42 @@ async def api_cancel_process(process_id: int, payload: dict, current_user=Depend
     try:
         request_payload = _build_process_cancellation_request(payload, current_user.user_id)
         result = await api_client.cancel_process(process_id, request_payload)
+        return JSONResponse(content=result)
+    except ValueError as exc:
+        return JSONResponse(content={"detail": str(exc)}, status_code=400)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/processes/{process_id}/reschedule/preview")
+async def api_preview_process_reschedule(
+    process_id: int,
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-PCNCL")),
+):
+    try:
+        request_payload = _build_process_reschedule_preview(payload)
+        result = await api_client.preview_process_reschedule(process_id, request_payload, current_user.user_id)
+        return JSONResponse(content=result)
+    except ValueError as exc:
+        return JSONResponse(content={"detail": str(exc)}, status_code=400)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.patch("/processes/{process_id}/reschedule")
+async def api_reschedule_process(
+    process_id: int,
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-PCNCL")),
+):
+    try:
+        request_payload = _build_process_reschedule_request(payload)
+        result = await api_client.reschedule_process(process_id, request_payload, current_user.user_id)
         return JSONResponse(content=result)
     except ValueError as exc:
         return JSONResponse(content={"detail": str(exc)}, status_code=400)

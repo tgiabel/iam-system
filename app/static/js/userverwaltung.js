@@ -515,6 +515,47 @@ const api = {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             return false;
         }
+    },
+
+    async previewProcessReschedule(processId, effectiveDate) {
+        try {
+            const res = await fetch(`/api/processes/${processId}/reschedule/preview`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ effective_date: effectiveDate })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                showFlash(sofaContract.extractDetailMessage(data.detail) || sofaContract.extractDetailMessage(data.error) || "Terminänderung konnte nicht geprüft werden", "failure");
+                return null;
+            }
+            return data;
+        } catch (err) {
+            console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return null;
+        }
+    },
+
+    async rescheduleProcess(processId, payload) {
+        try {
+            const res = await fetch(`/api/processes/${processId}/reschedule`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                showFlash(sofaContract.extractDetailMessage(data.detail) || sofaContract.extractDetailMessage(data.error) || "Stichtag konnte nicht verschoben werden", "failure");
+                return null;
+            }
+            showFlash("Offboarding-Stichtag wurde verschoben", "success");
+            return data;
+        } catch (err) {
+            console.error(err);
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            return null;
+        }
     }
 };
 
@@ -1984,7 +2025,10 @@ const sidebarController = {
                         ${roleLabel ? `<span class="ui-chip ui-chip-neutral">${escapeHtml(roleLabel)}</span>` : ""}
                         ${status.isOverdue ? '<span class="ui-chip ui-chip-neutral">Überfällig</span>' : ""}
                     </div>
-                    ${canCancel && status.processId ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
+                    <div class="user-derived-status-actions">
+                        ${canCancel && status.processId && normalizeValue(status.processType) === "offboarding" ? `<button type="button" class="user-derived-status-reschedule-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" data-effective-date="${escapeHtml(sofaContract.parseDateKey(status.referenceDate) || "")}" title="Stichtag verschieben" aria-label="Stichtag verschieben">&#128197;</button>` : ""}
+                        ${canCancel && status.processId ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
+                    </div>
                 </div>
                 <div class="user-derived-status-meta">
                     ${status.referenceDate ? `<span><strong>Bezug:</strong> ${escapeHtml(formatDateTime(status.referenceDate))}</span>` : ""}
@@ -1999,6 +2043,15 @@ const sidebarController = {
         }).join("");
 
         if (canCancel) {
+            DOM.userDerivedStatusList.querySelectorAll(".user-derived-status-reschedule-btn").forEach(button => {
+                button.addEventListener("click", () => {
+                    processRescheduleModalController.open(
+                        button.dataset.processId,
+                        button.dataset.processLabel,
+                        button.dataset.effectiveDate
+                    );
+                });
+            });
             DOM.userDerivedStatusList.querySelectorAll(".user-derived-status-cancel-btn").forEach(button => {
                 button.addEventListener("click", () => {
                     const processId = button.dataset.processId;
@@ -4063,6 +4116,123 @@ const processCancellationModalController = {
     }
 };
 
+const processRescheduleModalController = {
+    processId: null,
+    expectedEffectiveDate: null,
+    preview: null,
+
+    init() {
+        bindModalOverlayDismiss(DOM.processRescheduleOverlay, () => this.close());
+        DOM.processRescheduleCloseBtn?.addEventListener("click", () => this.close());
+        DOM.processRescheduleBackBtn?.addEventListener("click", () => this.back());
+        DOM.processReschedulePreviewBtn?.addEventListener("click", () => this.loadPreview());
+        DOM.processRescheduleSubmitBtn?.addEventListener("click", () => this.submit());
+        DOM.processRescheduleDate?.addEventListener("input", () => this.clearPreview());
+    },
+
+    open(processId, processLabel, effectiveDate) {
+        if (!effectiveDate) {
+            showFlash("Der aktuelle Offboarding-Stichtag ist nicht verfügbar.", "failure");
+            return;
+        }
+        this.processId = processId;
+        this.expectedEffectiveDate = effectiveDate;
+        DOM.processRescheduleDescription.textContent = `Der Stichtag für „${processLabel || `#${processId}`}“ wird gemeinsam für Prozess, Event und Austrittsdatum geändert.`;
+        DOM.processRescheduleCurrentDate.textContent = sofaContract.formatDateKey(effectiveDate);
+        DOM.processRescheduleDate.min = sofaContract.localDateKey();
+        DOM.processRescheduleDate.value = effectiveDate;
+        DOM.processRescheduleReason.value = "";
+        this.clearPreview();
+        openOverlay("process-reschedule-overlay");
+        DOM.processRescheduleDate.focus();
+    },
+
+    clearPreview() {
+        this.preview = null;
+        DOM.processReschedulePreview.hidden = true;
+        DOM.processReschedulePreview.innerHTML = "";
+        DOM.processRescheduleReasonGroup.hidden = true;
+        DOM.processRescheduleSubmitBtn.hidden = true;
+        DOM.processReschedulePreviewBtn.hidden = false;
+    },
+
+    back() {
+        if (this.preview) {
+            this.clearPreview();
+            return;
+        }
+        this.close();
+    },
+
+    close() {
+        closeOverlay("process-reschedule-overlay");
+        this.processId = null;
+        this.expectedEffectiveDate = null;
+        this.clearPreview();
+    },
+
+    async loadPreview() {
+        const request = sofaContract.buildReschedulePayload(
+            DOM.processRescheduleDate?.value,
+            this.expectedEffectiveDate,
+            undefined
+        );
+        if (!request.ok) {
+            showFlash(request.message, "failure");
+            DOM.processRescheduleDate?.focus();
+            return;
+        }
+        DOM.processReschedulePreviewBtn.disabled = true;
+        try {
+            const preview = await api.previewProcessReschedule(this.processId, request.payload.effective_date);
+            if (!preview) return;
+            this.preview = preview;
+            const counts = preview.task_counts || {};
+            const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
+            DOM.processReschedulePreview.innerHTML = `
+                <dl class="process-reschedule-summary">
+                    <div><dt>Neuer Stichtag</dt><dd>${escapeHtml(sofaContract.formatDateKey(preview.new_effective_date))}</dd></div>
+                    <div><dt>Tatsächlicher Unlock</dt><dd>${escapeHtml(formatDateTime(preview.actual_unlock_at))}</dd></div>
+                    <div><dt>Offene Tasks</dt><dd>${escapeHtml(Number(counts.open || 0) + Number(counts.blocked || 0))}</dd></div>
+                    <div><dt>Übernommene Tasks</dt><dd>${escapeHtml(counts.assigned || 0)}</dd></div>
+                </dl>
+                ${warnings.length ? `<ul class="process-reschedule-warnings">${warnings.map(warning => `<li data-warning-code="${escapeHtml(warning.code)}">${escapeHtml(warning.message)}</li>`).join("")}</ul>` : ""}
+            `;
+            DOM.processReschedulePreview.hidden = false;
+            DOM.processRescheduleReasonGroup.hidden = false;
+            DOM.processReschedulePreviewBtn.hidden = true;
+            DOM.processRescheduleSubmitBtn.hidden = false;
+            DOM.processRescheduleReason.focus();
+        } finally {
+            DOM.processReschedulePreviewBtn.disabled = false;
+        }
+    },
+
+    async submit() {
+        if (!this.preview) return;
+        const request = sofaContract.buildReschedulePayload(
+            this.preview.new_effective_date,
+            this.preview.old_effective_date,
+            DOM.processRescheduleReason?.value
+        );
+        if (!request.ok) {
+            showFlash(request.message, "failure");
+            DOM.processRescheduleReason?.focus();
+            return;
+        }
+        DOM.processRescheduleSubmitBtn.disabled = true;
+        try {
+            const result = await api.rescheduleProcess(this.processId, request.payload);
+            if (!result) return;
+            this.close();
+            await tableController.loadUsers();
+            await sidebarController.refreshCurrentUser();
+        } finally {
+            DOM.processRescheduleSubmitBtn.disabled = false;
+        }
+    }
+};
+
 const offboardModalController = {
     init() {
         bindModalOverlayDismiss(DOM.offboardOverlay, () => this.close());
@@ -4217,6 +4387,18 @@ function cacheDOM() {
     DOM.processCancelBackBtn = document.getElementById("process-cancel-back-btn");
     DOM.processCancelSubmitBtn = document.getElementById("process-cancel-submit-btn");
 
+    DOM.processRescheduleOverlay = document.getElementById("process-reschedule-overlay");
+    DOM.processRescheduleDescription = document.getElementById("process-reschedule-description");
+    DOM.processRescheduleCurrentDate = document.getElementById("process-reschedule-current-date");
+    DOM.processRescheduleDate = document.getElementById("process-reschedule-date");
+    DOM.processReschedulePreview = document.getElementById("process-reschedule-preview");
+    DOM.processRescheduleReasonGroup = document.getElementById("process-reschedule-reason-group");
+    DOM.processRescheduleReason = document.getElementById("process-reschedule-reason");
+    DOM.processRescheduleCloseBtn = document.getElementById("process-reschedule-close-btn");
+    DOM.processRescheduleBackBtn = document.getElementById("process-reschedule-back-btn");
+    DOM.processReschedulePreviewBtn = document.getElementById("process-reschedule-preview-btn");
+    DOM.processRescheduleSubmitBtn = document.getElementById("process-reschedule-submit-btn");
+
     DOM.rehireActionBtn = document.getElementById("rehire-action-btn");
     DOM.rehireOverlay = document.getElementById("rehire-overlay");
     DOM.rehireModalTitle = document.getElementById("rehire-modal-title");
@@ -4253,6 +4435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     primaryRoleChangeModalController.init();
     skillRevokeModalController.init();
     processCancellationModalController.init();
+    processRescheduleModalController.init();
     offboardModalController.init();
     rehireModalController.init();
 });

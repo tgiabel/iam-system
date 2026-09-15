@@ -694,6 +694,69 @@ html[data-theme="servodata"] .users-icon-btn-img {
     transition: background 0.18s ease, transform 0.18s ease;
 }
 
+.user-derived-status-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.user-derived-status-reschedule-btn {
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--ui-accent-text) 35%, transparent);
+    background: transparent;
+    color: var(--ui-accent-text);
+    cursor: pointer;
+    transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.user-derived-status-reschedule-btn:hover {
+    background: var(--ui-accent-bg);
+    transform: translateY(-1px);
+}
+
+.process-reschedule-dates,
+.process-reschedule-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem;
+}
+
+.process-reschedule-dates > div,
+.process-reschedule-summary > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem;
+    border-radius: 12px;
+    background: var(--surface-muted);
+}
+
+.process-reschedule-summary {
+    margin: 0;
+}
+
+.process-reschedule-summary dt,
+.process-reschedule-dates span {
+    color: var(--ui-text-muted);
+    font-size: 0.8rem;
+}
+
+.process-reschedule-summary dd {
+    margin: 0;
+    font-weight: 700;
+}
+
+.process-reschedule-warnings {
+    margin: 0.8rem 0 0;
+    padding: 0.8rem 0.8rem 0.8rem 1.8rem;
+    border-radius: 12px;
+    background: var(--ui-warning-bg);
+    color: var(--ui-warning-text);
+}
+
 .user-derived-status-cancel-btn:hover {
     background: color-mix(in srgb, var(--danger-surface) 60%, transparent);
     transform: translateY(-1px);
