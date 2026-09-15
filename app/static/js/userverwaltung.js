@@ -3082,8 +3082,8 @@ const rehireModalController = {
                     <ul class="rehire-resource-list">
                         ${processes.map(process => `
                             <li>
-                                <strong>${escapeHtml(humanizeToken(process.process_type || "Prozess"))}${process.process_id ? ` #${escapeHtml(process.process_id)}` : ""}</strong>
-                                <span>${escapeHtml(humanizeToken(process.status || ""))}</span>
+                                <strong>${escapeHtml(humanizeToken(process.process_type || "Prozess"))}</strong>
+                                <span>${process.process_id ? `#${escapeHtml(process.process_id)}` : ""}</span>
                             </li>
                         `).join("")}
                     </ul>
