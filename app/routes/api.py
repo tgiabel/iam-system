@@ -38,7 +38,7 @@ from app.routes.shared import (
 router = APIRouter(prefix="/api")
 
 
-IKS_EXPORT_FORMATS = frozenset({"html", "csv", "json", "xlsx"})
+IKS_EXPORT_FORMATS = frozenset({"html", "csv", "json"})
 IKS_REPORT_PERMISSIONS = {
     "access_review": "SOFA-IKS-REVIEW",
     "process": "SOFA-IKS-PRCS",

@@ -26,10 +26,6 @@
         <div>
             <p class="ui-section-kicker">Kontrolle &amp; Audit</p>
             <h2>IKS Kontrollbericht erstellen</h2>
-            <p class="iks-intro">
-                Prozesse, Rollenzuweisungen und dokumentierte Systemzugriffe strukturiert prüfen
-                und als unveränderlichen Nachweis exportieren.
-            </p>
         </div>
         <span class="ui-chip ui-chip-neutral">Read-only</span>
     </header>
@@ -40,7 +36,6 @@
                 <span class="iks-step-number" aria-hidden="true">1</span>
                 <div>
                     <h3 id="iks-type-heading">Kontrollart wählen</h3>
-                    <p>Der Bericht passt Prüffelder und Detailansicht an die gewählte Kontrolle an.</p>
                 </div>
             </div>
 
@@ -52,7 +47,6 @@
                     <span class="iks-type-card">
                         <span class="iks-type-icon" aria-hidden="true">P</span>
                         <strong>Prozesse</strong>
-                        <small>Zeitgerechte und vollständige Durchführung prüfen</small>
                         {% if not can_process_reports %}<span class="iks-type-denied">Keine Berechtigung</span>{% endif %}
                     </span>
                 </label>
@@ -64,7 +58,6 @@
                     <span class="iks-type-card">
                         <span class="iks-type-icon" aria-hidden="true">R</span>
                         <strong>Rollen</strong>
-                        <small>Zuweisungen, Paketinhalt und Änderungen prüfen</small>
                         {% if not can_role_reports %}<span class="iks-type-denied">Keine Berechtigung</span>{% endif %}
                     </span>
                 </label>
@@ -76,7 +69,6 @@
                     <span class="iks-type-card">
                         <span class="iks-type-icon" aria-hidden="true">S</span>
                         <strong>Systeme</strong>
-                        <small>Soll und in SOFA dokumentierten Ist-Zugriff vergleichen</small>
                         {% if not can_system_reports %}<span class="iks-type-denied">Keine Berechtigung</span>{% endif %}
                     </span>
                 </label>
@@ -88,7 +80,6 @@
                     <span class="iks-type-card">
                         <span class="iks-type-icon" aria-hidden="true">B</span>
                         <strong>Berechtigungsreview (PCI)</strong>
-                        <small>Stichtagsbezogenen Bestandsnachweis für den organisatorischen Review erzeugen</small>
                     </span>
                 </label>
                 {% endif %}
@@ -100,7 +91,6 @@
                 <span class="iks-step-number" aria-hidden="true">2</span>
                 <div>
                     <h3 id="iks-target-heading">Kontrollobjekt festlegen</h3>
-                    <p id="iks-target-help">Eine Prozessart oder alle Prozessarten auswählen.</p>
                 </div>
             </div>
 
@@ -111,7 +101,7 @@
                 </label>
                 <label class="iks-field" for="iks-target-select">
                     <span id="iks-target-label">Prozessart</span>
-                    <select id="iks-target-select" name="target_id" aria-describedby="iks-target-help"></select>
+                    <select id="iks-target-select" name="target_id"></select>
                 </label>
             </div>
             <p id="iks-catalog-status" class="iks-inline-status" role="status" aria-live="polite"></p>
@@ -122,7 +112,6 @@
                 <span id="iks-period-step-number" class="iks-step-number" aria-hidden="true">3</span>
                 <div>
                     <h3 id="iks-period-heading">Kontrollzeitraum bestimmen</h3>
-                    <p id="iks-period-help">Start- und Enddatum werden einschließlich ausgewertet.</p>
                 </div>
             </div>
 
@@ -148,15 +137,7 @@
             </div>
         </section>
 
-        <p id="iks-access-review-note" class="iks-scope-note" hidden>
-            <strong>Berechtigungsreview:</strong> SOFA erzeugt den Bestandsnachweis als unveränderlichen
-            Snapshot. Der interaktive HTML-Bericht ist die primäre Darstellung. XLSX bleibt als Fallback
-            und gegebenenfalls für Kommentare, Bewertung und Managementfreigabe verfügbar. Solche Eingaben
-            werden weiterhin nicht in SOFA gespeichert.
-        </p>
-
         <div class="iks-builder-footer">
-            <p>Bewertungen und Kennzahlen werden unverändert vom IKS-Backend übernommen.</p>
             <button id="iks-submit" type="submit" class="btn btn-primary">Bericht generieren</button>
         </div>
     </form>
@@ -169,9 +150,6 @@
                 <p id="iks-report-subtitle" class="iks-report-subtitle"></p>
             </div>
             <div class="iks-export-actions" aria-label="Bericht exportieren">
-                <button type="button" class="btn btn-primary" data-iks-export="xlsx"
-                        data-export-label="XLSX herunterladen" data-hide-when-unavailable
-                        hidden disabled>XLSX herunterladen</button>
                 <button type="button" class="btn btn-secondary" data-iks-export="html" data-export-label="HTML" disabled>HTML</button>
                 <button type="button" class="btn btn-secondary" data-iks-export="csv" data-export-label="CSV" disabled>CSV</button>
                 <button type="button" class="btn btn-secondary" data-iks-export="json" data-export-label="JSON" disabled>JSON</button>
@@ -194,7 +172,7 @@
             <div id="iks-findings"></div>
         </section>
 
-        <section class="iks-report-block" aria-labelledby="iks-details-title">
+        <section id="iks-details-block" class="iks-report-block" aria-labelledby="iks-details-title">
             <div class="iks-block-heading">
                 <div>
                     <p class="ui-section-kicker">Prüfgrundlage</p>

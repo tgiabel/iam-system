@@ -5,11 +5,12 @@
 Das SD-API-Backend kennt zusaetzlich zu `process`, `role` und `system` den Typ
 `access_review`. Der Bericht ist ein stichtagsbezogener Bestandsnachweis ueber die
 gesamte Organisation. Die primaere Darstellung ist eine eigenstaendige, offline nutzbare
-interaktive HTML-Datei. XLSX bleibt als Fallback sowie gegebenenfalls fuer Kommentare,
-Bewertung und Managementfreigabe verfuegbar.
+interaktive HTML-Datei. Bewertung, Abschluss und Archivierung finden in dieser Datei statt;
+CSV und JSON bleiben Rohdatenexporte. Einen XLSX-Export gibt es nicht mehr.
 
-Der Snapshot-Digest deckt die spaeter in Excel eingetragenen Bewertungen nicht ab. Der
-technische Accountabgleich des PCI-relevanten Kundensystems bleibt ein eigener Nachweis.
+Der Snapshot-Digest deckt die spaeter erfassten Bewertungen nicht ab; dafuer traegt die beim
+Abschluss erzeugte Archivfassung ein eigenes Siegel. Der technische Accountabgleich des
+PCI-relevanten Kundensystems bleibt ein eigener Nachweis.
 
 ## Berechtigung
 
@@ -71,10 +72,9 @@ bestehende Validierung (`from` darf nicht nach `to` liegen).
 
 Angezeigt werden Bericht-ID, Datenstand, Assessment und Kennzahlen. Die umfangreichen
 Detaillisten des Snapshots werden bewusst nicht in der SOFA-Seite gerendert; stattdessen
-oeffnet die primaere Aktion den interaktiven HTML-Bericht. XLSX bleibt als Fallback und
-gegebenenfalls fuer Kommentare, Bewertung und Managementfreigabe verfuegbar. Solche
-Eingaben werden nicht in SOFA gespeichert. Es gibt keine Reviewkampagnen, Erinnerungen
-oder Terminplanung.
+oeffnet die primaere Aktion den interaktiven HTML-Bericht. Bewertungen und Kommentare werden
+dort erfasst und beim Abschluss in eine versiegelte Archivfassung geschrieben; SOFA speichert
+sie nicht. Es gibt keine Reviewkampagnen, Erinnerungen oder Terminplanung.
 
 Fuer `access_review` sind nur Kopfdaten, Assessment und Kennzahlen vertraglich
 zugesichert. `findings`, `data_quality`, `details` und `integrity` prueft das Frontend
@@ -85,7 +85,7 @@ die Anzeige noch den Export. Fuer die drei Alttypen bleibt die Validierung stren
 
 `APIClient` arbeitet mit 10 Sekunden. Fuer `create_iks_report` und
 `download_iks_report_export` gilt `IKS_REPORT_TIMEOUT_SECONDS` (120 Sekunden), weil ein
-organisationsweiter Snapshot samt XLSX-Erzeugung das Standardtimeout regelmaessig
+organisationsweiter Snapshot samt Berichtserzeugung das Standardtimeout regelmaessig
 reisst. Alle uebrigen Backendaufrufe bleiben unveraendert.
 
 ## Fehlerbilder

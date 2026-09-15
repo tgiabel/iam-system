@@ -20,8 +20,8 @@ STOERUNG_BASE_URL = BASE_URL
 
 # Ausnahme vom Standard-Timeout: Ein IKS-Bericht ist ein stichtagsbezogener
 # Bestandsnachweis ueber die gesamte Organisation (Person x Rolle, Person x System)
-# und wird serverseitig zusaetzlich als XLSX gerendert. Das dauert regelmaessig
-# laenger als die 10 Sekunden, die fuer die uebrigen Backendaufrufe genuegen.
+# und wird serverseitig zu einem vollstaendigen Bericht gerendert. Das dauert
+# regelmaessig laenger als die 10 Sekunden, die fuer die uebrigen Backendaufrufe genuegen.
 IKS_REPORT_TIMEOUT_SECONDS = 120
 
 

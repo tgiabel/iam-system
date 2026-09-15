@@ -3,7 +3,7 @@
 
     const REPORT_TYPES = Object.freeze(["process", "role", "system", "access_review"]);
     const CATALOG_REPORT_TYPES = Object.freeze(["process", "role", "system"]);
-    const EXPORT_FORMATS = Object.freeze(["html", "csv", "json", "xlsx"]);
+    const EXPORT_FORMATS = Object.freeze(["html", "csv", "json"]);
     const ACCESS_REVIEW_TYPE = "access_review";
     const ALL_PROCESSES_VALUE = "__all_process_types__";
     const REPORT_TIMEZONE = "Europe/Berlin";
@@ -37,11 +37,16 @@
         return value === null || value === undefined || value === "" ? "-" : String(value);
     }
 
+    function displayLabel(value) {
+        const label = String(value ?? "");
+        return /^auditrelevante abweichung(?:en)?$/i.test(label.trim()) ? "Abweichungen" : label;
+    }
+
     function labelOf(value, fallback = "-") {
         if (isObject(value)) {
-            return value.name || value.label || value.display_name || fallback;
+            return displayLabel(value.name || value.label || value.display_name || fallback);
         }
-        return value === null || value === undefined || value === "" ? fallback : String(value);
+        return displayLabel(value === null || value === undefined || value === "" ? fallback : value);
     }
 
     function statusCodeOf(value, fallback = "neutral") {
@@ -163,11 +168,8 @@
         DOM.targetSearch = document.getElementById("iks-target-search");
         DOM.targetSelect = document.getElementById("iks-target-select");
         DOM.targetLabel = document.getElementById("iks-target-label");
-        DOM.targetHelp = document.getElementById("iks-target-help");
         DOM.catalogStatus = document.getElementById("iks-catalog-status");
         DOM.periodStepNumber = document.getElementById("iks-period-step-number");
-        DOM.periodHelp = document.getElementById("iks-period-help");
-        DOM.accessReviewNote = document.getElementById("iks-access-review-note");
         DOM.preset = document.getElementById("iks-period-preset");
         DOM.from = document.getElementById("iks-period-from");
         DOM.to = document.getElementById("iks-period-to");
@@ -182,6 +184,7 @@
         DOM.findings = document.getElementById("iks-findings");
         DOM.findingsBlock = document.getElementById("iks-findings-block");
         DOM.findingsCount = document.getElementById("iks-findings-count");
+        DOM.detailsBlock = document.getElementById("iks-details-block");
         DOM.details = document.getElementById("iks-report-details");
         DOM.technical = document.getElementById("iks-technical-content");
         DOM.exportButtons = document.querySelectorAll("[data-iks-export]");
@@ -203,20 +206,17 @@
         if (type === "role") {
             return {
                 label: "Rolle",
-                help: "Eine Rolle für Zuweisungs- und Paketkontrolle auswählen.",
                 placeholder: "Rolle suchen …"
             };
         }
         if (type === "system") {
             return {
                 label: "System",
-                help: "Ein System für den Soll-/Ist-Vergleich auswählen.",
                 placeholder: "System suchen …"
             };
         }
         return {
             label: "Prozessart",
-            help: "Eine Prozessart oder alle Prozessarten auswählen.",
             placeholder: "Prozessart suchen …"
         };
     }
@@ -237,7 +237,6 @@
         if (type === ACCESS_REVIEW_TYPE) return;
         if (!type) {
             DOM.targetLabel.textContent = "Kontrollobjekt";
-            DOM.targetHelp.textContent = "Für keine Kontrollart liegt eine IKS-Berechtigung vor.";
             DOM.targetSearch.value = "";
             DOM.targetSearch.placeholder = "Keine Kontrollart verfügbar";
             DOM.targetSearch.disabled = true;
@@ -258,7 +257,6 @@
         });
 
         DOM.targetLabel.textContent = configuration.label;
-        DOM.targetHelp.textContent = configuration.help;
         DOM.targetSearch.placeholder = configuration.placeholder;
         DOM.targetSelect.innerHTML = "";
 
@@ -351,10 +349,6 @@
         const targetless = getReportType() === ACCESS_REVIEW_TYPE;
         DOM.targetStep.hidden = targetless;
         DOM.periodStepNumber.textContent = targetless ? "2" : "3";
-        DOM.periodHelp.textContent = targetless
-            ? "Beginn und Ende des organisatorischen Reviewzeitraums sind Pflichtfelder."
-            : "Start- und Enddatum werden einschließlich ausgewertet.";
-        DOM.accessReviewNote.hidden = !targetless;
         renderTargetOptions({ reset });
     }
 
@@ -496,9 +490,9 @@
         const status = statusCodeOf(assessment.status);
         DOM.assessment.innerHTML = `
             <div class="iks-assessment is-${escapeHtml(status)}">
-                <span class="iks-assessment-badge">${escapeHtml(assessment.label)}</span>
+                <span class="iks-assessment-badge">${escapeHtml(displayLabel(assessment.label))}</span>
                 <div>
-                    <strong>${escapeHtml(assessment.title || assessment.label)}</strong>
+                    <strong>${escapeHtml(displayLabel(assessment.title || assessment.label))}</strong>
                     <p>${escapeHtml(assessment.summary || "Keine zusätzliche Zusammenfassung geliefert.")}</p>
                 </div>
             </div>`;
@@ -508,7 +502,7 @@
         DOM.kpis.innerHTML = report.kpis.slice(0, 4).map(kpi => {
             const tone = statusCodeOf(kpi.tone);
             const value = `${valueOrDash(kpi.value)}${kpi.unit ? ` ${kpi.unit}` : ""}`;
-            return `<div class="iks-kpi is-${escapeHtml(tone)}"><span>${escapeHtml(kpi.label || kpi.key)}</span><strong>${escapeHtml(value)}</strong></div>`;
+            return `<div class="iks-kpi is-${escapeHtml(tone)}"><span>${escapeHtml(displayLabel(kpi.label || kpi.key))}</span><strong>${escapeHtml(value)}</strong></div>`;
         }).join("");
         DOM.kpis.hidden = report.kpis.length === 0;
     }
@@ -554,7 +548,7 @@
             return `
                 <article class="iks-finding is-${escapeHtml(severity)}">
                     <div class="iks-finding-header">
-                        <h4>${escapeHtml(finding.title || finding.code || "Auffälligkeit")}</h4>
+                        <h4>${escapeHtml(displayLabel(finding.title || finding.code || "Auffälligkeit"))}</h4>
                         ${statusBadge(finding.severity, finding.severity_label || labelOf(finding.severity))}
                     </div>
                     ${finding.description ? `<p>${escapeHtml(finding.description)}</p>` : ""}
@@ -709,21 +703,12 @@
                 ${roleOverviewItem("Status", statusLabelOf(system))}
                 ${roleOverviewItem("Verantwortung", labelOf(system.owner))}
             </div>
-            <div class="iks-system-note"><strong>Abgrenzung:</strong> Der Ist-Zugriff bildet den in SOFA dokumentierten Stand ab. Es findet kein Live-Abgleich mit AD, Genesys oder anderen Zielsystemen statt.</div>
             <section class="iks-detail-section"><h4>Soll-/Ist-Zugriffsmatrix</h4>${renderSystemAccessRows(details.access_rows)}</section>
             <section class="iks-detail-section"><h4>Änderungen im Zeitraum</h4>${renderChanges(details.changes, "Person oder Ressource")}</section>`;
     }
 
-    function renderAccessReviewDetails() {
-        return renderEmpty(
-            "Der interaktive HTML-Bericht ist die primäre Darstellung des vollständigen Bestandsnachweises. "
-            + "XLSX bleibt als Fallback und gegebenenfalls für Kommentare, Bewertung und Managementfreigabe "
-            + "verfügbar. Solche Eingaben werden weiterhin nicht in SOFA gespeichert."
-        );
-    }
-
     function renderDetails(report) {
-        if (report.report_type === ACCESS_REVIEW_TYPE) return renderAccessReviewDetails();
+        if (report.report_type === ACCESS_REVIEW_TYPE) return "";
         if (report.report_type === "role") return renderRoleDetails(report.details);
         if (report.report_type === "system") return renderSystemDetails(report.details);
         return renderProcessDetails(report.details);
@@ -754,19 +739,17 @@
         return report?.report_type === ACCESS_REVIEW_TYPE && format === "html";
     }
 
-    function getExportOrder(reportType) {
-        return reportType === ACCESS_REVIEW_TYPE
-            ? ["html", "xlsx", "csv", "json"]
-            : ["xlsx", "html", "csv", "json"];
+    function getExportOrder() {
+        return ["html", "csv", "json"];
     }
 
     function getExportPresentation(reportType, format, defaultLabel) {
         const interactiveHtml = reportType === ACCESS_REVIEW_TYPE && format === "html";
         return {
-            label: interactiveHtml ? "Interaktiven Bericht öffnen" : defaultLabel,
-            primary: reportType === ACCESS_REVIEW_TYPE ? interactiveHtml : format === "xlsx",
+            label: interactiveHtml ? "Bericht öffnen" : defaultLabel,
+            primary: interactiveHtml,
             title: interactiveHtml
-                ? "Interaktiven HTML-Bericht in neuem Tab öffnen"
+                ? "Bericht in neuem Tab öffnen"
                 : `${format.toUpperCase()}-Snapshot herunterladen`
         };
     }
@@ -775,7 +758,7 @@
         const buttons = Array.from(DOM.exportButtons);
         const container = buttons[0]?.parentElement;
         if (container) {
-            getExportOrder(report.report_type).forEach(format => {
+            getExportOrder().forEach(format => {
                 const button = buttons.find(candidate => candidate.dataset.iksExport === format);
                 if (button) container.appendChild(button);
             });
@@ -884,13 +867,14 @@
 
         state.report = report;
         DOM.contractError.hidden = true;
-        DOM.reportTitle.textContent = report.title;
+        DOM.reportTitle.textContent = displayLabel(report.title);
         DOM.reportSubtitle.textContent = report.assessment.summary || "";
         renderMeta(report);
         renderAssessment(report);
         renderKpis(report);
         renderDataQuality(report);
         renderFindings(report);
+        DOM.detailsBlock.hidden = report.report_type === ACCESS_REVIEW_TYPE;
         DOM.details.innerHTML = renderDetails(report);
         renderTechnicalDetails(report);
         configureExports(report);
@@ -961,6 +945,7 @@
     if (typeof module !== "undefined" && module.exports) {
         module.exports = {
             buildReportRequest,
+            displayLabel,
             getExportOrder,
             getExportPresentation,
             getSafeExportUrl,

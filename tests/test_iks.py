@@ -247,24 +247,26 @@ class IksAccessReviewContractTests(unittest.TestCase):
         self.assertIn("if (type === ACCESS_REVIEW_TYPE) return;", self.script)
 
     def test_access_review_html_is_primary_and_uses_the_local_bff(self):
-        self.assertIn('class="btn btn-primary" data-iks-export="xlsx"', self.template)
-        self.assertIn('data-export-label="XLSX herunterladen"', self.template)
-        self.assertIn('label: interactiveHtml ? "Interaktiven Bericht öffnen"', self.script)
-        self.assertIn('["html", "xlsx", "csv", "json"]', self.script)
+        self.assertNotIn('data-iks-export="xlsx"', self.template)
+        self.assertIn('label: interactiveHtml ? "Bericht öffnen"', self.script)
+        self.assertIn('return ["html", "csv", "json"];', self.script)
+        self.assertNotIn("xlsx", self.script)
         self.assertIn('link.target = "_blank"', self.script)
         self.assertIn('link.rel = "noopener"', self.script)
         self.assertIn('url.pathname.startsWith("/api/iks/")', self.script)
         self.assertNotIn("/sofa/iks/", self.script)
 
     def test_snapshot_detail_lists_are_not_rendered_in_the_browser(self):
-        self.assertIn(
-            "if (report.report_type === ACCESS_REVIEW_TYPE) return renderAccessReviewDetails();",
-            self.script,
-        )
-        self.assertIn("Der interaktive HTML-Bericht ist die primäre Darstellung", self.script)
-        self.assertNotIn("wird ausschließlich in der XLSX-Datei ausgeliefert", self.script)
-        self.assertIn("Der interaktive HTML-Bericht ist die primäre Darstellung", self.template)
-        self.assertIn("werden weiterhin nicht in SOFA gespeichert", self.template)
+        self.assertIn('if (report.report_type === ACCESS_REVIEW_TYPE) return "";', self.script)
+        self.assertIn("DOM.detailsBlock.hidden = report.report_type === ACCESS_REVIEW_TYPE;", self.script)
+        self.assertNotIn("Der interaktive HTML-Bericht ist die primäre Darstellung", self.script)
+        self.assertNotIn("Der interaktive HTML-Bericht ist die primäre Darstellung", self.template)
+        self.assertNotIn("werden weiterhin nicht in SOFA gespeichert", self.template)
+
+    def test_explanatory_copy_is_removed(self):
+        self.assertNotIn("Der Bericht passt Prüffelder", self.template)
+        self.assertNotIn("Bewertungen und Kennzahlen", self.template)
+        self.assertNotIn("Berechtigungsreview:</strong>", self.template)
 
     def test_repeated_submit_is_blocked_while_the_report_is_generated(self):
         self.assertIn("DOM.submit.disabled = loading || !getReportType();", self.script)
@@ -467,7 +469,7 @@ class IksProxyRouteTests(unittest.TestCase):
         backend_report = {
             "report_id": "IKS-2026-000184",
             "report_type": "access_review",
-            "exports": {"xlsx": "/sofa/iks/reports/IKS-2026-000184/exports/xlsx"},
+            "exports": {"html": "/sofa/iks/reports/IKS-2026-000184/exports/html"},
         }
         browser_payload = {
             "report_type": "access_review",
@@ -487,8 +489,8 @@ class IksProxyRouteTests(unittest.TestCase):
             "timezone": "Europe/Berlin",
         })
         self.assertEqual(
-            response_json(response)["exports"]["xlsx"],
-            "/api/iks/reports/IKS-2026-000184/exports/xlsx",
+            response_json(response)["exports"]["html"],
+            "/api/iks/reports/IKS-2026-000184/exports/html",
         )
 
     def test_access_review_without_review_permission_is_blocked_locally(self):
@@ -510,39 +512,6 @@ class IksProxyRouteTests(unittest.TestCase):
         self.assertEqual(response_json(response)["detail"]["code"], "iks_report_access_denied")
         report_mock.assert_not_awaited()
 
-    def test_xlsx_export_preserves_office_mime_type_and_filename(self):
-        filename = "SOFA_Access_Review_2026-08-31_IKS-2026-000184.xlsx"
-        request = httpx.Request("GET", "http://dev-api:8080/sofa/iks/reports/IKS-2026-000184/exports/xlsx")
-        upstream = httpx.Response(
-            200,
-            request=request,
-            content=b"PK\x03\x04 binary-workbook",
-            headers={
-                "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                "Content-Disposition": f'attachment; filename="{filename}"',
-            },
-        )
-
-        with patch.object(api_client, "download_iks_report_export", new_callable=AsyncMock, return_value=upstream) as export_mock:
-            response = run_async(
-                api_download_iks_report_export("IKS-2026-000184", "xlsx", authz=self.authz)
-            )
-
-        async def consume_body():
-            if not hasattr(response, "body_iterator"):
-                return response.content.read()
-            chunks = []
-            async for chunk in response.body_iterator:
-                chunks.append(chunk)
-            return b"".join(chunks)
-
-        self.assertEqual(run_async(consume_body()), upstream.content)
-        self.assertEqual(
-            response.headers["content-type"],
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-        self.assertEqual(response.headers["content-disposition"], f'attachment; filename="{filename}"')
-        export_mock.assert_awaited_once_with(18, "IKS-2026-000184", "xlsx")
 
     def test_access_review_html_preserves_inline_content_type_and_filename(self):
         filename = "SOFA_Access_Review_2026-08-31_IKS-2026-000184.html"
@@ -660,6 +629,10 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
                 /Kontrollart/
             );
 
+            assert.strictEqual(ui.displayLabel('Auditrelevante Abweichung'), 'Abweichungen');
+            assert.strictEqual(ui.displayLabel('Auditrelevante Abweichungen'), 'Abweichungen');
+            assert.strictEqual(ui.displayLabel('Ohne Befund'), 'Ohne Befund');
+
             // The option follows available_report_types, never a locally rebuilt permission.
             const withReview = ui.normalizeCatalog({
                 process_types: [], roles: [], systems: [],
@@ -686,7 +659,7 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
                 assessment: { status: 'ok', label: 'Ohne Befund' }, kpis: [],
                 exports: {
                     html: '/api/iks/reports/IKS-2026-000184/exports/html',
-                    xlsx: '/api/iks/reports/IKS-2026-000184/exports/xlsx'
+                    csv: '/api/iks/reports/IKS-2026-000184/exports/csv'
                 },
                 access_review_summary: { additional_schema_1_1_field: true }
             };
@@ -722,31 +695,22 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
             const ui = require(process.argv[1]);
 
             (async () => {
-                assert.deepStrictEqual(ui.getExportOrder('access_review'), ['html', 'xlsx', 'csv', 'json']);
-                assert.deepStrictEqual(ui.getExportOrder('role'), ['xlsx', 'html', 'csv', 'json']);
+                assert.deepStrictEqual(ui.getExportOrder('access_review'), ['html', 'csv', 'json']);
+                assert.deepStrictEqual(ui.getExportOrder('role'), ['html', 'csv', 'json']);
                 assert.deepStrictEqual(
                     ui.getExportPresentation('access_review', 'html', 'HTML'),
                     {
-                        label: 'Interaktiven Bericht öffnen',
+                        label: 'Bericht öffnen',
                         primary: true,
-                        title: 'Interaktiven HTML-Bericht in neuem Tab öffnen'
-                    }
-                );
-                assert.deepStrictEqual(
-                    ui.getExportPresentation('access_review', 'xlsx', 'XLSX herunterladen'),
-                    {
-                        label: 'XLSX herunterladen',
-                        primary: false,
-                        title: 'XLSX-Snapshot herunterladen'
+                        title: 'Bericht in neuem Tab öffnen'
                     }
                 );
                 for (const reportType of ['process', 'role', 'system']) {
-                    assert.deepStrictEqual(ui.getExportOrder(reportType), ['xlsx', 'html', 'csv', 'json']);
+                    assert.deepStrictEqual(ui.getExportOrder(reportType), ['html', 'csv', 'json']);
                     assert.deepStrictEqual(
                         ui.getExportPresentation(reportType, 'html', 'HTML'),
                         { label: 'HTML', primary: false, title: 'HTML-Snapshot herunterladen' }
                     );
-                    assert.strictEqual(ui.getExportPresentation(reportType, 'xlsx', 'XLSX herunterladen').primary, true);
                 }
 
                 const createdLinks = [];
@@ -810,16 +774,8 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
                 assert.strictEqual(createdLinks[0].clicked, true);
                 assert.strictEqual(createdLinks[0].removed, true);
 
-                // XLSX remains a Blob download for the access review.
-                await ui.handleExportClick(
-                    button('xlsx', '/api/iks/reports/IKS-2026-000184/exports/xlsx'),
-                    accessReview
-                );
-                assert.strictEqual(fetchCalls[0].url, '/api/iks/reports/IKS-2026-000184/exports/xlsx');
-                assert.strictEqual(createdLinks[1].attributes.download, 'download.xlsx');
-
                 // Every format of the existing report types retains the Blob download path.
-                for (const format of ['html', 'xlsx', 'csv', 'json']) {
+                for (const format of ['html', 'csv', 'json']) {
                     const previousFetchCount = fetchCalls.length;
                     const previousLinkCount = createdLinks.length;
                     await ui.handleExportClick(
@@ -844,7 +800,7 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
                     ui.getSafeExportUrl('https://sofa.example/api/iks/reports/1/exports/html?token=local'),
                     '/api/iks/reports/1/exports/html?token=local'
                 );
-                assert.ok(revokedUrls.length >= 5);
+                assert.ok(revokedUrls.length >= 3);
             })().catch(error => {
                 console.error(error);
                 process.exit(1);
