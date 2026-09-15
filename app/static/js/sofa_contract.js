@@ -264,7 +264,139 @@
             }));
     }
 
+    // Account-Kennungen im Sidepanel. Quelle sind resources[] (Zuweisungen mit Status) und
+    // accounts[] der Detailantwort; entzogene Zuweisungen gehoeren nicht ins Panel.
+    const ACCOUNT_RESOURCE_TYPE_ID = 1;
+    const ACCOUNT_STATUS_PRIORITY = { active: 3, revocation_requested: 2, requested: 1 };
+    const ACCOUNT_CORRECTABLE_STATUSES = ["active", "revocation_requested"];
+
+    function normalizeAssignmentStatus(value) {
+        return String(value || "active").trim().toLowerCase().replace(/\s+/g, "_");
+    }
+
+    function buildAccountRows(detail) {
+        const resources = Array.isArray(detail?.resources) ? detail.resources : [];
+        const accounts = Array.isArray(detail?.accounts) ? detail.accounts : [];
+
+        const assignmentByResourceId = new Map();
+        resources
+            .filter(resource => Number(resource?.type_id) === ACCOUNT_RESOURCE_TYPE_ID)
+            .forEach(resource => {
+                const status = normalizeAssignmentStatus(resource.assignment_status);
+                if (!(status in ACCOUNT_STATUS_PRIORITY)) {
+                    return;
+                }
+                const existing = assignmentByResourceId.get(resource.resource_id);
+                if (!existing || ACCOUNT_STATUS_PRIORITY[status] > ACCOUNT_STATUS_PRIORITY[existing.status]) {
+                    assignmentByResourceId.set(resource.resource_id, { resource, status });
+                }
+            });
+
+        const describe = resource => ({
+            resourceName: String(resource?.display_name || resource?.technical_identifier || ""),
+            systemName: String(resource?.system_name || "")
+        });
+
+        const linkedResourceIds = new Set();
+        const accountRows = [];
+        const legacyRows = [];
+        accounts.forEach(account => {
+            if (account?.resource_id === null || account?.resource_id === undefined) {
+                legacyRows.push({
+                    kind: "legacy",
+                    accountIdentifier: String(account?.account_identifier || ""),
+                    resourceId: null,
+                    systemId: account?.system_id ?? null,
+                    resourceName: "",
+                    systemName: String(account?.system_name || ""),
+                    status: null,
+                    canEdit: false
+                });
+                return;
+            }
+            linkedResourceIds.add(account.resource_id);
+            const assignment = assignmentByResourceId.get(account.resource_id);
+            accountRows.push({
+                kind: "account",
+                accountIdentifier: String(account.account_identifier || ""),
+                resourceId: account.resource_id,
+                systemId: account.system_id ?? assignment?.resource?.system_id ?? null,
+                ...describe(assignment?.resource),
+                status: assignment ? assignment.status : null,
+                canEdit: Boolean(assignment && ACCOUNT_CORRECTABLE_STATUSES.includes(assignment.status))
+            });
+        });
+
+        const missingRows = [];
+        assignmentByResourceId.forEach(({ resource, status }, resourceId) => {
+            if (linkedResourceIds.has(resourceId)) {
+                return;
+            }
+            missingRows.push({
+                kind: "missing",
+                accountIdentifier: "",
+                resourceId,
+                systemId: resource.system_id ?? null,
+                ...describe(resource),
+                status,
+                canEdit: status === "active",
+                // Der Service verknuepft ueber das System: gleiche Kennung = LINKED.
+                legacyAccountIdentifiers: legacyRows
+                    .filter(row => row.systemId !== null && String(row.systemId) === String(resource.system_id))
+                    .map(row => row.accountIdentifier)
+            });
+        });
+
+        return [...accountRows, ...missingRows, ...legacyRows];
+    }
+
+    const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+
+    function buildAccountIdentifierPayload({ accountIdentifier, comment, expectedAccountIdentifier, adoptUnlinkedAccount }) {
+        const identifier = typeof accountIdentifier === "string" ? accountIdentifier.trim() : "";
+        const normalizedComment = typeof comment === "string" ? comment.trim() : "";
+
+        if (!identifier) {
+            return { ok: false, message: "Bitte eine Kennung eintragen." };
+        }
+        if (identifier.length > 255 || CONTROL_CHARACTERS.test(identifier)) {
+            return { ok: false, message: "Die Kennung darf höchstens 255 Zeichen lang sein und keine Steuerzeichen enthalten." };
+        }
+        if (normalizedComment.length < 3 || normalizedComment.length > 500) {
+            return { ok: false, message: "Bitte einen Kommentar mit 3 bis 500 Zeichen angeben." };
+        }
+
+        const payload = {
+            account_identifier: identifier,
+            comment: normalizedComment,
+            // Immer mitsenden: null heisst "kein Konto erwartet", damit SD-API parallele Aenderungen erkennt.
+            expected_account_identifier: expectedAccountIdentifier ? String(expectedAccountIdentifier) : null
+        };
+        if (adoptUnlinkedAccount === true) {
+            payload.adopt_unlinked_account = true;
+        }
+        return { ok: true, payload };
+    }
+
+    const ACCOUNT_IDENTIFIER_OUTCOMES = {
+        CORRECTED: "Kennung korrigiert",
+        CREATED: "Kennung nachgetragen",
+        LINKED: "Bestandskonto verknüpft",
+        UNCHANGED: "Kennung war bereits gesetzt, keine Änderung"
+    };
+
+    function accountIdentifierOutcomeMessage(outcome) {
+        const action = String(outcome?.action || "").toUpperCase();
+        const label = ACCOUNT_IDENTIFIER_OUTCOMES[action] || "Kennung gespeichert";
+        return outcome?.account_identifier && action !== "UNCHANGED"
+            ? `${label}: ${outcome.account_identifier}`
+            : label;
+    }
+
     return {
+        accountIdentifierOutcomeMessage,
+        buildAccountIdentifierPayload,
+        buildAccountRows,
         buildCancelPayload,
         buildRehireForm,
         buildRehireStartPayload,

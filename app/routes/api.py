@@ -891,6 +891,60 @@ async def api_user_role_history(
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/users/{user_id}/account-logs")
+async def api_user_account_logs(
+    user_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    current_user=Depends(require_permission("SOFA-PAGE-USER")),
+):
+    try:
+        logs = await api_client.get_user_account_logs(user_id, limit=limit, offset=offset)
+        return JSONResponse(content=logs)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+def _build_account_identifier_request(payload: dict) -> dict:
+    def as_text(value):
+        return value if isinstance(value, str) else ("" if value is None else str(value))
+
+    request_payload = {
+        "account_identifier": as_text(payload.get("account_identifier")),
+        "comment": as_text(payload.get("comment")),
+    }
+    # Fehlt der Schluessel, prueft SD-API nicht; null heisst "kein Konto erwartet".
+    if "expected_account_identifier" in payload:
+        expected = payload["expected_account_identifier"]
+        request_payload["expected_account_identifier"] = None if expected is None else as_text(expected)
+    if payload.get("adopt_unlinked_account") is True:
+        request_payload["adopt_unlinked_account"] = True
+    return request_payload
+
+
+@router.post("/users/{user_id}/resources/{resource_id}/account-identifier")
+async def api_set_user_account_identifier(
+    user_id: int,
+    resource_id: int,
+    payload: dict,
+    current_user=Depends(require_permission("SOFA-FN-EDITACC")),
+):
+    try:
+        result = await api_client.set_user_account_identifier(
+            user_id,
+            resource_id,
+            _build_account_identifier_request(payload),
+            current_user.user_id,
+        )
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/users/{user_id}/resource-history")
 async def api_user_resource_history(
     user_id: int,

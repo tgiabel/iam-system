@@ -736,6 +736,103 @@ html[data-theme="servodata"] .users-icon-btn-img {
     font-size: 0.88rem;
 }
 
+.user-account-side {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-shrink: 0;
+}
+
+.user-account-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font-size: 0.95rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.18s ease, border-color 0.18s ease, background-color 0.18s ease;
+}
+
+.user-account-action-btn:hover,
+.user-account-action-btn:focus-visible {
+    border-color: var(--ui-border);
+    background: var(--ui-surface-card);
+    color: var(--color-primary);
+    outline: none;
+}
+
+.user-account-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin-top: -0.35rem;
+    padding: 0.85rem 0.95rem;
+    border-radius: 0 0 16px 16px;
+    border: 1px solid var(--border-color);
+    border-top: none;
+    background: var(--ui-surface-card);
+}
+
+.user-account-editor .ui-field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.user-account-editor .ui-input,
+.user-account-editor .ui-textarea {
+    padding: 0.55rem 0.75rem;
+    font-size: 0.92rem;
+}
+
+.user-account-editor .ui-textarea {
+    min-height: 4rem;
+}
+
+.user-account-editor-note {
+    margin: 0;
+    padding-left: 0.65rem;
+    border-left: 3px solid var(--ui-border);
+    color: var(--ui-text-muted);
+    font-size: 0.88rem;
+}
+
+.user-account-editor-note.is-warning {
+    border-left-color: var(--ui-warning-text);
+    color: var(--ui-text-strong);
+}
+
+.user-account-editor-feedback {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.65rem 0.8rem;
+    border-radius: 12px;
+    border: 1px solid var(--ui-border);
+    border-left: 3px solid var(--danger-text);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font-size: 0.9rem;
+}
+
+.user-account-editor-feedback p {
+    margin: 0;
+}
+
+.user-account-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
 .user-panel-actions {
     display: flex;
     align-items: center;

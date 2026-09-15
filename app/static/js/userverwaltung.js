@@ -150,6 +150,41 @@ const api = {
         return data;
     },
 
+    async getUserAccountLogs(id, offset = 0) {
+        const res = await fetch(`/api/users/${id}/account-logs?limit=${USER_HISTORY_PAGE_SIZE}&offset=${offset}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(sofaContract.extractDetailMessage(data.detail) || data.error || `Kennungs-Historie konnte nicht geladen werden (${res.status})`);
+        }
+        return data;
+    },
+
+    async setAccountIdentifier(userId, resourceId, payload) {
+        try {
+            const res = await fetch(`/api/users/${userId}/resources/${resourceId}/account-identifier`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                const detail = data.detail ?? data.error;
+                return {
+                    ok: false,
+                    error: {
+                        code: typeof detail?.code === "string" ? detail.code : "",
+                        message: sofaContract.extractDetailMessage(detail) || "Die Kennung konnte nicht gespeichert werden.",
+                        context: detail?.context && typeof detail.context === "object" ? detail.context : {}
+                    }
+                };
+            }
+            return { ok: true, data };
+        } catch (err) {
+            console.error(err);
+            return { ok: false, error: { code: "", message: "Netzwerkfehler oder Server nicht erreichbar", context: {} } };
+        }
+    },
+
     async getUserResourceHistory(id, offset = 0) {
         const res = await fetch(`/api/users/${id}/resource-history?limit=${USER_HISTORY_PAGE_SIZE}&offset=${offset}`);
         const data = await res.json().catch(() => ({}));
@@ -1103,6 +1138,17 @@ function renderEmptyState(message) {
     return `<div class="ui-empty-state ui-empty-inline">${escapeHtml(message)}</div>`;
 }
 
+const ACCOUNT_LOG_ACTION_LABELS = {
+    CREATED: "Angelegt",
+    CORRECTED: "Korrigiert",
+    LINKED: "Verknüpft",
+    REACTIVATED: "Wiederhergestellt"
+};
+
+function formatAccountLogAction(action) {
+    return ACCOUNT_LOG_ACTION_LABELS[String(action || "").toUpperCase()] || humanizeToken(action || "Änderung");
+}
+
 function createHistoryCategoryState() {
     return {
         items: [],
@@ -1119,6 +1165,7 @@ function createUserHistoryState() {
     return {
         activeCategory: null,
         accounts: createHistoryCategoryState(),
+        accountLogs: createHistoryCategoryState(),
         roles: createHistoryCategoryState(),
         resources: createHistoryCategoryState()
     };
@@ -1856,7 +1903,7 @@ const sidebarController = {
         }
 
         this.renderDerivedStatuses(user);
-        await this.renderAccounts(user.accounts || [], user);
+        this.renderAccounts(user);
         this.renderSofaAccessActions(user);
         this.renderRoles(user);
         this.renderResources(user);
@@ -1945,81 +1992,169 @@ const sidebarController = {
         }
     },
 
-    async renderAccounts(accounts = [], detail = null) {
-        const items = Array.isArray(accounts) ? accounts : [];
+    renderAccounts(detail) {
+        const rows = sofaContract.buildAccountRows(detail);
+        const canEdit = hasPerm("SOFA-FN-EDITACC");
+        this.accountRows = rows;
 
-        const rolePackageResources = getRoleAssignments(detail)
-            .flatMap(role => Array.isArray(detail?._roleResourcesMap?.[role.role_id]) ? detail._roleResourcesMap[role.role_id] : []);
-        const accResources = dedupeBy(rolePackageResources.filter(r => r?.type_id === 1), r => String(r.resource_id));
+        const presentCount = rows.filter(row => row.kind !== "missing").length;
+        const missingCount = rows.length - presentCount;
+        DOM.userAccountsCount.textContent = missingCount ? `${presentCount} / ${rows.length}` : String(presentCount);
 
-        // Accounts mit gesetzter resource_id lassen sich eindeutig einer erwarteten
-        // Konto-Ressource zuordnen (mehrere Konten pro System sind möglich, z.B. mehrere
-        // "Konto"-Ressourcen im selben System). Ältere Accounts ohne resource_id können
-        // nur über das System zugeordnet werden - das ist nur eindeutig, wenn das System
-        // genau eine erwartete Konto-Ressource hat.
-        const linkedResourceIds = new Set(items.filter(a => a.resource_id != null).map(a => a.resource_id));
-        const legacySystemIds = new Set(items.filter(a => a.resource_id == null).map(a => a.system_id));
-        const accResourcesBySystem = new Map();
-        accResources.forEach(resource => {
-            if (!accResourcesBySystem.has(resource.system_id)) {
-                accResourcesBySystem.set(resource.system_id, []);
-            }
-            accResourcesBySystem.get(resource.system_id).push(resource);
-        });
-
-        const isAccountedFor = (resource) => {
-            if (linkedResourceIds.has(resource.resource_id)) {
-                return true;
-            }
-            const siblings = accResourcesBySystem.get(resource.system_id) || [];
-            return siblings.length === 1 && legacySystemIds.has(resource.system_id);
-        };
-
-        const missingAccounts = accResources.filter(resource => !isAccountedFor(resource));
-
-        const totalExpected = items.length + missingAccounts.length;
-        DOM.userAccountsCount.textContent = missingAccounts.length
-            ? `${items.length} / ${totalExpected}`
-            : String(items.length);
-
-        if (!items.length && !missingAccounts.length) {
+        if (!rows.length) {
             DOM.sidebarAccounts.innerHTML = renderEmptyState("Keine Accounts vorhanden.");
             return;
         }
 
-        const resourceById = Object.fromEntries(accResources.map(r => [r.resource_id, r]));
+        DOM.sidebarAccounts.innerHTML = rows.map((row, index) => {
+            const systemName = row.systemName
+                || state.systemMap?.[row.systemId]?.name
+                || (row.systemId !== null ? `System #${row.systemId}` : "Unbekanntes System");
+            const title = row.kind === "missing" ? (row.resourceName || "Konto") : (row.accountIdentifier || "-");
+            const subtitle = row.kind === "legacy"
+                ? `${systemName} · ohne Ressourcenbindung`
+                : [row.kind === "missing" ? "" : row.resourceName, systemName].filter(Boolean).join(" · ");
+            const badge = getAccountRowBadge(row);
+            const action = canEdit && row.canEdit
+                ? `<button type="button" class="user-account-action-btn" data-account-row="${index}"
+                        title="${row.kind === "missing" ? "Kennung nachtragen" : "Kennung korrigieren"}"
+                        aria-label="${row.kind === "missing" ? "Kennung nachtragen" : "Kennung korrigieren"}">${row.kind === "missing" ? "＋" : "✎"}</button>`
+                : "";
 
-        const existingRows = items.map(account => {
-            const resource = account.resource_id != null ? resourceById[account.resource_id] : null;
-            const label = resource
-                ? (resource.display_name || resource.technical_identifier || null)
-                : null;
-            const system = label || state.systemMap?.[account.system_id]?.name || account.system_name || `System #${account.system_id}`;
             return `
-                <div class="user-account-item">
+                <div class="user-account-item${row.kind === "missing" ? " is-missing" : ""}" data-account-item="${index}">
                     <div class="user-account-main">
-                        <span class="user-account-id">${escapeHtml(account.account_identifier || "-")}</span>
-                        <span class="user-account-system">${escapeHtml(system)}</span>
+                        <span class="user-account-id">${escapeHtml(title)}</span>
+                        <span class="user-account-system">${escapeHtml(subtitle)}</span>
                     </div>
-                    <span class="ui-status-badge ui-status-success">${escapeHtml(humanizeToken(account.assignment_status || "active"))}</span>
+                    <div class="user-account-side">
+                        <span class="ui-status-badge ${escapeHtml(badge.className)}">${escapeHtml(badge.label)}</span>
+                        ${action}
+                    </div>
                 </div>
             `;
-        });
+        }).join("");
 
-        const missingRows = missingAccounts.map(resource => {
-            const system = state.systemMap?.[resource.system_id]?.name || resource.system_name || `System #${resource.system_id}`;
-            return `
-                <div class="user-account-item">
-                    <div class="user-account-main">
-                        <span class="user-account-id">${escapeHtml(resource.display_name || resource.technical_identifier || "-")}</span>
-                        <span class="user-account-system">${escapeHtml(system)}</span>
-                    </div>
-                    <span class="ui-status-badge ui-status-warning">Fehlt</span>
+        DOM.sidebarAccounts.querySelectorAll("[data-account-row]").forEach(button => {
+            button.addEventListener("click", () => {
+                const row = this.accountRows[Number(button.dataset.accountRow)];
+                const item = button.closest("[data-account-item]");
+                if (row && item) {
+                    this.openAccountEditor(row, item);
+                }
+            });
+        });
+    },
+
+    openAccountEditor(row, item) {
+        const alreadyOpen = item.nextElementSibling?.classList.contains("user-account-editor");
+        DOM.sidebarAccounts.querySelectorAll(".user-account-editor").forEach(editor => editor.remove());
+        if (alreadyOpen) {
+            return;
+        }
+
+        const legacyHint = row.legacyAccountIdentifiers?.length
+            ? `<p class="user-account-editor-note">Im System liegt ein Altkonto ohne Ressourcenbindung: <strong>${escapeHtml(row.legacyAccountIdentifiers.join(", "))}</strong>. Mit derselben Kennung wird es verknüpft.</p>`
+            : "";
+
+        const editor = document.createElement("div");
+        editor.className = "user-account-editor";
+        editor.innerHTML = `
+            ${row.kind === "missing" ? '<p class="user-account-editor-note is-warning">Nachtragen bestätigt, dass der Zugang im System besteht.</p>' : ""}
+            ${legacyHint}
+            <div class="ui-field-group">
+                <label class="ui-field-label">Kennung
+                    <input type="text" class="ui-input" data-account-identifier maxlength="255" value="${escapeHtml(row.accountIdentifier)}">
+                </label>
+            </div>
+            <div class="ui-field-group">
+                <label class="ui-field-label">Kommentar
+                    <textarea class="ui-textarea" data-account-comment rows="2" maxlength="500"></textarea>
+                </label>
+                <span class="ui-field-hint">Pflichtfeld, 3 bis 500 Zeichen</span>
+            </div>
+            <div class="user-account-editor-feedback" data-account-feedback role="alert" hidden></div>
+            <div class="user-account-editor-actions">
+                <button type="button" class="btn btn-sm btn-secondary" data-account-cancel>Abbrechen</button>
+                <button type="button" class="btn btn-sm btn-primary" data-account-save>Speichern</button>
+            </div>
+        `;
+        item.after(editor);
+
+        editor.querySelector("[data-account-cancel]").addEventListener("click", () => editor.remove());
+        editor.querySelector("[data-account-save]").addEventListener("click", () => this.saveAccountIdentifier(row, editor));
+        editor.querySelector("[data-account-identifier]").focus();
+    },
+
+    setAccountEditorFeedback(editor, html) {
+        const feedback = editor.querySelector("[data-account-feedback]");
+        feedback.innerHTML = html;
+        feedback.hidden = !html;
+    },
+
+    async saveAccountIdentifier(row, editor, { adoptUnlinkedAccount = false } = {}) {
+        const request = sofaContract.buildAccountIdentifierPayload({
+            accountIdentifier: editor.querySelector("[data-account-identifier]").value,
+            comment: editor.querySelector("[data-account-comment]").value,
+            expectedAccountIdentifier: row.kind === "account" ? row.accountIdentifier : null,
+            adoptUnlinkedAccount
+        });
+        if (!request.ok) {
+            this.setAccountEditorFeedback(editor, escapeHtml(request.message));
+            return;
+        }
+
+        const saveButton = editor.querySelector("[data-account-save]");
+        saveButton.disabled = true;
+        this.setAccountEditorFeedback(editor, "");
+
+        const userId = state.currentUserDetail?.user_id;
+        const result = await api.setAccountIdentifier(userId, row.resourceId, request.payload);
+        if (saveButton.isConnected) {
+            saveButton.disabled = false;
+        }
+
+        if (result.ok) {
+            showFlash(sofaContract.accountIdentifierOutcomeMessage(result.data), "success");
+            await this.refreshCurrentUser();
+            return;
+        }
+
+        const { code, message, context } = result.error;
+        if (code === "unlinked_system_account") {
+            const candidate = context.candidate?.account_identifier || "-";
+            this.setAccountEditorFeedback(editor, `
+                <p>${escapeHtml(message)}</p>
+                <p>Bestandskonto <strong>${escapeHtml(candidate)}</strong> übernehmen und die Kennung auf <strong>${escapeHtml(request.payload.account_identifier)}</strong> setzen?</p>
+                <div class="user-account-editor-actions">
+                    <button type="button" class="btn btn-sm btn-secondary" data-account-adopt-cancel>Nein</button>
+                    <button type="button" class="btn btn-sm btn-primary" data-account-adopt>Bestandskonto übernehmen</button>
                 </div>
-            `;
-        });
-
-        DOM.sidebarAccounts.innerHTML = [...existingRows, ...missingRows].join("");
+            `);
+            editor.querySelector("[data-account-adopt-cancel]").addEventListener("click", () => this.setAccountEditorFeedback(editor, ""));
+            editor.querySelector("[data-account-adopt]").addEventListener("click", () => {
+                this.saveAccountIdentifier(row, editor, { adoptUnlinkedAccount: true });
+            });
+            return;
+        }
+        if (code === "ambiguous_system_accounts") {
+            const candidates = Array.isArray(context.candidates) ? context.candidates : [];
+            this.setAccountEditorFeedback(editor, `
+                <p>${escapeHtml(message)}</p>
+                ${candidates.length ? `<p>Konten ohne Ressourcenbindung: <strong>${escapeHtml(candidates.map(c => c.account_identifier).join(", "))}</strong></p>` : ""}
+                <p>Bitte an die IT-Administration wenden.</p>
+            `);
+            return;
+        }
+        if (code === "identifier_changed" || code === "assignment_not_open") {
+            const changed = code === "identifier_changed"
+                ? ` (bisher erwartet: ${context.expected_account_identifier || "kein Konto"}, jetzt: ${context.current_account_identifier || "kein Konto"})`
+                : "";
+            showFlash(`${message}${changed} Die Ansicht wurde neu geladen.`, "failure");
+            await this.refreshCurrentUser();
+            return;
+        }
+        this.setAccountEditorFeedback(editor, escapeHtml(message));
     },
 
     renderRoles(detail) {
@@ -2156,6 +2291,8 @@ const sidebarController = {
             let payload;
             if (category === "accounts") {
                 payload = await api.getUserAccountHistory(userId);
+            } else if (category === "accountLogs") {
+                payload = await api.getUserAccountLogs(userId, offset);
             } else if (category === "roles") {
                 payload = await api.getUserRoleHistory(userId, offset);
             } else {
@@ -2226,6 +2363,8 @@ const sidebarController = {
 
         if (history.activeCategory === "accounts") {
             DOM.userHistoryContent.innerHTML = this.renderAccountHistory(entry.items);
+        } else if (history.activeCategory === "accountLogs") {
+            DOM.userHistoryContent.innerHTML = this.renderAccountLogHistory(entry.items);
         } else if (history.activeCategory === "roles") {
             DOM.userHistoryContent.innerHTML = this.renderRoleHistory(entry.items);
         } else {
@@ -2296,6 +2435,32 @@ const sidebarController = {
                 </article>
             `;
         }).join("");
+    },
+
+    renderAccountLogHistory(items) {
+        if (!items.length) {
+            return renderEmptyState("Keine Kennungsänderungen vorhanden.");
+        }
+        return items.map(item => `
+            <article class="user-history-entry">
+                <div class="user-history-entry-top">
+                    <div class="user-history-entry-main">
+                        <span class="user-history-entry-title">${escapeHtml(item.new_account_identifier || item.old_account_identifier || "-")}</span>
+                        <span class="user-history-entry-subtitle">${escapeHtml(item.resource_name || "Ohne Ressource")} · ${escapeHtml(item.system_name || "Unbekanntes System")}</span>
+                    </div>
+                    <span class="ui-chip ui-chip-neutral">${escapeHtml(formatAccountLogAction(item.action))}</span>
+                </div>
+                <div class="user-history-meta">
+                    <span><strong>Zeitpunkt:</strong> ${escapeHtml(formatDateTime(item.timestamp))}</span>
+                    ${item.old_account_identifier != null || item.new_account_identifier != null
+                        ? `<span><strong>Kennung:</strong> ${escapeHtml(item.old_account_identifier || "—")} <span aria-hidden="true">→</span> ${escapeHtml(item.new_account_identifier || "—")}</span>`
+                        : ""}
+                    <span><strong>Geändert von:</strong> ${escapeHtml(item.changed_by_user_name || "Unbekannt")}</span>
+                    ${item.task_id != null ? `<span><strong>Task:</strong> #${escapeHtml(item.task_id)}</span>` : ""}
+                </div>
+                ${item.comment ? `<p class="user-history-comment">${escapeHtml(item.comment)}</p>` : ""}
+            </article>
+        `).join("");
     },
 
     renderRoleHistory(items) {
@@ -2789,6 +2954,21 @@ const onboardModalController = {
         });
     }
 };
+
+function getAccountRowBadge(row) {
+    if (row.kind === "legacy") {
+        return { label: "Ohne Ressource", className: "ui-status-neutral" };
+    }
+    if (row.kind === "missing") {
+        return row.status === "requested"
+            ? { label: "Task offen", className: "ui-status-info" }
+            : { label: "Fehlt", className: "ui-status-warning" };
+    }
+    if (!row.status) {
+        return { label: "Ohne Zuweisung", className: "ui-status-neutral" };
+    }
+    return getAssignmentStatus({ assignment_status: row.status });
+}
 
 function isInactiveUser(user) {
     return user?.is_active === false || user?.is_active === 0;

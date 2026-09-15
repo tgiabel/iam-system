@@ -139,6 +139,22 @@ class APIClient:
             params={"limit": limit, "offset": offset},
         )
 
+    async def get_user_account_logs(self, user_id: int, *, limit: int = 50, offset: int = 0) -> dict:
+        return await self._get(
+            ACCESS_BASE_URL,
+            f"/users/{user_id}/account-logs",
+            params={"limit": limit, "offset": offset},
+        )
+
+    # SD-API prueft SOFA-FN-EDITACC ein zweites Mal und kennt den Bearbeiter nur aus X-User-Id.
+    async def set_user_account_identifier(self, user_id: int, resource_id: int, payload: dict, actor_user_id: int) -> dict:
+        return await self._post(
+            ACCESS_BASE_URL,
+            f"/users/{user_id}/resources/{resource_id}/account-identifier",
+            payload=payload,
+            headers={"X-User-Id": str(actor_user_id)},
+        )
+
     async def get_user_resource_history(self, user_id: int, *, limit: int = 50, offset: int = 0) -> dict:
         return await self._get(
             ACCESS_BASE_URL,
