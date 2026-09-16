@@ -133,6 +133,11 @@
         };
     }
 
+    // Eine Ruecknahme lehnt die API beim manuellen Abbruch ab; der Button waere nur ein Fehlerweg.
+    function isProcessCancellable(processType) {
+        return String(processType || "").trim().toUpperCase() !== "ROLLBACK";
+    }
+
     function cancellationSuccessMessage(result) {
         return result && Number.isInteger(result.rollback_process_id)
             ? "Prozess abgebrochen, Rücknahme eingeleitet"
@@ -499,6 +504,7 @@
         buildAccountRows,
         buildCancelPayload,
         cancellationSuccessMessage,
+        isProcessCancellable,
         parseConfirmationRequest,
         buildReschedulePayload,
         buildRehireForm,

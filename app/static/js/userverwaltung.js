@@ -788,7 +788,8 @@ function getDerivedStatusProcessLabel(processType) {
         skill_removal: "Rollenentzug",
         training_schedule: "Schulung",
         temporary_role: "Temporäre Rolle",
-        change: "Abteilungswechsel"
+        change: "Abteilungswechsel",
+        rollback: "Rücknahme"
     })[normalized] || humanizeToken(processType);
 }
 
@@ -2038,7 +2039,7 @@ const sidebarController = {
                     </div>
                     <div class="user-derived-status-actions">
                         ${canCancel && status.processId && normalizeValue(status.processType) === "offboarding" ? `<button type="button" class="user-derived-status-reschedule-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" data-effective-date="${escapeHtml(sofaContract.parseDateKey(status.referenceDate) || "")}" title="Stichtag verschieben" aria-label="Stichtag verschieben">&#128197;</button>` : ""}
-                        ${canCancel && status.processId ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
+                        ${canCancel && status.processId && sofaContract.isProcessCancellable(status.processType) ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
                     </div>
                 </div>
                 <div class="user-derived-status-meta">

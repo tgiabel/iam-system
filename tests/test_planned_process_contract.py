@@ -379,6 +379,9 @@ assert.deepStrictEqual(confirmation, {
 });
 assert.strictEqual(c.cancellationSuccessMessage({rollback_process_id: 190}), 'Prozess abgebrochen, Rücknahme eingeleitet');
 assert.strictEqual(c.cancellationSuccessMessage({rollback_process_id: null}), 'Prozess abgebrochen');
+assert.strictEqual(c.isProcessCancellable('ROLLBACK'), false);
+assert.strictEqual(c.isProcessCancellable('rollback'), false);
+assert.strictEqual(c.isProcessCancellable('SKILL_ASSIGNMENT'), true);
 
 assert.deepStrictEqual(c.buildReschedulePayload('2026-09-30', '2026-09-23', undefined, '2026-09-15'), {
   ok: true,
