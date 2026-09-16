@@ -20,6 +20,7 @@ from app.authz import (
     require_permission,
 )
 from app.helpers.datex import build_corrected_package, build_datex_preview
+from app.helpers.time_utils import today_local
 from app.routes.shared import (
     _build_template_context,
     _coerce_bool,
@@ -97,7 +98,7 @@ def _validated_reschedule_date(value, field_name: str) -> str:
         parsed = date.fromisoformat(value)
     except ValueError as exc:
         raise ValueError(f"{field_name} ist ungültig.") from exc
-    if field_name == "effective_date" and parsed < date.today():
+    if field_name == "effective_date" and parsed < today_local():
         raise ValueError("Der neue Stichtag darf nicht in der Vergangenheit liegen.")
     return value
 

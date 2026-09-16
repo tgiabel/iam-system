@@ -18,6 +18,14 @@
         return `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
     }
 
+    function berlinDateKey(value = new Date()) {
+        const parts = new Intl.DateTimeFormat("en-CA", {
+            timeZone: "Europe/Berlin", year: "numeric", month: "2-digit", day: "2-digit"
+        }).formatToParts(value);
+        const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+        return `${values.year}-${values.month}-${values.day}`;
+    }
+
     function parseDateKey(value, { exact = false } = {}) {
         if (typeof value !== "string") {
             return null;
@@ -96,12 +104,20 @@
         return { ok: true, payload: { reason: normalized } };
     }
 
-    function buildReschedulePayload(effectiveDate, expectedEffectiveDate, reason, todayKey) {
+    function canPreviewReschedule(effectiveDate, expectedEffectiveDate, todayKey = berlinDateKey()) {
+        const dateResult = validateEffectiveDate(effectiveDate, todayKey);
+        return dateResult.ok && dateResult.value !== parseDateKey(expectedEffectiveDate);
+    }
+
+    function buildReschedulePayload(effectiveDate, expectedEffectiveDate, reason, todayKey = berlinDateKey()) {
         const dateResult = validateEffectiveDate(effectiveDate, todayKey);
         if (!dateResult.ok) return dateResult;
         const expected = parseDateKey(expectedEffectiveDate);
         if (!expected) {
             return { ok: false, message: "Der erwartete bisherige Stichtag fehlt." };
+        }
+        if (dateResult.value === expected) {
+            return { ok: false, message: "Bitte einen anderen Stichtag auswählen." };
         }
         if (reason === undefined) {
             return { ok: true, payload: { effective_date: dateResult.value } };
@@ -441,6 +457,8 @@
     }
 
     return {
+        berlinDateKey,
+        canPreviewReschedule,
         accountIdentifierOutcomeMessage,
         buildAccountIdentifierPayload,
         buildAccountRows,

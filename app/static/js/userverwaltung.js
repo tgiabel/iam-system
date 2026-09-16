@@ -4120,6 +4120,7 @@ const processRescheduleModalController = {
     processId: null,
     expectedEffectiveDate: null,
     preview: null,
+    previewRequestId: 0,
 
     init() {
         bindModalOverlayDismiss(DOM.processRescheduleOverlay, () => this.close());
@@ -4139,7 +4140,7 @@ const processRescheduleModalController = {
         this.expectedEffectiveDate = effectiveDate;
         DOM.processRescheduleDescription.textContent = `Der Stichtag für „${processLabel || `#${processId}`}“ wird gemeinsam für Prozess, Event und Austrittsdatum geändert.`;
         DOM.processRescheduleCurrentDate.textContent = sofaContract.formatDateKey(effectiveDate);
-        DOM.processRescheduleDate.min = sofaContract.localDateKey();
+        DOM.processRescheduleDate.min = sofaContract.berlinDateKey();
         DOM.processRescheduleDate.value = effectiveDate;
         DOM.processRescheduleReason.value = "";
         this.clearPreview();
@@ -4148,12 +4149,16 @@ const processRescheduleModalController = {
     },
 
     clearPreview() {
+        this.previewRequestId += 1;
         this.preview = null;
         DOM.processReschedulePreview.hidden = true;
         DOM.processReschedulePreview.innerHTML = "";
         DOM.processRescheduleReasonGroup.hidden = true;
         DOM.processRescheduleSubmitBtn.hidden = true;
         DOM.processReschedulePreviewBtn.hidden = false;
+        DOM.processReschedulePreviewBtn.disabled = !sofaContract.canPreviewReschedule(
+            DOM.processRescheduleDate.value, this.expectedEffectiveDate
+        );
     },
 
     back() {
@@ -4183,9 +4188,10 @@ const processRescheduleModalController = {
             return;
         }
         DOM.processReschedulePreviewBtn.disabled = true;
+        const requestId = this.previewRequestId;
         try {
             const preview = await api.previewProcessReschedule(this.processId, request.payload.effective_date);
-            if (!preview) return;
+            if (!preview || requestId !== this.previewRequestId) return;
             this.preview = preview;
             const counts = preview.task_counts || {};
             const warnings = Array.isArray(preview.warnings) ? preview.warnings : [];
@@ -4194,6 +4200,7 @@ const processRescheduleModalController = {
                     <div><dt>Neuer Stichtag</dt><dd>${escapeHtml(sofaContract.formatDateKey(preview.new_effective_date))}</dd></div>
                     <div><dt>Tatsächlicher Unlock</dt><dd>${escapeHtml(formatDateTime(preview.actual_unlock_at))}</dd></div>
                     <div><dt>Offene Tasks</dt><dd>${escapeHtml(Number(counts.open || 0) + Number(counts.blocked || 0))}</dd></div>
+                    <div><dt>In Bearbeitung</dt><dd>${escapeHtml(counts.in_progress || 0)}</dd></div>
                     <div><dt>Übernommene Tasks</dt><dd>${escapeHtml(counts.assigned || 0)}</dd></div>
                 </dl>
                 ${warnings.length ? `<ul class="process-reschedule-warnings">${warnings.map(warning => `<li data-warning-code="${escapeHtml(warning.code)}">${escapeHtml(warning.message)}</li>`).join("")}</ul>` : ""}
@@ -4204,7 +4211,11 @@ const processRescheduleModalController = {
             DOM.processRescheduleSubmitBtn.hidden = false;
             DOM.processRescheduleReason.focus();
         } finally {
-            DOM.processReschedulePreviewBtn.disabled = false;
+            if (requestId === this.previewRequestId) {
+                DOM.processReschedulePreviewBtn.disabled = !sofaContract.canPreviewReschedule(
+                    DOM.processRescheduleDate.value, this.expectedEffectiveDate
+                );
+            }
         }
     },
 

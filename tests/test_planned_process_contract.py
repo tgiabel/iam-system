@@ -10,6 +10,7 @@ from unittest.mock import patch
 from tests.test_computers import AsyncMock, json_body, run_async
 
 from app.api_client import SOFA_BASE_URL, api_client
+from app.helpers import time_utils
 from app.routes.api import (
     _build_planned_role_request,
     _build_process_cancellation_request,
@@ -28,6 +29,15 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class PlannedProcessApiTests(unittest.TestCase):
+    def test_reschedule_bff_uses_berlin_business_day(self):
+        with patch("app.routes.api.today_local", return_value=date(2026, 9, 17)):
+            with self.assertRaises(ValueError):
+                _build_process_reschedule_preview({"effective_date": "2026-09-16"})
+            self.assertEqual(_build_process_reschedule_preview({"effective_date": "2026-09-17"}), {"effective_date": "2026-09-17"})
+        with patch.object(time_utils, "datetime") as clock:
+            time_utils.now_local()
+            clock.now.assert_called_once_with(time_utils.LOCAL_TIMEZONE)
+
     def setUp(self):
         self.current_user = SimpleNamespace(user_id=42)
         self.today = date.today().isoformat()
@@ -263,6 +273,58 @@ class PlannedProcessClientTests(unittest.TestCase):
 
 
 class BrowserContractTests(unittest.TestCase):
+    def test_reschedule_dialog_gates_preview_and_shows_in_progress(self):
+        script = r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+const c = require('./app/static/js/sofa_contract.js');
+const source = fs.readFileSync('./app/static/js/userverwaltung.js', 'utf8');
+const controller = source.slice(source.indexOf('const processRescheduleModalController ='), source.indexOf('const offboardModalController ='));
+const field = () => ({value: '', hidden: false, disabled: false, innerHTML: '', focus() {}});
+const DOM = Object.fromEntries([
+  'Description', 'CurrentDate', 'Date', 'Reason', 'Preview', 'ReasonGroup', 'SubmitBtn', 'PreviewBtn'
+].map(name => ['processReschedule' + name, field()]));
+const sandbox = {
+  DOM, sofaContract: c, openOverlay() {}, closeOverlay() {},
+  escapeHtml: String, formatDateTime: String,
+  showFlash() { throw new Error('Unexpected flash'); },
+  api: { async previewProcessReschedule() {
+    return {new_effective_date: '2099-09-30', actual_unlock_at: '2026-09-09',
+            task_counts: {open: 3, blocked: 2, in_progress: 7, assigned: 0}, warnings: []};
+  }}
+};
+vm.runInNewContext(controller + '\nglobalThis.controller = processRescheduleModalController;', sandbox);
+(async () => {
+  sandbox.controller.open(2055, 'Offboarding', '2098-09-23');
+  assert.strictEqual(DOM.processReschedulePreviewBtn.disabled, true);
+  DOM.processRescheduleDate.value = '';
+  sandbox.controller.clearPreview();
+  assert.strictEqual(DOM.processReschedulePreviewBtn.disabled, true);
+  DOM.processRescheduleDate.value = '2099-09-30';
+  sandbox.controller.clearPreview();
+  assert.strictEqual(DOM.processReschedulePreviewBtn.disabled, false);
+  await sandbox.controller.loadPreview();
+  assert.ok(DOM.processReschedulePreview.innerHTML.includes('In Bearbeitung</dt><dd>7'));
+  assert.strictEqual(DOM.processRescheduleSubmitBtn.hidden, false);
+  let resolve;
+  sandbox.api.previewProcessReschedule = () => new Promise(done => {resolve = done;});
+  sandbox.controller.clearPreview();
+  const pending = sandbox.controller.loadPreview();
+  sandbox.controller.close();
+  resolve({task_counts: {}, warnings: []});
+  await pending;
+  assert.strictEqual(sandbox.controller.preview, null);
+  assert.strictEqual(DOM.processRescheduleSubmitBtn.hidden, true);
+})().catch(error => {console.error(error); process.exitCode = 1;});
+"""
+        completed = subprocess.run(
+            [os.environ.get("SOFA_NODE_BINARY", "node"), "-e", script],
+            cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
     def test_node_contract_logic(self):
         script = r"""
 const assert = require('assert');
@@ -292,6 +354,13 @@ assert.deepStrictEqual(c.buildReschedulePayload('2026-09-30', '2026-09-23', '  H
 });
 assert.strictEqual(c.buildReschedulePayload('2026-09-14', '2026-09-23', 'x', '2026-09-15').ok, false);
 assert.strictEqual(c.buildReschedulePayload('2026-09-30', '2026-09-23', ' ', '2026-09-15').ok, false);
+assert.strictEqual(c.berlinDateKey(new Date('2026-09-16T22:30:00Z')), '2026-09-17');
+assert.strictEqual(c.berlinDateKey(new Date('2026-01-16T23:30:00Z')), '2026-01-17');
+assert.strictEqual(c.canPreviewReschedule('2026-09-23', '2026-09-23', '2026-09-15'), false);
+assert.strictEqual(c.canPreviewReschedule('', '2026-09-23', '2026-09-15'), false);
+assert.strictEqual(c.canPreviewReschedule('2026-09-30', '2026-09-23', '2026-09-15'), true);
+assert.strictEqual(c.buildReschedulePayload('2026-09-23', '2026-09-23', undefined, '2026-09-15').ok, false);
+assert.strictEqual(c.buildReschedulePayload('2099-09-30', '2026-09-23', 'Korrektur', '2026-09-15').ok, true);
 
 assert.strictEqual(c.isFutureRevocationTask({task_type: 'REVOCATION'}, '2026-08-31'), false);
 assert.strictEqual(c.isFutureRevocationTask({task_type: 'REVOCATION', target_date: '2026-08-30'}, '2026-08-31'), false);
