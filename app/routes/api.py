@@ -85,10 +85,16 @@ def _build_process_cancellation_request(payload: dict, initiator_user_id: int) -
     if len(normalized_reason) > 500:
         raise ValueError("Der Abbruchgrund darf höchstens 500 Zeichen lang sein.")
 
-    return {
+    request = {
         "reason": normalized_reason,
         "initiator_user_id": initiator_user_id,
     }
+    acknowledged = (payload or {}).get("acknowledged_task_ids")
+    if acknowledged is not None:
+        if not isinstance(acknowledged, list) or any(isinstance(item, bool) or not isinstance(item, int) for item in acknowledged):
+            raise ValueError("Die bestätigten Aufgaben sind ungültig.")
+        request["acknowledged_task_ids"] = acknowledged
+    return request
 
 
 def _validated_reschedule_date(value, field_name: str) -> str:

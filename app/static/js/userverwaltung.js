@@ -359,16 +359,20 @@ const api = {
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                showFlash(data.detail || "Unbekannter Fehler", "failure");
-                return false;
+                const confirmation = sofaContract.parseConfirmationRequest(data.detail);
+                showFlash(
+                    confirmation?.message || sofaContract.extractDetailMessage(data.detail) || "Unbekannter Fehler",
+                    "failure"
+                );
+                return { ok: false, confirmation };
             }
 
             showFlash(`Austritt zum ${payload.exitdate} beantragt`, "success");
-            return true;
+            return { ok: true, data };
         } catch (err) {
             console.error(err);
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            return false;
+            return { ok: false, confirmation: null };
         }
     },
 
@@ -494,26 +498,33 @@ const api = {
         }
     },
 
-    async cancelProcess(processId, reason) {
+    async cancelProcess(processId, payload) {
         try {
             const res = await fetch(`/api/processes/${processId}/cancel`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ reason })
+                body: JSON.stringify(payload)
             });
             const data = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-                showFlash(data.detail || data.error || "Prozess konnte nicht abgebrochen werden", "failure");
-                return false;
+                const confirmation = sofaContract.parseConfirmationRequest(data.detail);
+                showFlash(
+                    confirmation?.message
+                        || sofaContract.extractDetailMessage(data.detail)
+                        || sofaContract.extractDetailMessage(data.error)
+                        || "Prozess konnte nicht abgebrochen werden",
+                    "failure"
+                );
+                return { ok: false, confirmation };
             }
 
-            showFlash("Prozess abgebrochen", "success");
-            return true;
+            showFlash(sofaContract.cancellationSuccessMessage(data), "success");
+            return { ok: true, data };
         } catch (err) {
             console.error(err);
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            return false;
+            return { ok: false, confirmation: null };
         }
     },
 
@@ -4067,8 +4078,19 @@ const skillRevokeModalController = {
     }
 };
 
+function renderConfirmationRequest(container, confirmation, intro) {
+    container.innerHTML = `
+        <p class="user-action-note">${escapeHtml(intro)}</p>
+        <ul class="process-reschedule-warnings">
+            ${confirmation.warnings.map(warning => `<li data-warning-kind="${escapeHtml(warning.kind)}">${escapeHtml(warning.message)}</li>`).join("")}
+        </ul>
+    `;
+    container.hidden = false;
+}
+
 const processCancellationModalController = {
     processId: null,
+    acknowledgedTaskIds: null,
 
     init() {
         bindModalOverlayDismiss(DOM.processCancelOverlay, () => this.close());
@@ -4081,20 +4103,29 @@ const processCancellationModalController = {
         this.processId = processId;
         DOM.processCancelDescription.textContent = `Der Prozess „${processLabel || `#${processId}`}“ wird auditierbar abgebrochen.`;
         DOM.processCancelReason.value = "";
+        this.resetConfirmation();
         openOverlay("process-cancel-overlay");
         DOM.processCancelReason.focus();
+    },
+
+    resetConfirmation() {
+        this.acknowledgedTaskIds = null;
+        DOM.processCancelConfirmation.hidden = true;
+        DOM.processCancelConfirmation.innerHTML = "";
+        DOM.processCancelSubmitBtn.textContent = "Prozess abbrechen";
     },
 
     close() {
         closeOverlay("process-cancel-overlay");
         this.processId = null;
+        this.resetConfirmation();
         if (DOM.processCancelReason) {
             DOM.processCancelReason.value = "";
         }
     },
 
     async submit() {
-        const request = sofaContract.buildCancelPayload(DOM.processCancelReason?.value);
+        const request = sofaContract.buildCancelPayload(DOM.processCancelReason?.value, this.acknowledgedTaskIds);
         if (!request.ok) {
             showFlash(request.message, "failure");
             DOM.processCancelReason?.focus();
@@ -4103,8 +4134,20 @@ const processCancellationModalController = {
 
         DOM.processCancelSubmitBtn.disabled = true;
         try {
-            const success = await api.cancelProcess(this.processId, request.payload.reason);
-            if (!success) {
+            const result = await api.cancelProcess(this.processId, request.payload);
+            if (result.confirmation) {
+                // Die Liste kommt bei jedem Versuch neu vom Server: wurde inzwischen ein
+                // weiterer Task begonnen, steht er jetzt mit drin.
+                this.acknowledgedTaskIds = result.confirmation.taskIds;
+                renderConfirmationRequest(
+                    DOM.processCancelConfirmation,
+                    result.confirmation,
+                    "Bitte prüfe die folgenden Aufgaben, bevor du den Abbruch bestätigst:"
+                );
+                DOM.processCancelSubmitBtn.textContent = "Trotzdem abbrechen";
+                return;
+            }
+            if (!result.ok) {
                 return;
             }
             this.close();
@@ -4245,6 +4288,8 @@ const processRescheduleModalController = {
 };
 
 const offboardModalController = {
+    acknowledgedTaskIds: null,
+
     init() {
         bindModalOverlayDismiss(DOM.offboardOverlay, () => this.close());
         DOM.offboardCloseBtn?.addEventListener("click", () => this.close());
@@ -4258,9 +4303,11 @@ const offboardModalController = {
     close() {
         closeOverlay("offboard-overlay");
         DOM.offboardModalBody.innerHTML = "";
+        this.acknowledgedTaskIds = null;
     },
 
     render(user) {
+        this.acknowledgedTaskIds = null;
         DOM.offboardModalTitle.textContent = `Offboarding von ${user.first_name} ${user.last_name}`;
         DOM.offboardModalBody.innerHTML = `
             <div class="user-action-form">
@@ -4268,12 +4315,22 @@ const offboardModalController = {
                     <label class="ui-field-label" for="offboard-exitdate">Austritt am</label>
                     <input type="date" id="offboard-exitdate" class="ui-input" min="${new Date().toISOString().split("T")[0]}">
                 </div>
+                <div id="offboard-confirmation" hidden></div>
                 ${buildButtonRow("Bestätigen")}
             </div>
         `;
 
+        const confirmationBox = document.getElementById("offboard-confirmation");
+        const submitButton = document.getElementById("modal-submit-btn");
+        document.getElementById("offboard-exitdate")?.addEventListener("change", () => {
+            // Ein anderes Datum verschiebt die Freischaltung: die Bestaetigung gilt nicht mehr.
+            this.acknowledgedTaskIds = null;
+            confirmationBox.hidden = true;
+            confirmationBox.innerHTML = "";
+            submitButton.textContent = "Bestätigen";
+        });
         document.getElementById("modal-cancel-btn")?.addEventListener("click", () => this.close());
-        document.getElementById("modal-submit-btn")?.addEventListener("click", async () => {
+        submitButton?.addEventListener("click", async () => {
             const exitdate = document.getElementById("offboard-exitdate")?.value;
 
             if (!exitdate) {
@@ -4281,12 +4338,25 @@ const offboardModalController = {
                 return;
             }
 
-            const success = await api.startOffboarding({
-                user_id: user.user_id,
-                exitdate
-            });
+            const payload = { user_id: user.user_id, exitdate };
+            if (this.acknowledgedTaskIds) {
+                payload.acknowledged_task_ids = this.acknowledgedTaskIds;
+            }
+            const result = await api.startOffboarding(payload);
 
-            if (!success) {
+            if (result.confirmation) {
+                this.acknowledgedTaskIds = result.confirmation.taskIds;
+                renderConfirmationRequest(
+                    confirmationBox,
+                    result.confirmation,
+                    result.confirmation.unlocksImmediately
+                        ? "Diese Aufgaben werden mit dem Offboarding sofort verworfen:"
+                        : "Diese Aufgaben werden mit der Freischaltung verworfen, wenn sie bis dahin nicht erledigt oder freigegeben sind:"
+                );
+                submitButton.textContent = "Trotzdem beantragen";
+                return;
+            }
+            if (!result.ok) {
                 return;
             }
 
@@ -4393,6 +4463,7 @@ function cacheDOM() {
 
     DOM.processCancelOverlay = document.getElementById("process-cancel-overlay");
     DOM.processCancelDescription = document.getElementById("process-cancel-description");
+    DOM.processCancelConfirmation = document.getElementById("process-cancel-confirmation");
     DOM.processCancelReason = document.getElementById("process-cancel-reason");
     DOM.processCancelCloseBtn = document.getElementById("process-cancel-close-btn");
     DOM.processCancelBackBtn = document.getElementById("process-cancel-back-btn");

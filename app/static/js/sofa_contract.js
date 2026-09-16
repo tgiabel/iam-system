@@ -90,7 +90,7 @@
         };
     }
 
-    function buildCancelPayload(reason) {
+    function buildCancelPayload(reason, acknowledgedTaskIds) {
         if (typeof reason !== "string") {
             return { ok: false, message: "Bitte einen Grund für den Abbruch angeben." };
         }
@@ -101,7 +101,42 @@
         if (normalized.length > 500) {
             return { ok: false, message: "Der Abbruchgrund darf höchstens 500 Zeichen lang sein." };
         }
-        return { ok: true, payload: { reason: normalized } };
+        const payload = { reason: normalized };
+        if (Array.isArray(acknowledgedTaskIds)) {
+            payload.acknowledged_task_ids = acknowledgedTaskIds;
+        }
+        return { ok: true, payload };
+    }
+
+    const CONFIRMATION_CODES = new Set(["cancellation_requires_confirmation", "offboarding_cancels_started_work"]);
+
+    // Ein 409, der keine Ablehnung ist, sondern nach Bestaetigung fragt.
+    function parseConfirmationRequest(detail) {
+        if (!detail || typeof detail !== "object" || !CONFIRMATION_CODES.has(detail.code)) {
+            return null;
+        }
+        const context = detail.context && typeof detail.context === "object" ? detail.context : {};
+        const warnings = (Array.isArray(context.warnings) ? context.warnings : [])
+            .filter(warning => warning && Number.isInteger(warning.task_id))
+            .map(warning => ({
+                taskId: warning.task_id,
+                kind: typeof warning.kind === "string" ? warning.kind : "",
+                message: typeof warning.message === "string" ? warning.message : ""
+            }));
+        return {
+            code: detail.code,
+            message: extractDetailMessage(detail),
+            warnings,
+            taskIds: warnings.map(warning => warning.taskId),
+            unlockAt: typeof context.unlock_at === "string" ? context.unlock_at : null,
+            unlocksImmediately: context.unlocks_immediately === true
+        };
+    }
+
+    function cancellationSuccessMessage(result) {
+        return result && Number.isInteger(result.rollback_process_id)
+            ? "Prozess abgebrochen, Rücknahme eingeleitet"
+            : "Prozess abgebrochen";
     }
 
     function canPreviewReschedule(effectiveDate, expectedEffectiveDate, todayKey = berlinDateKey()) {
@@ -463,6 +498,8 @@
         buildAccountIdentifierPayload,
         buildAccountRows,
         buildCancelPayload,
+        cancellationSuccessMessage,
+        parseConfirmationRequest,
         buildReschedulePayload,
         buildRehireForm,
         buildRehireStartPayload,

@@ -134,6 +134,15 @@ class PlannedProcessApiTests(unittest.TestCase):
         )
         self.assertEqual(len(_build_process_cancellation_request({"reason": "x" * 500}, 42)["reason"]), 500)
 
+    def test_cancellation_forwards_only_valid_acknowledgements(self):
+        self.assertEqual(
+            _build_process_cancellation_request({"reason": "Grund", "acknowledged_task_ids": [6315, 6317]}, 42),
+            {"reason": "Grund", "initiator_user_id": 42, "acknowledged_task_ids": [6315, 6317]},
+        )
+        for acknowledged in ("6315", [True], ["6315"], {"task_id": 6315}):
+            with self.subTest(acknowledged=acknowledged), self.assertRaises(ValueError):
+                _build_process_cancellation_request({"reason": "Grund", "acknowledged_task_ids": acknowledged}, 42)
+
     def test_reschedule_payloads_are_allowlisted_and_validated(self):
         self.assertEqual(
             _build_process_reschedule_preview({"effective_date": self.future, "reason": "discard"}),
@@ -343,6 +352,33 @@ assert.deepStrictEqual(c.buildCancelPayload('  Grund  '), {ok: true, payload: {r
 assert.strictEqual(c.buildCancelPayload('   ').ok, false);
 assert.strictEqual(c.buildCancelPayload('x'.repeat(500)).ok, true);
 assert.strictEqual(c.buildCancelPayload('x'.repeat(501)).ok, false);
+assert.deepStrictEqual(c.buildCancelPayload('Grund', [6315]), {ok: true, payload: {reason: 'Grund', acknowledged_task_ids: [6315]}});
+assert.deepStrictEqual(c.buildCancelPayload('Grund', null), {ok: true, payload: {reason: 'Grund'}});
+
+assert.strictEqual(c.parseConfirmationRequest('Prozess ist bereits abgeschlossen.'), null);
+assert.strictEqual(c.parseConfirmationRequest({code: 'rehire_required', message: 'x'}), null);
+const confirmation = c.parseConfirmationRequest({
+  code: 'offboarding_cancels_started_work',
+  message: 'Das Offboarding wird am 01.10.2026 freigeschaltet.',
+  context: {
+    unlock_at: '2026-10-01T23:59:59+02:00',
+    unlocks_immediately: false,
+    warnings: [
+      {task_id: 6315, kind: 'in_progress', message: 'Wird bearbeitet'},
+      {task_id: 'kaputt', kind: 'in_progress', message: 'ignoriert'}
+    ]
+  }
+});
+assert.deepStrictEqual(confirmation, {
+  code: 'offboarding_cancels_started_work',
+  message: 'Das Offboarding wird am 01.10.2026 freigeschaltet.',
+  warnings: [{taskId: 6315, kind: 'in_progress', message: 'Wird bearbeitet'}],
+  taskIds: [6315],
+  unlockAt: '2026-10-01T23:59:59+02:00',
+  unlocksImmediately: false
+});
+assert.strictEqual(c.cancellationSuccessMessage({rollback_process_id: 190}), 'Prozess abgebrochen, Rücknahme eingeleitet');
+assert.strictEqual(c.cancellationSuccessMessage({rollback_process_id: null}), 'Prozess abgebrochen');
 
 assert.deepStrictEqual(c.buildReschedulePayload('2026-09-30', '2026-09-23', undefined, '2026-09-15'), {
   ok: true,

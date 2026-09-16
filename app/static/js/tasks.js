@@ -46,7 +46,8 @@ const LABELS = {
         TEMPORARY_ROLE: "Temporäre Rolle",
         ONBOARDING: "Onboarding",
         OFFBOARDING: "Offboarding",
-        CHANGE: "Funktionswechsel"
+        CHANGE: "Funktionswechsel",
+        ROLLBACK: "Rücknahme"
     }
 };
 
