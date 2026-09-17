@@ -1737,8 +1737,9 @@ const tableController = {
                     <tr class="ui-table-row users-table-row ${user.is_active ? "" : "is-inactive"}" data-user-id="${escapeHtml(user.user_id)}">
                         <td class="users-identity-cell">
                             <div class="users-identity-block">
-                                <span class="users-identity-main">${escapeHtml(user.racf || "-")}</span>
-                                <span class="users-identity-meta">${escapeHtml(user.pnr || "-")}</span>
+                                <span class="users-identity-main">${escapeHtml(user.pnr || "-")}</span>
+                                <span class="users-identity-meta">${escapeHtml(user.racf || "-")}</span>
+                                <span class="users-identity-meta">${escapeHtml(user.xde || "-")}</span>
                             </div>
                         </td>
                         <td class="users-name-cell">

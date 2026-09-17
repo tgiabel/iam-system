@@ -2162,6 +2162,7 @@ async function loadTaskBacklogs() {
 
     buildTaskFilterOptions();
     syncTaskFilterControls();
+    refreshTaskView();
 }
 
 async function loadInitialTaskData() {
