@@ -16,6 +16,7 @@ const requestTemplateState = {
     selectedUserId: "",
     modalFields: [],
     existingDocument: null,
+    prefillRevision: 0,
     pendingDeleteDocument: null,
     templateModalMode: "create",
     isTemplateModalOpen: false,
@@ -333,6 +334,9 @@ const requestTemplateSchemaUtils = {
             required: Boolean(field.required),
             placeholder: String(field.placeholder || "").trim(),
             max_length: Number.isInteger(field.max_length) ? field.max_length : null,
+            accountArchived: field.account_archived === true,
+            accountArchivedAt: field.account_archived_at ?? null,
+            prefilledValue: type === "checkbox" ? Boolean(value) : String(value ?? ""),
             value: type === "checkbox"
                 ? Boolean(value)
                 : value === null || value === undefined
@@ -387,6 +391,35 @@ const requestTemplateFormatters = {
             dateStyle: "medium",
             timeStyle: "short",
         }).format(parsed);
+    },
+
+    archivedAccountHint(value) {
+        const fallback = "Das Konto wurde deaktiviert.";
+        if (typeof value !== "string") {
+            return fallback;
+        }
+        const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?$/);
+        if (!match) {
+            return fallback;
+        }
+        const [, year, month, day, hour, minute, second, offset] = match;
+        const calendar = new Date(`${year}-${month}-${day}T00:00:00Z`);
+        if (Number.isNaN(calendar.getTime()) || calendar.toISOString().slice(0, 10) !== `${year}-${month}-${day}`
+            || Number(hour) > 23 || Number(minute) > 59 || Number(second) > 59) {
+            return fallback;
+        }
+        // Offset-free API timestamps describe Berlin local time already.
+        if (!offset) {
+            return `Das Konto wurde am ${day}.${month}.${year} deaktiviert.`;
+        }
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            return fallback;
+        }
+        const date = new Intl.DateTimeFormat("de-DE", {
+            day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Berlin",
+        }).format(parsed);
+        return `Das Konto wurde am ${date} deaktiviert.`;
     },
 
     userLabel(user) {
@@ -849,6 +882,39 @@ const requestTemplateUi = {
         }
     },
 
+    appendArchivedAccountHint(wrapper, field, index) {
+        if (!field.accountArchived) {
+            return;
+        }
+        const hint = document.createElement("span");
+        hint.className = "request-template-account-hint";
+        hint.dataset.accountHintIndex = String(index);
+        hint.tabIndex = 0;
+        hint.setAttribute("role", "note");
+        const text = requestTemplateFormatters.archivedAccountHint(field.accountArchivedAt);
+        hint.setAttribute("aria-label", text);
+        const icon = document.createElement("span");
+        icon.textContent = "!";
+        icon.setAttribute("aria-hidden", "true");
+        const tooltip = document.createElement("span");
+        tooltip.className = "request-template-account-tooltip";
+        tooltip.setAttribute("aria-hidden", "true");
+        tooltip.textContent = text;
+        hint.appendChild(icon);
+        hint.appendChild(tooltip);
+        const label = wrapper.querySelector("label");
+        label.classList.add("request-template-render-field-label");
+        label.appendChild(hint);
+    },
+
+    updateArchivedAccountHint(index, value) {
+        const field = requestTemplateState.modalFields[index];
+        const hint = requestTemplateDom.renderModalFields.querySelector(`[data-account-hint-index="${index}"]`);
+        if (field && hint) {
+            hint.hidden = !field.accountArchived || value !== field.prefilledValue;
+        }
+    },
+
     renderModalFields() {
         const container = requestTemplateDom.renderModalFields;
         container.innerHTML = "";
@@ -887,6 +953,7 @@ const requestTemplateUi = {
                         <span>Wert setzen</span>
                     </label>
                 `;
+                this.appendArchivedAccountHint(wrapper, field, index);
                 container.appendChild(wrapper);
                 return;
             }
@@ -907,6 +974,7 @@ const requestTemplateUi = {
                 <p class="request-template-render-field-copy">${escapeHtml(metaParts.join(" · "))}</p>
             `;
             wrapper.appendChild(input);
+            this.appendArchivedAccountHint(wrapper, field, index);
             container.appendChild(wrapper);
         });
     },
@@ -987,6 +1055,7 @@ const requestTemplateHandlers = {
     },
 
     async selectAllDocumentsMode() {
+        this.resetPrefill();
         requestTemplateState.selectionMode = "all";
         requestTemplateState.selectedTemplateId = null;
         requestTemplateState.selectedTemplateDocType = null;
@@ -1011,6 +1080,8 @@ const requestTemplateHandlers = {
     },
 
     async selectTemplate(templateId, docType) {
+        requestTemplateState.selectedSchema = null;
+        this.resetPrefill();
         requestTemplateState.selectionMode = "template";
         requestTemplateState.selectedTemplateId = String(templateId);
         requestTemplateState.selectedTemplateDocType = docType || null;
@@ -1062,6 +1133,7 @@ const requestTemplateHandlers = {
         if (!requestTemplateState.selectedTemplate || !requestTemplateState.selectedSchema) {
             return;
         }
+        this.resetPrefill();
 
         requestTemplateState.selectedDocumentId = "new";
         requestTemplateState.selectedDocumentDocType = requestTemplateState.selectedTemplateDocType;
@@ -1087,6 +1159,7 @@ const requestTemplateHandlers = {
     },
 
     async selectDocument(documentItem) {
+        this.resetPrefill();
         if (requestTemplateState.selectionMode === "all") {
             await this.selectTemplate(documentItem.template_id, documentItem.doc_type);
         }
@@ -1308,12 +1381,23 @@ const requestTemplateHandlers = {
             return;
         }
 
+        const revision = ++requestTemplateState.prefillRevision;
+        const templateId = requestTemplateState.selectedTemplateId;
+        const docType = requestTemplateState.selectedTemplateDocType;
+        const userId = requestTemplateState.selectedUserId;
+        const isCurrent = () => revision === requestTemplateState.prefillRevision
+            && templateId === requestTemplateState.selectedTemplateId
+            && docType === requestTemplateState.selectedTemplateDocType
+            && userId === requestTemplateState.selectedUserId;
         requestTemplateUi.setRenderActionLoading(true, "prefill");
 
         try {
-            const payload = await requestTemplateApi.prefillTemplate(requestTemplateState.selectedTemplateId, requestTemplateState.selectedTemplateDocType, {
-                user_id: requestTemplateState.selectedUserId,
+            const payload = await requestTemplateApi.prefillTemplate(templateId, docType, {
+                user_id: userId,
             });
+            if (!isCurrent()) {
+                return;
+            }
             requestTemplateState.modalFields = requestTemplateSchemaUtils.buildModalFieldsFromPrefill(payload);
             requestTemplateState.existingDocument = requestTemplateSchemaUtils.buildExistingDocument(payload, requestTemplateState.selectedTemplateDocType);
             requestTemplateUi.renderExistingDocumentCard();
@@ -1325,6 +1409,9 @@ const requestTemplateHandlers = {
                 "success"
             );
         } catch (error) {
+            if (!isCurrent()) {
+                return;
+            }
             requestTemplateUi.setStatus(
                 requestTemplateDom.mainPaneStatus,
                 "error",
@@ -1332,7 +1419,9 @@ const requestTemplateHandlers = {
             );
             requestTemplateDom.mainPaneStatus.hidden = false;
         } finally {
-            requestTemplateUi.setRenderActionLoading(false, "prefill");
+            if (isCurrent()) {
+                requestTemplateUi.setRenderActionLoading(false, "prefill");
+            }
         }
     },
 
@@ -1489,8 +1578,32 @@ const requestTemplateHandlers = {
         requestTemplateUi.renderUserOptions();
     },
 
+    resetPrefill() {
+        requestTemplateState.prefillRevision += 1;
+        requestTemplateState.modalFields = requestTemplateSchemaUtils.buildModalFieldsFromSchema(requestTemplateState.selectedSchema);
+        requestTemplateState.existingDocument = null;
+        requestTemplateUi.renderExistingDocumentCard();
+        requestTemplateUi.renderModalFields();
+        requestTemplateUi.setRenderActionLoading(false, "prefill");
+    },
+
+    handleFieldInput(event) {
+        const index = Number(event.target.dataset.modalFieldIndex);
+        if (!Number.isInteger(index) || !requestTemplateState.modalFields[index]) {
+            return;
+        }
+        const field = requestTemplateState.modalFields[index];
+        const value = field.type === "checkbox" ? Boolean(event.target.checked) : String(event.target.value ?? "");
+        field.value = value;
+        requestTemplateUi.updateArchivedAccountHint(index, value);
+    },
+
     handleUserSelectionChange(event) {
-        requestTemplateState.selectedUserId = String(event.target.value || "");
+        const userId = String(event.target.value || "");
+        if (userId !== requestTemplateState.selectedUserId) {
+            requestTemplateState.selectedUserId = userId;
+            this.resetPrefill();
+        }
     },
 
     handleOverlayClick(event) {
@@ -1546,6 +1659,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
     requestTemplateDom.prefillTemplateButton.addEventListener("click", () => requestTemplateHandlers.handlePrefillClick());
+    requestTemplateDom.renderModalFields.addEventListener("input", (event) => requestTemplateHandlers.handleFieldInput(event));
     requestTemplateDom.renderModalForm.addEventListener("submit", (event) => requestTemplateHandlers.handleRenderModalSubmit(event));
     requestTemplateDom.renderUserSearchInput.addEventListener("input", (event) => requestTemplateHandlers.handleUserSearchInput(event));
     requestTemplateDom.renderUserSelect.addEventListener("change", (event) => requestTemplateHandlers.handleUserSelectionChange(event));

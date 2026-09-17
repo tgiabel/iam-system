@@ -604,3 +604,50 @@
         min-width: 130px;
     }
 }
+.request-template-render-field .request-template-render-field-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.request-template-account-hint {
+    position: relative;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid currentColor;
+    border-radius: 50%;
+    color: #a16207;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: help;
+}
+
+.request-template-account-hint[hidden] {
+    display: none;
+}
+
+.request-template-account-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 0.4rem);
+    left: 0;
+    z-index: 10;
+    width: max-content;
+    max-width: min(18rem, 65vw);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: #1f2937;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 400;
+    line-height: 1.4;
+    pointer-events: none;
+}
+
+.request-template-account-hint:hover .request-template-account-tooltip,
+.request-template-account-hint:focus .request-template-account-tooltip {
+    display: block;
+}
