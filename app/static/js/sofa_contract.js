@@ -272,10 +272,10 @@
     function buildRehireStartPayload(form, stateFingerprint, businessReference, confirmed) {
         const reference = typeof businessReference === "string" ? businessReference.trim() : "";
         if (!reference) {
-            return { ok: false, message: "Bitte eine Geschäftsreferenz angeben." };
+            return { ok: false, message: "Bitte eine Referenz oder einen Grund angeben." };
         }
         if (reference.length > BUSINESS_REFERENCE_MAX_LENGTH) {
-            return { ok: false, message: "Die Geschäftsreferenz darf höchstens 100 Zeichen lang sein." };
+            return { ok: false, message: "Referenz/ Grund darf höchstens 100 Zeichen lang sein." };
         }
         if (confirmed !== true) {
             return { ok: false, message: "Bitte die Prüfung der Daten bestätigen." };

@@ -3260,8 +3260,8 @@ const rehireModalController = {
                     <span class="ui-field-hint">Archivierte Konten werden nicht hier entschieden. Sie können in den Konto-Aufgaben wiederhergestellt werden.</span>
                 </div>
                 <div class="ui-field-group">
-                    <label class="ui-field-label" for="rehire-business-reference">Geschäftsreferenz</label>
-                    <input id="rehire-business-reference" class="ui-input" maxlength="100" placeholder="z. B. INC-4711" value="${escapeHtml(this.state.businessReference)}">
+                    <label class="ui-field-label" for="rehire-business-reference">Referenz/ Grund</label>
+                    <input id="rehire-business-reference" class="ui-input" maxlength="100" placeholder="z. B. HELIX-Ticketnummer" value="${escapeHtml(this.state.businessReference)}">
                     <span class="ui-field-hint">Pflichtfeld, maximal 100 Zeichen</span>
                 </div>
                 <label class="rehire-check">
