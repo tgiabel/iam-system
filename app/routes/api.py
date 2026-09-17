@@ -1015,7 +1015,7 @@ async def api_task_backlogs(current_user=Depends(require_any_permission("SOFA-PA
         backlogs = await api_client.get_backlogs()
         if not current_user.has_all_backlog_access:
             allowed = current_user.accessible_backlogs
-            backlogs = [b for b in backlogs if b.get("identifier") in allowed]
+            backlogs = [b for b in backlogs if b.get("technical_identifier") in allowed]
         return JSONResponse(content=backlogs)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(
