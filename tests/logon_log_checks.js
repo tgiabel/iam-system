@@ -1,0 +1,17 @@
+const assert = require('node:assert/strict');
+const ll = require('../app/static/js/reports/logon_log.js');
+const events = Array.from({length:205},(_,i)=>({id:i,username:i%2?'YC00002':'YC00001',computer:i%2?'PC-B':'PC-A',ip:'192.0.2.1',type:'Anmeldung',case_keys:i%2?[]:['case']}));
+const cases=[{key:'case',classification:'finding',review_state:'reviewed'}];
+assert.equal(ll.LL_PAGE_SIZE,100);
+assert.equal(ll.llFiltered(events,cases,{search:'pc-a',type:'',status:''}).length,103);
+assert.equal(ll.llFiltered(events,cases,{search:'',type:'',status:'reviewed'}).length,103);
+assert.equal(ll.llFiltered(events,cases,{search:'',type:'Abmeldung',status:''}).length,0);
+assert.equal(ll.llGroups(events,'computer').length,2);
+assert.equal(ll.llGroups(events,'computer')[0].events.length,103);
+assert.equal(ll.llGroups(events,'').length,205);
+assert.equal(ll.llShift('2026-09-18',-1),'2026-09-17');
+assert.equal(ll.llShift('2026-03-29',1),'2026-03-30');
+assert.equal(ll.llEscape('<img src=x onerror="alert(1)">'), '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
+assert(ll.llStatusLabels({classification:'anomaly',review_state:'reviewed'}).some(x=>x.includes('keine Prüfpflicht')));
+assert.equal(cases.length,1); // Filters never mutate the recognition results.
+console.log('LogonLog JS: filters, grouping, pagination unit, dates and escaping passed');

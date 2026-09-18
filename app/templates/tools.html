@@ -236,6 +236,15 @@
                     </a>
                     {% endif %}
 
+                    {% if "SOFA-RPRT-LL" in authz.permissions %}
+                    <a href="/tools/logon-log" class="overview-card overview-card-link">
+                        <div class="overview-card-top"><span class="ui-chip ui-chip-primary">Systemzugriffe</span></div>
+                        <div class="overview-card-body"><div class="overview-card-heading">
+                            <h3 class="overview-card-title">Anmeldeprotokoll</h3></div>
+                            <p class="overview-card-copy">Client-Anmeldungen auswerten und Parallelzugriffe prüfen.</p></div>
+                        <div class="overview-card-footer"><span class="overview-card-cta">Report öffnen</span></div>
+                    </a>
+                    {% endif %}
                     {% if "SOFA-RPRT-TIVR" in authz.permissions %}
                     <a href="/tools/ivr-report" class="overview-card overview-card-link report-card">
                         <div class="overview-card-top">

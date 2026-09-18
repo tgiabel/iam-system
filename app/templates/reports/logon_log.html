@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% set page_title = "Anmeldeprotokoll" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% set widget_title = "Anmeldeprotokoll" %}
+{% block css %}<link rel="stylesheet" href="/static/css/logon_log.css">{% endblock %}
+{% block scripts %}<script src="/static/js/reports/logon_log.js?v={{ static_v }}" defer></script>{% endblock %}
+{% block content %}
+<div id="llReport" class="ll-page" data-can-names="{{ 'true' if 'SOFA-FN-LL' in authz.permissions else 'false' }}" data-can-check="{{ 'true' if 'SOFA-FN-CHECKLL' in authz.permissions else 'false' }}">
+    <div class="ui-section-header"><div class="ui-section-heading">
+        <p class="ui-section-kicker">Systemzugriffe</p><h1 class="ui-section-title">Anmeldeprotokoll</h1>
+        <p class="ui-section-copy">Client-Anmeldungen und zeitliche Parallelzugriffe. Prüfpflichtig sind Agenten.</p>
+    </div></div>
+    <div class="ll-toolbar" aria-label="Reporttag">
+        <button id="llPrev" type="button" aria-label="Vorheriger Tag">‹</button>
+        <label>Tag <input id="llDay" type="date" class="ui-input"></label>
+        <button id="llNext" type="button" aria-label="Nächster Tag">›</button>
+        <button id="llReload" type="button">Erneut laden</button>
+        {% if 'SOFA-FN-LL' in authz.permissions %}<button id="llAnalyze" type="button">Benutzer auswerten</button>{% endif %}
+        <span id="llDataAsOf" role="status"></span>
+    </div>
+    <p id="llWorkflowNote" class="ll-note"></p>
+    <p id="llStatus" role="status" aria-live="polite"></p>
+    <section class="ll-findings" aria-label="Offene Prüfungen">
+        <h2>Offene Prüfungen des Tages</h2><div id="llOpenCases"></div><div id="llOtherDays"></div>
+    </section>
+    <div class="ll-toolbar" aria-label="Tabellenfilter">
+        <input id="llSearch" type="search" class="ui-input" placeholder="Kennung, Rechner oder IP suchen…" aria-label="Logs durchsuchen">
+        <label>Gruppierung <select id="llGroup" class="ui-input"><option value="">Keine</option><option value="computer">Rechnername</option><option value="ip">IP</option><option value="username">Benutzerkennung</option></select></label>
+        <label>Ereignis <select id="llType" class="ui-input"><option value="">Alle</option><option>Anmeldung</option><option>Abmeldung</option></select></label>
+        <label>Status <select id="llFilter" class="ui-input"><option value="">Alle</option><option value="finding">Agenten-Findings</option><option value="anomaly">Auffällig ohne Prüfpflicht</option><option value="unresolved">Zuordnung ungeklärt</option><option value="open">Offen</option><option value="reviewed">Geprüft</option><option value="changed">Erneut prüfen</option><option value="legacy">Altbestand</option></select></label>
+        {% if 'SOFA-FN-LL' in authz.permissions %}<label><input id="llNames" type="checkbox"> Klartextnamen nachladen</label>{% endif %}
+        <button id="llExport" type="button" disabled>CSV exportieren</button>
+    </div>
+    <p id="llExportNotice" class="ll-note" role="status" aria-live="polite"></p>
+    <p id="llCount" role="status"></p>
+    <div class="ll-table-wrap"><table class="ll-table"><thead><tr><th>Details / Status</th><th>Zeitstempel</th><th>y-User</th><th>Rechnername</th><th>IP</th><th>Ereignis</th></tr></thead><tbody id="llRows"></tbody></table></div>
+    <div class="ll-toolbar"><button id="llPagePrev" type="button">Vorherige Seite</button><span id="llPageLabel"></span><button id="llPageNext" type="button">Nächste Seite</button></div>
+    <section id="llAnalysisSection" hidden class="ll-analysis" aria-label="Benutzerauswertung">
+        <h2 id="llAnalysisTitle">Benutzerauswertung</h2><button id="llAnalysisClose" type="button">Auswertung schließen</button>
+        <p id="llAnalysisStatus" role="status" aria-live="polite"></p>
+        <div class="ll-toolbar"><button id="llLoadAll" type="button">Alle Logs laden</button><button id="llExportFindings" type="button">Finding-Logs als CSV</button><button id="llExportAll" type="button">Alle Benutzerlogs als CSV</button></div>
+        <div id="llAnalysisCases"></div><div id="llAnalysisLogs"></div>
+    </section>
+</div>
+<dialog id="llAnalysisDialog" class="ll-dialog" aria-labelledby="llAnalysisDialogTitle">
+    <form id="llAnalysisForm"><h2 id="llAnalysisDialogTitle">Benutzer auswerten</h2>
+        <label>Benutzer suchen <input id="llUserQuery" type="search" class="ui-input" autocomplete="off"></label>
+        <label>Benutzer <select id="llUser" required class="ui-input"><option value="">Benutzer auswählen</option></select></label>
+        <label>Von <input id="llFrom" type="date" required class="ui-input"></label>
+        <label>Bis <input id="llTo" type="date" required class="ui-input"></label>
+        <p id="llUserStatus" role="status" aria-live="polite"></p>
+        <div class="ll-toolbar"><button type="submit">Auffälligkeiten laden</button><button id="llAnalysisCancel" type="button">Abbrechen</button></div>
+    </form>
+</dialog>
+<dialog id="llReviewDialog" class="ll-dialog" aria-labelledby="llReviewTitle">
+    <form id="llReviewForm"><h2 id="llReviewTitle">Finding prüfen</h2>
+        <div id="llReviewSummary"></div><div id="llReviewEvidence"></div>
+        <label>Ursache (Pflicht)<textarea id="llCause" required maxlength="4000" rows="4" class="ui-input"></textarea></label>
+        <label>Maßnahmen (optional)<textarea id="llMeasures" maxlength="4000" rows="3" class="ui-input"></textarea></label>
+        <label id="llReasonLabel" hidden>Änderungsgrund (Pflicht)<textarea id="llReason" maxlength="1000" rows="2" class="ui-input"></textarea></label>
+        <p id="llReviewStatus" role="status" aria-live="polite"></p>
+        <div class="ll-toolbar"><button id="llReviewSave" type="submit">Prüfung speichern</button><button id="llReviewCancel" type="button">Schließen</button></div>
+        <div id="llReviewHistory"></div>
+    </form>
+</dialog>
+{% endblock %}

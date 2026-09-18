@@ -112,6 +112,10 @@ class APIClient:
     async def _delete(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None) -> Any:
         return await self._request_json("DELETE", base_url, path, params=params, payload=payload)
 
+    async def logon_log_request(self, method: str, path: str, actor_id: int, *, params=None, payload=None):
+        return await self._request(method, REPORTING_BASE_URL, "/logon-log" + path,
+                                   params=params, payload=payload, headers={"X-User-Id": str(actor_id)})
+
     # Access
     async def login_user(self, pnr: str, password: str) -> dict:
         return await self._post(ACCESS_BASE_URL, "/users/login", payload={"pnr": pnr, "password": password})

@@ -80,7 +80,7 @@ def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", r
 
 
 @router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_any_permission_or_admin("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-SLOG", "SOFA-RPRT-TIVR", redirect_to="/"))):
+def tools(request: Request, authz=Depends(require_any_permission_or_admin("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-SLOG", "SOFA-RPRT-TIVR", "SOFA-RPRT-LL", redirect_to="/"))):
     return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
@@ -220,5 +220,13 @@ async def ivr_report_tool(request: Request, authz=Depends(require_permission("SO
 async def ivr_call_details_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-TIVR", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "reports/ivr_call_details.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
+    )
+
+
+@router.get("/tools/logon-log", response_class=HTMLResponse)
+async def logon_log_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-LL", redirect_to="/tools"))):
+    return templates.TemplateResponse(
+        "reports/logon_log.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
