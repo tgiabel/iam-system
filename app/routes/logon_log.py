@@ -1,15 +1,16 @@
 """SOFA-only proxy: actor identity always comes from the authenticated session."""
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
-from app.authz import require_login
-from app.api_client import api_client
-import httpx
+
+from app.api_client import LOGON_LOG_RANGE_TIMEOUT_SECONDS, api_client
+from app.authz import AuthorizationContext, require_login
 
 router = APIRouter(prefix="/reporting/logon-log")
 REPORT, NAMES, CHECK = "SOFA-RPRT-LL", "SOFA-FN-LL", "SOFA-FN-CHECKLL"
 
 
-def authorize(authz, function=None):
+def authorize(authz: AuthorizationContext, function: str | None = None) -> None:
     for permission in (REPORT, function):
         if permission and not authz.has_permission(permission):
             raise HTTPException(status_code=403, detail={"code": "permission_denied", "message": f"Berechtigung {permission} erforderlich."})
@@ -17,15 +18,29 @@ def authorize(authz, function=None):
         raise HTTPException(status_code=401, detail="Keine aktive Identität.")
 
 
-async def forward(request, authz, method, path, function=None):
+async def forward(
+    request: Request,
+    authz: AuthorizationContext,
+    method: str,
+    path: str,
+    function: str | None = None,
+    *,
+    timeout: float | None = None,
+) -> Response:
     authorize(authz, function)
     try:
         payload = await request.json() if method == "POST" else None
     except ValueError:
         raise HTTPException(status_code=400, detail="Ungültiger JSON-Body.") from None
     try:
-        response = await api_client.logon_log_request(method, path, authz.user_id,
-                                                      params=dict(request.query_params), payload=payload)
+        response = await api_client.logon_log_request(
+            method,
+            path,
+            authz.user_id,
+            params=request.query_params.multi_items(),
+            payload=payload,
+            timeout=timeout,
+        )
     except httpx.HTTPStatusError as exc:
         response = exc.response
     except Exception:
@@ -54,7 +69,7 @@ async def names(request: Request, authz=Depends(require_login)):
 
 @router.get("/analysis")
 async def analysis(request: Request, authz=Depends(require_login)):
-    return await forward(request, authz, "GET", "/analysis", NAMES)
+    return await forward(request, authz, "GET", "/analysis", NAMES, timeout=LOGON_LOG_RANGE_TIMEOUT_SECONDS)
 
 
 @router.get("/reviews/{user_id}/{day}")
@@ -69,5 +84,7 @@ async def save_review(request: Request, user_id: int, day: str, authz=Depends(re
 
 @router.get("/export")
 async def export(request: Request, authz=Depends(require_login)):
-    function = NAMES if request.query_params.get("scope", "day") != "day" else None
-    return await forward(request, authz, "GET", "/export", function)
+    # Der Tagesexport ist klein; findings/all laufen ueber einen Zeitraum.
+    if request.query_params.get("scope", "day") == "day":
+        return await forward(request, authz, "GET", "/export")
+    return await forward(request, authz, "GET", "/export", NAMES, timeout=LOGON_LOG_RANGE_TIMEOUT_SECONDS)

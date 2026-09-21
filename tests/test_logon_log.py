@@ -6,6 +6,7 @@ import unittest
 import subprocess
 from unittest.mock import patch
 import httpx
+from starlette.datastructures import QueryParams
 from app.authz import AuthorizationContext
 from app.api_client import APIClient, REPORTING_BASE_URL
 from app.routes import logon_log as ll, pages
@@ -38,7 +39,7 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(calls[0][1]['headers'],{'X-User-Id':'42'})
 
     def test_proxy_preserves_backend_error_and_no_store(self):
-        request=SimpleNamespace(query_params={'day':'2026-09-18'})
+        request=SimpleNamespace(query_params=QueryParams({'day':'2026-09-18'}))
         async def backend(*args,**kwargs):
             response=httpx.Response(409,json={'detail':{'code':'review_changed','message':'Neu laden'}},request=httpx.Request('GET','http://test/day'))
             raise httpx.HTTPStatusError('Conflict',request=response.request,response=response)
@@ -49,15 +50,26 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(json.loads(response.body)['detail']['code'],'review_changed')
 
     def test_proxy_preserves_csv_bytes(self):
-        request=SimpleNamespace(query_params={'scope':'day'})
+        request=SimpleNamespace(query_params=QueryParams({'scope':'day'}))
         async def backend(*args,**kwargs):return httpx.Response(200,content=b'Id;Username\r\n1;YC00001\r\n',headers={'content-type':'text/csv','content-disposition':'attachment; filename="logon-log.csv"'})
         with patch.object(ll.api_client,'logon_log_request',backend):response=asyncio.run(ll.export(request,authz(ll.REPORT)))
         self.assertEqual(response.body,b'Id;Username\r\n1;YC00001\r\n')
         self.assertIn('attachment',response.headers['content-disposition'])
 
     def test_export_scope_all_requires_names(self):
-        request=SimpleNamespace(query_params={'scope':'all'})
+        request=SimpleNamespace(query_params=QueryParams({'scope':'all'}))
         with self.assertRaises(Exception):asyncio.run(ll.export(request,authz(ll.REPORT)))
+
+    def test_range_queries_get_long_timeout_and_keep_repeated_params(self):
+        calls=[]
+        async def backend(*args,**kwargs):calls.append(kwargs);return httpx.Response(200,json={})
+        with patch.object(ll.api_client,'logon_log_request',backend):
+            asyncio.run(ll.day(SimpleNamespace(query_params=QueryParams('day=2026-09-18')),authz(ll.REPORT)))
+            asyncio.run(ll.export(SimpleNamespace(query_params=QueryParams('scope=day&status=open&status=changed')),authz(ll.REPORT)))
+            asyncio.run(ll.analysis(SimpleNamespace(query_params=QueryParams('user_id=1')),authz(ll.REPORT,ll.NAMES)))
+            asyncio.run(ll.export(SimpleNamespace(query_params=QueryParams('scope=all')),authz(ll.REPORT,ll.NAMES)))
+        self.assertEqual([c['timeout'] for c in calls],[None,None,ll.LOGON_LOG_RANGE_TIMEOUT_SECONDS,ll.LOGON_LOG_RANGE_TIMEOUT_SECONDS])
+        self.assertEqual(calls[1]['params'],[('scope','day'),('status','open'),('status','changed')])
 
     def test_page_and_tools_include_report_right(self):
         import inspect

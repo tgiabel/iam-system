@@ -24,6 +24,10 @@ STOERUNG_BASE_URL = BASE_URL
 # regelmaessig laenger als die 10 Sekunden, die fuer die uebrigen Backendaufrufe genuegen.
 IKS_REPORT_TIMEOUT_SECONDS = 120
 
+# Gleiche Ausnahme fuer die LogonLog-Zeitraumauswertung und den Zeitraumexport:
+# Die Erkennung laeuft serverseitig ungefiltert ueber bis zu mehrere Monate Logs.
+LOGON_LOG_RANGE_TIMEOUT_SECONDS = 120
+
 
 class APIClient:
     def __init__(self, timeout: int = 10):
@@ -112,9 +116,25 @@ class APIClient:
     async def _delete(self, base_url: str, path: str, *, params: dict | None = None, payload: dict | None = None) -> Any:
         return await self._request_json("DELETE", base_url, path, params=params, payload=payload)
 
-    async def logon_log_request(self, method: str, path: str, actor_id: int, *, params=None, payload=None):
-        return await self._request(method, REPORTING_BASE_URL, "/logon-log" + path,
-                                   params=params, payload=payload, headers={"X-User-Id": str(actor_id)})
+    async def logon_log_request(
+        self,
+        method: str,
+        path: str,
+        actor_id: int,
+        *,
+        params: list[tuple[str, str]] | None = None,
+        payload: dict | None = None,
+        timeout: float | None = None,
+    ) -> httpx.Response:
+        return await self._request(
+            method,
+            REPORTING_BASE_URL,
+            "/logon-log" + path,
+            params=params,
+            payload=payload,
+            headers={"X-User-Id": str(actor_id)},
+            timeout=timeout,
+        )
 
     # Access
     async def login_user(self, pnr: str, password: str) -> dict:

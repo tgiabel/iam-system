@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles  # type: ignore
 from starlette.middleware.base import BaseHTTPMiddleware  # type: ignore
 
 from app.routes.api import router as api_router
+from app.routes.logon_log import router as logon_log_router
 from app.routes.pages import router as page_router
 from app.routes.shared import static_path
 
@@ -31,3 +32,4 @@ app.add_middleware(ForwardedHeaderMiddleware)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 app.include_router(page_router)
 app.include_router(api_router)
+app.include_router(logon_log_router, prefix="/api")

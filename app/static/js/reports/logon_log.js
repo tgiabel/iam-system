@@ -75,7 +75,7 @@ function llRender() {
     const showNames=!!llDom.llNames?.checked;
     llDom.llRows.innerHTML=field ? visible.map(group=>{
         const key=field+":"+group.key, expanded=llState.expanded.has(key), control="llGroup"+visible.indexOf(group);
-        const cases=report.cases.filter(c=>group.events.some(e=>e.case_keys.includes(c.key)));
+        const cases=report.cases.filter(c=>group.events.some(e=>(e.case_keys || []).includes(c.key)));
         return `<tr><td><button type="button" data-expand="${llEscape(key)}" aria-expanded="${expanded}" aria-controls="${control}">${expanded ? "▾" : "▸"} ${llEscape(group.label)}</button></td><td colspan="5">${group.events.length} Ereignisse ${cases.map(llBadges).join("")}</td></tr>`+
             `<tr id="${control}" ${expanded ? "" : "hidden"}><td colspan="6">${expanded ? `<div class="ll-group-detail"><table class="ll-table"><tbody>${group.events.map(e=>llEventRow(e,report.cases,showNames)).join("")}</tbody></table></div>` : ""}</td></tr>`;
     }).join("") : visible.map(e=>llEventRow(e,report.cases,showNames)).join("");

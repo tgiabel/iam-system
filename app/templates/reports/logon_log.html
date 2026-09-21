@@ -4,7 +4,7 @@
 {% set sub_page_back_url = "/tools" %}
 {% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
 {% set widget_title = "Anmeldeprotokoll" %}
-{% block css %}<link rel="stylesheet" href="/static/css/logon_log.css">{% endblock %}
+{% block css %}<link rel="stylesheet" href="/static/css/logon_log.css?v={{ static_v }}">{% endblock %}
 {% block scripts %}<script src="/static/js/reports/logon_log.js?v={{ static_v }}" defer></script>{% endblock %}
 {% block content %}
 <div id="llReport" class="ll-page" data-can-names="{{ 'true' if 'SOFA-FN-LL' in authz.permissions else 'false' }}" data-can-check="{{ 'true' if 'SOFA-FN-CHECKLL' in authz.permissions else 'false' }}">

@@ -2344,6 +2344,3 @@ async def api_get_computer_job_batch(
     except Exception as exc:
         return _computer_proxy_error(exc)
 
-
-from app.routes import logon_log
-router.include_router(logon_log.router)
