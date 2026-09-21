@@ -1,100 +1,241 @@
-/* Anmeldeprotokoll: nur Theme-Tokens aus _.css/ui.css, damit Hell, Dunkel und
-   Servodata ohne eigene Overrides funktionieren. Flächen bleiben deckend. */
+/* Anmeldeprotokoll: Seitenrahmen, Buttons und Tabelle folgen den IVR-Reports
+   (ivr_report.css / ivr_call_details.css); Farben nur ueber Theme-Tokens,
+   Flaechen deckend. */
 
 .ll-page {
-    display: grid;
-    gap: 1rem;
-    max-width: 100%;
+    width: 100%;
+    max-width: 1500px;
+    margin: 40px auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.ll-page [hidden],
+.ll-dialog [hidden] {
+    display: none !important;
+}
+
+.ll-heading {
+    margin-bottom: 1.25rem;
+}
+
+.ll-note {
+    max-width: 31rem;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-muted);
+    font-size: 0.88rem;
+}
+
+.ll-note:empty,
+.ll-status:empty,
+.ll-chip:empty {
+    display: none;
+}
+
+.ll-status {
+    margin: 0 0 12px;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+/* Toolbars */
+
+.ll-toolbar,
+.ll-daynav,
+.ll-toolbar-meta,
+.ll-filterbar,
+.ll-filtermeta,
+.ll-pagination,
+.ll-panel-head {
+    display: flex;
+    align-items: center;
 }
 
 .ll-toolbar {
-    display: flex;
+    justify-content: space-between;
     flex-wrap: wrap;
-    align-items: center;
-    gap: 0.65rem;
+    gap: 12px;
+    margin-bottom: 12px;
 }
 
-.ll-toolbar label {
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
+.ll-daynav {
+    gap: 6px;
 }
+
+.ll-daynav {
+    position: relative;
+}
+
+.ll-page .ll-day-label {
+    min-width: 11rem;
+    padding: 0.5rem 1rem;
+    text-align: center;
+}
+
+.ll-day-picker {
+    position: absolute;
+    inset: auto 0 0 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    border: 0;
+}
+
+.ll-toolbar-meta,
+.ll-filtermeta {
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.ll-filterbar {
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.ll-search {
+    flex: 1 1 320px;
+    max-width: 420px;
+}
+
+.ll-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--ui-text-muted);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.ll-filter .ui-input {
+    width: auto;
+}
+
+.ll-checkbox {
+    font-weight: 600;
+    color: var(--ui-text);
+}
+
+.ll-filtermeta {
+    margin-left: auto;
+}
+
+.ll-pagination {
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 12px;
+}
+
+.ll-page-label {
+    min-width: 6.5rem;
+    color: var(--ui-text-muted);
+    font-size: 0.88rem;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Buttons: wie .ivr-report-export-btn / .ivr-report-nav-btn. Die Regel greift
+   auch fuer die vom Skript erzeugten Buttons in Fallkarten und Tabelle. */
 
 .ll-page button,
-.ll-dialog button {
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    background: var(--surface-card);
-    color: var(--text-default);
-    padding: 0.5rem 0.8rem;
+.ll-dialog .ui-modal-body button {
+    min-height: 2.2rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font-weight: 700;
     cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .ll-page button:hover:not(:disabled),
-.ll-dialog button:hover:not(:disabled) {
-    border-color: var(--border-strong);
-    background: var(--surface-raised);
+.ll-dialog .ui-modal-body button:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    background: var(--ui-surface-soft);
 }
 
-.ll-page button:disabled,
-.ll-dialog button:disabled {
-    opacity: 0.5;
-    cursor: default;
+.ll-page button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .ll-page button:focus-visible,
 .ll-dialog button:focus-visible {
-    outline: 3px solid var(--color-primary);
+    outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
 
-.ll-page input[type=search] {
-    min-width: 200px;
-    flex: 1;
+.ll-page .ll-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    padding: 0;
+    font-size: 1.2rem;
+    line-height: 1;
 }
 
-.ll-note {
-    margin: 0;
-    padding: 0.7rem 1rem;
-    border-left: 3px solid var(--border-strong);
-    background: var(--surface-muted);
-    color: var(--text-default);
+/* Panels: offene Pruefungen und Benutzerauswertung */
+
+.ll-panel {
+    margin-bottom: 18px;
+    padding: 1.25rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
 }
 
-.ll-context,
-.ll-name {
-    font-size: 0.85rem;
-    color: var(--text-muted);
+.ll-panel-head {
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 0.75rem;
 }
 
-.ll-name {
-    display: block;
-}
-
-/* Sektionen und Fälle */
-
-.ll-findings,
-.ll-analysis {
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    background: var(--surface-card);
-}
-
-.ll-findings h2,
-.ll-analysis h2 {
+.ll-panel-title {
     margin: 0 0 0.75rem;
-    color: var(--text-strong);
+    color: var(--ui-text-strong);
+    font-size: 1.05rem;
 }
+
+.ll-panel-head .ll-panel-title {
+    margin: 0;
+}
+
+.ll-panel > .ll-toolbar-meta {
+    margin-bottom: 12px;
+}
+
+.ll-panel details > summary {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* Fallkarten und Badges */
 
 .ll-case {
     margin: 0.65rem 0;
-    padding: 0.8rem;
-    border: 1px solid var(--border-color);
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--ui-border);
     border-left: 4px solid var(--ui-warning-text);
-    border-radius: 0.4rem;
-    background: var(--surface-card);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    color: var(--ui-text);
     overflow-wrap: anywhere;
+}
+
+.ll-case p {
+    margin: 0.4rem 0;
 }
 
 .ll-case.ll-urgent {
@@ -111,16 +252,20 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    margin-bottom: 0.35rem;
+    color: var(--ui-text-strong);
 }
 
 .ll-badge {
-    display: inline-block;
-    margin: 0.15rem;
-    padding: 0.15rem 0.45rem;
-    border-radius: 0.3rem;
+    display: inline-flex;
+    align-items: center;
+    margin: 0.15rem 0.3rem 0.15rem 0;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
     background: var(--ui-status-neutral-bg);
     color: var(--ui-status-neutral-text);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
+    font-weight: 700;
 }
 
 .ll-badge.ll-urgent {
@@ -133,76 +278,135 @@
     color: var(--ui-success-text);
 }
 
-/* Tabelle */
+.ll-context,
+.ll-name {
+    color: var(--ui-text-muted);
+    font-size: 0.8rem;
+}
 
+.ll-name {
+    display: block;
+    margin-top: 0.18rem;
+}
+
+/* Tabelle: wie .ivr-call-details-table */
+
+.ll-table-card .table-wrapper,
 .ll-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    max-height: 65vh;
     overflow: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 0.65rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    box-shadow: none;
 }
 
 .ll-table {
     width: 100%;
     border-collapse: collapse;
-    background: var(--surface-card);
+    text-align: left;
 }
 
-.ll-table th,
-.ll-table td {
-    padding: 0.65rem;
-    border-bottom: 1px solid var(--border-color);
-    text-align: left;
+.ll-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 0.85rem 0.75rem;
+    background: var(--table-header-bg);
+    color: var(--text-inverse);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.ll-table tbody td {
+    padding: 0.9rem 0.75rem;
+    border-bottom: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    font-size: 0.9rem;
     vertical-align: top;
 }
 
-.ll-table th {
-    white-space: nowrap;
-    color: var(--text-strong);
+.ll-table tbody tr:hover {
+    background: var(--table-row-hover);
 }
 
 .ll-table button {
+    min-height: 0;
+    padding: 0.3rem 0.6rem;
     white-space: normal;
 }
 
+/* Aufgeklappte Gruppe: eingebettete Tabelle ohne eigenen Rahmen */
 .ll-group-detail {
-    padding: 1rem;
+    padding: 0 0 0 1.5rem;
 }
 
-/* Dialoge */
+.ll-group-detail .ll-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* Dialoge: Optik wie .ui-modal; <dialog> selbst behaelt das native Ein-/Ausblenden */
 
 .ll-dialog {
-    width: min(850px, calc(100vw - 2rem));
-    max-height: 90vh;
-    padding: 1.2rem;
-    border: 1px solid var(--border-strong);
-    border-radius: 0.75rem;
-    background: var(--surface-card);
-    color: var(--text-default);
+    width: min(920px, calc(100vw - 2rem));
+    max-height: calc(100vh - 2rem);
+    /* Das globale Reset nullt margin; auto stellt die native Zentrierung wieder her. */
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-xl);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-lg);
+    color: var(--ui-text);
+    overflow: hidden;
+}
+
+.ll-dialog-compact {
+    width: min(620px, calc(100vw - 2rem));
 }
 
 .ll-dialog::backdrop {
     background: var(--surface-overlay);
+    backdrop-filter: blur(12px);
 }
 
-.ll-dialog form {
+.ll-dialog-form {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2rem);
+    margin: 0;
+}
+
+.ll-dialog-title {
+    margin: 0;
+    font-size: 1.35rem;
+}
+
+.ll-field-row {
     display: grid;
-    gap: 0.85rem;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
 }
 
-.ll-dialog label {
-    display: grid;
-    gap: 0.4rem;
-}
-
-.ll-dialog textarea {
-    width: 100%;
-    box-sizing: border-box;
+.ll-review-summary p {
+    margin: 0.2rem 0;
 }
 
 .ll-dialog details {
     margin-top: 0.7rem;
     padding-top: 0.7rem;
-    border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--ui-border);
+}
+
+.ll-dialog details > summary {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    cursor: pointer;
 }
 
 .ll-dialog pre {
@@ -211,32 +415,31 @@
     font-family: inherit;
 }
 
-.ll-page [hidden],
-.ll-dialog [hidden] {
-    display: none !important;
-}
+@media (max-width: 700px) {
+    .ll-page {
+        margin: 16px auto;
+        padding: 12px;
+    }
 
-@media (max-width: 600px) {
-    .ll-toolbar label {
+    .ll-heading {
         flex-direction: column;
-        align-items: flex-start;
     }
 
-    .ll-toolbar input,
-    .ll-toolbar select {
-        max-width: 100%;
+    .ll-filter {
+        flex: 1 1 100%;
     }
 
-    .ll-dialog {
-        padding: 0.8rem;
+    .ll-filter .ui-input,
+    .ll-search {
+        flex: 1;
+        max-width: none;
     }
 
-    .ll-case-head {
-        align-items: flex-start;
+    .ll-filtermeta {
+        margin-left: 0;
     }
 
-    .ll-table th,
-    .ll-table td {
-        padding: 0.45rem;
+    .ll-field-row {
+        grid-template-columns: 1fr;
     }
 }

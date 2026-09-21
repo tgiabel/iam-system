@@ -9,6 +9,7 @@ const llNormalize = value => String(value ?? "").trim().toLocaleLowerCase("de");
 function llToday() { return new Intl.DateTimeFormat("sv-SE", {timeZone:"Europe/Berlin", year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()); }
 function llShift(day, amount) { const d = new Date(day + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + amount); return d.toISOString().slice(0,10); }
 function llDate(value) { return String(value ?? "").replace("T", " "); }
+function llDayLabel(day) { return day.split("-").reverse().join("."); }
 function llErrorText(payload) { return typeof payload?.detail === "string" ? payload.detail : payload?.detail?.message || "Die Anfrage konnte nicht verarbeitet werden."; }
 async function llApi(path, options={}) {
     const response = await fetch(LL_BASE + path, {cache:"no-store", ...options, headers:{"Content-Type":"application/json", ...options.headers}});
@@ -91,7 +92,7 @@ async function llLoadDay(day=llDom.llDay.value) {
     llDom.llRows.innerHTML=""; llDom.llOpenCases.innerHTML=""; llDom.llOtherDays.innerHTML="";
     llDom.llDataAsOf.textContent=""; llDom.llCount.textContent=""; llDom.llPageLabel.textContent="";
     llDom.llExport.disabled=true; llDom.llStatus.textContent="Anmeldeprotokoll wird geladen…";
-    llDom.llDay.max=llToday(); llDom.llDay.value=day; llDom.llNext.disabled=day>=llToday();
+    llDom.llDay.max=llToday(); llDom.llDay.value=day; llDom.llDayLabel.textContent=llDayLabel(day); llDom.llNext.disabled=day>=llToday();
     try {
         const result=await llApi("/day?day="+encodeURIComponent(day));
         if(token!==llState.reportToken) return;
@@ -222,6 +223,7 @@ function llInit() {
     llDom.llDay.value=requested && /^\d{4}-\d{2}-\d{2}$/.test(requested) && requested<=today ? requested : today;
     llDom.llPrev.addEventListener("click",()=>llLoadDay(llShift(llDom.llDay.value,-1)));
     llDom.llNext.addEventListener("click",()=>llLoadDay(llShift(llDom.llDay.value,1)));
+    llDom.llDayLabel.addEventListener("click",()=>{ if(typeof llDom.llDay.showPicker==="function") llDom.llDay.showPicker(); else { llDom.llDay.focus(); llDom.llDay.click(); } });
     llDom.llDay.addEventListener("change",()=>llLoadDay());llDom.llReload.addEventListener("click",()=>llLoadDay());
     for(const id of ["llSearch","llGroup","llType","llFilter"]) llDom[id].addEventListener(id==="llSearch"?"input":"change",()=>{llState.page=1;llRender();});
     llDom.llNames?.addEventListener("change",llLoadNames);
@@ -247,4 +249,4 @@ function llInit() {
     llLoadDay();
 }
 if(typeof document!=="undefined") document.addEventListener("DOMContentLoaded",llInit);
-if(typeof module!=="undefined") module.exports={llFiltered,llGroups,llStatusLabels,llEscape,llShift,LL_PAGE_SIZE};
+if(typeof module!=="undefined") module.exports={llFiltered,llGroups,llStatusLabels,llEscape,llShift,llDayLabel,LL_PAGE_SIZE};

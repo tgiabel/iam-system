@@ -11,6 +11,7 @@ assert.equal(ll.llGroups(events,'computer')[0].events.length,103);
 assert.equal(ll.llGroups(events,'').length,205);
 assert.equal(ll.llShift('2026-09-18',-1),'2026-09-17');
 assert.equal(ll.llShift('2026-03-29',1),'2026-03-30');
+assert.equal(ll.llDayLabel('2026-09-21'),'21.09.2026');
 assert.equal(ll.llEscape('<img src=x onerror="alert(1)">'), '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
 assert(ll.llStatusLabels({classification:'anomaly',review_state:'reviewed'}).some(x=>x.includes('keine Prüfpflicht')));
 assert.equal(cases.length,1); // Filters never mutate the recognition results.
