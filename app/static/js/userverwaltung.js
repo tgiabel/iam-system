@@ -1946,11 +1946,13 @@ const sidebarController = {
         DOM.sidebarLastName.textContent = user.last_name || "-";
         DOM.sidebarFirstName.textContent = user.first_name || "-";
         DOM.sidebarFunktion.textContent = user.primary_role?.name || "-";
+        DOM.sidebarBirthDate.textContent = formatDate(user.birth_date);
         DOM.sidebarEmail.textContent = user.email || "-";
         DOM.sidebarTelefon.textContent = user.telephone || "-";
         DOM.sidebarWeeklyHours.textContent = formatPlainValue(user.weekly_hours);
         DOM.sidebarEintritt.textContent = formatDate(user.entry_date);
         DOM.sidebarAustritt.textContent = formatDate(user.exit_date);
+        this.renderStammdatenCopyButtons();
 
         this.renderLifecycleActions(user);
 
@@ -1961,6 +1963,15 @@ const sidebarController = {
         this.renderResources(user);
         this.renderHistory();
         this.bindActions(user);
+    },
+
+    renderStammdatenCopyButtons() {
+        DOM.stammdatenCopyBtns.forEach(button => {
+            const value = document.getElementById(button.dataset.copySource)?.textContent.trim() || "";
+            button.hidden = !value || value === "-";
+            button.innerHTML = COPY_ICON;
+            button.onclick = () => copyWithFeedback(button, value);
+        });
     },
 
     renderLifecycleActions(user) {
@@ -2039,7 +2050,7 @@ const sidebarController = {
                         ${status.isOverdue ? '<span class="ui-chip ui-chip-neutral">Überfällig</span>' : ""}
                     </div>
                     <div class="user-derived-status-actions">
-                        ${canCancel && status.processId && normalizeValue(status.processType) === "offboarding" ? `<button type="button" class="user-derived-status-reschedule-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" data-effective-date="${escapeHtml(sofaContract.parseDateKey(status.referenceDate) || "")}" title="Stichtag verschieben" aria-label="Stichtag verschieben">&#128197;</button>` : ""}
+                        ${canCancel && status.processId && normalizeValue(status.processType) === "offboarding" ? `<button type="button" class="user-derived-status-reschedule-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" data-effective-date="${escapeHtml(sofaContract.parseDateKey(status.referenceDate) || "")}" title="Stichtag verschieben" aria-label="Stichtag verschieben">&rarr;</button>` : ""}
                         ${canCancel && status.processId && sofaContract.isProcessCancellable(status.processType) ? `<button type="button" class="user-derived-status-cancel-btn" data-process-id="${escapeHtml(status.processId)}" data-process-label="${escapeHtml(status.label)}" title="Prozess abbrechen" aria-label="Prozess abbrechen">&times;</button>` : ""}
                     </div>
                 </div>
@@ -2112,11 +2123,16 @@ const sidebarController = {
                     </div>
                     <div class="user-account-side">
                         <span class="ui-status-badge ${escapeHtml(badge.className)}">${escapeHtml(badge.label)}</span>
+                        ${row.kind !== "missing" && row.accountIdentifier ? renderCopyButton(row.accountIdentifier, "Kennung") : ""}
                         ${action}
                     </div>
                 </div>
             `;
         }).join("");
+
+        DOM.sidebarAccounts.querySelectorAll("[data-copy-value]").forEach(button => {
+            button.addEventListener("click", () => copyWithFeedback(button, button.dataset.copyValue));
+        });
 
         DOM.sidebarAccounts.querySelectorAll("[data-account-row]").forEach(button => {
             button.addEventListener("click", () => {
@@ -2795,6 +2811,7 @@ const onboardModalController = {
             pnr: this.state.manualDraft?.pnr || "",
             first_name: this.state.manualDraft?.first_name || "",
             last_name: this.state.manualDraft?.last_name || "",
+            birth_date: this.state.manualDraft?.birth_date || "",
             primary_role_id: this.state.manualDraft?.primary_role_id || "",
             telephone: this.state.manualDraft?.telephone || "",
             entry_date: this.state.manualDraft?.entry_date || "",
@@ -2842,6 +2859,10 @@ const onboardModalController = {
                     <input id="manual-onboard-last-name" class="ui-input" placeholder="Nachname" value="${escapeHtml(draft.last_name)}">
                 </div>
                 <div class="ui-field-group">
+                    <label class="ui-field-label" for="manual-onboard-birth-date">Geburtsdatum</label>
+                    <input id="manual-onboard-birth-date" class="ui-input" type="date" max="${escapeHtml(sofaContract.localDateKey())}" value="${escapeHtml(draft.birth_date)}">
+                </div>
+                <div class="ui-field-group">
                     <label class="ui-field-label" for="manual-onboard-role">Hauptrolle</label>
                     <select id="manual-onboard-role" class="ui-input">
                         <option value="" disabled ${draft.primary_role_id ? "" : "selected"}>Hauptrolle auswählen…</option>
@@ -2873,6 +2894,7 @@ const onboardModalController = {
                 pnr: document.getElementById("manual-onboard-pnr")?.value.trim(),
                 first_name: document.getElementById("manual-onboard-first-name")?.value.trim(),
                 last_name: document.getElementById("manual-onboard-last-name")?.value.trim(),
+                birth_date: document.getElementById("manual-onboard-birth-date")?.value,
                 primary_role_id: document.getElementById("manual-onboard-role")?.value,
                 telephone: document.getElementById("manual-onboard-telephone")?.value.trim(),
                 entry_date: document.getElementById("manual-onboard-entry-date")?.value,
@@ -2883,12 +2905,17 @@ const onboardModalController = {
                 !manualPayload.pnr
                 || !manualPayload.first_name
                 || !manualPayload.last_name
+                || !manualPayload.birth_date
                 || !manualPayload.primary_role_id
                 || !manualPayload.telephone
                 || !manualPayload.entry_date
                 || !manualPayload.weekly_hours
             ) {
                 showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
+                return;
+            }
+            if (!sofaContract.isValidBirthDate(manualPayload.birth_date)) {
+                showFlash("Bitte ein gültiges Geburtsdatum angeben", "failure");
                 return;
             }
 
@@ -2916,6 +2943,10 @@ const onboardModalController = {
                 <div class="ui-field-group">
                     <label class="ui-field-label">Nachname</label>
                     <input class="ui-input" value="${escapeHtml(payload.last_name || "-")}" readonly>
+                </div>
+                <div class="ui-field-group">
+                    <label class="ui-field-label">Geburtsdatum</label>
+                    <input class="ui-input" value="${escapeHtml(formatDate(payload.birth_date))}" readonly>
                 </div>
                 <div class="ui-field-group">
                     <label class="ui-field-label">Hauptrolle</label>
@@ -2948,6 +2979,7 @@ const onboardModalController = {
                 pnr: payload.pnr,
                 first_name: payload.first_name,
                 last_name: payload.last_name,
+                birth_date: payload.birth_date,
                 primary_role_id: payload.primary_role_id,
                 telephone: payload.telephone,
                 entry_date: payload.entry_date,
@@ -3002,6 +3034,10 @@ const onboardModalController = {
                     <input id="extern-nachname-input" class="ui-input" placeholder="Nachname">
                 </div>
                 <div class="ui-field-group">
+                    <label class="ui-field-label" for="extern-geburtsdatum-input">Geburtsdatum (optional)</label>
+                    <input id="extern-geburtsdatum-input" class="ui-input" type="date" max="${escapeHtml(sofaContract.localDateKey())}">
+                </div>
+                <div class="ui-field-group">
                     <label class="ui-field-label" for="extern-email-input">E-Mail</label>
                     <input id="extern-email-input" class="ui-input" type="email" placeholder="E-Mail">
                 </div>
@@ -3021,10 +3057,18 @@ const onboardModalController = {
                 email: document.getElementById("extern-email-input")?.value.trim(),
                 telefon: document.getElementById("extern-telefon-input")?.value.trim()
             };
+            const birthDate = document.getElementById("extern-geburtsdatum-input")?.value || "";
 
             if (!payload.vorname || !payload.nachname || !payload.email || !payload.telefon) {
-                showFlash("Bitte alle Felder ausfüllen", "failure");
+                showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
                 return;
+            }
+            if (birthDate) {
+                if (!sofaContract.isValidBirthDate(birthDate)) {
+                    showFlash("Bitte ein gültiges Geburtsdatum angeben", "failure");
+                    return;
+                }
+                payload.birth_date = birthDate;
             }
 
             const success = await api.startExternalOnboarding(payload);
@@ -3037,6 +3081,63 @@ const onboardModalController = {
         });
     }
 };
+
+const COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
+const COPIED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const COPY_FAILED_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+
+function renderCopyButton(value, label) {
+    return `<button type="button" class="user-copy-btn" data-copy-value="${escapeHtml(value)}"
+                title="${escapeHtml(label)} kopieren" aria-label="${escapeHtml(label)} kopieren">${COPY_ICON}</button>`;
+}
+
+async function copyTextToClipboard(text) {
+    if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return;
+    }
+    // Fallback fuer Aufrufe ueber http: die Clipboard-API gibt es nur im Secure Context.
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        if (!document.execCommand("copy")) {
+            throw new Error("Kopieren nicht möglich.");
+        }
+    } finally {
+        textarea.remove();
+    }
+}
+
+async function copyWithFeedback(button, text) {
+    if (!button || !text) {
+        return;
+    }
+    const resetTitle = button.dataset.title || button.title;
+    button.dataset.title = resetTitle;
+    clearTimeout(button.copyFeedbackTimer);
+    button.classList.remove("is-copied", "is-failed");
+    try {
+        await copyTextToClipboard(text);
+        button.innerHTML = COPIED_ICON;
+        button.title = "Kopiert";
+        button.classList.add("is-copied");
+    } catch (error) {
+        console.error("Kopieren fehlgeschlagen", error);
+        button.innerHTML = COPY_FAILED_ICON;
+        button.title = "Kopieren fehlgeschlagen";
+        button.classList.add("is-failed");
+    }
+    button.copyFeedbackTimer = setTimeout(() => {
+        button.innerHTML = COPY_ICON;
+        button.title = resetTitle;
+        button.classList.remove("is-copied", "is-failed");
+    }, 1400);
+}
 
 function getAccountRowBadge(row) {
     if (row.kind === "legacy") {
@@ -3056,6 +3157,7 @@ function getAccountRowBadge(row) {
 const REHIRE_COMPARE_FIELDS = [
     { key: "first_name", label: "Vorname" },
     { key: "last_name", label: "Nachname" },
+    { key: "birth_date", label: "Geburtsdatum", date: true },
     { key: "telephone", label: "Telefon" },
     { key: "weekly_hours", label: "Wochenstunden" },
     { key: "entry_date", label: "Eintritt", date: true },
@@ -3088,6 +3190,7 @@ const rehireModalController = {
             pnr: String(user.pnr || ""),
             first_name: String(user.first_name || ""),
             last_name: String(user.last_name || ""),
+            birth_date: sofaContract.parseDateKey(user.birth_date) || "",
             primary_role_id: "",
             telephone: String(user.telephone || ""),
             entry_date: "",
@@ -3145,6 +3248,10 @@ const rehireModalController = {
                     <input id="rehire-last-name" class="ui-input" value="${escapeHtml(draft.last_name || "")}">
                 </div>
                 <div class="ui-field-group">
+                    <label class="ui-field-label" for="rehire-birth-date">Geburtsdatum</label>
+                    <input id="rehire-birth-date" class="ui-input" type="date" max="${escapeHtml(sofaContract.localDateKey())}" value="${escapeHtml(draft.birth_date || "")}">
+                </div>
+                <div class="ui-field-group">
                     <label class="ui-field-label" for="rehire-role">Hauptrolle</label>
                     <select id="rehire-role" class="ui-input">
                         <option value="" disabled ${draft.primary_role_id ? "" : "selected"}>Hauptrolle auswählen…</option>
@@ -3176,6 +3283,7 @@ const rehireModalController = {
                 pnr: document.getElementById("rehire-pnr")?.value,
                 first_name: document.getElementById("rehire-first-name")?.value,
                 last_name: document.getElementById("rehire-last-name")?.value,
+                birth_date: document.getElementById("rehire-birth-date")?.value,
                 primary_role_id: document.getElementById("rehire-role")?.value,
                 telephone: document.getElementById("rehire-telephone")?.value,
                 entry_date: document.getElementById("rehire-entry-date")?.value,
@@ -4402,12 +4510,14 @@ function cacheDOM() {
     DOM.sidebarLastName = document.getElementById("user-nachname");
     DOM.sidebarFirstName = document.getElementById("user-vorname");
     DOM.sidebarFunktion = document.getElementById("user-funktion");
+    DOM.sidebarBirthDate = document.getElementById("user-geburtsdatum");
     DOM.sidebarEmail = document.getElementById("user-email");
     DOM.sidebarTelefon = document.getElementById("user-telefon");
     DOM.sidebarWeeklyHours = document.getElementById("user-wochenstunden");
     DOM.sidebarEintritt = document.getElementById("user-eintritt");
     DOM.sidebarAustritt = document.getElementById("user-austritt");
     DOM.sidebarAccounts = document.getElementById("user-accounts-list");
+    DOM.stammdatenCopyBtns = document.querySelectorAll("#tab-details [data-copy-source]");
     DOM.userAccountsCount = document.getElementById("user-accounts-count");
     DOM.userDerivedStatusList = document.getElementById("user-derived-status-list");
     DOM.userDerivedStatusCount = document.getElementById("user-derived-status-count");

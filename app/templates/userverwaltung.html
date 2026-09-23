@@ -130,75 +130,112 @@
         <div class="ui-modal-body user-panel-body">
             <section class="user-panel-view active" id="tab-details">
                 <div class="user-panel-grid">
-                    <article class="ui-card user-detail-card">
-                        <div class="user-detail-card-header">
-                            <h3>Stammdaten</h3>
-                        </div>
-                        <div class="user-info-grid">
-                            <div class="user-info-item">
-                                <span class="user-info-label">Personalnummer</span>
-                                <span id="user-pnr">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">RACF</span>
-                                <span id="user-racf">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">Name</span>
-                                <span id="user-nachname">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">Vorname</span>
-                                <span id="user-vorname">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">Funktion</span>
-                                <span id="user-funktion">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">E-Mail</span>
-                                <span id="user-email">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">Telefon</span>
-                                <span id="user-telefon">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">Wochenstunden</span>
-                                <span id="user-wochenstunden">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">Eintritt</span>
-                                <span id="user-eintritt">-</span>
-                            </div>
-                            <div class="user-info-item">
-                                <span class="user-info-label">Austritt</span>
-                                <span id="user-austritt">-</span>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="ui-card user-detail-card user-status-card">
-                        <div class="user-status-card-inner">
+                    <div class="user-panel-column">
+                        <article class="ui-card user-detail-card">
                             <div class="user-detail-card-header">
-                                <h3>Status</h3>
-                                <span class="ui-chip ui-chip-neutral" id="user-derived-status-count">0</span>
+                                <h3>Stammdaten</h3>
                             </div>
-                            <div id="user-derived-status-list" class="user-derived-status-list">
-                                <div class="ui-empty-state ui-empty-inline">Keine abgeleiteten Status vorhanden.</div>
+                            <div class="user-info-grid">
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Personalnummer</span>
+                                    <div class="user-info-value">
+                                        <span id="user-pnr">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-pnr" title="Personalnummer kopieren" aria-label="Personalnummer kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">RACF</span>
+                                    <div class="user-info-value">
+                                        <span id="user-racf">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-racf" title="RACF kopieren" aria-label="RACF kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Name</span>
+                                    <div class="user-info-value">
+                                        <span id="user-nachname">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-nachname" title="Name kopieren" aria-label="Name kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Vorname</span>
+                                    <div class="user-info-value">
+                                        <span id="user-vorname">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-vorname" title="Vorname kopieren" aria-label="Vorname kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Funktion</span>
+                                    <div class="user-info-value">
+                                        <span id="user-funktion">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-funktion" title="Funktion kopieren" aria-label="Funktion kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Geburtsdatum</span>
+                                    <div class="user-info-value">
+                                        <span id="user-geburtsdatum">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-geburtsdatum" title="Geburtsdatum kopieren" aria-label="Geburtsdatum kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">E-Mail</span>
+                                    <div class="user-info-value">
+                                        <span id="user-email">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-email" title="E-Mail kopieren" aria-label="E-Mail kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Telefon</span>
+                                    <div class="user-info-value">
+                                        <span id="user-telefon">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-telefon" title="Telefon kopieren" aria-label="Telefon kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Wochenstunden</span>
+                                    <div class="user-info-value">
+                                        <span id="user-wochenstunden">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-wochenstunden" title="Wochenstunden kopieren" aria-label="Wochenstunden kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Eintritt</span>
+                                    <div class="user-info-value">
+                                        <span id="user-eintritt">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-eintritt" title="Eintritt kopieren" aria-label="Eintritt kopieren" hidden></button>
+                                    </div>
+                                </div>
+                                <div class="user-info-item">
+                                    <span class="user-info-label">Austritt</span>
+                                    <div class="user-info-value">
+                                        <span id="user-austritt">-</span>
+                                        <button type="button" class="user-copy-btn" data-copy-source="user-austritt" title="Austritt kopieren" aria-label="Austritt kopieren" hidden></button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </article>
+                        </article>
 
-                    <article class="ui-card user-detail-card">
+                        <article class="ui-card user-detail-card">
+                            <div class="user-detail-card-header">
+                                <h3>Accounts</h3>
+                                <span class="ui-chip ui-chip-neutral" id="user-accounts-count">0</span>
+                            </div>
+                            <div id="user-accounts-list" class="user-account-list">
+                                <div class="ui-empty-state ui-empty-inline">Keine Accounts vorhanden.</div>
+                            </div>
+                        </article>
+                    </div>
+
+                    <section class="user-panel-column user-status-section">
                         <div class="user-detail-card-header">
-                            <h3>Accounts</h3>
-                            <span class="ui-chip ui-chip-neutral" id="user-accounts-count">0</span>
+                            <h3>Status</h3>
+                            <span class="ui-chip ui-chip-neutral" id="user-derived-status-count">0</span>
                         </div>
-                        <div id="user-accounts-list" class="user-account-list">
-                            <div class="ui-empty-state ui-empty-inline">Keine Accounts vorhanden.</div>
+                        <div id="user-derived-status-list" class="user-derived-status-list">
+                            <div class="ui-empty-state ui-empty-inline">Keine abgeleiteten Status vorhanden.</div>
                         </div>
-                    </article>
+                    </section>
                 </div>
             </section>
 
