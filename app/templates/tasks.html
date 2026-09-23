@@ -11,61 +11,53 @@
 <div class="page-container tasks-page">
     <section class="tasks-shell">
         <section class="ui-card tasks-discovery-bar" aria-label="Aufgaben durchsuchen und filtern">
-                <div class="tasks-search-row">
-                    <label class="ui-field-label" for="tasks-search-input">Suche</label>
-                    <input
-                        type="search"
-                        id="tasks-search-input"
-                        class="ui-input"
-                        placeholder="Suche nach ID, Nutzer, Ressource, System oder Prozess"
-                        autocomplete="off"
-                    >
-                </div>
-
-                <div class="tasks-filter-grid">
-                    <div class="tasks-filter-field">
-                        <label class="ui-field-label" for="tasks-status-filter">Status</label>
-                        <select id="tasks-status-filter" class="ui-input">
-                            <option value="">Alle</option>
-                        </select>
+                <div class="tasks-toolbar">
+                    <div class="tasks-search-row">
+                        <label class="ui-field-label" for="tasks-search-input">Suche</label>
+                        <input
+                            type="search"
+                            id="tasks-search-input"
+                            class="ui-input tasks-search-field"
+                            placeholder="Suche nach ID, Nutzer, Ressource, System oder Prozess"
+                            autocomplete="off"
+                        >
                     </div>
 
-                    <div class="tasks-filter-field">
-                        <label class="ui-field-label" for="tasks-handling-filter">Bearbeitungsart</label>
-                        <select id="tasks-handling-filter" class="ui-input">
-                            <option value="">Alle</option>
-                        </select>
-                    </div>
+                    <div class="tasks-toolbar-meta">
+                        <div class="ui-filter-container" id="tasks-filter-container">
+                            <button type="button" class="ui-flat-button ui-flat-button--icon" id="tasks-filter-btn" aria-haspopup="true" aria-expanded="false" aria-label="Filter" title="Filter">
+                                <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <path d="M4 5h16l-6.2 7.4v5.1l-3.6 2v-7.1z"/>
+                                </svg>
+                            </button>
+                            <div class="ui-filter-dropdown" id="tasks-filter-dropdown"></div>
+                            <div class="ui-subfilter-dropdown" id="tasks-subfilter-dropdown"></div>
+                        </div>
 
-                    <div class="tasks-filter-field">
-                        <label class="ui-field-label" for="tasks-type-filter">Aufgabetyp</label>
-                        <select id="tasks-type-filter" class="ui-input">
-                            <option value="">Alle</option>
-                        </select>
-                    </div>
-
-                    <div class="tasks-filter-field">
-                        <label class="ui-field-label" for="tasks-backlog-filter">Backlog</label>
-                        <select id="tasks-backlog-filter" class="ui-input">
-                            <option value="">Alle</option>
-                        </select>
+                        <div class="ui-filter-container" id="tasks-group-container">
+                            <button type="button" class="ui-flat-button ui-flat-button--icon" id="tasks-group-btn" aria-haspopup="true" aria-expanded="false" aria-label="Gruppieren" title="Gruppieren">
+                                <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                    <rect x="3.25" y="9.25" width="11.5" height="11.5" rx="2.5"/>
+                                    <path d="M6.75 6.25h8.25a2.75 2.75 0 0 1 2.75 2.75v8.25"/>
+                                    <path d="M10.25 3.25h7A3.5 3.5 0 0 1 20.75 6.75v7"/>
+                                </svg>
+                            </button>
+                            <div class="ui-filter-dropdown" id="tasks-group-dropdown"></div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="tasks-visibility-row" role="group" aria-label="Zusätzliche Aufgaben einblenden">
-                    <label class="tasks-visibility-toggle">
-                        <input type="checkbox" id="tasks-show-blocked">
-                        <span>Blockierte Tasks anzeigen</span>
-                    </label>
-                    <label class="tasks-visibility-toggle">
-                        <input type="checkbox" id="tasks-show-deferred">
-                        <span>Nachgelagerte Tasks anzeigen</span>
-                    </label>
-                </div>
-
-                <div class="tasks-toolbar-footer">
-                    <p class="tasks-filter-summary" id="tasks-filter-summary">Alle Aufgaben sichtbar</p>
-                    <button type="button" class="btn btn-secondary" id="tasks-filter-reset">Filter zurücksetzen</button>
+                <div class="ui-filter-tags-row">
+                    <div class="ui-filter-tags" id="tasks-active-filters"></div>
+                    <div class="tasks-toolbar-status">
+                        <p class="tasks-filter-summary" id="tasks-filter-summary" aria-live="polite">Alle Aufgaben sichtbar</p>
+                        <button type="button" class="ui-flat-button ui-flat-button--icon" id="tasks-filter-reset" aria-label="Filter zurücksetzen" title="Filter zurücksetzen">
+                            <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                                <path d="M3.5 4.5h14l-5.4 6.5v4.6l-3.2 1.8v-6.4z"/>
+                                <path d="M15.5 15.5l5 5M20.5 15.5l-5 5"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
         </section>
 
@@ -102,6 +94,56 @@
         </div>
 
     </section>
+</div>
+
+<div class="task-group-overlay ui-modal-overlay" id="task-group-overlay" aria-hidden="true">
+    <div class="task-group-modal ui-modal" role="dialog" aria-modal="true" aria-labelledby="task-group-title">
+        <div class="ui-modal-header">
+            <div class="task-modal-heading">
+                <p class="ui-section-kicker" id="task-group-kicker">Gruppe</p>
+                <h3 id="task-group-title">Gruppe</h3>
+            </div>
+            <button id="task-group-close-btn" class="ui-icon-button" type="button" aria-label="Gruppe schließen">&times;</button>
+        </div>
+
+        <div class="ui-tabs task-group-tabs" role="tablist">
+            <button type="button" class="ui-tab" data-group-tab="open" role="tab" aria-selected="false">
+                Offen <span class="ui-chip ui-chip-neutral" id="task-group-count-open">0</span>
+            </button>
+            <button type="button" class="ui-tab" data-group-tab="mine" role="tab" aria-selected="false">
+                In Bearbeitung <span class="ui-chip ui-chip-neutral" id="task-group-count-mine">0</span>
+            </button>
+        </div>
+
+        <div class="ui-modal-body task-group-body">
+            <div class="task-group-toolbar">
+                <input
+                    type="search"
+                    id="task-group-search"
+                    class="ui-input"
+                    placeholder="Innerhalb der Gruppe suchen"
+                    autocomplete="off"
+                    aria-label="Innerhalb der Gruppe suchen"
+                >
+                <label class="task-group-select-all">
+                    <input type="checkbox" id="task-group-select-all">
+                    <span>Alle auswählen</span>
+                </label>
+            </div>
+
+            <p class="task-group-hint">Seitenfilter gelten hier nicht.</p>
+
+            <div class="task-group-list" id="task-group-list"></div>
+
+            <div class="ui-bulk-bar task-group-bulk-bar" id="task-group-bulk-bar" hidden>
+                <strong id="task-group-selection-count">0 ausgewählt</strong>
+                <div class="ui-bulk-bar-actions">
+                    <button type="button" class="btn btn-sm btn-primary" id="task-group-bulk-action">Übernehmen</button>
+                    <button type="button" class="ui-flat-button" id="task-group-selection-clear">Auswahl aufheben</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="task-overlay ui-modal-overlay" id="task-overlay" aria-hidden="true">
@@ -269,6 +311,7 @@
 
 {% block scripts %}
     <script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
+    <script src="/static/js/task_view_model.js?v={{ static_v }}"></script>
     <script src="/static/js/tasks.js?v={{ static_v }}"></script>
 {% endblock %}
 

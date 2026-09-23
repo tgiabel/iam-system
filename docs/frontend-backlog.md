@@ -29,3 +29,22 @@ the Konsole page) currently renders all rows unconditionally. If these lists gro
 large, they could reuse the same "show first N, + N weitere opens a modal with the
 rest" pattern introduced for the weekly calendar (`renderDayEvents()` +
 `#console-calendar-day-modal`).
+
+## Filterleiste existiert dreimal
+
+Die Aufgabenseite nutzt jetzt die geteilte Komponente `.ui-filter-*` in
+`app/static/css/ui.css` (Icon-Dropdown, Include/Exclude-Subfilter, wegklickbare
+Badges). Zwei ältere Kopien desselben Musters stehen weiterhin daneben:
+
+- `app/static/css/userverwaltung.css` — `.users-filter-*` / `.users-subfilter-*`,
+  funktional identisch, inklusive Include/Exclude-Logik in
+  `app/static/js/userverwaltung.js` (`toggleOptionFilter()`, `renderActiveTags()`).
+- `app/static/css/rechnerverwaltung.css` — `.computers-filter-tag`, eine
+  einfachere Variante ohne Include/Exclude.
+
+Eine Migration der Userverwaltung auf `.ui-filter-*` wäre der nächste sinnvolle
+Schritt, wurde hier aber bewusst nicht mitgemacht: die Datei ist groß, die
+Änderung rein kosmetisch und ohne funktionalen Gewinn. Die Include/Exclude-Logik
+selbst liegt inzwischen generisch und getestet in
+`app/static/js/task_view_model.js` (`toggleFacetValue()`, `matchesFacet()`) und
+kann bei einer Migration von dort bezogen werden.

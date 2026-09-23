@@ -2,12 +2,14 @@ const sofaContract = window.SofaContract;
 
 if (!window.taskOverlayInitialized) {
     document.addEventListener("DOMContentLoaded", () => {
+        loadPersistedTaskView();
         initTaskOverlay();
         initMailDialog();
         initTaskWarningDialog();
         initRelatedRevocationsDialog();
         initTaskActionHandling();
         initTaskFilters();
+        initTaskGroupModal();
         initTaskBulkActions();
         loadInitialTaskData();
     });
@@ -61,27 +63,28 @@ const PROCESS_KEYS = {
     openTaskCount: ["open_task_count", "pending_task_count"]
 };
 
-const TASK_FILTER_DEFAULTS = {
-    search: "",
-    status: "",
-    handling: "",
-    taskType: "",
-    backlog: ""
-};
+const taskVM = window.TaskViewModel;
 
-// Blockierte und nachgelagerte Aufgaben werden erst auf Wunsch eingeblendet.
-// Bewusst nicht Teil von TASK_FILTER_DEFAULTS: hasActiveTaskFilters() arbeitet
-// auf Strings und wuerde Booleans falsch auswerten.
-const TASK_VISIBILITY_DEFAULTS = {
-    showBlocked: false,
-    showDeferred: false
-};
+const TASK_VIEW_STORAGE_KEY = "sofaTasksView";
+
+// Die Sichtbarkeit ist bewusst keine Include/Exclude-Facette, sondern eine Einblendung.
+const TASK_FILTER_CATEGORIES = [
+    { id: "status", label: "Status" },
+    { id: "handling", label: "Bearbeitungsart" },
+    { id: "taskType", label: "Aufgabentyp" },
+    { id: "backlog", label: "Backlog" },
+    { id: "visibility", label: "Sichtbarkeit" }
+];
+
+const TASK_VISIBILITY_OPTIONS = [
+    { key: "showBlocked", label: "Blockierte anzeigen", tagLabel: "Blockierte sichtbar" },
+    { key: "showDeferred", label: "Nachgelagerte anzeigen", tagLabel: "Nachgelagerte sichtbar" }
+];
 
 const NO_BACKLOG_FILTER_VALUE = "__NONE__";
 
 const taskViewState = {
-    filters: { ...TASK_FILTER_DEFAULTS },
-    visibility: { ...TASK_VISIBILITY_DEFAULTS },
+    ...taskVM.createDefaultViewState(),
     filterOptions: {
         status: [],
         handling: [],
@@ -89,6 +92,7 @@ const taskViewState = {
         backlog: []
     },
     backlogLookup: {},
+    openFilterCategory: null,
     filteredBuckets: {
         open: [],
         blocked: [],
@@ -100,6 +104,50 @@ const taskViewState = {
         mine: []
     }
 };
+
+const TASK_FACET_ACCESSORS = {
+    status: task => getTaskStatusFilterKey(task),
+    handling: task => getTaskHandlingFilterKey(task),
+    taskType: task => getTaskTypeFilterKey(task),
+    backlog: task => getTaskBacklogFilterKey(task)
+};
+
+function getTodayKey() {
+    return sofaContract.berlinDateKey();
+}
+
+function getGroupLookups() {
+    return {
+        backlogLookup: taskViewState.backlogLookup,
+        processLabels: LABELS.processes,
+        todayKey: getTodayKey()
+    };
+}
+
+function loadPersistedTaskView() {
+    try {
+        const raw = localStorage.getItem(TASK_VIEW_STORAGE_KEY);
+        if (!raw) {
+            return;
+        }
+        Object.assign(taskViewState, taskVM.normalizeViewState(JSON.parse(raw)));
+    } catch (err) {
+        console.error("Gespeicherte Aufgaben-Ansicht konnte nicht geladen werden", err);
+    }
+}
+
+function savePersistedTaskView() {
+    try {
+        localStorage.setItem(TASK_VIEW_STORAGE_KEY, JSON.stringify({
+            search: taskViewState.search,
+            filters: taskViewState.filters,
+            visibility: taskViewState.visibility,
+            grouping: taskViewState.grouping
+        }));
+    } catch (err) {
+        console.error("Aufgaben-Ansicht konnte nicht gespeichert werden", err);
+    }
+}
 
 const WARNING_HISTORY_ACTIONS = new Set(["MAIL_SENT", "BOT_DISPATCHED", "BOT_RESPONSE"]);
 
@@ -433,6 +481,14 @@ function formatDateTime(value) {
     });
 }
 
+// Chip-Sprache: blau fuer Zuweisung, rot fuer Entzug, neutral fuer blockiert.
+function getTaskRowToneClass(task) {
+    if (isBlockedTask(task)) {
+        return "is-tone-neutral";
+    }
+    return task.task_type === "REVOCATION" ? "is-tone-error" : "is-tone-primary";
+}
+
 function getTaskStateClass(task) {
     if (task.uiListState === "blocked") {
         return "is-blocked";
@@ -509,12 +565,11 @@ function getTaskTypeFilterKey(task) {
 }
 
 function isBlockedTask(task) {
-    return task?.uiListState === "blocked";
+    return taskVM.isBlockedTask(task);
 }
 
 function isDeferredTask(task) {
-    // Fehlendes Feld gilt als REQUIRED, damit ohne Backend-Feld nichts verschwindet.
-    return String(task?.provisioning_requirement || "").trim().toUpperCase() === "DEFERRED";
+    return taskVM.isDeferredTask(task);
 }
 
 function isEventHandlingTask(task) {
@@ -590,82 +645,28 @@ function buildTaskFilterOptions() {
 }
 
 function pruneStaleFilterSelections() {
-    Object.entries(taskViewState.filterOptions).forEach(([filterKey, options]) => {
-        const selected = taskViewState.filters[filterKey];
-        if (selected && !options.some(option => option.value === selected)) {
-            taskViewState.filters[filterKey] = "";
-        }
+    // Werte, die es nicht mehr gibt, duerfen nicht als unsichtbarer Filter weiterwirken.
+    Object.entries(taskViewState.filterOptions).forEach(([facetKey, options]) => {
+        const allowed = new Set(options.map(option => option.value));
+        const facet = taskViewState.filters[facetKey] || taskVM.createFacet();
+
+        taskViewState.filters[facetKey] = {
+            include: facet.include.filter(value => allowed.has(value)),
+            exclude: facet.exclude.filter(value => allowed.has(value))
+        };
     });
 }
 
-function populateFilterSelect(elementId, options, defaultLabel, selectedValue) {
-    const select = document.getElementById(elementId);
-    if (!select) {
-        return;
-    }
-
-    const defaultOption = `<option value="">${escapeHtml(defaultLabel)}</option>`;
-    const optionMarkup = options.map(option => `
-        <option value="${escapeHtml(option.value)}"${option.value === selectedValue ? " selected" : ""}>
-            ${escapeHtml(option.label)}
-        </option>
-    `).join("");
-
-    select.innerHTML = defaultOption + optionMarkup;
-    select.value = selectedValue || "";
-}
-
 function syncTaskFilterControls() {
-    const searchInput = document.getElementById("tasks-search-input");
-    if (searchInput) {
-        searchInput.value = taskViewState.filters.search;
-    }
-
-    populateFilterSelect(
-        "tasks-status-filter",
-        taskViewState.filterOptions.status,
-        "Alle",
-        taskViewState.filters.status
-    );
-    populateFilterSelect(
-        "tasks-handling-filter",
-        taskViewState.filterOptions.handling,
-        "Alle",
-        taskViewState.filters.handling
-    );
-    populateFilterSelect(
-        "tasks-type-filter",
-        taskViewState.filterOptions.taskType,
-        "Alle",
-        taskViewState.filters.taskType
-    );
-    populateFilterSelect(
-        "tasks-backlog-filter",
-        taskViewState.filterOptions.backlog,
-        "Alle",
-        taskViewState.filters.backlog
-    );
-
-    setVisibilityToggleChecked("tasks-show-blocked", taskViewState.visibility.showBlocked);
-    setVisibilityToggleChecked("tasks-show-deferred", taskViewState.visibility.showDeferred);
-}
-
-function setVisibilityToggleChecked(elementId, isChecked) {
-    const toggle = document.getElementById(elementId);
-    if (toggle) {
-        toggle.checked = Boolean(isChecked);
-    }
+    taskFilterBar.syncControls();
 }
 
 function hasActiveTaskFilters() {
-    return Object.values(taskViewState.filters).some(value => String(value || "").trim() !== "");
+    return taskVM.hasActiveFilters(taskViewState);
 }
 
 function hasNonDefaultTaskView() {
-    const visibilityChanged = Object.keys(TASK_VISIBILITY_DEFAULTS).some(
-        key => taskViewState.visibility[key] !== TASK_VISIBILITY_DEFAULTS[key]
-    );
-    return hasActiveTaskFilters() || visibilityChanged;
+    return taskVM.hasNonDefaultView(taskViewState);
 }
 
 function updateTaskFilterSummary(visibleCount, totalCount) {
@@ -687,28 +688,12 @@ function taskMatchesFilters(task) {
 }
 
 function taskMatchesSearchAndSelectFilters(task) {
-    const normalizedSearch = normalizeSearchValue(taskViewState.filters.search);
+    const normalizedSearch = normalizeSearchValue(taskViewState.search);
     if (normalizedSearch && !getTaskSearchIndex(task).includes(normalizedSearch)) {
         return false;
     }
 
-    if (taskViewState.filters.status && getTaskStatusFilterKey(task) !== taskViewState.filters.status) {
-        return false;
-    }
-
-    if (taskViewState.filters.handling && getTaskHandlingFilterKey(task) !== taskViewState.filters.handling) {
-        return false;
-    }
-
-    if (taskViewState.filters.taskType && getTaskTypeFilterKey(task) !== taskViewState.filters.taskType) {
-        return false;
-    }
-
-    if (taskViewState.filters.backlog && getTaskBacklogFilterKey(task) !== taskViewState.filters.backlog) {
-        return false;
-    }
-
-    return true;
+    return taskVM.matchesFacets(task, taskViewState.filters, TASK_FACET_ACCESSORS);
 }
 
 function filterTaskBuckets() {
@@ -718,7 +703,6 @@ function filterTaskBuckets() {
         mine: taskViewState.buckets.mine.filter(taskMatchesFilters)
     };
 }
-
 function isTaskCompleted(task) {
     return task.status === "COMPLETED" || Boolean(task.completed_at);
 }
@@ -743,7 +727,7 @@ function setCount(elementId, value) {
     }
 }
 
-function renderTaskTile(task) {
+function renderTaskCardInner(task) {
     const blockedLabel = task.uiListState === "blocked"
         ? `<span class="ui-chip ui-chip-neutral">Blockiert</span>`
         : "";
@@ -759,7 +743,6 @@ function renderTaskTile(task) {
         : "";
 
     return `
-        <a href="#" class="task-tile task-card ${getTaskStateClass(task)}" data-task-id="${escapeHtml(task.task_id)}">
             <div class="task-card-top">
                 <div class="task-card-heading">
                     <span class="task-card-kicker">${escapeHtml(kickerLabel)}</span>
@@ -788,8 +771,87 @@ function renderTaskTile(task) {
                     ${targetDateRow}
                 </div>
             </div>
+    `;
+}
+
+function renderTaskTile(task) {
+    return `
+        <a href="#" class="task-tile task-card ${getTaskStateClass(task)}" data-task-id="${escapeHtml(task.task_id)}">
+            ${renderTaskCardInner(task)}
         </a>
     `;
+}
+
+function renderGroupMarkers(group) {
+    const markers = [];
+
+    if (group.blockedCount) {
+        markers.push(`<span class="ui-chip ui-chip-neutral">${group.blockedCount} blockiert</span>`);
+    }
+    if (group.deferredCount) {
+        markers.push(`<span class="ui-chip ui-chip-neutral">${group.deferredCount} nachgelagert</span>`);
+    }
+
+    return markers.join("");
+}
+
+function renderGroupLabel(group) {
+    return `
+        <div class="task-group-label">
+            <span class="task-group-label-title" title="${escapeHtml(group.label)}">${escapeHtml(group.label)}</span>
+            <span class="ui-count-pill ui-count-pill-info">${group.tasks.length}</span>
+            ${renderGroupMarkers(group)}
+        </div>
+    `;
+}
+
+function renderTaskGroup(group, bucketKind) {
+    if (group.tasks.length === 1) {
+        return `
+            <div class="task-group-item">
+                ${renderGroupLabel(group)}
+                ${renderTaskTile(group.tasks[0])}
+            </div>
+        `;
+    }
+
+    const sheetCount = Math.min(2, group.tasks.length - 1);
+    const sheets = Array.from({ length: sheetCount }, (_, index) =>
+        `<span class="task-stack-sheet task-stack-sheet-${sheetCount - index}" aria-hidden="true"></span>`
+    ).join("");
+
+    return `
+        <div class="task-group-item">
+            ${renderGroupLabel(group)}
+            <a
+                href="#"
+                class="task-stack"
+                data-group-key="${escapeHtml(group.key)}"
+                data-group-bucket="${escapeHtml(bucketKind)}"
+                aria-label="Gruppe ${escapeHtml(group.label)} mit ${group.tasks.length} Aufgaben öffnen"
+            >
+                ${sheets}
+                <div class="task-card task-stack-face ${getTaskStateClass(group.face)}">
+                    ${renderTaskCardInner(group.face)}
+                </div>
+            </a>
+        </div>
+    `;
+}
+
+function renderTaskStripContent(tasks, bucketKind, emptyMessage) {
+    if (!tasks.length) {
+        return renderEmptyState(emptyMessage);
+    }
+
+    if (!taskVM.isGroupingActive(taskViewState.grouping.dimension)) {
+        return taskVM.sortTasks(tasks, getTodayKey()).map(renderTaskTile).join("");
+    }
+
+    return taskVM
+        .buildGroups(tasks, taskViewState.grouping.dimension, getGroupLookups())
+        .map(group => renderTaskGroup(group, bucketKind))
+        .join("");
 }
 
 function getTaskContext(task) {
@@ -1198,6 +1260,328 @@ function initTaskBulkActions() {
     }
 
     updateTaskBulkActionState();
+}
+
+// Arbeitet bewusst auf den rohen Buckets, nicht auf den gefilterten.
+const taskGroupModal = {
+    state: {
+        dimension: "none",
+        key: null,
+        tab: "open",
+        search: "",
+        selection: new Set(),
+        busy: false
+    },
+
+    isOpen() {
+        return Boolean(document.getElementById("task-group-overlay")?.classList.contains("active"));
+    },
+
+    open(groupKey, bucketKind) {
+        if (!groupKey || !taskVM.isGroupingActive(taskViewState.grouping.dimension)) {
+            return;
+        }
+
+        this.state.dimension = taskViewState.grouping.dimension;
+        this.state.key = groupKey;
+        this.state.tab = bucketKind === "mine" ? "mine" : "open";
+        this.state.search = "";
+        this.state.selection = new Set();
+
+        const searchInput = document.getElementById("task-group-search");
+        if (searchInput) {
+            searchInput.value = "";
+        }
+
+        openOverlay("task-group-overlay");
+        this.render();
+    },
+
+    close() {
+        this.state.key = null;
+        this.state.selection = new Set();
+        closeOverlay("task-group-overlay");
+    },
+
+    refresh() {
+        if (this.isOpen()) {
+            this.render();
+        }
+    },
+
+    collectTasks() {
+        const matchesGroup = task => taskVM.getGroupKey(task, this.state.dimension).key === this.state.key;
+
+        return {
+            open: [...taskViewState.buckets.open, ...taskViewState.buckets.blocked].filter(matchesGroup),
+            mine: taskViewState.buckets.mine.filter(matchesGroup)
+        };
+    },
+
+    resolveLabel(tasks) {
+        const dimension = taskVM.getGroupDimension(this.state.dimension);
+        if (this.state.key === taskVM.UNGROUPED_KEY) {
+            return dimension.emptyLabel;
+        }
+
+        const sample = tasks.open[0] || tasks.mine[0];
+        return sample ? dimension.labelOf(sample, getGroupLookups()) : dimension.label;
+    },
+
+    selectTab(tab) {
+        if (this.state.tab === tab) {
+            return;
+        }
+
+        this.state.tab = tab === "mine" ? "mine" : "open";
+        this.state.selection = new Set();
+        this.render();
+    },
+
+    toggleSelection(taskId, isSelected) {
+        if (isSelected) {
+            this.state.selection.add(String(taskId));
+        } else {
+            this.state.selection.delete(String(taskId));
+        }
+        this.render();
+    },
+
+    toggleSelectAll(isSelected) {
+        const visible = this.getVisibleTasks();
+        visible.forEach(task => {
+            if (isSelected) {
+                this.state.selection.add(String(task.task_id));
+            } else {
+                this.state.selection.delete(String(task.task_id));
+            }
+        });
+        this.render();
+    },
+
+    clearSelection() {
+        this.state.selection = new Set();
+        this.render();
+    },
+
+    getVisibleTasks() {
+        const tasks = this.collectTasks()[this.state.tab] || [];
+        const search = normalizeSearchValue(this.state.search);
+
+        return taskVM
+            .sortTasksForList(tasks, getTodayKey())
+            .filter(task => !search || getTaskSearchIndex(task).includes(search));
+    },
+
+    renderRow(task) {
+        const chips = [
+            task.uiListState === "blocked" ? `<span class="ui-chip ui-chip-neutral">Blockiert</span>` : "",
+            isDeferredTask(task) ? `<span class="ui-chip ui-chip-neutral">Nachgelagert</span>` : "",
+            `<span class="ui-chip ${getHandlingChipClass(task.handling_type)}">${escapeHtml(formatHandlingType(task.handling_type))}</span>`
+        ].join("");
+
+        const targetDate = sofaContract.parseDateKey(task.target_date)
+            ? sofaContract.formatDateKey(task.target_date)
+            : "ohne Stichtag";
+
+        return `
+            <div class="task-group-row ${getTaskRowToneClass(task)}">
+                <label class="task-group-row-select">
+                    <input
+                        type="checkbox"
+                        data-group-task-id="${escapeHtml(task.task_id)}"
+                        ${this.state.selection.has(String(task.task_id)) ? "checked" : ""}
+                        aria-label="Aufgabe ${escapeHtml(task.task_id)} auswählen"
+                    >
+                </label>
+                <a href="#" class="task-tile task-group-row-main" data-task-id="${escapeHtml(task.task_id)}">
+                    <span class="task-group-row-title">${escapeHtml(formatTaskType(task.task_type))} · ${escapeHtml(task.resource_name || "-")}</span>
+                    <span class="task-group-row-meta">
+                        <span>${escapeHtml(task.system_name || "-")}</span>
+                        <span>${escapeHtml(task.target_user_name || "-")}</span>
+                        <span>${escapeHtml(targetDate)}</span>
+                    </span>
+                </a>
+                <div class="task-group-row-chips">${chips}</div>
+            </div>
+        `;
+    },
+
+    renderTabs(counts) {
+        document.querySelectorAll("#task-group-overlay [data-group-tab]").forEach(tab => {
+            const tabKey = tab.dataset.groupTab;
+            const count = counts[tabKey] || 0;
+            const isActive = tabKey === this.state.tab;
+
+            tab.classList.toggle("is-active", isActive);
+            tab.setAttribute("aria-selected", String(isActive));
+            tab.disabled = count === 0;
+            tab.setAttribute("aria-disabled", String(count === 0));
+        });
+
+        setCount("task-group-count-open", counts.open);
+        setCount("task-group-count-mine", counts.mine);
+    },
+
+    renderBulkBar(visibleTasks) {
+        const bar = document.getElementById("task-group-bulk-bar");
+        const countLabel = document.getElementById("task-group-selection-count");
+        const action = document.getElementById("task-group-bulk-action");
+        const selectAll = document.getElementById("task-group-select-all");
+        const selectedCount = this.state.selection.size;
+
+        if (selectAll) {
+            selectAll.disabled = !visibleTasks.length;
+            selectAll.checked = Boolean(visibleTasks.length) &&
+                visibleTasks.every(task => this.state.selection.has(String(task.task_id)));
+        }
+
+        if (bar) {
+            bar.hidden = selectedCount === 0;
+        }
+
+        if (countLabel) {
+            countLabel.textContent = `${selectedCount} ausgewählt`;
+        }
+
+        if (action && action.dataset.busy !== "true") {
+            const isRelease = this.state.tab === "mine";
+            action.textContent = isRelease ? "Freigeben" : "Übernehmen";
+            // setTaskBulkButtonState cacht die Beschriftung, die haengt hier aber am Tab.
+            action.dataset.defaultLabel = action.textContent;
+            action.className = `btn btn-sm ${isRelease ? "btn-red" : "btn-primary"}`;
+            action.disabled = selectedCount === 0;
+        }
+    },
+
+    render() {
+        if (!this.state.key) {
+            return;
+        }
+
+        if (this.state.dimension !== taskViewState.grouping.dimension) {
+            this.close();
+            return;
+        }
+
+        const tasks = this.collectTasks();
+        const counts = { open: tasks.open.length, mine: tasks.mine.length };
+        const resolution = taskVM.resolveGroupModalTab(counts, this.state.tab);
+
+        if (resolution.close) {
+            this.close();
+            return;
+        }
+
+        if (resolution.tab !== this.state.tab) {
+            this.state.tab = resolution.tab;
+            this.state.selection = new Set();
+        }
+
+        // Verschwundene Aufgaben duerfen nicht als unsichtbare Auswahl weiterleben.
+        const tabTaskIds = new Set((tasks[this.state.tab] || []).map(task => String(task.task_id)));
+        this.state.selection = new Set(
+            Array.from(this.state.selection).filter(taskId => tabTaskIds.has(taskId))
+        );
+
+        const dimension = taskVM.getGroupDimension(this.state.dimension);
+        const kicker = document.getElementById("task-group-kicker");
+        const title = document.getElementById("task-group-title");
+        if (kicker) {
+            kicker.textContent = dimension.label;
+        }
+        if (title) {
+            title.textContent = this.resolveLabel(tasks);
+        }
+
+        this.renderTabs(counts);
+
+        const visibleTasks = this.getVisibleTasks();
+        const list = document.getElementById("task-group-list");
+        if (list) {
+            list.innerHTML = visibleTasks.length
+                ? visibleTasks.map(task => this.renderRow(task)).join("")
+                : renderEmptyState(this.state.search ? "Keine Aufgaben für diese Suche" : "Keine Aufgaben");
+        }
+
+        this.renderBulkBar(visibleTasks);
+    },
+
+    async runBulkAction() {
+        const selectedIds = Array.from(this.state.selection);
+        if (!selectedIds.length || this.state.busy) {
+            return;
+        }
+
+        const isRelease = this.state.tab === "mine";
+        this.state.busy = true;
+
+        try {
+            await handleBulkTaskAction({
+                buttonId: "task-group-bulk-action",
+                busyLabel: isRelease ? "Gebe frei..." : "Übernehme...",
+                taskSelector: () => selectedIds
+                    .map(taskId => window.taskIndex?.[taskId])
+                    .filter(Boolean),
+                bulkRequestHandler: isRelease ? api.bulkReleaseTasks : api.bulkAssignTasks,
+                successLabel: isRelease ? "Aufgaben freigegeben" : "Aufgaben übernommen"
+            });
+        } finally {
+            this.state.busy = false;
+            this.state.selection = new Set();
+            this.render();
+        }
+    }
+};
+
+function initTaskGroupModal() {
+    document.getElementById("task-group-close-btn")?.addEventListener("click", () => {
+        taskGroupModal.close();
+    });
+
+    document.getElementById("task-group-overlay")?.addEventListener("click", event => {
+        if (event.target.id === "task-group-overlay") {
+            taskGroupModal.close();
+        }
+    });
+
+    document.getElementById("task-group-search")?.addEventListener("input", event => {
+        taskGroupModal.state.search = event.target.value || "";
+        taskGroupModal.render();
+    });
+
+    document.querySelectorAll("#task-group-overlay [data-group-tab]").forEach(tab => {
+        tab.addEventListener("click", () => taskGroupModal.selectTab(tab.dataset.groupTab));
+    });
+
+    document.getElementById("task-group-select-all")?.addEventListener("change", event => {
+        taskGroupModal.toggleSelectAll(event.target.checked);
+    });
+
+    document.getElementById("task-group-selection-clear")?.addEventListener("click", () => {
+        taskGroupModal.clearSelection();
+    });
+
+    document.getElementById("task-group-bulk-action")?.addEventListener("click", () => {
+        taskGroupModal.runBulkAction();
+    });
+
+    document.getElementById("task-group-list")?.addEventListener("change", event => {
+        const checkbox = event.target.closest("[data-group-task-id]");
+        if (checkbox) {
+            taskGroupModal.toggleSelection(checkbox.dataset.groupTaskId, checkbox.checked);
+        }
+    });
+
+    document.addEventListener("click", event => {
+        const stack = event.target.closest(".task-stack");
+        if (!stack) {
+            return;
+        }
+
+        event.preventDefault();
+        taskGroupModal.open(stack.dataset.groupKey, stack.dataset.groupBucket);
+    });
 }
 
 async function refreshTaskModalFromOverview(taskId) {
@@ -1657,6 +2041,11 @@ function initTaskOverlay() {
         const taskOverlay = document.getElementById("task-overlay");
         if (taskOverlay?.classList.contains("active")) {
             closeOverlay("task-overlay");
+            return;
+        }
+
+        if (taskGroupModal.isOpen()) {
+            taskGroupModal.close();
         }
     });
 }
@@ -1997,17 +2386,24 @@ function renderTaskBuckets(filteredBuckets) {
 
     const openAndBlocked = [...filteredBuckets.open, ...filteredBuckets.blocked];
     const isFiltered = hasActiveTaskFilters();
+    const isGrouped = taskVM.isGroupingActive(taskViewState.grouping.dimension);
 
     if (openContainer) {
-        openContainer.innerHTML = openAndBlocked.length
-            ? openAndBlocked.map(renderTaskTile).join("")
-            : renderEmptyState(isFiltered ? "Keine Aufgaben für die aktuelle Suche" : "Keine offenen Aufgaben");
+        openContainer.classList.toggle("is-grouped", isGrouped);
+        openContainer.innerHTML = renderTaskStripContent(
+            openAndBlocked,
+            "open",
+            isFiltered ? "Keine Aufgaben für die aktuelle Suche" : "Keine offenen Aufgaben"
+        );
     }
 
     if (myContainer) {
-        myContainer.innerHTML = filteredBuckets.mine.length
-            ? filteredBuckets.mine.map(renderTaskTile).join("")
-            : renderEmptyState(isFiltered ? "Keine eigenen Aufgaben für die aktuelle Suche" : "Keine eigenen Aufgaben");
+        myContainer.classList.toggle("is-grouped", isGrouped);
+        myContainer.innerHTML = renderTaskStripContent(
+            filteredBuckets.mine,
+            "mine",
+            isFiltered ? "Keine eigenen Aufgaben für die aktuelle Suche" : "Keine eigenen Aufgaben"
+        );
     }
 
     setCount("open-tasks-count", filteredBuckets.open.length);
@@ -2055,95 +2451,428 @@ function refreshTaskView() {
     taskViewState.filteredBuckets = filteredBuckets;
     renderTaskBuckets(filteredBuckets);
     updateTaskBulkActionState(filteredBuckets);
+    taskGroupModal.refresh();
 
     const visibleCount = Object.values(filteredBuckets).reduce((sum, tasks) => sum + tasks.length, 0);
     const totalCount = Object.values(taskViewState.buckets).reduce((sum, tasks) => sum + tasks.length, 0);
     updateTaskFilterSummary(visibleCount, totalCount);
 }
 
-function initTaskFilters() {
-    const searchInput = document.getElementById("tasks-search-input");
-    const statusFilter = document.getElementById("tasks-status-filter");
-    const handlingFilter = document.getElementById("tasks-handling-filter");
-    const typeFilter = document.getElementById("tasks-type-filter");
-    const backlogFilter = document.getElementById("tasks-backlog-filter");
-    const showBlockedToggle = document.getElementById("tasks-show-blocked");
-    const showDeferredToggle = document.getElementById("tasks-show-deferred");
-    const resetButton = document.getElementById("tasks-filter-reset");
+// Filterleiste im Stil der Userverwaltung.
+const taskFilterBar = {
+    init() {
+        this.renderFilterDropdown();
+        this.renderGroupDropdown();
+        this.bindSearch();
+        this.bindFilterMenu();
+        this.bindGroupMenu();
+        this.bindReset();
+        this.bindGlobalClose();
+        this.syncControls();
+    },
 
-    if (searchInput && searchInput.dataset.bound !== "true") {
+    renderFilterDropdown() {
+        const dropdown = document.getElementById("tasks-filter-dropdown");
+        if (!dropdown) {
+            return;
+        }
+
+        dropdown.innerHTML = TASK_FILTER_CATEGORIES.map(category => `
+            <button type="button" data-filter-category="${escapeHtml(category.id)}">${escapeHtml(category.label)}</button>
+        `).join("");
+    },
+
+    renderGroupDropdown() {
+        const dropdown = document.getElementById("tasks-group-dropdown");
+        if (!dropdown) {
+            return;
+        }
+
+        dropdown.innerHTML = taskVM.GROUP_DIMENSIONS.map(dimension => `
+            <button
+                type="button"
+                data-group-dimension="${escapeHtml(dimension.id)}"
+                class="${dimension.id === taskViewState.grouping.dimension ? "is-active" : ""}"
+            >${escapeHtml(dimension.label)}</button>
+        `).join("");
+    },
+
+    bindSearch() {
+        const searchInput = document.getElementById("tasks-search-input");
+        if (!searchInput || searchInput.dataset.bound === "true") {
+            return;
+        }
+
         searchInput.dataset.bound = "true";
         searchInput.addEventListener("input", event => {
-            taskViewState.filters.search = event.target.value || "";
+            taskViewState.search = event.target.value || "";
+            savePersistedTaskView();
             refreshTaskView();
         });
-    }
+    },
 
-    if (statusFilter && statusFilter.dataset.bound !== "true") {
-        statusFilter.dataset.bound = "true";
-        statusFilter.addEventListener("change", event => {
-            taskViewState.filters.status = event.target.value || "";
-            refreshTaskView();
-        });
-    }
+    bindFilterMenu() {
+        const trigger = document.getElementById("tasks-filter-btn");
+        const dropdown = document.getElementById("tasks-filter-dropdown");
+        const subfilter = document.getElementById("tasks-subfilter-dropdown");
+        const tags = document.getElementById("tasks-active-filters");
 
-    if (handlingFilter && handlingFilter.dataset.bound !== "true") {
-        handlingFilter.dataset.bound = "true";
-        handlingFilter.addEventListener("change", event => {
-            taskViewState.filters.handling = event.target.value || "";
-            refreshTaskView();
-        });
-    }
+        if (trigger && trigger.dataset.bound !== "true") {
+            trigger.dataset.bound = "true";
+            trigger.addEventListener("click", event => {
+                event.stopPropagation();
+                const shouldOpen = !dropdown?.classList.contains("active");
+                this.closeMenus();
+                if (shouldOpen) {
+                    dropdown?.classList.add("active");
+                    trigger.setAttribute("aria-expanded", "true");
+                }
+            });
+        }
 
-    if (typeFilter && typeFilter.dataset.bound !== "true") {
-        typeFilter.dataset.bound = "true";
-        typeFilter.addEventListener("change", event => {
-            taskViewState.filters.taskType = event.target.value || "";
-            refreshTaskView();
-        });
-    }
+        if (dropdown && dropdown.dataset.bound !== "true") {
+            dropdown.dataset.bound = "true";
+            dropdown.addEventListener("click", event => {
+                event.stopPropagation();
+                const button = event.target.closest("[data-filter-category]");
+                if (button) {
+                    this.openCategory(button.dataset.filterCategory);
+                }
+            });
+        }
 
-    if (backlogFilter && backlogFilter.dataset.bound !== "true") {
-        backlogFilter.dataset.bound = "true";
-        backlogFilter.addEventListener("change", event => {
-            taskViewState.filters.backlog = event.target.value || "";
-            refreshTaskView();
-        });
-    }
+        if (subfilter && subfilter.dataset.bound !== "true") {
+            subfilter.dataset.bound = "true";
+            subfilter.addEventListener("click", event => event.stopPropagation());
+            subfilter.addEventListener("change", event => this.handleSubfilterChange(event));
+        }
 
-    bindVisibilityToggle(showBlockedToggle, "showBlocked");
-    bindVisibilityToggle(showDeferredToggle, "showDeferred");
+        if (tags && tags.dataset.bound !== "true") {
+            tags.dataset.bound = "true";
+            tags.addEventListener("click", event => {
+                const button = event.target.closest("[data-tag-kind]");
+                if (button) {
+                    this.removeTag(button.dataset);
+                }
+            });
+        }
+    },
 
-    if (resetButton && resetButton.dataset.bound !== "true") {
+    bindGroupMenu() {
+        const trigger = document.getElementById("tasks-group-btn");
+        const dropdown = document.getElementById("tasks-group-dropdown");
+
+        if (trigger && trigger.dataset.bound !== "true") {
+            trigger.dataset.bound = "true";
+            trigger.addEventListener("click", event => {
+                event.stopPropagation();
+                const shouldOpen = !dropdown?.classList.contains("active");
+                this.closeMenus();
+                if (shouldOpen) {
+                    dropdown?.classList.add("active");
+                    trigger.setAttribute("aria-expanded", "true");
+                }
+            });
+        }
+
+        if (dropdown && dropdown.dataset.bound !== "true") {
+            dropdown.dataset.bound = "true";
+            dropdown.addEventListener("click", event => {
+                event.stopPropagation();
+                const button = event.target.closest("[data-group-dimension]");
+                if (!button) {
+                    return;
+                }
+
+                taskViewState.grouping.dimension = button.dataset.groupDimension;
+                savePersistedTaskView();
+                this.closeMenus();
+                this.renderGroupDropdown();
+                this.renderActiveTags();
+                refreshTaskView();
+            });
+        }
+    },
+
+    bindReset() {
+        const resetButton = document.getElementById("tasks-filter-reset");
+        if (!resetButton || resetButton.dataset.bound === "true") {
+            return;
+        }
+
         resetButton.dataset.bound = "true";
         resetButton.addEventListener("click", () => {
-            taskViewState.filters = { ...TASK_FILTER_DEFAULTS };
-            taskViewState.visibility = { ...TASK_VISIBILITY_DEFAULTS };
+            Object.assign(taskViewState, taskVM.createDefaultViewState());
+            savePersistedTaskView();
+            this.closeMenus();
             buildTaskFilterOptions();
-            syncTaskFilterControls();
+            this.syncControls();
             refreshTaskView();
         });
-    }
+    },
 
-    syncTaskFilterControls();
+    bindGlobalClose() {
+        if (document.body.dataset.tasksFilterBound === "true") {
+            return;
+        }
+
+        document.body.dataset.tasksFilterBound = "true";
+        document.addEventListener("click", event => {
+            const insideFilter = document.getElementById("tasks-filter-container")?.contains(event.target);
+            const insideGroup = document.getElementById("tasks-group-container")?.contains(event.target);
+            if (!insideFilter && !insideGroup) {
+                this.closeMenus();
+            }
+        });
+    },
+
+    handleSubfilterChange(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) {
+            return;
+        }
+
+        if (target.dataset.visibilityKey) {
+            taskViewState.visibility[target.dataset.visibilityKey] = target.checked;
+            // Die Filteroptionen haengen an der Sichtbarkeit und muessen neu aufgebaut werden.
+            buildTaskFilterOptions();
+        } else if (target.dataset.facetKey) {
+            const { facetKey, mode } = target.dataset;
+            const values = target.dataset.selectAllValues
+                ? JSON.parse(target.dataset.selectAllValues)
+                : [target.value];
+
+            values.forEach(value => {
+                taskViewState.filters[facetKey] = taskVM.toggleFacetValue(
+                    taskViewState.filters[facetKey],
+                    value,
+                    mode,
+                    target.checked
+                );
+            });
+        } else {
+            return;
+        }
+
+        savePersistedTaskView();
+        this.renderSubfilter(taskViewState.openFilterCategory);
+        this.renderActiveTags();
+        refreshTaskView();
+    },
+
+    removeTag({ tagKind, facetKey, mode, value, visibilityKey }) {
+        if (tagKind === "facet") {
+            taskViewState.filters[facetKey] = taskVM.toggleFacetValue(
+                taskViewState.filters[facetKey],
+                value,
+                mode,
+                false
+            );
+        } else if (tagKind === "visibility") {
+            taskViewState.visibility[visibilityKey] = false;
+            buildTaskFilterOptions();
+        } else if (tagKind === "grouping") {
+            taskViewState.grouping.dimension = "none";
+            this.renderGroupDropdown();
+        } else {
+            return;
+        }
+
+        savePersistedTaskView();
+        this.renderSubfilter(taskViewState.openFilterCategory);
+        this.renderActiveTags();
+        refreshTaskView();
+    },
+
+    openCategory(categoryId) {
+        taskViewState.openFilterCategory = categoryId;
+        document.getElementById("tasks-filter-dropdown")?.classList.add("active");
+        document.getElementById("tasks-subfilter-dropdown")?.classList.add("active");
+        this.highlightOpenCategory();
+        this.renderSubfilter(categoryId);
+    },
+
+    highlightOpenCategory() {
+        document.querySelectorAll("#tasks-filter-dropdown [data-filter-category]").forEach(button => {
+            button.classList.toggle(
+                "is-active",
+                button.dataset.filterCategory === taskViewState.openFilterCategory
+            );
+        });
+    },
+
+    closeMenus() {
+        ["tasks-filter-dropdown", "tasks-subfilter-dropdown", "tasks-group-dropdown"].forEach(elementId => {
+            document.getElementById(elementId)?.classList.remove("active");
+        });
+        document.getElementById("tasks-filter-btn")?.setAttribute("aria-expanded", "false");
+        document.getElementById("tasks-group-btn")?.setAttribute("aria-expanded", "false");
+        taskViewState.openFilterCategory = null;
+        this.highlightOpenCategory();
+    },
+
+    renderOptionRow(label, facetKey, value, includeSet, excludeSet) {
+        return `
+            <div class="ui-subfilter-option">
+                <span class="ui-subfilter-option-label">${escapeHtml(label)}</span>
+                <span class="ui-subfilter-toggle-group">
+                    <label class="ui-subfilter-toggle ui-subfilter-toggle-include" title="Nur „${escapeHtml(label)}“ anzeigen">
+                        <input type="checkbox" data-facet-key="${escapeHtml(facetKey)}" data-mode="include" value="${escapeHtml(value)}" ${includeSet.has(value) ? "checked" : ""}>
+                        <span aria-hidden="true">✓</span>
+                    </label>
+                    <label class="ui-subfilter-toggle ui-subfilter-toggle-exclude" title="„${escapeHtml(label)}“ ausschließen">
+                        <input type="checkbox" data-facet-key="${escapeHtml(facetKey)}" data-mode="exclude" value="${escapeHtml(value)}" ${excludeSet.has(value) ? "checked" : ""}>
+                        <span aria-hidden="true">✕</span>
+                    </label>
+                </span>
+            </div>
+        `;
+    },
+
+    renderSelectAllRow(facetKey, values, includeSet, excludeSet) {
+        const valuesAttr = escapeHtml(JSON.stringify(values));
+        const allIncluded = values.every(value => includeSet.has(value));
+        const allExcluded = values.every(value => excludeSet.has(value));
+
+        return `
+            <div class="ui-subfilter-option ui-subfilter-select-all">
+                <span class="ui-subfilter-option-label">Alle</span>
+                <span class="ui-subfilter-toggle-group">
+                    <label class="ui-subfilter-toggle ui-subfilter-toggle-include" title="Alle anzeigen">
+                        <input type="checkbox" data-facet-key="${escapeHtml(facetKey)}" data-mode="include" data-select-all-values='${valuesAttr}' ${allIncluded ? "checked" : ""}>
+                        <span aria-hidden="true">✓</span>
+                    </label>
+                    <label class="ui-subfilter-toggle ui-subfilter-toggle-exclude" title="Alle ausschließen">
+                        <input type="checkbox" data-facet-key="${escapeHtml(facetKey)}" data-mode="exclude" data-select-all-values='${valuesAttr}' ${allExcluded ? "checked" : ""}>
+                        <span aria-hidden="true">✕</span>
+                    </label>
+                </span>
+            </div>
+        `;
+    },
+
+    renderSubfilter(categoryId) {
+        const subfilter = document.getElementById("tasks-subfilter-dropdown");
+        if (!subfilter || !categoryId || !subfilter.classList.contains("active")) {
+            return;
+        }
+
+        if (categoryId === "visibility") {
+            subfilter.innerHTML = TASK_VISIBILITY_OPTIONS.map(option => `
+                <label class="ui-subfilter-switch">
+                    <input type="checkbox" data-visibility-key="${escapeHtml(option.key)}" ${taskViewState.visibility[option.key] ? "checked" : ""}>
+                    <span>${escapeHtml(option.label)}</span>
+                </label>
+            `).join("");
+            return;
+        }
+
+        const options = taskViewState.filterOptions[categoryId] || [];
+        if (!options.length) {
+            subfilter.innerHTML = `<span class="ui-subfilter-empty">Keine Werte vorhanden</span>`;
+            return;
+        }
+
+        const facet = taskViewState.filters[categoryId] || taskVM.createFacet();
+        const includeSet = new Set(facet.include);
+        const excludeSet = new Set(facet.exclude);
+
+        subfilter.innerHTML =
+            this.renderSelectAllRow(categoryId, options.map(option => option.value), includeSet, excludeSet) +
+            options.map(option => this.renderOptionRow(
+                option.label,
+                categoryId,
+                option.value,
+                includeSet,
+                excludeSet
+            )).join("");
+    },
+
+    getFacetOptionLabel(facetKey, value) {
+        return taskViewState.filterOptions[facetKey]?.find(option => option.value === value)?.label || value;
+    },
+
+    collectTags() {
+        const tags = [];
+
+        taskVM.TASK_FACET_KEYS.forEach(facetKey => {
+            const facet = taskViewState.filters[facetKey] || taskVM.createFacet();
+
+            facet.include.forEach(value => tags.push({
+                tagKind: "facet",
+                facetKey,
+                mode: "include",
+                value,
+                label: this.getFacetOptionLabel(facetKey, value)
+            }));
+            facet.exclude.forEach(value => tags.push({
+                tagKind: "facet",
+                facetKey,
+                mode: "exclude",
+                value,
+                excluded: true,
+                label: `Kein ${this.getFacetOptionLabel(facetKey, value)}`
+            }));
+        });
+
+        TASK_VISIBILITY_OPTIONS.forEach(option => {
+            if (taskViewState.visibility[option.key]) {
+                tags.push({ tagKind: "visibility", visibilityKey: option.key, label: option.tagLabel });
+            }
+        });
+
+        return tags;
+    },
+
+    renderActiveTags() {
+        const dimension = taskVM.getGroupDimension(taskViewState.grouping.dimension);
+        const isGrouped = taskVM.isGroupingActive(dimension.id);
+        const filterTags = this.collectTags();
+        const tags = isGrouped
+            ? [...filterTags, { tagKind: "grouping", grouping: true, label: `Gruppiert: ${dimension.label}` }]
+            : filterTags;
+
+        document.getElementById("tasks-filter-btn")?.classList.toggle("is-active", filterTags.length > 0);
+        document.getElementById("tasks-group-btn")?.classList.toggle("is-active", isGrouped);
+
+        const container = document.getElementById("tasks-active-filters");
+        if (!container) {
+            return;
+        }
+
+        container.innerHTML = tags.map(tag => `
+            <div class="ui-filter-tag${tag.excluded ? " is-excluded" : ""}${tag.grouping ? " is-grouping" : ""}">
+                <span>${escapeHtml(tag.label)}</span>
+                <button
+                    type="button"
+                    data-tag-kind="${escapeHtml(tag.tagKind)}"
+                    data-facet-key="${escapeHtml(tag.facetKey || "")}"
+                    data-mode="${escapeHtml(tag.mode || "")}"
+                    data-value="${escapeHtml(tag.value || "")}"
+                    data-visibility-key="${escapeHtml(tag.visibilityKey || "")}"
+                    aria-label="${escapeHtml(tag.label)} entfernen"
+                >&times;</button>
+            </div>
+        `).join("");
+    },
+
+    syncControls() {
+        const searchInput = document.getElementById("tasks-search-input");
+        if (searchInput) {
+            searchInput.value = taskViewState.search;
+        }
+
+        this.renderGroupDropdown();
+        this.highlightOpenCategory();
+        this.renderSubfilter(taskViewState.openFilterCategory);
+        this.renderActiveTags();
+    }
+};
+
+function initTaskFilters() {
+    taskFilterBar.init();
     updateTaskFilterSummary(0, 0);
 }
-
-function bindVisibilityToggle(toggle, visibilityKey) {
-    if (!toggle || toggle.dataset.bound === "true") {
-        return;
-    }
-
-    toggle.dataset.bound = "true";
-    toggle.addEventListener("change", event => {
-        taskViewState.visibility[visibilityKey] = Boolean(event.target.checked);
-        // Die Filteroptionen haengen an der Sichtbarkeit und muessen neu aufgebaut werden.
-        buildTaskFilterOptions();
-        syncTaskFilterControls();
-        refreshTaskView();
-    });
-}
-
 async function loadTaskBacklogs() {
     const backlogs = await api.getTaskBacklogs();
     taskViewState.backlogLookup = {};
