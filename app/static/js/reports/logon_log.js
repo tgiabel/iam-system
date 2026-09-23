@@ -19,11 +19,11 @@ async function llApi(path, options={}) {
 function llStatusLabels(item) {
     const labels = [];
     if (item.classification === "unresolved") labels.push("? Zuordnung ungeklärt");
-    else if (item.classification === "anomaly") labels.push("△ Auffällig · derzeit keine Prüfpflicht");
-    else labels.push("! Agenten-Finding");
-    const states = {open:"! Offen", reviewed:"✓ Geprüft", changed:"! Erneut prüfen", legacy:"Altbestand · kein digitaler Prüfnachweis", workflow_inactive:"Digitale Prüfung noch gesperrt"};
+    else if (item.classification === "anomaly") labels.push("△ Doppelte Anmeldung · keine Prüfpflicht");
+    else labels.push("! Doppelte Anmeldung");
+    const states = {open:"! Offen", reviewed:"✓ Geprüft", changed:"! Erneut prüfen", legacy:"Altbestand"};
     if (states[item.review_state]) labels.push(states[item.review_state]);
-    if (item.quality) labels.push(item.quality === "confirmed" ? "Zeitlich belegt" : "Verdacht · Sitzungsende angenommen/offen");
+    if (item.quality) labels.push(item.quality === "confirmed" ? "Belegt" : "Sitzungsende angenommen");
     return labels;
 }
 function llBadges(item) {
@@ -53,17 +53,17 @@ function llEventRow(event, cases, showNames=false) {
     if (!status && event.identity_unresolved) status='<span class="ll-badge">? Benutzerzuordnung ungeklärt</span>';
     if(event.data_hint) status+=`<span class="ll-context">${llEscape(event.data_hint)}</span>`;
     const name = showNames && llState.names[event.username] ? `<span class="ll-name">${llEscape(llState.names[event.username])}</span>` : "";
-    return `<tr><td>${status || "—"}</td><td>${llEscape(llDate(event.timestamp))}</td><td>${llEscape(event.username)}${name}</td><td>${llEscape(event.computer)}</td><td>${llEscape(event.ip)}</td><td>${llEscape(event.type)}</td></tr>`;
+    return `<tr><td>${llEscape(llDate(event.timestamp))}</td><td>${llEscape(event.username)}${name}</td><td>${llEscape(event.computer)}</td><td>${llEscape(event.ip)}</td><td>${llEscape(event.type)}</td><td>${status || "—"}</td></tr>`;
 }
 function llCaseCard(item) {
     const canCheck=llDom.llReport.dataset.canCheck==="true";
     const reviewButton=canCheck && item.user_id && (item.classification==="finding" || item.review_version) ?
-        `<button type="button" data-review-user="${item.user_id}" data-review-day="${llEscape(item.day)}">${item.review_state==="reviewed" ? "Prüfung ansehen / korrigieren" : "Finding ansehen / prüfen"}</button>` : "";
+        `<button type="button" data-review-user="${item.user_id}" data-review-day="${llEscape(item.day)}">${item.review_state==="reviewed" ? "Prüfung ansehen" : "Prüfen"}</button>` : "";
     const continuation=item.continuation ? `<p class="ll-context">Fortsetzung: Prüftag ${llEscape(item.day)} <button type="button" data-day="${llEscape(item.day)}">Zum zuständigen Tag</button></p>` : "";
-    return `<article class="ll-case ${item.review_required ? "ll-urgent" : item.review_state==="reviewed" ? "ll-reviewed" : ""}"><div class="ll-case-head"><strong>${llEscape(item.usernames.join(", "))} · ${llEscape(item.day)}</strong>${reviewButton}</div>${llBadges(item)}<p>Genutzte Rechner: ${llEscape(item.computers.join(", "))} · ${item.overlaps.length} Überschneidung(en)</p>${continuation}<details><summary>Überschneidungen anzeigen</summary>${item.overlaps.map(o=>`<p>${llEscape(o.computers.join(" / "))}: ${llEscape(llDate(o.started_at))} – ${llEscape(llDate(o.ended_at))} · ${o.quality==="confirmed" ? "belegt" : "Verdacht"}</p>`).join("")}</details></article>`;
+    return `<article class="ll-case ${item.review_required ? "ll-urgent" : item.review_state==="reviewed" ? "ll-reviewed" : ""}"><div class="ll-case-head"><strong>${llEscape(item.usernames.join(", "))} · ${llEscape(item.day)}</strong>${reviewButton}</div>${llBadges(item)}<p>Genutzte Rechner: ${llEscape(item.computers.join(", "))} · ${item.overlaps.length} Überschneidung(en)</p>${continuation}<details><summary>Überschneidungen anzeigen</summary>${item.overlaps.map(o=>`<p>${llEscape(o.computers.join(" / "))}: ${llEscape(llDate(o.started_at))} – ${llEscape(llDate(o.ended_at))} · ${o.quality==="confirmed" ? "belegt" : "Sitzungsende angenommen"}</p>`).join("")}</details></article>`;
 }
 function llRetainedCards(items) {
-    return (items || []).map(item=>`<article class="ll-case ll-reviewed"><strong>${llEscape(item.usernames.join(", "))} · ${llEscape(item.day)}</strong><p>✓ Gespeicherter Prüfnachweis · aktuell keine zugeordnete Überschneidung. Genutzte Rechner im Prüfstand: ${llEscape(item.computers.join(", "))}</p>${llDom.llReport.dataset.canCheck==="true" ? `<button type="button" data-review-user="${item.user_id}" data-review-day="${item.day}">Prüfnachweis ansehen</button>` : ""}</article>`).join("");
+    return (items || []).map(item=>`<article class="ll-case ll-reviewed"><strong>${llEscape(item.usernames.join(", "))} · ${llEscape(item.day)}</strong><p>✓ Geprüft · Überschneidung nicht mehr zugeordnet · Rechner: ${llEscape(item.computers.join(", "))}</p>${llDom.llReport.dataset.canCheck==="true" ? `<button type="button" data-review-user="${item.user_id}" data-review-day="${item.day}">Prüfnachweis ansehen</button>` : ""}</article>`).join("");
 }
 function llRender() {
     const report=llState.report;
@@ -77,11 +77,11 @@ function llRender() {
     llDom.llRows.innerHTML=field ? visible.map(group=>{
         const key=field+":"+group.key, expanded=llState.expanded.has(key), control="llGroup"+visible.indexOf(group);
         const cases=report.cases.filter(c=>group.events.some(e=>(e.case_keys || []).includes(c.key)));
-        return `<tr><td><button type="button" data-expand="${llEscape(key)}" aria-expanded="${expanded}" aria-controls="${control}">${expanded ? "▾" : "▸"} ${llEscape(group.label)}</button></td><td colspan="5">${group.events.length} Ereignisse ${cases.map(llBadges).join("")}</td></tr>`+
+        return `<tr><td colspan="5"><button type="button" data-expand="${llEscape(key)}" aria-expanded="${expanded}" aria-controls="${control}">${expanded ? "▾" : "▸"} ${llEscape(group.label)}</button> ${group.events.length} Ereignisse</td><td>${cases.map(llBadges).join("") || "—"}</td></tr>`+
             `<tr id="${control}" ${expanded ? "" : "hidden"}><td colspan="6">${expanded ? `<div class="ll-group-detail"><table class="ll-table"><tbody>${group.events.map(e=>llEventRow(e,report.cases,showNames)).join("")}</tbody></table></div>` : ""}</td></tr>`;
     }).join("") : visible.map(e=>llEventRow(e,report.cases,showNames)).join("");
     if (!items.length) llDom.llRows.innerHTML='<tr><td colspan="6">Keine Logeinträge für diese Auswahl.</td></tr>';
-    llDom.llCount.textContent=`${filtered.length} von ${report.event_count} Ereignissen · ${report.case_count} Auffälligkeitsfälle`;
+    llDom.llCount.textContent=`${filtered.length} von ${report.event_count} Ereignissen · ${report.case_count} Auffälligkeiten`;
     llDom.llPageLabel.textContent=`Seite ${llState.page} / ${pages}`;
     llDom.llPagePrev.disabled=llState.page<=1; llDom.llPageNext.disabled=llState.page>=pages;
 }
@@ -98,12 +98,9 @@ async function llLoadDay(day=llDom.llDay.value) {
         if(token!==llState.reportToken) return;
         llState.report=result; llState.page=1; llState.expanded.clear();
         llDom.llDataAsOf.textContent=`Stand ${llDate(result.data_as_of)}${result.ongoing ? " · laufender Tag" : ""}`;
-        llDom.llWorkflowNote.textContent=result.workflow_enabled ? `Digitale Prüfaufgaben seit ${result.introduction_day}. Ältere Fälle sind Altbestand ohne digitalen Prüfnachweis.` : "Digitale Prüfung noch nicht aktiviert. Die Prüfung erfolgt weiterhin im bisherigen Papierverfahren.";
         const open=result.cases.filter(c=>c.review_required && c.day===day);
-        llDom.llOpenCases.innerHTML=open.length ? open.map(llCaseCard).join("") : "<p>Keine offenen digitalen Prüfungen dieses Tages.</p>";
+        llDom.llOpenCases.innerHTML=open.length ? open.map(llCaseCard).join("") : "<p>Keine offenen Prüfungen.</p>";
         llDom.llOtherDays.innerHTML=result.other_open_days.length ? `<p>Offene Prüfungen anderer Tage: ${result.other_open_days.map(d=>`<button type="button" data-day="${d.day}">${d.day} (${d.count})</button>`).join(" ")}</p>` : "";
-        // Cases remain accessible even when their context lies outside today's
-        // raw events (e.g. a session begun yesterday).
         const remaining=result.cases.filter(c=>!open.includes(c));
         if(remaining.length) llDom.llOpenCases.innerHTML+=`<details><summary>Weitere Auffälligkeiten und Prüfstände (${remaining.length})</summary>${remaining.map(llCaseCard).join("")}</details>`;
         llDom.llOpenCases.innerHTML+=llRetainedCards(result.retained_reviews);
@@ -143,21 +140,21 @@ async function llLoadAnalysis(includeLogs=false) {
         if(token!==llState.analysisToken) return;
         llState.analysis=result;llState.analysisPage=1;
         llDom.llAnalysisTitle.textContent=`${target.name} · ${target.start} bis ${target.end}`;
-        llDom.llAnalysisStatus.textContent=`${result.case_count} Auffälligkeitsfälle · ${result.event_count} Benutzerlogs · Stand ${llDate(result.data_as_of)}`;
+        llDom.llAnalysisStatus.textContent=`${result.case_count} Auffälligkeiten · ${result.event_count} Benutzerlogs · Stand ${llDate(result.data_as_of)}`;
         llRenderAnalysis();
     } catch(error) { if(token===llState.analysisToken) llDom.llAnalysisStatus.textContent=error.message; }
 }
 function llRenderAnalysis() {
     const result=llState.analysis;
     if(!result) return;
-    llDom.llAnalysisCases.innerHTML=result.cases.length ? result.cases.map(llCaseCard).join("") : "<p>Keine Parallelauffälligkeiten im Zeitraum.</p>";
+    llDom.llAnalysisCases.innerHTML=result.cases.length ? result.cases.map(llCaseCard).join("") : "<p>Keine Auffälligkeiten im Zeitraum.</p>";
     llDom.llAnalysisCases.innerHTML+=llRetainedCards(result.retained_reviews);
     llDom.llLoadAll.disabled=result.logs_loaded;
     if (!result.logs_loaded) { llDom.llAnalysisLogs.innerHTML=""; return; }
     const pages=Math.max(1,Math.ceil(result.events.length/LL_PAGE_SIZE));
     llState.analysisPage=Math.max(1,Math.min(llState.analysisPage,pages));
     const visible=result.events.slice((llState.analysisPage-1)*LL_PAGE_SIZE,llState.analysisPage*LL_PAGE_SIZE);
-    llDom.llAnalysisLogs.innerHTML=`<div class="ll-table-wrap"><table class="ll-table"><thead><tr><th>Status</th><th>Zeitstempel</th><th>y-User</th><th>Rechnername</th><th>IP</th><th>Ereignis</th></tr></thead><tbody>${visible.map(e=>llEventRow(e,result.cases)).join("") || '<tr><td colspan="6">Keine Logs vorhanden.</td></tr>'}</tbody></table></div><div class="ll-toolbar"><button type="button" data-analysis-page="-1" ${llState.analysisPage<=1?"disabled":""}>Vorherige Seite</button><span>Seite ${llState.analysisPage} / ${pages}</span><button type="button" data-analysis-page="1" ${llState.analysisPage>=pages?"disabled":""}>Nächste Seite</button></div>`;
+    llDom.llAnalysisLogs.innerHTML=`<div class="ll-table-wrap"><table class="ll-table"><thead><tr><th>Zeitstempel</th><th>y-User</th><th>Rechnername</th><th>IP</th><th>Ereignis</th><th>Details / Status</th></tr></thead><tbody>${visible.map(e=>llEventRow(e,result.cases)).join("") || '<tr><td colspan="6">Keine Logs vorhanden.</td></tr>'}</tbody></table></div><div class="ll-toolbar"><button type="button" data-analysis-page="-1" ${llState.analysisPage<=1?"disabled":""}>Vorherige Seite</button><span>Seite ${llState.analysisPage} / ${pages}</span><button type="button" data-analysis-page="1" ${llState.analysisPage>=pages?"disabled":""}>Nächste Seite</button></div>`;
 }
 async function llOpenReview(userId,day) {
     const token=++llState.reviewToken;
@@ -172,13 +169,13 @@ async function llOpenReview(userId,day) {
         const item=result.case;
         llState.review={...result,userId,day};
         llDom.llReviewSummary.innerHTML=`<p><strong>Name:</strong> ${llEscape(result.name || "Nicht zugeordnet")}</p><p><strong>y-User:</strong> ${llEscape(item?.usernames.join(", ") || result.history[0]?.snapshot?.usernames.join(", ") || "")}</p><p><strong>Genutzte Rechner:</strong> ${llEscape(item?.computers.join(", ") || result.history[0]?.snapshot?.computers.join(", ") || "")}</p><p>Prüftag ${llEscape(day)}</p>`;
-        if(item) llDom.llReviewEvidence.innerHTML=llCaseCard({...item,user_id:null})+`<details><summary>Beteiligte Rohereignisse einschließlich Zeitraumkontext</summary><div class="ll-table-wrap"><table class="ll-table"><tbody>${item.events.map(e=>llEventRow(e,[])).join("")}</tbody></table></div></details>`;
+        if(item) llDom.llReviewEvidence.innerHTML=llCaseCard({...item,user_id:null})+`<details><summary>Beteiligte Ereignisse</summary><div class="ll-table-wrap"><table class="ll-table"><tbody>${item.events.map(e=>llEventRow(e,[])).join("")}</tbody></table></div></details>`;
         const prior=result.history[0];
         llDom.llCause.value=prior?.cause || "";llDom.llMeasures.value=prior?.measures || "";
         llDom.llReasonLabel.hidden=!prior;llDom.llReason.required=!!prior;
         const canSave=result.workflow_enabled && item && !["legacy","not_required"].includes(item.review_state) && (item.classification==="finding" || item.review_version);
         llDom.llReviewSave.disabled=!canSave;
-        llDom.llReviewStatus.textContent=canSave ? (prior ? "Änderungsgrund für eine neue Prüfversion erforderlich." : "Ursache ist Pflicht; Maßnahmen sind optional.") : "Dieser Prüfstand kann derzeit nur eingesehen werden.";
+        llDom.llReviewStatus.textContent="";
         llDom.llReviewHistory.innerHTML=result.history.length ? `<h3>Prüfhistorie</h3>${result.history.map(v=>`<details><summary>Version ${v.version} · ${llEscape(v.reviewer_name)} · ${llEscape(llDate(v.reviewed_at))}</summary><p>Name zum Prüfzeitpunkt: ${llEscape(v.snapshot.name)}</p><p><strong>Ursache:</strong> ${llEscape(v.cause)}</p><p><strong>Maßnahmen:</strong> ${llEscape(v.measures || "Keine")}</p><p><strong>Änderungsgrund:</strong> ${llEscape(v.change_reason || "Erstprüfung")}</p><details><summary>Gespeicherte Belege und Regeln</summary><pre>${llEscape(JSON.stringify(v.snapshot,null,2))}</pre></details></details>`).join("")}` : "";
     } catch(error) { if(token===llState.reviewToken) llDom.llReviewStatus.textContent=error.message; }
 }
@@ -194,7 +191,7 @@ async function llSaveReview(event) {
         llDom.llReviewDialog.close();
         await llLoadDay();
         if(llState.analysis) await llLoadAnalysis(llState.analysis.logs_loaded);
-    } catch(error) { llDom.llReviewStatus.textContent=error.message+" Ihre Eingaben bleiben erhalten. Bei geändertem Prüfstand schließen und erneut öffnen.";llDom.llReviewSave.disabled=false; }
+    } catch(error) { llDom.llReviewStatus.textContent=error.message;llDom.llReviewSave.disabled=false; }
 }
 async function llExport(scope) {
     const filters=scope==="day" ? llFilters() : {search:"",type:"",status:""};
@@ -204,8 +201,7 @@ async function llExport(scope) {
         const t=llState.analysisTarget;if(!t) return;
         params.set("user_id",t.user_id);params.set("start",t.start);params.set("end",t.end);
     }
-    const filterText=[filters.search&&`Suche „${filters.search}“`,filters.type,filters.status].filter(Boolean).join(", ");
-    llDom.llExportNotice.textContent=`CSV: ${scope==="findings" ? "beteiligte Auffälligkeitslogs einschließlich erforderlichem Kontext außerhalb des Zeitraums" : scope==="all" ? "alle Benutzerlogs im Zeitraum" : "alle gefilterten Tageslogs"}; ${filterText || "keine zusätzlichen Filter"}. Alle Seiten, chronologisch und ohne Klartextnamen.`;
+    llDom.llExportNotice.textContent="";
     try {
         const response=await fetch(LL_BASE+"/export?"+params,{cache:"no-store"});
         if(!response.ok) { let p;try {p=await response.json();}catch(_){} throw new Error(llErrorText(p)); }

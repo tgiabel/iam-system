@@ -22,9 +22,8 @@
         <div class="ui-section-heading">
             <p class="ui-section-kicker">Systemzugriffe</p>
             <h1 class="ui-section-title">Anmeldeprotokoll</h1>
-            <p class="ui-section-copy">Client-Anmeldungen und zeitliche Parallelzugriffe. Prüfpflichtig sind Agenten.</p>
+            <p class="ui-section-copy">Client-Anmeldungen und doppelte Anmeldungen je Tag.</p>
         </div>
-        <p id="llWorkflowNote" class="ll-note"></p>
     </div>
 
     <div class="ll-toolbar" aria-label="Reporttag">
@@ -50,8 +49,10 @@
     </section>
 
     <div class="ll-filterbar" aria-label="Tabellenfilter">
-        <input type="search" id="llSearch" class="ui-input ll-search" placeholder="Kennung, Rechner oder IP suchen…" autocomplete="off" aria-label="Logs durchsuchen">
-        <label class="ll-filter">Gruppierung
+        <label class="ui-field-group ll-filter ll-search"><span class="ui-field-label">Suche</span>
+            <input type="search" id="llSearch" class="ui-input" placeholder="Kennung, Rechner oder IP" autocomplete="off">
+        </label>
+        <label class="ui-field-group ll-filter"><span class="ui-field-label">Gruppierung</span>
             <select id="llGroup" class="ui-input">
                 <option value="">Keine</option>
                 <option value="computer">Rechnername</option>
@@ -59,18 +60,18 @@
                 <option value="username">Benutzerkennung</option>
             </select>
         </label>
-        <label class="ll-filter">Ereignis
+        <label class="ui-field-group ll-filter"><span class="ui-field-label">Ereignis</span>
             <select id="llType" class="ui-input">
                 <option value="">Alle</option>
                 <option>Anmeldung</option>
                 <option>Abmeldung</option>
             </select>
         </label>
-        <label class="ll-filter">Status
+        <label class="ui-field-group ll-filter"><span class="ui-field-label">Status</span>
             <select id="llFilter" class="ui-input">
                 <option value="">Alle</option>
-                <option value="finding">Agenten-Findings</option>
-                <option value="anomaly">Auffällig ohne Prüfpflicht</option>
+                <option value="finding">Doppelte Anmeldung</option>
+                <option value="anomaly">Doppelte Anmeldung ohne Prüfpflicht</option>
                 <option value="unresolved">Zuordnung ungeklärt</option>
                 <option value="open">Offen</option>
                 <option value="reviewed">Geprüft</option>
@@ -78,7 +79,7 @@
                 <option value="legacy">Altbestand</option>
             </select>
         </label>
-        {% if 'SOFA-FN-LL' in authz.permissions %}<label class="ll-filter ll-checkbox"><input type="checkbox" id="llNames"> Klartextnamen nachladen</label>{% endif %}
+        {% if 'SOFA-FN-LL' in authz.permissions %}<label class="ll-checkbox"><input type="checkbox" id="llNames"> Klartextnamen nachladen</label>{% endif %}
         <div class="ll-filtermeta">
             <span id="llCount" class="ui-chip ui-chip-neutral ll-chip" role="status"></span>
             <button type="button" id="llExport" class="ll-btn" disabled>CSV exportieren</button>
@@ -91,12 +92,12 @@
             <table class="ll-table">
                 <thead>
                     <tr>
-                        <th>Details / Status</th>
                         <th>Zeitstempel</th>
                         <th>y-User</th>
                         <th>Rechnername</th>
                         <th>IP</th>
                         <th>Ereignis</th>
+                        <th>Details / Status</th>
                     </tr>
                 </thead>
                 <tbody id="llRows"></tbody>
@@ -118,7 +119,7 @@
         <p id="llAnalysisStatus" class="ll-status" role="status" aria-live="polite"></p>
         <div class="ll-toolbar-meta">
             <button type="button" id="llLoadAll" class="ll-btn">Alle Logs laden</button>
-            <button type="button" id="llExportFindings" class="ll-btn">Finding-Logs als CSV</button>
+            <button type="button" id="llExportFindings" class="ll-btn">Auffälligkeiten als CSV</button>
             <button type="button" id="llExportAll" class="ll-btn">Alle Benutzerlogs als CSV</button>
         </div>
         <div id="llAnalysisCases"></div>
@@ -163,7 +164,7 @@
         <div class="ui-modal-header">
             <div class="ui-section-heading">
                 <p class="ui-section-kicker">Anmeldeprotokoll</p>
-                <h2 id="llReviewTitle" class="ui-section-title ll-dialog-title">Finding prüfen</h2>
+                <h2 id="llReviewTitle" class="ui-section-title ll-dialog-title">Doppelte Anmeldung prüfen</h2>
             </div>
         </div>
         <div class="ui-modal-body">

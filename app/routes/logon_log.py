@@ -84,7 +84,6 @@ async def save_review(request: Request, user_id: int, day: str, authz=Depends(re
 
 @router.get("/export")
 async def export(request: Request, authz=Depends(require_login)):
-    # Der Tagesexport ist klein; findings/all laufen ueber einen Zeitraum.
     if request.query_params.get("scope", "day") == "day":
         return await forward(request, authz, "GET", "/export")
     return await forward(request, authz, "GET", "/export", NAMES, timeout=LOGON_LOG_RANGE_TIMEOUT_SECONDS)

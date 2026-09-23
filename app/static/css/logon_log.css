@@ -1,7 +1,3 @@
-/* Anmeldeprotokoll: Seitenrahmen, Buttons und Tabelle folgen den IVR-Reports
-   (ivr_report.css / ivr_call_details.css); Farben nur ueber Theme-Tokens,
-   Flaechen deckend. */
-
 .ll-page {
     width: 100%;
     max-width: 1500px;
@@ -19,18 +15,6 @@
     margin-bottom: 1.25rem;
 }
 
-.ll-note {
-    max-width: 31rem;
-    margin: 0;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-surface-card);
-    color: var(--ui-text-muted);
-    font-size: 0.88rem;
-}
-
-.ll-note:empty,
 .ll-status:empty,
 .ll-chip:empty {
     display: none;
@@ -94,6 +78,7 @@
 
 .ll-filterbar {
     flex-wrap: wrap;
+    align-items: flex-end;
     gap: 12px;
     margin-bottom: 12px;
 }
@@ -103,22 +88,14 @@
     max-width: 420px;
 }
 
-.ll-filter {
+.ll-checkbox {
     display: inline-flex;
     align-items: center;
-    gap: 0.55rem;
-    color: var(--ui-text-muted);
-    font-size: 0.88rem;
-    font-weight: 700;
-}
-
-.ll-filter .ui-input {
-    width: auto;
-}
-
-.ll-checkbox {
-    font-weight: 600;
+    gap: 0.45rem;
+    min-height: 2.2rem;
     color: var(--ui-text);
+    font-size: 0.88rem;
+    font-weight: 600;
 }
 
 .ll-filtermeta {
@@ -139,8 +116,7 @@
     white-space: nowrap;
 }
 
-/* Buttons: wie .ivr-report-export-btn / .ivr-report-nav-btn. Die Regel greift
-   auch fuer die vom Skript erzeugten Buttons in Fallkarten und Tabelle. */
+/* Buttons */
 
 .ll-page button,
 .ll-dialog .ui-modal-body button {
@@ -183,7 +159,7 @@
     line-height: 1;
 }
 
-/* Panels: offene Pruefungen und Benutzerauswertung */
+/* Panels */
 
 .ll-panel {
     margin-bottom: 18px;
@@ -289,7 +265,7 @@
     margin-top: 0.18rem;
 }
 
-/* Tabelle: wie .ivr-call-details-table */
+/* Tabelle */
 
 .ll-table-card .table-wrapper,
 .ll-table-wrap {
@@ -341,7 +317,6 @@
     white-space: normal;
 }
 
-/* Aufgeklappte Gruppe: eingebettete Tabelle ohne eigenen Rahmen */
 .ll-group-detail {
     padding: 0 0 0 1.5rem;
 }
@@ -350,12 +325,11 @@
     border-bottom: 0;
 }
 
-/* Dialoge: Optik wie .ui-modal; <dialog> selbst behaelt das native Ein-/Ausblenden */
+/* Dialoge */
 
 .ll-dialog {
     width: min(920px, calc(100vw - 2rem));
     max-height: calc(100vh - 2rem);
-    /* Das globale Reset nullt margin; auto stellt die native Zentrierung wieder her. */
     margin: auto;
     padding: 0;
     border: 1px solid var(--ui-border);
@@ -429,7 +403,6 @@
         flex: 1 1 100%;
     }
 
-    .ll-filter .ui-input,
     .ll-search {
         flex: 1;
         max-width: none;

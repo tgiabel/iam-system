@@ -83,7 +83,6 @@ class ProxyTests(unittest.TestCase):
     def test_sensitive_controls_are_gated_by_template(self):
         from jinja2 import Environment,FileSystemLoader
         root=Path(__file__).parents[1]
-        # Replace base only; exercise real report permissions/controls.
         env=Environment(loader=FileSystemLoader(root/'app/templates'))
         template=env.from_string((root/'app/templates/reports/logon_log.html').read_text().replace('{% extends "base.html" %}',''))
         reader=template.render(authz=authz(ll.REPORT))
