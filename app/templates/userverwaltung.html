@@ -16,9 +16,6 @@
                 <div class="ui-section-heading">
                     <span class="ui-section-kicker">Identity Hub</span>
                     <h1 class="ui-section-title">Userverwaltung</h1>
-                    <p class="ui-section-copy">
-                        Nutzer suchen, filtern und direkt in einem strukturierten Detail-Overlay verwalten.
-                    </p>
                 </div>
                 <div class="users-header-actions">
                     {% if "SOFA-FN-TRNG" in authz.permissions %}
@@ -72,7 +69,15 @@
 
             <div class="users-filter-tags-row">
                 <div class="users-filter-tags" id="active-filters"></div>
-                <span id="users-visible-count" class="users-visible-count" aria-live="polite">0 User</span>
+                <div class="users-toolbar-status">
+                    <span id="users-visible-count" class="users-visible-count" aria-live="polite">0 User</span>
+                    <button type="button" class="ui-flat-button ui-flat-button--icon" id="users-filter-reset" aria-label="Alle Filter entfernen" title="Alle Filter entfernen">
+                        <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                            <path d="M3.5 4.5h14l-5.4 6.5v4.6l-3.2 1.8v-6.4z"/>
+                            <path d="M15.5 15.5l5 5M20.5 15.5l-5 5"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </section>
 

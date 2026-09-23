@@ -1,5 +1,17 @@
 const sofaContract = window.SofaContract;
 
+function createDefaultUserFilters() {
+    return {
+        primaryRoles: { include: [], exclude: [] },
+        secondaryRoles: { include: [], exclude: [] },
+        skillRoles: { include: [], exclude: [] },
+        severities: { include: [], exclude: [] },
+        overdue: { include: [], exclude: [] },
+        actions: { include: [], exclude: [] },
+        openCategory: null
+    };
+}
+
 const state = {
     users: [],
     systemMap: null,
@@ -9,15 +21,7 @@ const state = {
     currentUserHistory: null,
     activeUserTab: "details",
     searchTerm: "",
-    filters: {
-        primaryRoles: { include: [], exclude: [] },
-        secondaryRoles: { include: [], exclude: [] },
-        skillRoles: { include: [], exclude: [] },
-        severities: { include: [], exclude: [] },
-        overdue: { include: [], exclude: [] },
-        actions: { include: [], exclude: [] },
-        openCategory: null
-    },
+    filters: createDefaultUserFilters(),
     showInactive: false,
     sortField: "last_name"
 };
@@ -59,6 +63,16 @@ function savePersistedFilters() {
     } catch (err) {
         console.error("Filter konnten nicht gespeichert werden", err);
     }
+}
+
+function hasNonDefaultUserView() {
+    return Boolean(
+        state.searchTerm
+        || state.showInactive
+        || state.sortField !== "last_name"
+        || Object.entries(state.filters).some(([key, filter]) => key !== "openCategory"
+            && (filter.include?.length || filter.exclude?.length))
+    );
 }
 
 const DOM = {};
@@ -480,7 +494,7 @@ const api = {
             const data = await res.json().catch(() => ({}));
 
             if (res.status === 501) {
-                showFlash(data.detail || "Backend für Schulungsplanung ist noch nicht implementiert", "failure");
+                showFlash(data.detail || "Schulungsplanung ist derzeit nicht verfügbar", "failure");
                 return false;
             }
 
@@ -1324,6 +1338,29 @@ const filterController = {
             await tableController.loadUsers();
         });
 
+        DOM.usersFilterReset?.addEventListener("click", async () => {
+            const needsReload = state.showInactive;
+            state.searchTerm = "";
+            state.filters = createDefaultUserFilters();
+            state.showInactive = false;
+            state.sortField = "last_name";
+
+            if (DOM.searchInput) {
+                DOM.searchInput.value = "";
+            }
+            DOM.inactiveToggle?.setAttribute("aria-pressed", "false");
+            this.closeMenus();
+            tableController.closeSortDropdown();
+            this.renderActiveTags();
+            savePersistedFilters();
+
+            if (needsReload) {
+                await tableController.loadUsers();
+            } else {
+                tableController.render();
+            }
+        });
+
         document.addEventListener("click", event => {
             if (!DOM.filterContainer?.contains(event.target)) {
                 this.closeMenus();
@@ -1528,6 +1565,10 @@ const filterController = {
 
         DOM.filterBtn?.classList.toggle("is-active", tags.length > 0);
 
+        if (DOM.usersFilterReset) {
+            DOM.usersFilterReset.disabled = !hasNonDefaultUserView();
+        }
+
         if (!DOM.activeFilters) {
             return;
         }
@@ -1706,6 +1747,10 @@ const tableController = {
 
     render() {
         const users = this.getFilteredUsers();
+
+        if (DOM.usersFilterReset) {
+            DOM.usersFilterReset.disabled = !hasNonDefaultUserView();
+        }
 
         if (DOM.usersVisibleCount) {
             DOM.usersVisibleCount.textContent = `${users.length} Nutzer`;
@@ -3735,7 +3780,6 @@ const trainingModalController = {
                         ${this.renderSummaryChips(selectedRoles.map(role => role.name), "Keine Skills ausgewählt")}
                     </div>
                 </div>
-                <p class="training-submit-note">Der Prozess wird bereits über den finalen BFF-Endpunkt ausgelöst. Solange das Backend noch fehlt, bleibt der Dialog nach dem 501-Hinweis geöffnet.</p>
                 <div class="btn-row">
                     <button type="button" class="btn btn-primary" id="training-submit-btn" ${this.hasValidSelection() ? "" : "disabled"}>Schulung planen</button>
                     <button type="button" class="btn btn-secondary" id="training-cancel-btn">Abbrechen</button>
@@ -4482,6 +4526,7 @@ function cacheDOM() {
     DOM.filterDropdown = document.getElementById("filter-dropdown");
     DOM.subfilterDropdown = document.getElementById("subfilter-dropdown");
     DOM.activeFilters = document.getElementById("active-filters");
+    DOM.usersFilterReset = document.getElementById("users-filter-reset");
     DOM.inactiveToggle = document.getElementById("users-inactive-toggle");
     DOM.searchInput = document.getElementById("search-input");
     DOM.usersVisibleCount = document.getElementById("users-visible-count");
