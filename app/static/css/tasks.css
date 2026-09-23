@@ -161,6 +161,66 @@
     height: 1.25rem;
 }
 
+/* Randmaske: die angeschnittene Karte laeuft weich aus, statt an der
+   Containerkante hart abgeschnitten zu werden. Die zweite Maskenebene haelt den
+   Scrollbar-Streifen unten deckend, damit nur die Karten ausblenden. */
+@property --task-strip-fade-start {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0rem;
+}
+
+@property --task-strip-fade-end {
+    syntax: "<length>";
+    inherits: false;
+    initial-value: 0rem;
+}
+
+.task-strip {
+    --task-strip-fade-start: 0rem;
+    --task-strip-fade-end: 0rem;
+    --task-strip-scrollbar-band: 0.85rem;
+    -webkit-mask-image:
+        linear-gradient(
+            to right,
+            transparent 0,
+            #000 var(--task-strip-fade-start),
+            #000 calc(100% - var(--task-strip-fade-end)),
+            transparent 100%
+        ),
+        linear-gradient(#000, #000);
+    mask-image:
+        linear-gradient(
+            to right,
+            transparent 0,
+            #000 var(--task-strip-fade-start),
+            #000 calc(100% - var(--task-strip-fade-end)),
+            transparent 100%
+        ),
+        linear-gradient(#000, #000);
+    -webkit-mask-size: 100% calc(100% - var(--task-strip-scrollbar-band)), 100% var(--task-strip-scrollbar-band);
+    mask-size: 100% calc(100% - var(--task-strip-scrollbar-band)), 100% var(--task-strip-scrollbar-band);
+    -webkit-mask-position: left top, left bottom;
+    mask-position: left top, left bottom;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    transition: --task-strip-fade-start 0.18s ease, --task-strip-fade-end 0.18s ease;
+}
+
+.task-strip.can-scroll-prev {
+    --task-strip-fade-start: 3.5rem;
+}
+
+.task-strip.can-scroll-next {
+    --task-strip-fade-end: 3.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .task-strip {
+        transition: none;
+    }
+}
+
 .task-strip::-webkit-scrollbar {
     height: 10px;
 }

@@ -2441,6 +2441,10 @@ function updateTaskStripNavigation(viewport) {
         button.classList.toggle("is-visible", visible);
         button.disabled = !visible;
     });
+    // Die Randmaske blendet nur dort aus, wo noch etwas nachkommt; am Anschlag
+    // steht die erste bzw. letzte Karte wieder vollstaendig deckend da.
+    strip.classList.toggle("can-scroll-prev", canPrev);
+    strip.classList.toggle("can-scroll-next", canNext);
 }
 
 function refreshTaskStripNavigation() {
