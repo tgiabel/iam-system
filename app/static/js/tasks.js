@@ -11,6 +11,7 @@ if (!window.taskOverlayInitialized) {
         initTaskFilters();
         initTaskGroupModal();
         initTaskBulkActions();
+        initTaskStripNavigation();
         loadInitialTaskData();
     });
     window.taskOverlayInitialized = true;
@@ -2406,6 +2407,8 @@ function renderTaskBuckets(filteredBuckets) {
         );
     }
 
+    refreshTaskStripNavigation();
+
     setCount("open-tasks-count", filteredBuckets.open.length);
     setCount("my-tasks-count", filteredBuckets.mine.length);
 
@@ -2421,6 +2424,55 @@ function renderTaskBuckets(filteredBuckets) {
         taskViewState.visibility.showDeferred,
         "Nachlieferungen"
     );
+}
+
+// Blaetter-Buttons fuer die horizontalen Streifen: sichtbar nur, solange in
+// die jeweilige Richtung noch gescrollt werden kann.
+const TASK_STRIP_EDGE_TOLERANCE = 2;
+
+function updateTaskStripNavigation(viewport) {
+    const strip = viewport.querySelector(".task-strip");
+    if (!strip) return;
+    const maxScroll = strip.scrollWidth - strip.clientWidth;
+    const canPrev = strip.scrollLeft > TASK_STRIP_EDGE_TOLERANCE;
+    const canNext = strip.scrollLeft < maxScroll - TASK_STRIP_EDGE_TOLERANCE;
+    viewport.querySelectorAll("[data-strip-nav]").forEach(button => {
+        const visible = button.dataset.stripNav === "prev" ? canPrev : canNext;
+        button.classList.toggle("is-visible", visible);
+        button.disabled = !visible;
+    });
+}
+
+function refreshTaskStripNavigation() {
+    document.querySelectorAll(".task-strip-viewport").forEach(updateTaskStripNavigation);
+}
+
+function initTaskStripNavigation() {
+    const viewports = document.querySelectorAll(".task-strip-viewport");
+    viewports.forEach(viewport => {
+        const strip = viewport.querySelector(".task-strip");
+        if (!strip) return;
+
+        strip.addEventListener("scroll", () => updateTaskStripNavigation(viewport), {passive: true});
+        viewport.querySelectorAll("[data-strip-nav]").forEach(button => {
+            button.addEventListener("click", () => {
+                const direction = button.dataset.stripNav === "prev" ? -1 : 1;
+                const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+                strip.scrollBy({
+                    left: direction * strip.clientWidth * 0.85,
+                    behavior: reduceMotion ? "auto" : "smooth",
+                });
+            });
+        });
+        updateTaskStripNavigation(viewport);
+    });
+
+    if (typeof ResizeObserver === "function") {
+        const observer = new ResizeObserver(entries => {
+            entries.forEach(entry => updateTaskStripNavigation(entry.target));
+        });
+        viewports.forEach(viewport => observer.observe(viewport));
+    }
 }
 
 // Zaehlt bewusst ohne die Sichtbarkeits-Haken, damit das Pill auch dann meldet,

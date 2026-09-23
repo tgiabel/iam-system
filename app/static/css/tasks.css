@@ -84,6 +84,83 @@
     scroll-snap-type: x proximity;
 }
 
+.task-strip-viewport {
+    position: relative;
+    min-width: 0;
+}
+
+/* Deckend, damit die Karten darunter nicht durchscheinen. Mitte bezogen auf die
+   Kartenflaeche, ohne den Scrollbar-Streifen unten. */
+.task-strip-nav {
+    position: absolute;
+    top: calc(50% - 0.4rem);
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    box-shadow: var(--ui-shadow-sm);
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    /* Der Versatz zeigt beim Hover in die Blaetterrichtung. */
+    --task-strip-nav-shift: 0rem;
+    transform: translate(var(--task-strip-nav-shift), -50%);
+    transition: opacity 0.18s ease, visibility 0s linear 0.18s, transform 0.18s ease,
+        border-color 0.18s ease, color 0.18s ease;
+}
+
+.task-strip-nav--prev {
+    left: 0.4rem;
+}
+
+.task-strip-nav--next {
+    right: 0.4rem;
+}
+
+.task-strip-nav.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.18s ease, visibility 0s, transform 0.18s ease,
+        border-color 0.18s ease, color 0.18s ease;
+}
+
+.task-strip-nav:hover,
+.task-strip-nav:focus-visible {
+    border-color: rgba(var(--color-primary-rgb), 0.45);
+    color: var(--color-primary);
+}
+
+.task-strip-nav--prev:hover,
+.task-strip-nav--prev:focus-visible {
+    --task-strip-nav-shift: -0.3rem;
+}
+
+.task-strip-nav--next:hover,
+.task-strip-nav--next:focus-visible {
+    --task-strip-nav-shift: 0.3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .task-strip-nav--prev:hover,
+    .task-strip-nav--prev:focus-visible,
+    .task-strip-nav--next:hover,
+    .task-strip-nav--next:focus-visible {
+        --task-strip-nav-shift: 0rem;
+    }
+}
+
+.task-strip-nav .ui-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
 .task-strip::-webkit-scrollbar {
     height: 10px;
 }

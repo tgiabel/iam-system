@@ -75,7 +75,15 @@
                     <span class="ui-count-pill ui-count-pill-neutral" id="deferred-tasks-count" hidden>0</span>
                 </div>
             </div>
-            <div class="task-strip" id="open-tasks-slider"></div>
+            <div class="task-strip-viewport">
+                <div class="task-strip" id="open-tasks-slider"></div>
+                <button type="button" class="task-strip-nav task-strip-nav--prev" data-strip-nav="prev" aria-controls="open-tasks-slider" aria-label="Offene Aufgaben zurückblättern" title="Zurück">
+                    <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
+                <button type="button" class="task-strip-nav task-strip-nav--next" data-strip-nav="next" aria-controls="open-tasks-slider" aria-label="Offene Aufgaben weiterblättern" title="Weiter">
+                    <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+            </div>
         </div>
 
         <div class="task-section task-section-progress">
@@ -90,7 +98,15 @@
                     <span class="ui-count-pill ui-count-pill-warning" id="my-tasks-count">0</span>
                 </div>
             </div>
-            <div class="task-strip" id="my-tasks-slider"></div>
+            <div class="task-strip-viewport">
+                <div class="task-strip" id="my-tasks-slider"></div>
+                <button type="button" class="task-strip-nav task-strip-nav--prev" data-strip-nav="prev" aria-controls="my-tasks-slider" aria-label="Meine Aufgaben zurückblättern" title="Zurück">
+                    <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M15 18l-6-6 6-6"/></svg>
+                </button>
+                <button type="button" class="task-strip-nav task-strip-nav--next" data-strip-nav="next" aria-controls="my-tasks-slider" aria-label="Meine Aufgaben weiterblättern" title="Weiter">
+                    <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+            </div>
         </div>
 
     </section>
