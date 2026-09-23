@@ -17,6 +17,7 @@ FORM_INPUT = {
     "pnr": " 123456 ",
     "first_name": "Ina",
     "last_name": "Neu",
+    "birth_date": "1990-04-12",
     "primary_role_id": "17",
     "telephone": "+49 30 123",
     "entry_date": "2026-10-01",
@@ -27,6 +28,7 @@ FORM_FORWARDED = {
     "pnr": "123456",
     "first_name": "Ina",
     "last_name": "Neu",
+    "birth_date": "1990-04-12",
     "primary_role_id": 17,
     "telephone": "+49 30 123",
     "entry_date": "2026-10-01",
@@ -215,12 +217,19 @@ class RehireBrowserContractTests(unittest.TestCase):
 const assert = require('assert');
 const c = require('./app/static/js/sofa_contract.js');
 
-const draft = {pnr: ' 123456 ', first_name: 'Ina', last_name: 'Neu', primary_role_id: '17',
+const draft = {pnr: ' 123456 ', first_name: 'Ina', last_name: 'Neu', birth_date: '1990-04-12', primary_role_id: '17',
                telephone: '+49 30 123', entry_date: '2026-10-01', weekly_hours: '40'};
 assert.deepStrictEqual(c.buildRehireForm(draft), {ok: true, payload: {
-  pnr: '123456', first_name: 'Ina', last_name: 'Neu', primary_role_id: 17,
+  pnr: '123456', first_name: 'Ina', last_name: 'Neu', birth_date: '1990-04-12', primary_role_id: 17,
   telephone: '+49 30 123', entry_date: '2026-10-01', weekly_hours: 40
 }});
+assert.strictEqual(c.buildRehireForm({...draft, birth_date: ''}).ok, false);
+assert.strictEqual(c.buildRehireForm({...draft, birth_date: '1990-02-30'}).ok, false);
+assert.strictEqual(c.isValidBirthDate('1990-04-12', '2026-09-22'), true);
+assert.strictEqual(c.isValidBirthDate('2026-09-22', '2026-09-22'), true);
+assert.strictEqual(c.isValidBirthDate('2026-09-23', '2026-09-22'), false);
+assert.strictEqual(c.isValidBirthDate('1899-12-31', '2026-09-22'), false);
+assert.strictEqual(c.isValidBirthDate('12.04.1990', '2026-09-22'), false);
 assert.strictEqual(c.buildRehireForm({...draft, last_name: '  '}).ok, false);
 assert.strictEqual(c.buildRehireForm({...draft, primary_role_id: ''}).ok, false);
 assert.strictEqual(c.buildRehireForm({...draft, entry_date: '2026-02-30'}).ok, false);

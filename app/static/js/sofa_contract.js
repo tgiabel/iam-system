@@ -240,12 +240,19 @@
     }
 
     // Wiedereintritt: Preview und Start bekommen dieselben Formulardaten.
+    // Geburtsdatum: exaktes Kalenderdatum, nicht in der Zukunft und nicht vor 1900.
+    function isValidBirthDate(value, today = localDateKey()) {
+        const key = parseDateKey(value, { exact: true });
+        return Boolean(key) && key >= "1900-01-01" && key <= today;
+    }
+
     function buildRehireForm(draft) {
         const text = key => (typeof draft?.[key] === "string" ? draft[key].trim() : "");
         const form = {
             pnr: text("pnr"),
             first_name: text("first_name"),
             last_name: text("last_name"),
+            birth_date: parseDateKey(text("birth_date"), { exact: true }),
             primary_role_id: toPositiveInteger(draft?.primary_role_id),
             telephone: text("telephone"),
             entry_date: parseDateKey(text("entry_date"), { exact: true }),
@@ -254,6 +261,9 @@
 
         if (!form.pnr || !form.first_name || !form.last_name || !form.telephone) {
             return { ok: false, message: "Bitte alle Pflichtfelder ausfüllen." };
+        }
+        if (!isValidBirthDate(form.birth_date || "")) {
+            return { ok: false, message: "Bitte ein gültiges Geburtsdatum angeben." };
         }
         if (!form.primary_role_id) {
             return { ok: false, message: "Bitte eine Hauptrolle auswählen." };
@@ -513,6 +523,7 @@
         getArchivedAccounts,
         getUserPanelActions,
         isInactiveUser,
+        isValidBirthDate,
         isAccountAssignmentTask,
         buildPlannedRolePayload,
         canSendTaskMail,

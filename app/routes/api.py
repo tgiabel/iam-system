@@ -1295,6 +1295,7 @@ async def api_start_onboarding_process(
     pnr = str(payload.get("pnr") or "").strip()
     first_name = str(payload.get("first_name") or "").strip()
     last_name = str(payload.get("last_name") or "").strip()
+    birth_date = str(payload.get("birth_date") or "").strip()
     primary_role_id = _coerce_int(payload.get("primary_role_id"))
     telephone = str(payload.get("telephone") or "").strip()
     entry_date = str(payload.get("entry_date") or "").strip()
@@ -1304,6 +1305,7 @@ async def api_start_onboarding_process(
         not pnr
         or not first_name
         or not last_name
+        or not birth_date
         or primary_role_id is None
         or not telephone
         or not entry_date
@@ -1321,6 +1323,7 @@ async def api_start_onboarding_process(
         "pnr": pnr,
         "first_name": first_name,
         "last_name": last_name,
+        "birth_date": birth_date,
         "primary_role_id": primary_role_id,
         "telephone": telephone,
         "entry_date": entry_date,
@@ -1344,7 +1347,7 @@ async def api_start_onboarding_process(
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
-REHIRE_TEXT_FIELDS = ("pnr", "first_name", "last_name", "telephone", "entry_date")
+REHIRE_TEXT_FIELDS = ("pnr", "first_name", "last_name", "birth_date", "telephone", "entry_date")
 REHIRE_INT_FIELDS = ("primary_role_id", "weekly_hours")
 
 

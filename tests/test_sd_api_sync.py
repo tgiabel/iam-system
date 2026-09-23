@@ -22,6 +22,7 @@ MANUAL_FORM = {
     "pnr": " 123456 ",
     "first_name": "Ina",
     "last_name": "Neu",
+    "birth_date": "1990-04-12",
     "primary_role_id": "17",
     "telephone": "+49 30 123",
     "entry_date": "2026-10-01",
@@ -35,6 +36,7 @@ FORWARDED_FORM = {
     "pnr": "123456",
     "first_name": "Ina",
     "last_name": "Neu",
+    "birth_date": "1990-04-12",
     "primary_role_id": 17,
     "telephone": "+49 30 123",
     "entry_date": "2026-10-01",
@@ -139,6 +141,7 @@ class OnboardingWithoutLookupTests(unittest.TestCase):
         for payload in (
             dict(MANUAL_FORM),
             {**MANUAL_FORM, "confirmed": True, "telephone": "  "},
+            {**MANUAL_FORM, "confirmed": True, "birth_date": ""},
             {**MANUAL_FORM, "confirmed": True, "primary_role_id": "abc"},
         ):
             with self.subTest(payload=payload):
