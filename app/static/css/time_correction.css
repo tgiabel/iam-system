@@ -1,9 +1,35 @@
+/* Seitenaufbau über die volle Höhe: oben Kopf, Leiste und Kacheln, in der Mitte (senkrecht
+   zentriert) der aktive Mitarbeiter mit Zeitleiste, unten die Opcyc-Datensätze. */
 .tc-page {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
     width: 100%;
     max-width: 1500px;
-    margin: 40px auto;
-    padding: 20px;
+    margin: 0 auto;
+    padding: 28px 20px 32px;
     box-sizing: border-box;
+}
+
+/* Die Mitte sitzt im oberen Drittel des freien Raums (1 : 2), nicht genau zentriert. */
+.tc-main {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    padding: 20px 0 28px;
+}
+
+.tc-main::before,
+.tc-main::after {
+    content: "";
+}
+
+.tc-main::before {
+    flex: 1 1 0;
+}
+
+.tc-main::after {
+    flex: 2 1 0;
 }
 
 .tc-page [hidden] {
@@ -28,12 +54,43 @@
     color: var(--ui-text-muted);
 }
 
-.tc-toolbar {
+/* Kopf: Titel links, Neu laden rechts mit „Stand“ darunter. */
+.tc-header {
     display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.tc-refresh {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Eine Zeile, bündig mit dem Panel: Suche links, Tage mittig, Ausschnitt rechts. */
+.tc-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: end;
     gap: 12px 20px;
-    margin-bottom: 12px;
+    margin-bottom: 24px;
+}
+
+.tc-toolbar > .tc-range {
+    justify-self: end;
+}
+
+@media (max-width: 900px) {
+    .tc-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: start;
+    }
+
+    .tc-toolbar > .tc-range {
+        justify-self: start;
+    }
 }
 
 .tc-search {
@@ -41,7 +98,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    flex: 1 1 280px;
+    width: 100%;
     max-width: 380px;
 }
 
@@ -91,17 +148,31 @@
     gap: 6px;
 }
 
-.tc-meta {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-left: auto;
+/* „Datum wählen“: Knopf mit unsichtbarem Datumsfeld darunter (öffnet den Kalender). */
+.tc-pick {
+    position: relative;
+}
+
+.tc-day-picker {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 1px;
+    height: 1px;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
 }
 
 .tc-loaded-at,
 .tc-status {
     color: var(--ui-text-muted);
     font-size: 0.85rem;
+}
+
+.tc-loaded-at {
+    font-size: 0.75rem;
+    white-space: nowrap;
 }
 
 .tc-status {
@@ -114,12 +185,176 @@
 
 /* Zeitleiste */
 
-.tc-panel-head {
-    display: flex;
-    justify-content: space-between;
+/* Rechts neben dem Panel: Bearbeiten bzw. Speichern/Abbrechen. */
+.tc-page {
+    --tc-side-width: 3rem;
+}
+
+/* Pfeil rechts auf Höhe der Zeitachse: klappt Genesys, Korrekturen und Kacheln lesend auf. */
+.tc-timeline-panel {
+    position: relative;
+    padding: 14px 18px 18px;
+}
+
+/* Über der Zeitachse (die Achsen-Elemente kommen im DOM später und lägen sonst darüber). */
+.tc-expand {
+    position: absolute;
+    z-index: 5;
+    top: 12px;
+    right: 8px;
+    display: inline-flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-muted);
+    cursor: pointer;
+}
+
+.tc-expand:hover,
+.tc-expand:focus-visible {
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-strong);
+    outline: none;
+}
+
+.tc-expand svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.15s ease;
+}
+
+.tc-expand[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.tc-track-corrections.tc-track-readonly {
+    cursor: default;
+}
+
+.tc-track-readonly .tc-block-readonly {
+    cursor: pointer;
+}
+
+.tc-stage {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 10px;
+}
+
+/* Rechts neben der Zeitleiste, senkrecht zentriert. */
+.tc-side {
+    display: flex;
+    flex-direction: column;
+    align-self: center;
+    gap: 8px;
+}
+
+/* Breite Fenster: Das Panel nimmt die volle Breite wie Kopf und Tabelle, die Knöpfe ragen
+   rechts heraus und zählen nicht zur Breite. Schmaler bleiben sie neben dem Panel,
+   sonst entstünde ein horizontaler Scrollbalken. */
+@media (min-width: 1640px) {
+    .tc-stage {
+        display: block;
+        position: relative;
+    }
+
+    .tc-side {
+        position: absolute;
+        top: 50%;
+        left: calc(100% + 12px);
+        transform: translateY(-50%);
+    }
+
+    .tc-user .tc-tiles {
+        margin-right: 0;
+    }
+}
+
+.tc-icon-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--tc-side-width);
+    height: var(--tc-side-width);
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    box-shadow: var(--ui-shadow-sm);
+    cursor: pointer;
+}
+
+.tc-icon-btn svg {
+    width: 1.4rem;
+    height: 1.4rem;
+}
+
+.tc-icon-btn svg,
+.tc-tile-btn svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tc-icon-btn:hover:not(:disabled) {
+    border-color: var(--color-primary);
+}
+
+.tc-icon-btn:focus-visible,
+.tc-tile-btn:focus-visible,
+.tc-tile-main:focus-visible,
+.tc-tile-add:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.tc-icon-btn:disabled {
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.tc-icon-primary:not(:disabled) {
+    border-color: var(--btn-primary-border);
+    background: var(--btn-primary-bg);
+    color: var(--text-inverse);
+}
+
+.tc-icon-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 1.1rem;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--purple-text);
+    color: var(--ui-surface-card);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.1rem;
+    text-align: center;
+}
+
+.tc-icon-badge:empty {
+    display: none;
 }
 
 .tc-range {
@@ -130,32 +365,43 @@
 .tc-timeline {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
-.tc-row {
-    display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr);
-    align-items: center;
-    gap: 10px;
-}
-
-.tc-row-label {
+/* Zeilen über die volle Breite, ohne Beschriftung links; nur die Korrekturen tragen einen Titel. */
+.tc-row-title {
+    margin: 6px 0 2px;
     color: var(--ui-text-muted);
-    font-size: 0.8rem;
+    font-size: 0.72rem;
     font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tc-track-note {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    z-index: 3;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--purple-text);
+    font-size: 0.68rem;
+    font-weight: 700;
+    pointer-events: none;
 }
 
 .tc-track {
     position: relative;
-    height: 44px;
+    height: 52px;
     border-radius: 8px;
     background: var(--ui-surface-muted);
     overflow: hidden;
 }
 
 .tc-axis {
-    height: 20px;
+    height: 24px;
     background: var(--ui-surface-card);
     overflow: visible;
 }
@@ -165,7 +411,7 @@
     bottom: 0;
     transform: translateX(-50%);
     color: var(--ui-text-muted);
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     font-variant-numeric: tabular-nums;
 }
 
@@ -179,6 +425,8 @@
     position: absolute;
     top: 6px;
     bottom: 6px;
+    display: flex;
+    align-items: center;
     box-sizing: border-box;
     border-right: 1px solid var(--ui-surface-card);
     background: color-mix(in srgb, var(--tc-color, var(--grey-text)) 32%, var(--ui-surface-card));
@@ -196,10 +444,19 @@
     padding: 0 6px;
     overflow: hidden;
     color: var(--ui-text-strong);
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 700;
-    line-height: 32px;
+    line-height: 1.2;
     white-space: nowrap;
+}
+
+/* Die Zeitbuchung (kanonische Zeile) ist höher als die beiden Ebenen. */
+.tc-track-result {
+    height: 88px;
+}
+
+.tc-track-result .tc-seg-label {
+    font-size: 0.8rem;
 }
 
 @container (max-width: 3.2rem) {
@@ -270,15 +527,6 @@
     font-weight: 400;
 }
 
-.tc-table-wrap {
-    max-height: 50vh;
-    margin-top: 8px;
-    overflow: auto;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-surface-card);
-}
-
 .tc-table {
     width: 100%;
     border-collapse: collapse;
@@ -290,9 +538,26 @@
     margin-top: 8px;
 }
 
+/* separate statt collapse, sonst greift der Radius nicht; die Ecken-Zellen runden mit. */
 .tc-page-details .tc-table {
     border: 1px solid var(--ui-border);
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: var(--ui-radius-sm);
     background: var(--ui-surface-card);
+    overflow: hidden;
+}
+
+.tc-page-details .tc-table th:first-child {
+    border-top-left-radius: var(--ui-radius-sm);
+}
+
+.tc-page-details .tc-table th:last-child {
+    border-top-right-radius: var(--ui-radius-sm);
+}
+
+.tc-page-details .tc-table tbody tr:last-child td {
+    border-bottom: 0;
 }
 
 .tc-page-details .tc-empty {
@@ -331,45 +596,23 @@
     font-weight: 700;
 }
 
-.tc-table-wrap .tc-empty {
-    padding: 0.75rem;
-}
 
-/* Bearbeitungsmodus: zwei Ebenen (Klammer links), zusammengeführt zum Ergebnis */
+/* Bearbeitungsmodus: Genesys oben, Korrekturen unten, beide zusammengeführt zur Zeitbuchung */
 
 .tc-layers {
-    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 2px;
 }
 
-.tc-layers::before {
-    content: "";
-    position: absolute;
-    top: 6px;
-    bottom: 6px;
-    left: -12px;
-    width: 6px;
-    border: 2px solid var(--purple-text);
-    border-right: 0;
-    border-radius: 6px 0 0 6px;
+/* Genesys liegt knapp über der Zeitbuchung und ist flacher. */
+.tc-track-genesys {
+    height: 40px;
 }
 
-.tc-merge {
-    display: grid;
-    grid-template-columns: 6.5rem minmax(0, 1fr);
-    gap: 10px;
-    color: var(--purple-text);
-    font-weight: 700;
-    line-height: 1;
-}
-
-.tc-merge span {
-    grid-column: 2;
-    border-top: 1px dashed var(--purple-text);
-    padding-top: 2px;
-    text-align: center;
+.tc-track-genesys .tc-seg {
+    top: 3px;
+    bottom: 3px;
 }
 
 .tc-seg-genesys {
@@ -388,7 +631,7 @@
 
 .tc-block {
     position: absolute;
-    height: 26px;
+    height: 32px;
     box-sizing: border-box;
     min-width: 10px;
     border: 2px solid var(--purple-text);
@@ -398,7 +641,7 @@
 }
 
 .tc-block .tc-seg-label {
-    line-height: 22px;
+    line-height: 28px;
 }
 
 /* Wechsel ab Zeitpunkt: Fähnchen am Beginn, rechte Kante gestrichelt bis zum wirksamen Ende. */
@@ -456,86 +699,8 @@
     border-color: var(--ui-error-text);
 }
 
-/* Formular im Bearbeitungsmodus */
 
-.tc-editor {
-    margin-top: 14px;
-    padding-top: 12px;
-    border-top: 1px solid var(--ui-border);
-}
-
-.tc-editor-bar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.tc-summary {
-    color: var(--ui-text-muted);
-    font-size: 0.85rem;
-}
-
-.tc-form {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 10px 14px;
-    margin-top: 10px;
-}
-
-.tc-form-title {
-    align-self: center;
-    min-width: 3rem;
-    color: var(--purple-text);
-    font-weight: 700;
-}
-
-.tc-field .ui-input {
-    padding: 0.5rem 0.75rem;
-    font-size: 0.95rem;
-}
-
-.tc-field-reason {
-    flex: 1 1 280px;
-}
-
-.tc-field-reason .ui-input[aria-invalid="true"] {
-    border-color: var(--ui-error-text);
-}
-
-.tc-check {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    min-height: 2.4rem;
-    color: var(--ui-text);
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-.tc-form-error {
-    flex-basis: 100%;
-    margin: 0;
-    color: var(--ui-error-text);
-    font-size: 0.85rem;
-}
-
-.tc-form-error:empty {
-    display: none;
-}
-
-.tc-save {
-    margin-left: auto;
-}
-
-.tc-row-note {
-    display: block;
-    color: var(--purple-text);
-    font-size: 0.72rem;
-    font-weight: 600;
-}
-
-/* Vorschau fehlt oder ist veraltet: Ergebnis überdeckt, bis die SD-API geantwortet hat. */
+/* Vorschau fehlt oder ist veraltet: Zeitbuchung überdeckt, bis die SD-API geantwortet hat. */
 .tc-pending {
     position: absolute;
     inset: 0;
@@ -598,4 +763,641 @@
     width: 3px;
     border-radius: 2px;
     background: var(--purple-text);
+}
+
+/* Kacheln im Bearbeitungsmodus: horizontal, vorn „Neue Korrektur“, hinten die zurückgenommenen.
+   Feste Höhe, damit eine Kachel beim Ausklappen nur in die Breite wächst. Alle Flächen deckend. */
+
+.tc-tiles {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin: 20px calc(var(--tc-side-width) + 10px) 0 0;
+    padding: 6px 2px 10px;
+    overflow-x: auto;
+}
+
+.tc-tile {
+    display: flex;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 11rem;
+    height: 7.5rem;
+    border: 2px solid var(--purple-text);
+    border-top: 5px solid var(--tc-color, var(--grey-text));
+    border-radius: 12px;
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+    transition: width 0.18s ease;
+    overflow: hidden;
+}
+
+.tc-tile.is-expanded {
+    width: 27rem;
+}
+
+/* Im Bearbeiten ein kompakter Block: Status, Zeitspanne, Grund untereinander. */
+.tc-tile.is-editing {
+    width: 16rem;
+    height: auto;
+    min-height: 7.5rem;
+}
+
+.tc-tile-form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    padding: 8px 4px 8px 10px;
+}
+
+.tc-tile-form .tc-tile-select {
+    width: 100%;
+    padding: 4px 6px;
+    font-weight: 700;
+}
+
+.tc-tile-form .tc-tile-time {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+}
+
+.tc-tile-form .tc-tile-clock {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.tc-tile-main {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 6px 8px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.tc-tile.is-expanded .tc-tile-main {
+    flex: 0 0 9rem;
+}
+
+
+.tc-tile-status {
+    padding: 2px 12px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tc-color, var(--grey-text)) 28%, var(--ui-surface-card));
+    color: var(--ui-text-strong);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.tc-tile-time {
+    width: 100%;
+    color: var(--ui-text-strong);
+    font-size: 1.1rem;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Die Uhrzeiten tragen die Information, „bis“ und „ab“ treten zurück. */
+.tc-tile-word {
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.tc-tile-time strong {
+    font-weight: 700;
+}
+
+.tc-tile-meta {
+    color: var(--ui-text-muted);
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.tc-tile-detail {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 8px 4px 6px;
+}
+
+.tc-tile-detail .tc-tile-meta {
+    margin-top: auto;
+    text-align: left;
+}
+
+.tc-tile-reason.ui-input {
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+}
+
+.tc-tile-reason[readonly] {
+    background: var(--ui-surface-muted);
+}
+
+.tc-tile-error {
+    color: var(--ui-error-text);
+    font-size: 0.72rem;
+}
+
+.tc-tile-error:empty {
+    display: none;
+}
+
+.tc-tile-select,
+.tc-tile-clock {
+    border: 1px solid var(--ui-border);
+    border-radius: 8px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font: inherit;
+    font-size: 0.85rem;
+}
+
+.tc-tile-select {
+    padding: 2px 6px;
+}
+
+.tc-tile-clock {
+    width: 5.6rem;
+    padding: 2px 4px;
+}
+
+.tc-tile-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+}
+
+.tc-tile-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    cursor: pointer;
+}
+
+.tc-tile-btn:hover,
+.tc-tile-btn[aria-pressed="true"] {
+    background: color-mix(in srgb, var(--purple-text) 18%, var(--ui-surface-card));
+}
+
+.tc-tile.has-error {
+    border-color: var(--ui-error-text);
+    border-top-color: var(--tc-color, var(--grey-text));
+}
+
+.tc-tile-changed {
+    border-style: dashed;
+    border-top-style: solid;
+}
+
+/* Wird beim Speichern zurückgenommen bzw. ist bereits zurückgenommen: ausgehöhlt, durchgestrichen. */
+.tc-tile-removed,
+.tc-tile-revoked {
+    border: 2px dashed var(--ui-border-strong);
+    background: var(--ui-surface-muted);
+    box-shadow: none;
+}
+
+.tc-tile-removed .tc-tile-time,
+.tc-tile-revoked .tc-tile-time,
+.tc-tile-removed .tc-tile-status,
+.tc-tile-revoked .tc-tile-status {
+    color: var(--ui-text-muted);
+    text-decoration: line-through;
+}
+
+.tc-tile-removed .tc-tile-status,
+.tc-tile-revoked .tc-tile-status {
+    background: var(--ui-surface-muted);
+}
+
+.tc-tile-add {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 2px;
+    width: 8.5rem;
+    border: 2px dashed var(--ui-border-strong);
+    background: var(--ui-surface-muted);
+    box-shadow: none;
+    color: var(--ui-text-muted);
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tc-tile-add-icon {
+    font-size: 1.8rem;
+    font-weight: 300;
+    line-height: 1;
+}
+
+.tc-tile-add:hover {
+    border-color: var(--purple-text);
+    color: var(--purple-text);
+}
+
+.tc-tiles-sep {
+    flex: 0 0 1px;
+    margin: 6px 4px;
+    background: var(--ui-border-strong);
+}
+
+/* „Archiviert“ über den zurückgenommenen; alle Kacheln stehen unten bündig. */
+.tc-tiles-archive {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tc-tiles-label {
+    color: var(--ui-text-muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tc-tiles-row {
+    display: flex;
+    gap: 10px;
+}
+
+/* Mitarbeiter-Kacheln zwischen Suche und Zeitleisten: an = hervorgehoben und als Zeitleiste da. */
+
+.tc-chips {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding: 4px 2px 10px;
+    overflow-x: auto;
+}
+
+/* Ganz links der aktive Mitarbeiter, dezent abgetrennt von der Tagesliste. */
+.tc-chips-active {
+    display: flex;
+    flex: 0 0 auto;
+}
+
+.tc-chips-sep {
+    flex: 0 0 1px;
+    margin: 4px 6px;
+    background: var(--ui-border-strong);
+}
+
+/* Einheitliche, quadratische Kacheln; lange Namen enden mit „…“. */
+/* Festes Raster: Name, Zeiten, Hinweiszeile. Die Hinweiszeile ist auch leer reserviert,
+   damit die Zeiten in allen Kacheln an derselben Stelle stehen. */
+.tc-chip {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-rows: auto 1fr 1.1rem;
+    align-items: center;
+    gap: 4px;
+    box-sizing: border-box;
+    width: 7.5rem;
+    height: 7.5rem;
+    padding: 12px;
+    border: 1px solid var(--ui-border);
+    border-radius: 14px;
+    background: var(--ui-surface-muted);
+    color: var(--ui-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tc-chip:hover {
+    border-color: var(--color-primary);
+}
+
+.tc-chip:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.tc-chip.is-on {
+    border-color: var(--color-primary);
+    background: var(--ui-surface-card);
+    box-shadow: 0 0 0 1px var(--color-primary), var(--ui-shadow-sm);
+    color: var(--ui-text-strong);
+}
+
+/* Über die Suche geholt, ohne Buchung am Tag. */
+.tc-chip-manual {
+    border-style: dashed;
+}
+
+.tc-chip-name {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tc-chip-times {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-variant-numeric: tabular-nums;
+}
+
+.tc-chip-log,
+.tc-chip-pause {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.tc-chip-log {
+    color: var(--ui-text-strong);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.tc-chip-pause {
+    color: var(--ui-text-muted);
+    font-size: 0.95rem;
+}
+
+.tc-chip-note {
+    overflow: hidden;
+    color: var(--purple-text);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tc-chip svg {
+    width: 1.05rem;
+    height: 1.05rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.8;
+}
+
+/* Eine Zeitleiste je angezeigtem Mitarbeiter, Name darüber, dezent voneinander getrennt. */
+
+.tc-users {
+    display: flex;
+    flex-direction: column;
+}
+
+.tc-user + .tc-user {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ui-border);
+}
+
+.tc-user-name {
+    margin: 0 0 14px 2px;
+    color: var(--ui-text-strong);
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.tc-panel-status {
+    margin: 0;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.tc-panel-status:empty {
+    display: none;
+}
+
+/* Kennzahlen des aktiven Mitarbeiters über der Zeitleiste: links Genesys, rechts Opcyc. */
+
+/* Eine Zeile, die waagrecht scrollt statt umzubrechen; Innenabstand für Schatten und Leiste. */
+.tc-kpis {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 36px;
+    margin-bottom: 30px;
+    padding: 2px 2px 6px;
+    overflow-x: auto;
+}
+
+.tc-kpis:empty {
+    display: none;
+}
+
+.tc-kpi-group {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tc-kpi-title {
+    color: var(--ui-text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tc-kpi-cards {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 16px;
+}
+
+.tc-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 0 0 auto;
+    min-width: 8.5rem;
+    padding: 12px 18px;
+    border: 1px solid var(--ui-border);
+    border-left: 4px solid var(--tc-color, var(--grey-text));
+    border-radius: 10px;
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.tc-kpi-label {
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.tc-kpi-value {
+    color: var(--ui-text-strong);
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.tc-kpi-empty {
+    color: var(--ui-text-muted);
+}
+
+.tc-page-details {
+    margin-top: 12px;
+}
+
+/* Pfeile an der Datumswahl: einen Tag zurück bzw. vor. */
+.tc-day-nav {
+    display: inline-flex;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+}
+
+/* Ohne Ziel unsichtbar, aber mit Platz, damit die Tage nicht verrutschen. */
+.tc-day-nav.is-off {
+    visibility: hidden;
+}
+
+.tc-day-nav:hover,
+.tc-day-nav:focus-visible {
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-strong);
+    outline: none;
+}
+
+.tc-day-nav svg,
+.tc-sort-btn svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Kachelleiste mit Sortier-Icon unten links; die Wahl steht nur im Menü. */
+.tc-chips-wrap {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
+}
+
+.tc-chips-wrap .tc-chips {
+    margin-bottom: 0;
+}
+
+/* Sortier-Icon unten rechts an der Leiste, ohne Fläche und Rahmen. */
+.tc-sort {
+    position: relative;
+    align-self: flex-end;
+}
+
+.tc-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.tc-sort-btn:hover,
+.tc-sort-btn[aria-expanded="true"] {
+    color: var(--color-primary);
+    transform: translateY(-1px);
+}
+
+.tc-sort-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.tc-sort-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    min-width: 9rem;
+    padding: 4px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-md);
+}
+
+.tc-sort-menu[hidden] {
+    display: none;
+}
+
+.tc-sort-menu button {
+    padding: 0.45rem 0.75rem;
+    border: 0;
+    border-radius: 8px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.tc-sort-menu button:hover,
+.tc-sort-menu button:focus-visible {
+    background: var(--ui-surface-soft);
+    outline: none;
+}
+
+.tc-sort-menu button[aria-checked="true"] {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+#tcConfirm .ui-modal-header h3 {
+    margin: 0;
+}
+
+#tcConfirmChanges:empty {
+    display: none;
 }

@@ -20,10 +20,18 @@
 
 {% block content %}
 <div id="tcTool" class="tc-page">
-    <div class="ui-section-header tc-heading">
-        <div class="ui-section-heading">
-            <p class="ui-section-kicker">Genesys Cloud</p>
-            <h1 class="ui-section-title">Zeitkorrektur</h1>
+    <div class="tc-header">
+        <div class="ui-section-header tc-heading">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Genesys Cloud</p>
+                <h1 class="ui-section-title">Zeitkorrektur</h1>
+            </div>
+        </div>
+        <div class="tc-refresh">
+            <button type="button" id="tcReload" class="tc-icon-btn" aria-label="Neu laden" title="Neu laden" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.7"/><path d="M20 4v4.7h-4.7"/></svg>
+            </button>
+            <span id="tcLoadedAt" class="tc-loaded-at"></span>
         </div>
     </div>
 
@@ -34,71 +42,67 @@
                    role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="tcUserList">
             <ul id="tcUserList" class="tc-user-list" role="listbox" aria-label="Treffer" hidden></ul>
         </div>
-        <div id="tcDays" class="tc-days" role="group" aria-label="Tag"></div>
-        <div class="tc-meta">
-            <span id="tcLoadedAt" class="tc-loaded-at"></span>
-            <button type="button" id="tcReload" class="ui-flat-button ui-flat-button--icon" aria-label="Neu laden" title="Neu laden" hidden>&#x21bb;</button>
+        <div class="tc-days" role="group" aria-label="Tag">
+            <button type="button" id="tcDayPrev" class="tc-day-nav" aria-label="Vorheriger Tag" title="Vorheriger Tag">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+            <span class="tc-pick">
+                <button type="button" id="tcPickDay" class="ui-flat-button tc-day" aria-pressed="false">Datum wählen</button>
+                <input type="date" id="tcDayPicker" class="tc-day-picker" tabindex="-1" aria-hidden="true">
+            </span>
+            <span id="tcDays" class="tc-days"></span>
+            <button type="button" id="tcDayNext" class="tc-day-nav" aria-label="Nächster Tag" title="Nächster Tag">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+        </div>
+        <div id="tcRange" class="tc-range" role="group" aria-label="Ausschnitt" hidden>
+            <button type="button" class="ui-flat-button btn-sm" data-range="work" aria-pressed="true">Arbeitszeit</button>
+            <button type="button" class="ui-flat-button btn-sm" data-range="day" aria-pressed="false">Ganzer Tag</button>
+        </div>
+    </div>
+
+    <div id="tcChipsWrap" class="tc-chips-wrap" hidden>
+        <div id="tcChips" class="tc-chips" aria-label="Mitarbeiter"></div>
+        <div id="tcSortWrap" class="tc-sort">
+            <button type="button" id="tcSort" class="tc-sort-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="tcSortMenu" aria-label="Sortieren" title="Sortieren">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h15M16 5l3 3-3 3M20 16H5M8 13l-3 3 3 3"/></svg>
+            </button>
+            <div id="tcSortMenu" class="tc-sort-menu" role="menu" aria-label="Sortieren nach" hidden>
+                <button type="button" role="menuitemradio" data-sort="name" aria-checked="true">Name</button>
+                <button type="button" role="menuitemradio" data-sort="logged" aria-checked="false">Logzeit</button>
+            </div>
         </div>
     </div>
 
     <p id="tcStatus" class="tc-status" role="status" aria-live="polite"></p>
 
-    <section id="tcView" class="tc-panel">
-        <p id="tcEmpty" class="tc-empty">Mitarbeiter wählen.</p>
-        <div id="tcTimelinePanel" hidden>
-            <div class="tc-panel-head">
-                <div class="tc-edit-actions">
-                    <button type="button" id="tcEdit" class="ui-flat-button btn-sm">Bearbeiten</button>
-                    <button type="button" id="tcEditClose" class="ui-flat-button btn-sm" hidden>Abbrechen</button>
-                </div>
-                <div class="tc-range" role="group" aria-label="Ausschnitt">
-                    <button type="button" class="ui-flat-button btn-sm" data-range="work" aria-pressed="true">Arbeitszeit</button>
-                    <button type="button" class="ui-flat-button btn-sm" data-range="day" aria-pressed="false">Ganzer Tag</button>
-                </div>
-            </div>
-            <div id="tcTimeline" class="tc-timeline"></div>
-            <div id="tcEditor" class="tc-editor" hidden>
-                <div class="tc-editor-bar">
-                    <button type="button" id="tcAdd" class="ui-flat-button btn-sm">+ Korrektur</button>
-                    <span id="tcSummary" class="tc-summary" role="status"></span>
-                    <button type="button" id="tcSave" class="btn btn-primary btn-sm tc-save" disabled>Speichern</button>
-                </div>
-                <form id="tcForm" class="tc-form" hidden>
-                    <span id="tcFormTitle" class="tc-form-title"></span>
-                    <label class="ui-field-group tc-field">
-                        <span class="ui-field-label">Status</span>
-                        <select id="tcFormStatus" class="ui-input">
-                            <option>ONLINE</option><option>BIPAU</option><option>PAUSE</option><option>HOME</option>
-                        </select>
-                    </label>
-                    <label class="ui-field-group tc-field">
-                        <span class="ui-field-label">Von</span>
-                        <input type="time" id="tcFormFrom" class="ui-input" step="60" required>
-                    </label>
-                    <label class="ui-field-group tc-field">
-                        <span class="ui-field-label">Bis</span>
-                        <input type="time" id="tcFormTo" class="ui-input" step="60">
-                    </label>
-                    <label class="tc-check"><input type="checkbox" id="tcFormOpen"> offen</label>
-                    <label class="ui-field-group tc-field tc-field-reason">
-                        <span class="ui-field-label">Grund</span>
-                        <input type="text" id="tcFormReason" class="ui-input" maxlength="255" autocomplete="off">
-                    </label>
-                    <button type="button" id="tcFormRemove" class="ui-flat-button btn-sm">Entfernen</button>
-                    <p id="tcFormError" class="tc-form-error" role="alert"></p>
-                </form>
-            </div>
-            <details id="tcRevokedBox" class="tc-details" hidden>
-                <summary>Zurückgenommene Korrekturen <span id="tcRevokedCount"></span></summary>
-                <div id="tcRevoked" class="tc-table-wrap"></div>
-            </details>
-        </div>
-    </section>
+    <div class="tc-main">
+        <section id="tcEmpty" class="tc-panel">
+            <p class="tc-empty">Mitarbeiter wählen.</p>
+        </section>
+
+        <div id="tcUsers" class="tc-users"></div>
+    </div>
 
     <details id="tcChangesBox" class="tc-details tc-page-details" hidden>
         <summary>Opcyc-Datensätze <span id="tcChangeCount"></span></summary>
         <div id="tcChanges"></div>
     </details>
+
+    <div id="tcConfirm" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal ui-modal-compact" role="alertdialog" aria-modal="true" aria-labelledby="tcConfirmTitle">
+            <div class="ui-modal-header">
+                <h3 id="tcConfirmTitle">Ungespeicherte Änderungen verwerfen?</h3>
+            </div>
+            <div id="tcConfirmBody" class="ui-modal-body">
+                <ul id="tcConfirmChanges" class="tc-change-lines"></ul>
+            </div>
+            <div class="ui-modal-footer">
+                <button type="button" id="tcConfirmKeep" class="btn btn-secondary btn-sm">Weiter bearbeiten</button>
+                <button type="button" id="tcConfirmDiscard" class="btn btn-red btn-sm">Verwerfen</button>
+            </div>
+        </div>
+    </div>
 
     <div id="tcModal" class="ui-modal-overlay" aria-hidden="true">
         <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="tcModalTitle">

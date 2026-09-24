@@ -25,22 +25,47 @@
         return `${name ? name + " · " : ""}${weekday} ${day}.${month}.`;
     }
 
-    // Auswahl aus der URL; ein Tag, den die API nicht anbietet, fällt auf heute zurück.
+    // Ein Kalendertag „JJJJ-MM-TT“, den es gibt und der nicht nach heute (erster Tag der API) liegt.
+    function isPickableDay(date, days) {
+        const ordered = orderDays(days);
+        if (!ordered.length || !/^\d{4}-\d{2}-\d{2}$/.test(date || "")) return false;
+        const [year, month, day] = date.split("-").map(Number);
+        const parsed = new Date(Date.UTC(year, month - 1, day));
+        return parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day && date <= ordered[0];
+    }
+
+    // Kalendertag daneben (Pfeile an der Datumswahl); null, wenn er nach heute läge.
+    function shiftDay(date, amount, days) {
+        const [year, month, day] = date.split("-").map(Number);
+        const shifted = new Date(Date.UTC(year, month - 1, day + amount)).toISOString().slice(0, 10);
+        return isPickableDay(shifted, days) ? shifted : null;
+    }
+
+    // Bearbeiten lässt die SD-API nur für heute und gestern zu (GET /days).
+    function isEditableDay(date, days) {
+        return (days || []).includes(date);
+    }
+
+    const USER_ID = /^[A-Za-z0-9-]{1,64}$/;
+
+    // Auswahl aus der URL: angezeigte Mitarbeiter (users=a,b; alt: user=a) und Tag.
+    // Ein ungültiger oder künftiger Tag fällt auf heute zurück.
     function readSelection(search, days) {
         const params = new URLSearchParams(search);
-        const ordered = orderDays(days);
         const date = params.get("date");
+        const ids = [params.get("users") || "", params.get("user") || ""].join(",").split(",")
+            .map(id => id.trim()).filter(id => USER_ID.test(id));
         return {
-            userId: params.get("user") || null,
-            date: ordered.includes(date) ? date : (ordered[0] || null),
+            userIds: [...new Set(ids)],
+            date: isPickableDay(date, days) ? date : (orderDays(days)[0] || null),
         };
     }
 
-    function selectionQuery(userId, date) {
+    function selectionQuery(userIds, date) {
         const params = new URLSearchParams();
-        if (userId) params.set("user", userId);
+        if (userIds && userIds.length) params.set("users", userIds.join(","));
         if (date) params.set("date", date);
-        const query = params.toString();
+        const query = params.toString().replace(/%2C/g, ",");
         return query ? "?" + query : "";
     }
 
@@ -112,14 +137,17 @@
         return ticks;
     }
 
-    // Ausschnitt „Arbeitszeit“: erster bis letzter Nicht-HOME-Abschnitt, je 1 h Rand,
-    // auf volle Stunden, mindestens 8 h, nie über den Tag hinaus. Ohne Arbeitszeit: ganzer Tag.
-    function workRange(view, segments) {
+    // Ausschnitt „Arbeitszeit“: vom ersten bis zum letzten Nicht-HOME-Abschnitt, erweitert um
+    // alle Korrekturen (auch HOME und neue), damit keine außerhalb liegt. Je 1 h Rand, auf volle
+    // Stunden, mindestens 8 h, nie über den Tag hinaus. Ohne beides: ganzer Tag.
+    function workRange(view, segments, blocks = []) {
         const day = dayRange(view);
-        const active = (segments || []).filter(segment => segment.status !== "HOME");
-        if (!active.length) return day;
-        let start = Math.min(...active.map(segment => toMs(segment.start))) - WORK_MARGIN_MS;
-        let end = Math.max(...active.map(segment => toMs(segment.end))) + WORK_MARGIN_MS;
+        const spans = (segments || []).filter(segment => segment.status !== "HOME")
+            .map(segment => [toMs(segment.start), toMs(segment.end)])
+            .concat(blocks.map(block => [block.from, Math.max(blockEnd(block), block.from)]));
+        if (!spans.length) return day;
+        let start = Math.min(...spans.map(span => span[0])) - WORK_MARGIN_MS;
+        let end = Math.max(...spans.map(span => span[1])) + WORK_MARGIN_MS;
         start = Math.max(day.start, Math.floor(start / HOUR_MS) * HOUR_MS);
         end = Math.min(day.end, Math.ceil(end / HOUR_MS) * HOUR_MS);
         if (end - start < WORK_MIN_MS) {
@@ -131,8 +159,93 @@
         return {start, end};
     }
 
-    function viewRange(view, mode) {
-        return mode === "day" ? dayRange(view) : workRange(view, view.merged);
+    // blocks: im Bearbeitungsmodus die Bearbeitungsblöcke, sonst die gespeicherten Korrekturen.
+    function viewRange(view, mode, blocks = activeBlocks(view)) {
+        return mode === "day" ? dayRange(view) : workRange(view, view.merged, blocks);
+    }
+
+    // Gemeinsame Skala mehrerer Zeitleisten: die Hülle ihrer Ausschnitte.
+    function unionRange(ranges) {
+        const list = ranges.filter(Boolean);
+        if (!list.length) return null;
+        return {start: Math.min(...list.map(range => range.start)), end: Math.max(...list.map(range => range.end))};
+    }
+
+    // Log- und Pausenzeit eines Tages in Sekunden: Summen über die Segmente der SD-API (merged),
+    // am laufenden Tag bis „jetzt“. Logzeit ist alles außer HOME, Pause ist BIPAU und PAUSE.
+    function dayTotals(view, nowMs) {
+        let logged = 0;
+        let pause = 0;
+        (view.merged || []).forEach(segment => {
+            const start = toMs(segment.start);
+            const end = Math.min(toMs(segment.end), nowMs);
+            if (end <= start) return;
+            const seconds = (end - start) / 1000;
+            if (segment.status !== "HOME") logged += seconds;
+            if (segment.status === "BIPAU" || segment.status === "PAUSE") pause += seconds;
+        });
+        return {logged: Math.round(logged), pause: Math.round(pause)};
+    }
+
+    // Kennzahlen je Status in Sekunden, am laufenden Tag bis „jetzt“, ohne HOME (abgemeldet).
+    // Genesys: je Genesys-Bezeichnung aus der Genesys-Ebene, absteigend nach Dauer.
+    // Opcyc: je Opcyc-Status aus merged, feste Reihenfolge; ohne Lieferung (delivered=false) keine.
+    const KPI_STATUSES = ["ONLINE", "BIPAU", "PAUSE"];
+
+    function segmentSeconds(segment, nowMs) {
+        const start = toMs(segment.start);
+        const end = Math.min(toMs(segment.end), nowMs);
+        return end > start ? (end - start) / 1000 : 0;
+    }
+
+    function genesysDurations(view, nowMs) {
+        const byLabel = new Map();
+        (view.genesys || []).forEach(entry => {
+            if (entry.status === "HOME") return;
+            const label = entry.label || entry.status;
+            const item = byLabel.get(label) || {label, status: entry.status, seconds: 0};
+            item.seconds += segmentSeconds(entry, nowMs);
+            byLabel.set(label, item);
+        });
+        return [...byLabel.values()]
+            .map(item => ({...item, seconds: Math.round(item.seconds)}))
+            .filter(item => item.seconds > 0)
+            .sort((a, b) => b.seconds - a.seconds || a.label.localeCompare(b.label, "de"));
+    }
+
+    function opcycDurations(view, nowMs) {
+        if (view.delivered === false) return [];
+        return KPI_STATUSES.map(status => ({
+            label: status, status,
+            seconds: Math.round((view.merged || []).filter(segment => segment.status === status)
+                .reduce((sum, segment) => sum + segmentSeconds(segment, nowMs), 0)),
+        }));
+    }
+
+    // Aktive (nicht zurückgenommene) Korrekturen eines Tages.
+    function correctionCount(view) {
+        return (view.corrections || []).filter(correction => correction.id != null && !correction.revoked_at).length;
+    }
+
+    function correctionLabel(count) {
+        if (!count) return "";
+        return count === 1 ? "1 Korrektur" : `${count} Korrekturen`;
+    }
+
+    // Mitarbeiter-Kacheln sortieren: nach Name oder nach Logzeit (absteigend, ohne Zeit zuletzt).
+    const CHIP_SORTS = {name: "Name", logged: "Logzeit"};
+
+    function sortChips(chips, mode) {
+        const byName = (a, b) => (a.name || "").localeCompare(b.name || "", "de") || (a.user_id < b.user_id ? -1 : 1);
+        return [...chips].sort(mode === "logged"
+            ? (a, b) => (b.logged ?? -1) - (a.logged ?? -1) || byName(a, b)
+            : byName);
+    }
+
+    function formatDuration(seconds) {
+        if (seconds == null || !Number.isFinite(seconds)) return "–";
+        const minutes = Math.floor(seconds / 60);
+        return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`;
     }
 
     // Lage eines Abschnitts im Ausschnitt in Prozent; null, wenn er ganz außerhalb liegt.
@@ -191,31 +304,11 @@
     function changeRows(view) {
         if (view.delivered === false) return [];
         return (view.merged || []).map(segment => ({
+            ms: toMs(segment.start),
             time: berlinTime(toMs(segment.start), true),
             status: segment.status,
             origin: changeOrigin(view, segment),
             source: segment.source,
-        }));
-    }
-
-    function correctionPeriod(correction) {
-        const from = berlinTime(toMs(correction.effective_from));
-        return correction.effective_to ? `${from}–${berlinTime(toMs(correction.effective_to))}` : `ab ${from}`;
-    }
-
-    function stamp(person, iso) {
-        return [person && person.name, iso && berlinDateTime(toMs(iso))].filter(Boolean).join(" · ");
-    }
-
-    // Verlauf: zurückgenommene Korrekturen des Tages, nach id.
-    function revokedRows(view) {
-        return (view.corrections || []).filter(correction => correction.revoked_at).map(correction => ({
-            id: correction.id,
-            period: correctionPeriod(correction),
-            status: correction.status_group,
-            reason: correction.reason || "",
-            created: stamp(correction.created_by, correction.created_at),
-            revoked: stamp(correction.revoked_by, correction.revoked_at),
         }));
     }
 
@@ -237,6 +330,26 @@
                 reason: correction.reason || "",
                 createdBy: correction.created_by ? correction.created_by.name : "",
                 createdAt: correction.created_at ? toMs(correction.created_at) : null,
+            }));
+    }
+
+    // Zurückgenommene Korrekturen des Tages als Kacheln (nur lesend), nach id.
+    function revokedBlocks(view) {
+        return (view.corrections || [])
+            .filter(correction => correction.id != null && correction.revoked_at)
+            .sort((a, b) => a.id - b.id)
+            .map(correction => ({
+                key: "r" + correction.id,
+                id: correction.id,
+                status: correction.status_group,
+                from: toMs(correction.effective_from),
+                to: correction.effective_to ? toMs(correction.effective_to) : null,
+                reason: correction.reason || "",
+                createdBy: correction.created_by ? correction.created_by.name : "",
+                createdAt: correction.created_at ? toMs(correction.created_at) : null,
+                revokedBy: correction.revoked_by ? correction.revoked_by.name : "",
+                revokedAt: toMs(correction.revoked_at),
+                revoked: true,
             }));
     }
 
@@ -364,6 +477,34 @@
         const saved = blocks.filter(block => !block.touched).sort((a, b) => a.id - b.id);
         const touched = blocks.filter(block => block.touched).sort((a, b) => a.touched - b.touched);
         return [...saved, ...touched];
+    }
+
+    // Kacheln: aktive Blöcke nach Beginn (bei Gleichstand stabil nach key).
+    function tileBlocks(blocks) {
+        return [...blocks].sort((a, b) => a.from - b.from || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    }
+
+    function periodText(block) {
+        return block.to != null ? `${msToClock(block.from)} bis ${msToClock(block.to)}` : `ab ${msToClock(block.from)}`;
+    }
+
+    // Zeitpunkt und Bearbeiter; bei zurückgenommenen Korrekturen die Rücknahme.
+    function blockMeta(block) {
+        if (block.revoked) {
+            return ["zurückgenommen", block.revokedAt != null && berlinDateTime(block.revokedAt), block.revokedBy]
+                .filter(Boolean).join(" · ");
+        }
+        const state = blockState(block);
+        if (state === "new") return "neu";
+        const stampText = [block.createdAt != null && berlinDateTime(block.createdAt), block.createdBy].filter(Boolean).join(" · ");
+        const note = {changed: "geändert", removed: "wird zurückgenommen"}[state];
+        return [stampText, note].filter(Boolean).join(" · ");
+    }
+
+    // Meldung an einer Kachel: Fehler der SD-API, sonst eigene Prüfung, sonst fehlender Grund.
+    function blockMessage(block, view, nowMs, serverError) {
+        if (block.revoked) return "";
+        return serverError || blockError(block, view, nowMs) || (needsReason(block) ? "Grund fehlt." : "");
     }
 
     function changeSummary(blocks) {
@@ -536,6 +677,12 @@
 
     // --- Fehler der SD-API ------------------------------------------------------------
 
+    // Opcyc-Datensätze aller angezeigten Mitarbeiter, nach Zeit und Name wie in der snapshot-CSV.
+    function combinedChangeRows(items) {
+        return items.flatMap(item => changeRows(item.view).map(row => ({...row, name: item.name})))
+            .sort((a, b) => a.ms - b.ms || a.name.localeCompare(b.name, "de"));
+    }
+
     function errorMessage(payload) {
         const detail = payload && payload.detail;
         if (typeof detail === "string") return detail;
@@ -587,7 +734,10 @@
         REASON_MAX,
         STATUSES,
         activeBlocks,
+        CHIP_SORTS,
         blockError,
+        blockMessage,
+        blockMeta,
         blockState,
         buildChangeRequest,
         canSave,
@@ -603,6 +753,7 @@
         previewKey,
         removeBlock,
         restoreBlock,
+        revokedBlocks,
         saveBody,
         saveMessage,
         updateBlock,
@@ -613,6 +764,13 @@
         berlinTime,
         changeLines,
         changeRows,
+        combinedChangeRows,
+        correctionCount,
+        correctionLabel,
+        dayTotals,
+        formatDuration,
+        genesysDurations,
+        opcycDurations,
         dayHours,
         dayLabel,
         dragBlock,
@@ -622,17 +780,23 @@
         errorMessage,
         errorTargets,
         findCorrection,
+        isEditableDay,
+        isPickableDay,
         isSearchable,
         layoutLanes,
         nowPercent,
         orderDays,
         percentAt,
+        periodText,
         place,
         readSelection,
-        revokedRows,
         selectionQuery,
+        shiftDay,
+        sortChips,
         snapTime,
+        tileBlocks,
         timeAtPercent,
+        unionRange,
         toMs,
         viewRange,
         workRange,

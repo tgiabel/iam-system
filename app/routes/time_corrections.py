@@ -68,6 +68,12 @@ async def users(request: Request, authz=Depends(require_tool)):
     return await forward(request, authz, "GET", "/users")
 
 
+# Mitarbeiter mit Buchung am Tag samt Log- und Pausenzeit (Anforderung A2 an die SD-API).
+@router.get("/days/{business_date}/users")
+async def day_users(request: Request, business_date: date, authz=Depends(require_tool)):
+    return await forward(request, authz, "GET", f"/days/{business_date.isoformat()}/users")
+
+
 @router.get("/days/{business_date}/users/{user_id}")
 async def day_view(request: Request, business_date: date, user_id: str = GENESYS_USER_ID, authz=Depends(require_tool)):
     return await forward(request, authz, "GET", day_path(business_date, user_id))

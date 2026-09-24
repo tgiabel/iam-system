@@ -13,6 +13,21 @@ Diese Punkte gelten vor dem restlichen Text.
 - **Tage aus der API.** `GET /time-corrections/days` liefert heute und gestern (Berlin). SOFA rechnet die Tage nicht selbst aus.
 - **Standardansicht** ist die eine kanonische Zeile, also die zusammengeführte Zeitleiste, die an Opcyc ginge.
 - **Zurücknehmen** darf jeder mit dem Recht jede Korrektur.
+- **Zeitbuchung statt Ergebnis.** Die kanonische Zeile heißt „Zeitbuchung“ und ist höher als die Ebenen. Im Bearbeitungsmodus liegt sie in der Mitte: oben Genesys, unten die Korrekturen, Pfeile ↓ und ↑ zeigen das Zusammenführen.
+- **Opcyc-Datensätze unter dem Panel.** Aufklapper direkt auf der Seite, deckende Tabelle ohne eigenen Wrapper.
+- **Kacheln des Tages, eine Zeitleiste.** Zwischen Leiste und Zeitleiste stehen Kacheln aller Mitarbeiter mit Buchung am Tag (Name, Logzeit mit Uhr, dezenter die Pause mit Besteck; Logzeit = alles außer HOME, Pause = BIPAU + PAUSE). Aktiv ist immer nur einer: Eine Kachel wechselt die Zeitleiste, ein zweiter Klick auf die aktive blendet sie aus. Ganz links, dezent abgetrennt, steht immer die Kachel des aktiven Mitarbeiters; kommt er aus der Tagesliste, ist er dort ebenfalls hervorgehoben. Die Suche (mit `date`, damit auch seither aus Genesys entfernte gefunden werden) macht einen Mitarbeiter aktiv; seine Kachel bleibt nicht stehen, wenn ein anderer aktiv wird. Kein Überwachungswerkzeug: keine Zeitleisten mehrerer Mitarbeiter nebeneinander. Log- und Pausenzeit geladener Mitarbeiter sind Summen über `merged` bis „jetzt“, keine Zusammenführung.
+- **Kennzahlen.** Über der Zeitleiste Karten mit der Dauer je Status: links „Genesys“ je Genesys-Bezeichnung (aus `genesys`), rechts „Opcyc“ je Opcyc-Status ONLINE/BIPAU/PAUSE (aus `merged`, ohne Lieferung keine), jeweils ohne HOME und am laufenden Tag bis „jetzt“. Im Bearbeiten zeigen sie die Vorschau.
+- **Seitenaufbau.** Die Seite füllt die Höhe: oben Kopf, Leiste und Kacheln, in der Mitte (im oberen Drittel des freien Raums) Name, Kennzahlen, Zeitleiste und Korrektur-Kacheln, unten die Opcyc-Datensätze.
+- **Mitarbeiter-Kacheln** sind einheitlich quadratisch, lange Namen enden mit „…“; unten steht „1 Korrektur“ bzw. „x Korrekturen“, wenn es aktive Korrekturen gibt (Zeile immer reserviert, damit die Zeiten gleich sitzen; aus der Tagesansicht, sonst aus der Tagesliste – A3). Ein Sortier-Icon (waagrechte Pfeile, ohne Fläche) unten rechts an der Leiste öffnet ein Menü „Name“/„Logzeit“ (absteigend); die Wahl steht nur im Menü und wird im Browser gemerkt.
+- **Tage blättern.** Pfeile links und rechts der Datumswahl springen einen Tag zurück bzw. vor; nach heute gibt es keinen.
+- **Nachfrage als Modal.** Ungespeicherte Änderungen verwerfen fragt ein eigenes Modal (mit den Änderungen als Liste, „Weiter bearbeiten“/„Verwerfen“), nicht der Browser. Nur beim Schließen des Tabs bleibt die Browser-Meldung.
+- **Kachel im Bearbeiten** ist ein kompakter Block: Status über die volle Breite, Zeitspanne, Grund; Bearbeiten/Entfernen in einer schmalen Spalte rechts.
+- **Kopf und Leiste.** Rechts im Kopf „Neu laden“ mit „Stand hh:mm“ darunter. Darunter eine Leiste, bündig mit dem Panel: Suche links, Tage mittig, Ausschnitt (Arbeitszeit/Ganzer Tag) rechts.
+- **Datumswahl.** Von links „Datum wählen“ (Kalender, höchstens heute; danach steht dort der gewählte Tag), gestern, heute. Ältere Tage sind schreibgeschützt (lesen seit A1).
+- **Aufklappen.** Ein Pfeil oben rechts im Panel klappt Genesys, Zeitbuchung, Korrekturen und die Kacheln (mit zurückgenommenen) lesend auf, ohne Bearbeiten.
+- **Panel nur mit Zeitleiste.** Rechts neben dem Panel: Stift zum Bearbeiten, im Bearbeitungsmodus stattdessen Speichern (mit Anzahl der Änderungen) und Abbrechen.
+- **Kacheln statt Formular.** Im Bearbeitungsmodus stehen unter dem Panel alle Korrekturen als horizontale Kacheln, nach Beginn sortiert; vorn eine ausgehöhlte Kachel „+“ für eine neue Korrektur. Eingeklappt: Status, „08:00 bis 09:00“ bzw. „ab 08:00“, Zeitpunkt und Bearbeiter. Ein Klick klappt die Kachel in der Breite aus: dazu Grund, Bearbeiten und Entfernen. Bearbeiten macht Status (Auswahl), Beginn, Ende und Grund änderbar; ein leeres Ende ist ein Wechsel ab Zeitpunkt. Kachel und Block in der Zeitleiste sind dieselbe Auswahl.
+- **Keine Verlaufstabelle.** Zurückgenommene Korrekturen stehen abgetrennt am Ende der Kacheln, ausgehöhlt und durchgestrichen, nur lesend. Korrekturen, die beim Speichern zurückgenommen werden, sehen bis dahin genauso aus und lassen sich wiederherstellen.
 - Die Anforderungen aus Abschnitt 6 sind in der SD-API umgesetzt: Vorschau, `pieces`, `applied_to`, `delivered`, `revision` nur über Korrekturen, `revoked_by` mit Namen, `loc` in fachlichen 422-Fehlern, zweite Rechteprüfung.
 
 ## Stand der Umsetzung
@@ -125,7 +140,7 @@ Geschätzte Antwortgröße für einen Mitarbeiter (JSON, unkomprimiert):
 
 **Zeitachse**
 - Die Achse ist linear in UTC von `day_start` bis `day_end`, beide Werte kommen aus der API. Die Beschriftung setzt `Intl.DateTimeFormat(…, {timeZone:"Europe/Berlin"})`. An den Umstellungstagen entstehen so automatisch 23 bzw. 25 Stunden, und bei 25 Stunden erscheint die Beschriftung „02“ zweimal.
-- **Ausschnitt „Arbeitszeit“** (Standard): vom ersten bis zum letzten Nicht-HOME-Abschnitt im Ergebnis, je 1 h Rand, mindestens 8 h. Umschaltbar auf „ganzer Tag“.
+- **Ausschnitt „Arbeitszeit“** (Standard): vom ersten bis zum letzten Nicht-HOME-Abschnitt im Ergebnis, erweitert um alle Korrekturen (im Bearbeitungsmodus die Bearbeitungsblöcke, auch HOME und neue), je 1 h Rand, mindestens 8 h. Beim Ziehen bleibt die Skala stehen. Umschaltbar auf „ganzer Tag“.
 
 **Standardansicht (kanonisch)**
 - Es gibt nur die Zeile **Ergebnis**. Ohne Korrekturen ist das schlicht Genesys, mit Korrekturen die zusammengeführte Zeitleiste, die an Opcyc ginge.
@@ -224,6 +239,19 @@ Summe: ca. 1 500 Zeilen, davon ca. 280 Tests.
 ---
 
 ## 6. Anforderungen an die SD-API
+
+**Umgesetzt (SD-API 047e1ac)**
+
+- **A1 – Ältere Tage lesen.** `GET /time-corrections/days/{date}/users/{user_id}` für Tage vor gestern, nur lesend (Speichern und Vorschau bleiben auf heute und gestern beschränkt). Heute lehnt `_checked` jeden anderen Tag mit 422 `day_not_allowed` ab. Dazu müsste die Mitarbeitersuche auch Mitarbeiter finden, die vor gestern aus Genesys entfernt wurden (`removed_since`), zumindest für den gewählten Tag.
+
+- **A2 – Mitarbeiter mit Buchung am Tag.** `GET /time-corrections/days/{date}/users` →
+  `{"users": [{"user_id": "…", "name": "…", "logged_seconds": 28800, "pause_seconds": 2700}]}`: alle, die an dem Tag in der Lieferung stehen (`delivered`), mit Logzeit (alles außer HOME) und Pause (BIPAU + PAUSE) über `merged`, am laufenden Tag bis „jetzt“. SOFA leitet den Aufruf schon weiter (`/api/time-corrections/days/{date}/users`) und zeigt bei 404 nur die Kacheln aus der Suche.
+
+**Offen**
+
+- **A3 – Korrekturen in der Tagesliste.** In `GET /time-corrections/days/{date}/users` je Mitarbeiter `corrections`: Anzahl der aktiven (nicht zurückgenommenen) Korrekturen an dem Tag. SOFA zeigt sie in der Kachel an, sobald das Feld da ist.
+
+**Aus dem Entwurf**
 
 **Umgesetzt** bis auf `editable` aus Punkt 7 (entfällt, siehe „Abweichungen“) und Punkt 10 (bewusst später).
 

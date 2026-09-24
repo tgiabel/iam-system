@@ -67,11 +67,12 @@ class RouteTests(unittest.TestCase):
             responses = [
                 self.client.get("/api/time-corrections/days"),
                 self.client.get("/api/time-corrections/users?q=Te"),
+                self.client.get("/api/time-corrections/days/2026-09-23/users"),
                 self.client.get(DAY_PATH),
                 self.client.post(DAY_PATH + "/preview", json={"revoke": [], "create": []}),
                 self.client.post(DAY_PATH, json={"revision": "r", "revoke": [1], "create": []}),
             ]
-        self.assertEqual([r.status_code for r in responses], [403] * 5)
+        self.assertEqual([r.status_code for r in responses], [403] * 6)
         self.assertEqual(self.calls, [])
 
     def test_missing_identity_is_rejected(self):
@@ -93,17 +94,19 @@ class RouteTests(unittest.TestCase):
     def test_paths_and_query_are_forwarded(self):
         with self.backend():
             self.client.get("/api/time-corrections/users?q=Te")
+            self.client.get("/api/time-corrections/days/2026-09-23/users")
             self.client.get(DAY_PATH)
             self.client.post(DAY_PATH + "/preview", json={"revoke": [], "create": []})
             self.client.post(DAY_PATH, json={"revision": "r", "revoke": [5], "create": []})
         self.assertEqual([(c[0][0], c[0][1]) for c in self.calls], [
             ("GET", "/users"),
+            ("GET", "/days/2026-09-23/users"),
             ("GET", f"/days/2026-09-23/users/{USER}"),
             ("POST", f"/days/2026-09-23/users/{USER}/preview"),
             ("POST", f"/days/2026-09-23/users/{USER}"),
         ])
         self.assertEqual(self.calls[0][1]["params"], [("q", "Te")])
-        self.assertIsNone(self.calls[1][1]["payload"])
+        self.assertIsNone(self.calls[2][1]["payload"])
 
     def test_browser_body_loses_actor_fields(self):
         body = {
@@ -174,14 +177,15 @@ class PageTests(unittest.TestCase):
         scripts = [response.text.index(f"/static/js/tools/{name}.js")
                    for name in ("time_correction_model", "time_correction_timeline", "time_correction")]
         self.assertEqual(scripts, sorted(scripts))
-        self.assertIn('id="tcTimeline"', response.text)
+        self.assertIn('id="tcChips"', response.text)
+        self.assertIn('id="tcUsers"', response.text)
         self.assertIn('id="tcChangesBox"', response.text)
-        self.assertIn('id="tcRevokedBox"', response.text)
-        self.assertIn('id="tcEdit"', response.text)
-        self.assertIn('id="tcForm"', response.text)
-        self.assertIn('id="tcSave"', response.text)
+        self.assertIn('id="tcDayPicker"', response.text)
+        self.assertIn('id="tcConfirm"', response.text)
+        self.assertIn('id="tcSortMenu"', response.text)
+        self.assertIn('id="tcDayPrev"', response.text)
         self.assertIn('id="tcModal"', response.text)
-        self.assertIn('maxlength="255"', response.text)
+        self.assertNotIn('id="tcRevokedBox"', response.text)
 
     def test_page_redirects_without_permission(self):
         self.context = authz("SOFA-TOOL-GQ")
