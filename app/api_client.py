@@ -16,6 +16,7 @@ DATAPROCESSING_BASE_URL = f"{BASE_URL}/dataprocessing"
 Q_MANAGER_BASE_URL = f"{BASE_URL}/q-manager"
 REPORTING_BASE_URL = f"{BASE_URL}/reporting"
 INVENTORY_BASE_URL = f"{BASE_URL}/inventory"
+TIME_CORRECTIONS_BASE_URL = f"{BASE_URL}/time-corrections"
 STOERUNG_BASE_URL = BASE_URL
 
 # Ausnahme vom Standard-Timeout: Ein IKS-Bericht ist ein stichtagsbezogener
@@ -134,6 +135,26 @@ class APIClient:
             payload=payload,
             headers={"X-User-Id": str(actor_id)},
             timeout=timeout,
+        )
+
+    # Zeitkorrektur: Die SD-API kennt den Bearbeiter nur aus X-User-Id und prueft
+    # SOFA-TOOL-ZK ein zweites Mal. Fehlerantworten reicht der Proxy unveraendert durch.
+    async def time_corrections_request(
+        self,
+        method: str,
+        path: str,
+        actor_id: int,
+        *,
+        params: list[tuple[str, str]] | None = None,
+        payload: dict | None = None,
+    ) -> httpx.Response:
+        return await self._request(
+            method,
+            TIME_CORRECTIONS_BASE_URL,
+            path,
+            params=params,
+            payload=payload,
+            headers={"X-User-Id": str(actor_id)},
         )
 
     # Access

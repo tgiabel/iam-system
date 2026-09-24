@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% set page_title = "Zeitkorrektur" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% set widget_title = "Zeitkorrektur" %}
+
+{% block favicon %}/static/img/software.png{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/time_correction.css?v={{ static_v }}">
+{% endblock %}
+
+{% block content %}
+<div id="tcTool" class="tc-page">
+    <div class="ui-section-header tc-heading">
+        <div class="ui-section-heading">
+            <p class="ui-section-kicker">Genesys Cloud</p>
+            <h1 class="ui-section-title">Zeitkorrektur</h1>
+            <p class="ui-section-copy">Statuszeiten eines Mitarbeiters für heute oder gestern korrigieren. Angezeigt wird, was an Opcyc geht.</p>
+        </div>
+    </div>
+
+    <section id="tcView" class="tc-panel" aria-live="polite">
+        <p class="tc-empty">Mitarbeiter wählen, um die Zeitleiste zu sehen.</p>
+    </section>
+</div>
+{% endblock %}

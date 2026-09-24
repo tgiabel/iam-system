@@ -1,0 +1,29 @@
+.tc-page {
+    width: 100%;
+    max-width: 1500px;
+    margin: 40px auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.tc-page [hidden] {
+    display: none !important;
+}
+
+.tc-heading {
+    margin-bottom: 1.25rem;
+}
+
+/* Flächen sind deckend: main trägt im Servodata-Theme ein Hintergrundbild. */
+.tc-panel {
+    background: var(--ui-surface-card);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    box-shadow: var(--ui-shadow-sm);
+    padding: 20px;
+}
+
+.tc-empty {
+    margin: 0;
+    color: var(--ui-text-muted);
+}

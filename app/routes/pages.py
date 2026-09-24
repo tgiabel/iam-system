@@ -80,7 +80,7 @@ def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", r
 
 
 @router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_any_permission_or_admin("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-SLOG", "SOFA-RPRT-TIVR", "SOFA-RPRT-LL", redirect_to="/"))):
+def tools(request: Request, authz=Depends(require_any_permission_or_admin("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-ZK", "SOFA-TOOL-SLOG", "SOFA-RPRT-TIVR", "SOFA-RPRT-LL", redirect_to="/"))):
     return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
@@ -172,6 +172,14 @@ async def request_templates_tool(request: Request, authz=Depends(require_permiss
 async def genesys_queue_manager_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-GQ", redirect_to="/tools"))):
     return templates.TemplateResponse(
         "tools/genesys_queue_manager_tool.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
+    )
+
+
+@router.get("/tools/zeitkorrektur", response_class=HTMLResponse)
+async def time_correction_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-ZK", redirect_to="/tools"))):
+    return templates.TemplateResponse(
+        "tools/time_correction_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
