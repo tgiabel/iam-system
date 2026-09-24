@@ -27,6 +27,7 @@ Diese Punkte gelten vor dem restlichen Text.
 - **Aufklappen.** Ein Pfeil oben rechts im Panel klappt Genesys, Zeitbuchung, Korrekturen und die Kacheln (mit zurückgenommenen) lesend auf, ohne Bearbeiten.
 - **Panel nur mit Zeitleiste.** Rechts neben dem Panel: Stift zum Bearbeiten, im Bearbeitungsmodus stattdessen Speichern (mit Anzahl der Änderungen) und Abbrechen.
 - **Kacheln statt Formular.** Im Bearbeitungsmodus stehen unter dem Panel alle Korrekturen als horizontale Kacheln, nach Beginn sortiert; vorn eine ausgehöhlte Kachel „+“ für eine neue Korrektur. Eingeklappt: Status, „08:00 bis 09:00“ bzw. „ab 08:00“, Zeitpunkt und Bearbeiter. Ein Klick klappt die Kachel in der Breite aus: dazu Grund, Bearbeiten und Entfernen. Bearbeiten macht Status (Auswahl), Beginn, Ende und Grund änderbar; ein leeres Ende ist ein Wechsel ab Zeitpunkt. Kachel und Block in der Zeitleiste sind dieselbe Auswahl.
+- **Shift ohne Magnet.** Mit gehaltener `Shift`-Taste rastet das Ziehen auf die Minute und ohne magnetische Kanten ein, damit man auch knapp neben einem Genesys-Wechsel ablegen kann.
 - **Keine Verlaufstabelle.** Zurückgenommene Korrekturen stehen abgetrennt am Ende der Kacheln, ausgehöhlt und durchgestrichen, nur lesend. Korrekturen, die beim Speichern zurückgenommen werden, sehen bis dahin genauso aus und lassen sich wiederherstellen.
 - Die Anforderungen aus Abschnitt 6 sind in der SD-API umgesetzt: Vorschau, `pieces`, `applied_to`, `delivered`, `revision` nur über Korrekturen, `revoked_by` mit Namen, `loc` in fachlichen 422-Fehlern, zweite Rechteprüfung.
 
@@ -47,9 +48,9 @@ Diese Punkte gelten vor dem restlichen Text.
 | 2.3 | Vorschau nach jeder Änderung (300 ms entprellt, nicht bei reinen Grund-Änderungen), wirksames Ende neuer Blöcke aus `create_index`; Ergebnis überdeckt, solange die Vorschau fehlt; Speichern mit `revision`, danach kanonische Zeile und „n angelegt · m zurückgenommen“ | erledigt |
 | 2.4 | 409 und `day_not_allowed`: Modal mit den eigenen Änderungen als Text, nur „Neu laden“, Seite schreibgeschützt; übrige 422 (fachlich mit `loc`, Schemafehler als Liste) am Block: rot, gewählt, Meldung im Formular | erledigt |
 | 3.1 | Direkte Bedienung: auf leerer Zeile zeichnen (Bereich) oder klicken (Wechsel ab Zeitpunkt), am Körper verschieben, an den Griffen Beginn/Ende ziehen (rechte Kante macht einen offenen Wechsel zum Bereich), Esc bricht ab; Vorschau nach dem Loslassen | erledigt |
-| 3.2 | Einrasten (5 min, Shift 1 min) und magnetische Kanten | offen |
-| 3.3 | Grenze „jetzt“ | offen |
-| 3.4 | Tastaturbedienung | offen |
+| 3.2 | Einrasten beim Ziehen, Zeichnen und Klicken: 5-Minuten-Raster, magnetische Kanten (Genesys-Wechsel, Kanten der übrigen Blöcke) im Umkreis von 6 px; `Shift` rastet auf die Minute ohne Magnet und wirkt auch während des Ziehens | erledigt |
+| 3.3 | Grenze „jetzt“ am laufenden Tag: Ziehen, Zeichnen, Klicken, Raster und Magnet enden bei „jetzt“ (auf die Minute abgerundet); verschoben behält der Block seine Länge, an der Grenze gezeichnet geht die Mindestlänge nach links | erledigt |
+| 3.4 | Tastatur am Block (Tab erreicht ihn): Enter/Leertaste wählt, ←/→ verschiebt, ↑/↓ verlängert oder verkürzt einen Bereich, jeweils bis zur nächsten 5-Minuten-Linie (Shift: 1 Minute) und nie über „jetzt“; `Entf`/Rücktaste entfernt. Anlegen und Grund über die Kacheln | erledigt |
 
 ### Proxy
 
@@ -152,7 +153,7 @@ Geschätzte Antwortgröße für einen Mitarbeiter (JSON, unkomprimiert):
 - Die Korrekturzeile enthält **alle aktiven Korrekturen als Blöcke**, damit man sie bearbeiten kann. Sie ist nur leer, wenn es keine aktiven Korrekturen gibt.
 - **Anlegen:** In der Korrekturzeile erzeugt Ziehen einen **Bereich**, ein einfacher Klick einen **Wechsel ab Zeitpunkt** (offen). Der Status des neuen Blocks ist der zuletzt gewählte, voreingestellt ONLINE. Alternativ legt der Knopf „+ Korrektur“ einen Block nur über das Formular an. Damit ist alles auch ohne Maus bedienbar, und genau diese Formularvariante ist Schritt 2 der Umsetzung.
 - **Ändern:** Ein Bereich lässt sich verschieben (am Körper ziehen) und an beiden Kanten in der Länge ändern. Bei einem Wechsel ab Zeitpunkt lässt sich nur der Beginn verschieben. Wer an seiner rechten Kante zieht, gibt ihm ein festes Ende und macht ihn so zum Bereich. Die Checkbox „offen“ im Formular schaltet in beide Richtungen um.
-- **Entfernen:** Block wählen, dann `Entf` oder „Entfernen“. Der Block bleibt bis zum Speichern als durchgestrichener Geist stehen.
+- **Entfernen:** Block wählen, dann `Entf` (oder Rücktaste) oder „Entfernen“. Der Block bleibt bis zum Speichern als durchgestrichener Geist stehen.
 - **Einrasten:** intern auf die Minute genau. Beim Ziehen rastet der Block auf 5 Minuten ein, mit gehaltener `Shift`-Taste auf 1 Minute. Vorrang haben Genesys-Wechsel und andere Blockkanten im Umkreis von 6 px (magnetisch). Die Zeitfelder im Formular (`type="time"`, `step=60`) erlauben die genaue Eingabe. Am 25-Stunden-Tag gilt eine eingetippte 02:xx als erste Stunde, die zweite erreicht man durch Ziehen.
 - **Überlappungen** sind erlaubt, die Regel löst sie auf. Überlappende Blöcke weichen in Unterzeilen der Korrekturzeile aus. Oben liegt der jüngere, also der, der gewinnt. Neue und geänderte Blöcke liegen immer oben, weil sie beim Speichern die höchste `id` bekommen.
 - **Grund:** Pflichtfeld je neuem oder geändertem Block, höchstens 255 Zeichen. Bei einem geänderten Block ist der alte Grund vorbelegt. Blöcke ohne Grund sind rot umrandet, „Speichern“ bleibt gesperrt. Für das Zurückziehen allein ist kein Grund nötig, denn das Datenmodell hat dafür keine Spalte.

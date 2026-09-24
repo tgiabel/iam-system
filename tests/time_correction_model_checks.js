@@ -499,10 +499,74 @@ assert.deepStrictEqual(model.dragBlock(drawOrigin, 'draw', 0, t('12:40'), minute
 assert.deepStrictEqual(model.dragBlock(drawOrigin, 'draw', 0, t('11:20'), minuteSnap), {from: t('11:20'), to: t('12:00')});
 assert.deepStrictEqual(model.dragBlock(drawOrigin, 'draw', 0, t('12:00'), minuteSnap), {from: t('12:00'), to: t('12:01')});
 
+// Magnet-Kanten: Genesys-Wechsel (auch ohne Ende) und die übrigen, nicht entfernten Blöcke.
+const anchorView = {...normalDay, genesys: [
+    {start: '2026-09-24T06:10:00.000Z', end: '2026-09-24T10:03:00.000Z', status: 'ONLINE'},
+    {start: '2026-09-24T10:03:00.000Z', end: null, status: 'PAUSE'},
+]};
+const anchorBlocks = [
+    {key: 'c1', from: t('09:00'), to: t('09:30')},
+    {key: 'c2', from: t('13:00'), to: null},
+    {key: 'c3', from: t('14:00'), to: t('15:00'), removed: true},
+];
+assert.deepStrictEqual(model.snapAnchors(anchorView, anchorBlocks, 'c1'), [t('08:10'), t('12:03'), t('13:00')]);
+assert.deepStrictEqual(model.snapAnchors(anchorView, anchorBlocks, null), [t('08:10'), t('09:00'), t('09:30'), t('12:03'), t('13:00')]);
+// 5-Minuten-Raster, Magnet-Umkreis 6 px im Maßstab der Zeitleiste; fein: Minute ohne Magnet.
+const coarse = model.snapOptions(anchorView, anchorBlocks, {exceptKey: 'c1', msPerPx: 20 * 1000});
+assert.deepStrictEqual([coarse.stepMs, coarse.magnetMs, coarse.min, coarse.max], [5 * M, 2 * M, dayRange.start, dayRange.end]);
+const fine = model.snapOptions(anchorView, anchorBlocks, {exceptKey: 'c1', fine: true, msPerPx: 20 * 1000});
+assert.deepStrictEqual([fine.stepMs, fine.anchors, fine.magnetMs], [M, [], 0]);
+assert.strictEqual(model.snapTime(t('12:07'), coarse), t('12:05'));
+assert.strictEqual(model.snapTime(t('12:04') + 30 * 1000, coarse), t('12:03'), 'Genesys-Wechsel 12:03 zieht an');
+assert.strictEqual(model.snapTime(t('12:04') + 30 * 1000, fine), t('12:05'), 'fein: kein Magnet');
+assert.strictEqual(model.snapTime(t('12:06') + 10 * 1000, fine), t('12:06'));
+assert.deepStrictEqual(model.dragBlock(range, 'end', 0, t('12:58') + 40 * 1000, coarse), {from: t('09:00'), to: t('13:00')},
+    'Ende rastet am Beginn des anderen Blocks ein');
+assert.deepStrictEqual(model.dragBlock(range, 'move', 7 * M, 0, coarse), {from: t('09:05'), to: t('10:05')},
+    'ohne Magnet rastet der Beginn im 5-Minuten-Raster');
+
+// Grenze „jetzt“ (12:32:40): nichts rastet darüber hinaus, auch kein Magnet und kein Raster.
+const nowSnap = model.snapOptions(anchorView, [{key: 'c9', from: t('12:40'), to: null}], {msPerPx: 20 * 1000, nowMs: t('12:32') + 40 * 1000});
+assert.strictEqual(nowSnap.max, t('12:32'));
+assert.strictEqual(model.snapOptions(anchorView, [], {}).max, dayRange.end, 'ohne „jetzt“ (gestern) gilt das Tagesende');
+assert.strictEqual(model.snapTime(t('12:31'), nowSnap), t('12:30'));
+assert.strictEqual(model.snapTime(t('12:33') + 30 * 1000, nowSnap), t('12:32'), 'Raster (12:35) nicht über jetzt');
+assert.strictEqual(model.snapTime(t('12:39'), nowSnap), t('12:32'), 'Magnet (12:40) nicht über jetzt');
+assert.strictEqual(model.snapTime(t('15:00'), nowSnap), t('12:32'));
+assert.deepStrictEqual(model.dragBlock(range, 'end', 0, t('14:00'), nowSnap), {from: t('09:00'), to: t('12:32')});
+assert.deepStrictEqual(model.dragBlock(range, 'move', 4 * H, 0, nowSnap), {from: t('11:32'), to: t('12:32')},
+    'verschoben endet der Block bei jetzt, die Länge bleibt');
+assert.deepStrictEqual(model.dragBlock(open, 'move', 5 * H, 0, nowSnap), {from: t('12:32'), to: null});
+assert.deepStrictEqual(model.dragBlock({from: t('11:00'), to: null}, 'draw', 0, t('14:00'), nowSnap), {from: t('11:00'), to: t('12:32')});
+assert.deepStrictEqual(model.dragBlock({from: t('12:32'), to: null}, 'draw', 0, t('14:00'), nowSnap), {from: t('12:31'), to: t('12:32')},
+    'an der Grenze gezeichnet: Mindestlänge nach links');
+
 // Griffe an den Blöcken, nicht an entfernten.
 const handleRow = timeline.correctionRowHtml(edited, dayRange);
 assert.strictEqual((handleRow.match(/data-handle="start"/g) || []).length, 2);
 assert.strictEqual((handleRow.match(/data-handle="end"/g) || []).length, 2);
+assert.strictEqual((handleRow.match(/aria-keyshortcuts=/g) || []).length, 2, 'Tastatur nur an nicht entfernten Blöcken');
+assert.ok(!/aria-keyshortcuts=/.test(timeline.correctionRowHtml(edited, dayRange, {readOnly: true})));
+
+// Tastatur: bis zur nächsten Rasterlinie, Länge bleibt, in [min, jetzt].
+const keySnap = model.snapOptions(anchorView, [], {nowMs: t('12:32') + 40 * 1000});
+const keyFine = model.snapOptions(anchorView, [], {fine: true, nowMs: t('12:32') + 40 * 1000});
+const odd = {from: t('09:07'), to: t('10:07')};
+assert.deepStrictEqual(model.nudgeBlock(odd, 'move', 1, keySnap), {from: t('09:10'), to: t('10:10')}, 'erst auf die Rasterlinie');
+assert.deepStrictEqual(model.nudgeBlock(odd, 'move', -1, keySnap), {from: t('09:05'), to: t('10:05')});
+assert.deepStrictEqual(model.nudgeBlock(range, 'move', 1, keySnap), {from: t('09:05'), to: t('10:05')});
+assert.deepStrictEqual(model.nudgeBlock(range, 'move', -1, keyFine), {from: t('08:59'), to: t('09:59')});
+assert.deepStrictEqual(model.nudgeBlock(open, 'move', 1, keySnap), {from: t('09:05'), to: null});
+assert.deepStrictEqual(model.nudgeBlock({from: t('11:30'), to: t('12:30')}, 'move', 1, keySnap), {from: t('11:32'), to: t('12:32')},
+    'nie über jetzt');
+assert.deepStrictEqual(model.nudgeBlock({from: dayRange.start, to: dayRange.start + H}, 'move', -1, keySnap),
+    {from: dayRange.start, to: dayRange.start + H}, 'nie vor Tagesbeginn');
+assert.deepStrictEqual(model.nudgeBlock(range, 'end', 1, keySnap), {from: t('09:00'), to: t('10:05')});
+assert.deepStrictEqual(model.nudgeBlock(odd, 'end', -1, keyFine), {from: t('09:07'), to: t('10:06')});
+assert.deepStrictEqual(model.nudgeBlock({from: t('09:00'), to: t('09:03')}, 'end', -1, keySnap), {from: t('09:00'), to: t('09:01')},
+    'mindestens eine Minute');
+assert.deepStrictEqual(model.nudgeBlock({from: t('12:00'), to: t('12:30')}, 'end', 1, keySnap), {from: t('12:00'), to: t('12:32')});
+assert.deepStrictEqual(model.nudgeBlock(open, 'end', 1, keySnap), {from: t('09:00'), to: null}, 'Wechsel ohne Ende bleibt offen');
 
 // --- Kacheln -------------------------------------------------------------------------
 

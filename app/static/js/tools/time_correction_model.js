@@ -619,6 +619,36 @@
     // dem Raster; das Ergebnis liegt immer in [min, max] (max ist am laufenden Tag „jetzt“).
 
     const MIN_LENGTH_MS = MINUTE_MS;
+    const SNAP_STEP_MS = 5 * MINUTE_MS;
+    const MAGNET_PX = 6;
+
+    // Magnet-Kanten: Genesys-Wechsel und Kanten der übrigen, nicht entfernten Blöcke.
+    function snapAnchors(view, blocks, exceptKey) {
+        const anchors = new Set();
+        (view.genesys || []).forEach(segment => {
+            [segment.start, segment.end].forEach(iso => {
+                const ms = iso ? toMs(iso) : NaN;
+                if (Number.isFinite(ms)) anchors.add(ms);
+            });
+        });
+        (blocks || []).forEach(block => {
+            if (block.key === exceptKey || block.removed) return;
+            anchors.add(block.from);
+            if (block.to != null) anchors.add(block.to);
+        });
+        return [...anchors].sort((a, b) => a - b);
+    }
+
+    // Einrasten beim Ziehen: 5-Minuten-Raster mit Magnet-Kanten im Umkreis von MAGNET_PX;
+    // fein (Shift) auf die Minute und ohne Magnet. msPerPx: Maßstab der Zeitleiste.
+    // Nach oben begrenzt „jetzt“ (am laufenden Tag), sonst das Tagesende.
+    function snapOptions(view, blocks, {exceptKey = null, fine = false, msPerPx = 0, nowMs = Infinity} = {}) {
+        const day = dayRange(view);
+        const max = latestMs(view, nowMs);
+        const snap = {stepMs: fine ? MINUTE_MS : SNAP_STEP_MS, anchors: [], magnetMs: 0, min: day.start, max};
+        if (fine) return snap;
+        return {...snap, anchors: snapAnchors(view, blocks, exceptKey), magnetMs: MAGNET_PX * msPerPx};
+    }
 
     function magnetFor(ms, snap) {
         let best = null;
@@ -656,7 +686,10 @@
         if (mode === "draw") {
             const at = snapTime(pointerMs, snap);
             const from = Math.min(origin.from, at);
-            return {from, to: Math.max(origin.from, at, from + MIN_LENGTH_MS)};
+            const to = Math.max(origin.from, at, from + MIN_LENGTH_MS);
+            // Gezeichnet an der Grenze „jetzt“: die Mindestlänge geht nach links.
+            if (snap.max != null && to > snap.max) return {from: snap.max - MIN_LENGTH_MS, to: snap.max};
+            return {from, to};
         }
         // Verschieben: die Kante, die einer Magnet-Kante am nächsten ist, rastet dort ein;
         // sonst rastet der Beginn im Raster. Die Länge bleibt, der Block bleibt in [min, max].
@@ -669,10 +702,28 @@
             if (magnet != null && (shift == null || Math.abs(magnet - edge) < Math.abs(shift))) shift = magnet - edge;
         });
         if (shift == null) shift = snapTime(from, {stepMs: snap.stepMs}) - from;
-        let start = from + shift;
+        return movedTo(origin, from + shift, snap);
+    }
+
+    // Block mit neuem Beginn und gleicher Länge, ganz in [min, max].
+    function movedTo(origin, start, snap) {
+        const length = origin.to != null ? origin.to - origin.from : 0;
         if (snap.max != null && start + length > snap.max) start = snap.max - length;
         if (snap.min != null && start < snap.min) start = snap.min;
         return {from: start, to: origin.to != null ? start + length : null};
+    }
+
+    // Tastatur: "move" verschiebt den Block, "end" verlängert oder verkürzt einen Bereich,
+    // jeweils bis zur nächsten Rasterlinie (snap.stepMs) in Richtung direction (1 oder -1).
+    // Ein Wechsel ab Zeitpunkt hat kein Ende, das sich ändern ließe.
+    function nudgeBlock(block, mode, direction, snap = {}) {
+        const step = snap.stepMs || MINUTE_MS;
+        const next = ms => (direction > 0 ? Math.floor(ms / step) + 1 : Math.ceil(ms / step) - 1) * step;
+        if (mode === "end") {
+            if (block.to == null) return {from: block.from, to: null};
+            return {from: block.from, to: Math.max(clamp(next(block.to), snap), block.from + MIN_LENGTH_MS)};
+        }
+        return movedTo(block, next(block.from), snap);
     }
 
     // --- Fehler der SD-API ------------------------------------------------------------
@@ -784,6 +835,7 @@
         isPickableDay,
         isSearchable,
         layoutLanes,
+        nudgeBlock,
         nowPercent,
         orderDays,
         percentAt,
@@ -793,6 +845,8 @@
         selectionQuery,
         shiftDay,
         sortChips,
+        snapAnchors,
+        snapOptions,
         snapTime,
         tileBlocks,
         timeAtPercent,

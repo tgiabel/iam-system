@@ -882,9 +882,13 @@
     let drag = null;
     let frame = 0;
 
-    function snapOptions(view) {
-        const day = Model.dayRange(view);
-        return {stepMs: 60 * 1000, anchors: [], magnetMs: 0, min: day.start, max: day.end};
+    // Shift rastet fein ein (1 Minute, ohne Magnet). Am laufenden Tag endet alles bei „jetzt“.
+    function snapOptions(fine) {
+        const entry = state.entries[drag.userId];
+        return Model.snapOptions(entry.view, state.editing.blocks, {
+            exceptKey: drag.key, fine, nowMs: Date.now(),
+            msPerPx: drag.rect.width > 0 ? (drag.range.end - drag.range.start) / drag.rect.width : 0,
+        });
     }
 
     function pointerMs(clientX) {
@@ -932,7 +936,7 @@
             moved: false,
         };
         drag.originMs = pointerMs(event.clientX);
-        if (!block) drag.origin = {from: Model.snapTime(drag.originMs, snapOptions(entry.view)), to: null};
+        if (!block) drag.origin = {from: Model.snapTime(drag.originMs, snapOptions(event.shiftKey)), to: null};
         timeline.setPointerCapture(event.pointerId);
         event.preventDefault();
     }
@@ -955,10 +959,21 @@
             editing.previewToken++;
             editing.previewState = "pending";
         }
-        const at = pointerMs(event.clientX);
+        applyDrag(event.clientX, event.shiftKey);
+    }
+
+    function applyDrag(clientX, fine) {
+        const editing = state.editing;
+        const at = pointerMs(clientX);
+        drag.lastX = clientX;
         editing.blocks = Model.updateBlock(editing.blocks, drag.key,
-            Model.dragBlock(drag.origin, drag.mode, at - drag.originMs, at, snapOptions(entry.view)));
+            Model.dragBlock(drag.origin, drag.mode, at - drag.originMs, at, snapOptions(fine)));
         scheduleRender();
+    }
+
+    // Shift drücken oder loslassen wirkt sofort, ohne dass die Maus sich bewegt.
+    function onShiftKey(event) {
+        if (event.key === "Shift" && drag && drag.moved && !drag.fixed && state.editing) applyDrag(drag.lastX, event.shiftKey);
     }
 
     function finishDrag(cancel) {
@@ -1016,19 +1031,52 @@
     }
 
     function onUsersKeydown(event) {
+        const timeline = event.target.closest("[data-timeline]");
+        const block = event.target.closest("[data-key]");
+        if (timeline && block && editingFor(timeline.dataset.timeline) && !state.blocked
+            && onBlockKeydown(event, timeline.dataset.timeline, block.dataset.key)) {
+            event.preventDefault();
+            return;
+        }
         if (event.key !== "Enter" && event.key !== " ") return;
         const tiles = event.target.closest("[data-tiles]");
         if (tiles && event.target.dataset.action === "toggle") {
             event.preventDefault();
             onTileClick(event, tiles.dataset.tiles);
-            return;
         }
-        const timeline = event.target.closest("[data-timeline]");
-        const block = event.target.closest("[data-key]");
-        if (timeline && block && editingFor(timeline.dataset.timeline)) {
-            event.preventDefault();
-            selectBlock(timeline.dataset.timeline, block.dataset.key);
+    }
+
+    // Tastatur am Block: Enter/Leertaste wählt, ←/→ verschiebt, ↑/↓ verlängert oder verkürzt
+    // einen Bereich, jeweils auf 5 Minuten (Shift: 1 Minute) und nie über „jetzt“; Entf entfernt.
+    const NUDGE_KEYS = {ArrowLeft: ["move", -1], ArrowRight: ["move", 1], ArrowUp: ["end", 1], ArrowDown: ["end", -1]};
+
+    function onBlockKeydown(event, userId, key) {
+        const editing = editingFor(userId);
+        const entry = state.entries[userId];
+        const block = editing.blocks.find(item => item.key === key);
+        if (!block || drag || event.altKey || event.ctrlKey || event.metaKey) return false;
+        if (event.key === "Enter" || event.key === " ") {
+            selectBlock(userId, key);
+            return true;
         }
+        if (block.removed) return false;
+        if (event.key === "Delete" || event.key === "Backspace") {
+            editing.blocks = Model.removeBlock(editing.blocks, key);
+            if (block.id == null) entry.selectedKey = null;
+            entry.editKey = null;
+            changed();
+            return true;
+        }
+        const nudge = NUDGE_KEYS[event.key];
+        if (!nudge) return false;
+        const snap = Model.snapOptions(entry.view, editing.blocks, {fine: event.shiftKey, nowMs: Date.now()});
+        const next = Model.nudgeBlock(block, nudge[0], nudge[1], snap);
+        if (next.from !== block.from || next.to !== block.to) {
+            editing.blocks = Model.updateBlock(editing.blocks, key, next);
+            entry.selectedKey = key;
+            changed();
+        }
+        return true;
     }
 
     function onUsersChange(event) {
@@ -1167,6 +1215,8 @@
         dom.users.addEventListener("pointerup", onPointerUp);
         dom.users.addEventListener("pointercancel", onPointerUp);
         dom.modalReload.addEventListener("click", reloadAfterBlock);
+        document.addEventListener("keydown", onShiftKey);
+        document.addEventListener("keyup", onShiftKey);
         document.addEventListener("keydown", event => {
             if (event.key !== "Escape") return;
             if (drag) finishDrag(true);

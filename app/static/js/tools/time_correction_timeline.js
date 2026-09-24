@@ -92,6 +92,8 @@
 
     const STATE_LABELS = {new: "neu", changed: "geändert", removed: "entfernt", unchanged: ""};
     // Griffe an den Kanten: Ziehen ändert Beginn bzw. Ende, am Körper verschiebt es den Block.
+    // Tastatur am Block (time_correction.js): verschieben, Ende ändern, entfernen.
+    const BLOCK_KEYS = "ArrowLeft ArrowRight ArrowUp ArrowDown Delete";
     const HANDLES = '<span class="tc-handle tc-handle-start" data-handle="start" aria-hidden="true"></span>'
         + '<span class="tc-handle tc-handle-end" data-handle="end" aria-hidden="true"></span>';
 
@@ -121,6 +123,7 @@
                 .filter(Boolean).join(" · ");
             return `<div class="${classes.map(escapeHtml).join(" ")}" data-key="${escapeHtml(block.key)}"`
                 + (options.readOnly ? "" : ` role="button" tabindex="0" aria-pressed="${block.key === options.selectedKey}"`)
+                + (options.readOnly || state === "removed" ? "" : ` aria-keyshortcuts="${BLOCK_KEYS}"`)
                 + ` style="${box(placed)};top:${lanes[block.key] * LANE_PX + 4}px" title="${escapeHtml(title)}">`
                 + `<span class="tc-seg-label">${escapeHtml(label)}</span>`
                 + (state === "removed" || options.readOnly ? "" : HANDLES) + "</div>";
