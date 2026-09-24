@@ -184,4 +184,300 @@ assert.strictEqual((revokedHtml.match(/<tr>/g) || []).length, 3);
 assert.ok(revokedHtml.includes('Pause &lt;nachgetragen&gt;'));
 assert.strictEqual(timeline.revokedListHtml(view), '');
 
+// --- Bearbeitungsblöcke ----------------------------------------------------------------
+
+const correction = (id, from, to, appliedTo, extra = {}) => ({
+    id, create_index: null, effective_from: from, effective_to: to, applied_to: appliedTo,
+    status_group: 'ONLINE', reason: 'Grund ' + id, created_at: '2026-09-24T08:00:00.000Z',
+    created_by: {user_id: 7, name: 'Tina Test'}, revoked_at: null, revoked_by: null, ...extra,
+});
+const blockView = {...normalDay, corrections: [
+    correction(9, '2026-09-24T09:00:00.000Z', null, '2026-09-24T10:00:00.000Z'),
+    correction(4, '2026-09-24T06:00:00.000Z', '2026-09-24T07:00:00.000Z', '2026-09-24T07:00:00.000Z'),
+    correction(6, '2026-09-24T06:30:00.000Z', null, null, {revoked_at: '2026-09-24T08:30:00.000Z'}),
+    {...correction(null, '2026-09-24T11:00:00.000Z', null, null), create_index: 0},
+]};
+const blocks = model.activeBlocks(blockView);
+assert.deepStrictEqual(blocks.map(block => [block.key, block.id, block.to, block.appliedTo]), [
+    ['c4', 4, model.toMs('2026-09-24T07:00:00.000Z'), model.toMs('2026-09-24T07:00:00.000Z')],
+    ['c9', 9, null, model.toMs('2026-09-24T10:00:00.000Z')],
+], 'nur aktive, gespeicherte Korrekturen, nach id');
+assert.strictEqual(blocks[1].createdBy, 'Tina Test');
+// Angezeigtes Ende: festes Ende, sonst applied_to aus der API, sonst nur der Beginn.
+assert.strictEqual(model.blockEnd(blocks[1]), model.toMs('2026-09-24T10:00:00.000Z'));
+assert.strictEqual(model.blockEnd({from: 5, to: null, appliedTo: null}), 5);
+
+// --- Unterzeilen-Layout ----------------------------------------------------------------
+
+const b = (key, from, to) => ({key, from: from * H, to: to == null ? null : to * H, appliedTo: null});
+assert.deepStrictEqual(model.layoutLanes([]), {lanes: {}, count: 0});
+assert.deepStrictEqual(model.layoutLanes([b('a', 8, 9), b('b', 9, 10), b('c', 11, 12)]),
+    {lanes: {a: 0, b: 0, c: 0}, count: 1}, 'ohne Überlappung eine Zeile; Berühren ist keine Überlappung');
+// Der spätere liegt oben: a < b < c; a überlappt nur b, liegt aber trotzdem unter b.
+assert.deepStrictEqual(model.layoutLanes([b('a', 8, 10), b('b', 9, 11), b('c', 10.5, 12)]),
+    {lanes: {c: 0, b: 1, a: 2}, count: 3});
+assert.deepStrictEqual(model.layoutLanes([b('a', 8, 12), b('b', 9, 10), b('c', 10.5, 11)]),
+    {lanes: {c: 0, b: 0, a: 1}, count: 2}, 'zwei spätere nebeneinander über einem früheren');
+// Offene Wechsel ohne bekanntes Ende am selben Zeitpunkt weichen ebenfalls aus.
+assert.deepStrictEqual(model.layoutLanes([b('a', 8, null), b('b', 8, null)]).lanes, {b: 0, a: 1});
+
+// --- Zeilen im Bearbeitungsmodus -------------------------------------------------------
+
+const genesysHtml = timeline.genesysRowHtml({...view, genesys: [
+    {start: '2026-09-24T06:10:00.000Z', end: '2026-09-24T08:00:00.000Z', status: 'ONLINE', label: 'Verfügbar'},
+    {start: '2026-09-24T08:00:00.000Z', end: '2026-09-24T09:00:00.000Z', status: 'ONLINE', label: 'Besprechung'},
+]}, dayRange);
+assert.strictEqual((genesysHtml.match(/tc-seg-genesys/g) || []).length, 2, 'gleicher Status bleibt getrennt');
+assert.ok(genesysHtml.includes('title="Besprechung → ONLINE · 10:00–11:00"'));
+
+const correctionHtml = timeline.correctionRowHtml([...blocks, {key: 'n1', from: dayRange.start + 12 * H, to: null, appliedTo: null, status: 'PAUSE', id: null}], dayRange,
+    {selectedKey: 'c9'});
+assert.strictEqual((correctionHtml.match(/class="tc-block /g) || []).length, 3);
+assert.ok(/class="tc-block tc-status-ONLINE tc-block-open is-selected" data-key="c9"/.test(correctionHtml));
+assert.ok(correctionHtml.includes('data-key="n1"') && correctionHtml.includes('PAUSE neu'));
+assert.ok(!/tc-block-idle/.test(correctionHtml), 'neue Blöcke ohne Vorschau gelten nicht als wirkungslos');
+assert.ok(timeline.correctionRowHtml([{...blocks[0], appliedTo: null}], dayRange).includes('tc-block-idle'));
+assert.ok(correctionHtml.includes('title="#9 · ONLINE 11:00 (offen) · Grund 9 · Tina Test · 24.09. 10:00"'));
+assert.ok(!/ id=/.test(correctionHtml));
+
+const editor = timeline.editorHtml(view, blocks, dayRange, {nowMs: dayRange.start + 12 * H});
+assert.deepStrictEqual((editor.match(/<div class="tc-row-label">([^<]*)</g) || []).map(m => m.split('>')[1].replace('<', '')),
+    ['Genesys', 'Korrekturen', 'Ergebnis']);
+assert.ok(editor.indexOf('tc-layers') < editor.indexOf('tc-merge'));
+
+// --- Formularzeiten ----------------------------------------------------------------
+
+assert.strictEqual(model.clockToMs(normalDay, '08:07'), model.toMs('2026-09-24T06:07:00.000Z'));
+assert.strictEqual(model.clockToMs(normalDay, '00:00'), dayRange.start);
+assert.strictEqual(model.clockToMs(normalDay, '00:00', true), dayRange.end, 'als Ende ist 00:00 Mitternacht');
+assert.strictEqual(model.clockToMs(normalDay, '23:59', true), dayRange.end - 60 * 1000);
+assert.strictEqual(model.clockToMs(normalDay, '8:00'), null);
+assert.strictEqual(model.clockToMs(normalDay, '24:00'), null);
+assert.strictEqual(model.clockToMs(normalDay, ''), null);
+// Sommerzeit-Beginn: 02:xx gibt es nicht, 03:00 folgt direkt auf 01:59.
+assert.strictEqual(model.clockToMs(springDay, '02:30'), null);
+assert.strictEqual(model.clockToMs(springDay, '03:00'), model.toMs('2026-03-29T01:00:00.000Z'));
+assert.strictEqual(model.clockToMs(springDay, '12:00'), model.toMs('2026-03-29T10:00:00.000Z'));
+// Sommerzeit-Ende: eingetippte 02:30 ist die erste, danach gilt Winterzeit.
+assert.strictEqual(model.clockToMs(autumnDay, '02:30'), model.toMs('2026-10-25T00:30:00.000Z'));
+assert.strictEqual(model.clockToMs(autumnDay, '03:30'), model.toMs('2026-10-25T02:30:00.000Z'));
+assert.strictEqual(model.clockToMs(autumnDay, '23:00'), model.toMs('2026-10-25T22:00:00.000Z'));
+for (const clock of ['00:00', '06:15', '13:45', '23:59']) {
+    assert.strictEqual(model.msToClock(model.clockToMs(normalDay, clock)), clock);
+}
+// „jetzt“ auf die Minute abgerundet; gestern ist es das Tagesende.
+assert.strictEqual(model.latestMs(normalDay, dayRange.start + 10 * H + 59 * 1000), dayRange.start + 10 * H);
+assert.strictEqual(model.latestMs(normalDay, dayRange.end + 5 * H), dayRange.end);
+
+// --- Blöcke ändern -------------------------------------------------------------------
+
+const saved = model.activeBlocks({...normalDay, corrections: [
+    correction(4, '2026-09-24T06:00:00.000Z', '2026-09-24T07:00:00.000Z', '2026-09-24T07:00:00.000Z'),
+    correction(9, '2026-09-24T09:00:00.000Z', null, '2026-09-24T10:00:00.000Z'),
+]});
+const at = clock => model.clockToMs(normalDay, clock);
+let edited = model.createBlock(saved, {status: 'PAUSE', from: at('12:00'), to: at('12:30')}, 'n1');
+assert.strictEqual(model.blockState(edited[2]), 'new');
+assert.ok(model.needsReason(edited[2]));
+edited = model.updateBlock(edited, 'n1', {reason: 'Pause nachgetragen'});
+assert.ok(!model.needsReason(edited[2]));
+
+// Gespeicherten Block ändern: geändert, wandert nach oben, wirksames Ende unbekannt bis zur Vorschau.
+edited = model.updateBlock(edited, 'c4', {status: 'BIPAU'});
+const c4 = edited.find(block => block.key === 'c4');
+assert.strictEqual(model.blockState(c4), 'changed');
+assert.strictEqual(c4.appliedTo, null);
+assert.ok(!model.needsReason(c4), 'der alte Grund ist vorbelegt');
+assert.deepStrictEqual(model.orderedBlocks(edited).map(block => block.key), ['c9', 'n1', 'c4']);
+// Zurück auf den alten Stand: wieder unverändert, wieder an seinem Platz.
+const reverted = model.updateBlock(edited, 'c4', {status: 'ONLINE'});
+assert.strictEqual(model.blockState(reverted.find(block => block.key === 'c4')), 'unchanged');
+assert.deepStrictEqual(model.orderedBlocks(reverted).map(block => block.key), ['c4', 'c9', 'n1']);
+assert.strictEqual(reverted.find(block => block.key === 'c4').appliedTo, model.toMs('2026-09-24T07:00:00.000Z'));
+
+// Entfernen: neue verschwinden, gespeicherte bleiben als entfernt (mit altem Stand) stehen.
+edited = model.removeBlock(edited, 'c9');
+assert.strictEqual(model.blockState(edited.find(block => block.key === 'c9')), 'removed');
+assert.deepStrictEqual(model.changeSummary(edited), {created: 1, changed: 1, removed: 1});
+const removedChanged = model.removeBlock(edited, 'c4').find(block => block.key === 'c4');
+assert.strictEqual(model.blockState(removedChanged), 'removed');
+assert.strictEqual(removedChanged.status, 'ONLINE', 'Entfernen verwirft die Änderung');
+assert.strictEqual(model.removeBlock(edited, 'n1').length, 2);
+assert.strictEqual(model.blockState(model.restoreBlock(edited, 'c9').find(block => block.key === 'c9')), 'unchanged');
+
+// --- Prüfung vor dem Senden ------------------------------------------------------------
+
+const now = dayRange.start + 10 * H;  // 10:00 Berlin
+const newBlock = (values) => model.createBlock([], {status: 'ONLINE', reason: 'x', ...values}, 'n')[0];
+assert.strictEqual(model.blockError(newBlock({from: at('08:00'), to: null}), normalDay, now), '');
+assert.strictEqual(model.blockError(newBlock({from: at('08:00'), to: at('08:00')}), normalDay, now), 'Ende muss nach dem Beginn liegen.');
+assert.strictEqual(model.blockError(newBlock({from: at('09:00'), to: at('10:01')}), normalDay, now), 'Liegt in der Zukunft.');
+assert.strictEqual(model.blockError(newBlock({from: at('10:00'), to: null}), normalDay, now), '', 'genau „jetzt“ ist erlaubt');
+assert.strictEqual(model.blockError(newBlock({from: at('10:01'), to: null}), normalDay, now), 'Liegt in der Zukunft.');
+assert.strictEqual(model.blockError(newBlock({from: at('08:00'), to: dayRange.end + 60 * 1000}), normalDay, dayRange.end + H),
+    'Ende liegt nach Mitternacht.');
+assert.strictEqual(model.blockError(newBlock({from: dayRange.start - 60 * 1000, to: null}), normalDay, now),
+    'Beginn fehlt oder liegt nicht am Tag.');
+assert.strictEqual(model.blockError({...newBlock({from: at('08:00'), to: null}), reason: 'x'.repeat(256)}, normalDay, now),
+    'Grund höchstens 255 Zeichen.');
+// Gespeicherte, unveränderte Blöcke werden nicht erneut geprüft.
+assert.strictEqual(model.blockError(saved[1], normalDay, dayRange.start), '');
+
+// --- buildChangeRequest ----------------------------------------------------------------
+
+assert.deepStrictEqual(model.buildChangeRequest(saved), {revoke: [], create: [], createKeys: []});
+let request = model.buildChangeRequest(edited);
+assert.deepStrictEqual(request, {
+    revoke: [4, 9],
+    create: [
+        {effective_from: '2026-09-24T10:00:00.000Z', effective_to: '2026-09-24T10:30:00.000Z',
+         status_group: 'PAUSE', reason: 'Pause nachgetragen'},
+        {effective_from: '2026-09-24T06:00:00.000Z', effective_to: '2026-09-24T07:00:00.000Z',
+         status_group: 'BIPAU', reason: 'Grund 4'},
+    ],
+    createKeys: ['n1', 'c4'],
+});
+// Wechsel ab Zeitpunkt: ohne effective_to; Grund wird getrimmt; kein created_by.
+request = model.buildChangeRequest(model.createBlock([], {status: 'ONLINE', from: at('08:00'), to: null, reason: '  Dienstbeginn '}, 'n'));
+assert.deepStrictEqual(request.create, [{effective_from: '2026-09-24T06:00:00.000Z', status_group: 'ONLINE', reason: 'Dienstbeginn'}]);
+assert.ok(!('created_by' in request.create[0]));
+// Nur entfernt: nur revoke.
+assert.deepStrictEqual(model.buildChangeRequest(model.removeBlock(saved, 'c4')), {revoke: [4], create: [], createKeys: []});
+
+// Korrekturzeile mit Zuständen.
+const stateHtml = timeline.correctionRowHtml(edited, dayRange, {selectedKey: 'n1'});
+assert.ok(/tc-block-changed/.test(stateHtml) && /tc-block-removed/.test(stateHtml) && /tc-block-new/.test(stateHtml));
+assert.ok(/data-key="n1" role="button" tabindex="0" aria-pressed="true"/.test(stateHtml));
+assert.ok(timeline.correctionRowHtml(model.createBlock([], {status: 'ONLINE', from: at('08:00'), to: null}, 'n'), dayRange)
+    .includes('tc-block-missing'));
+
+// --- Vorschau und Speichern --------------------------------------------------------
+
+const changeRequest = model.buildChangeRequest(edited);
+const withoutReason = model.buildChangeRequest(model.createBlock([], {status: 'ONLINE', from: at('08:00'), to: null}, 'n'));
+assert.deepStrictEqual(model.previewBody(withoutReason), {revoke: [], create: [
+    {effective_from: '2026-09-24T06:00:00.000Z', status_group: 'ONLINE'}]}, 'Vorschau ohne Grund und ohne revision');
+assert.deepStrictEqual(model.saveBody(changeRequest, 'rev-1'),
+    {revision: 'rev-1', revoke: changeRequest.revoke, create: changeRequest.create});
+assert.ok(!('createKeys' in model.saveBody(changeRequest, 'rev-1')));
+assert.strictEqual(model.previewKey(changeRequest),
+    model.previewKey(model.buildChangeRequest(model.updateBlock(edited, 'n1', {reason: 'anders'}))), 'Grund ändert die Vorschau nicht');
+assert.notStrictEqual(model.previewKey(changeRequest),
+    model.previewKey(model.buildChangeRequest(model.updateBlock(edited, 'n1', {status: 'HOME'}))));
+assert.strictEqual(model.saveMessage(changeRequest), '2 angelegt · 2 zurückgenommen');
+assert.strictEqual(model.saveMessage({revoke: [4], create: []}), '1 zurückgenommen');
+
+assert.ok(model.canSave(edited, normalDay, dayRange.end + H));
+assert.ok(!model.canSave(saved, normalDay, dayRange.end + H), 'ohne Änderung nichts zu speichern');
+assert.ok(!model.canSave(model.updateBlock(edited, 'n1', {reason: ' '}), normalDay, dayRange.end + H), 'Grund fehlt');
+assert.ok(!model.canSave(edited, normalDay, dayRange.start + 11 * H), 'n1 (12:00) läge in der Zukunft');
+
+// Wirksames Ende aus der Vorschau: neue und geänderte über create_index, übrige über id.
+const previewDay = {...normalDay, corrections: [
+    {...correction(4, '2026-09-24T06:00:00.000Z', '2026-09-24T07:00:00.000Z', null), revoked_at: '2026-09-24T09:00:00.000Z'},
+    {...correction(9, '2026-09-24T09:00:00.000Z', null, null), revoked_at: '2026-09-24T09:00:00.000Z'},
+    {...correction(null, '2026-09-24T10:00:00.000Z', '2026-09-24T10:30:00.000Z', '2026-09-24T10:30:00.000Z'), create_index: 0},
+    {...correction(null, '2026-09-24T06:00:00.000Z', '2026-09-24T07:00:00.000Z', null), create_index: 1},
+]};
+const previewed = model.withPreview(edited, {view: previewDay, createKeys: changeRequest.createKeys});
+const find = (list, key) => list.find(block => block.key === key);
+assert.strictEqual(find(previewed, 'n1').appliedTo, model.toMs('2026-09-24T10:30:00.000Z'));
+assert.strictEqual(find(previewed, 'c4').appliedTo, null);
+assert.strictEqual(find(previewed, 'c4').previewed, true);
+assert.strictEqual(find(previewed, 'c9'), find(edited, 'c9'), 'entfernte Blöcke bleiben unverändert');
+assert.strictEqual(model.withPreview(edited, null), edited);
+const previewRow = timeline.correctionRowHtml(previewed, dayRange);
+assert.ok(/data-key="c4"/.test(previewRow) && /tc-block-changed[^"]*tc-block-idle/.test(previewRow), 'laut Vorschau ohne Wirkung');
+
+const editorPreview = timeline.editorHtml(view, previewed, dayRange, {preview: {...view, merged: [
+    {start: '2026-09-24T06:00:00.000Z', end: '2026-09-24T10:03:00.000Z', status: 'BIPAU', source: 'correction', correction_id: null, create_index: 1},
+]}, previewState: 'preview'});
+assert.ok(editorPreview.includes('<span class="tc-row-note">Vorschau</span>'));
+assert.ok(editorPreview.includes('tc-seg tc-status-BIPAU'), 'Ergebnis aus der Vorschau');
+assert.ok(!editorPreview.includes('tc-pending'));
+const editorPending = timeline.editorHtml(view, edited, dayRange, {previewState: 'pending'});
+assert.ok(editorPending.includes('tc-pending') && editorPending.includes('Vorschau …'));
+assert.ok(timeline.editorHtml(view, edited, dayRange, {previewState: 'stale'}).includes('tc-pending'));
+assert.ok(!timeline.editorHtml(view, saved, dayRange, {}).includes('tc-row-note'));
+
+// --- 409 und 422 am Block --------------------------------------------------------
+
+// changeRequest: revoke [4, 9], create [n1, c4].
+const inFuture = {detail: {code: 'correction_in_future', message: 'Beginn oder Ende liegt nach jetzt.', loc: ['body', 'create', 1]}};
+assert.deepStrictEqual(model.errorTargets(inFuture, changeRequest, edited),
+    {code: 'correction_in_future', message: 'Beginn oder Ende liegt nach jetzt.', byBlock: {c4: 'Beginn oder Ende liegt nach jetzt.'}});
+const unknownRevoke = {detail: {code: 'revoke_unknown', message: 'Korrektur ist nicht aktiv.', loc: ['body', 'revoke', 1]}};
+assert.deepStrictEqual(model.errorTargets(unknownRevoke, changeRequest, edited).byBlock, {c9: 'Korrektur ist nicht aktiv.'});
+const schemaError = {detail: [
+    {loc: ['body', 'create', 0, 'effective_from'], msg: 'Input should have timezone info', type: 'timezone_aware'},
+    {loc: ['body', 'create', 0, 'reason'], msg: 'String should have at most 255 characters', type: 'string_too_long'},
+]};
+assert.deepStrictEqual(model.errorTargets(schemaError, changeRequest, edited),
+    {code: '', message: 'Input should have timezone info · String should have at most 255 characters',
+     byBlock: {n1: 'Input should have timezone info'}});
+const dayError = {detail: {code: 'day_not_allowed', message: 'Nur heute und gestern.'}};
+assert.deepStrictEqual(model.errorTargets(dayError, changeRequest, edited),
+    {code: 'day_not_allowed', message: 'Nur heute und gestern.', byBlock: {}});
+assert.strictEqual(model.errorCode({detail: 'Not Found'}), '');
+assert.strictEqual(model.errorCode(null), '');
+assert.deepStrictEqual(model.errorTargets({detail: {code: 'x', message: 'y', loc: ['body', 'create', 7]}}, changeRequest, edited).byBlock, {});
+
+const errorRow = timeline.correctionRowHtml(edited, dayRange, {errors: {c4: 'Beginn oder Ende liegt nach jetzt.'}});
+assert.ok(/tc-block-missing[^"]*" data-key="c4"/.test(errorRow));
+assert.ok(errorRow.includes('Beginn oder Ende liegt nach jetzt.'), 'Fehler im Tooltip');
+
+// Eigene Änderungen als Text für das Konflikt-Modal, in der Reihenfolge der Korrekturzeile.
+assert.deepStrictEqual(model.changeLines(edited), [
+    '#9 zurücknehmen: ONLINE ab 11:00',
+    'neu: PAUSE 12:00–12:30 · Pause nachgetragen',
+    '#4 geändert: BIPAU 08:00–09:00 · Grund 4',
+]);
+assert.deepStrictEqual(model.changeLines(saved), []);
+
+// --- Direkte Bedienung: Einrasten und Ziehen -----------------------------------------
+
+const M = 60 * 1000;
+const t = clock => model.clockToMs(normalDay, clock);
+const minuteSnap = {stepMs: M, min: dayRange.start, max: dayRange.end};
+assert.strictEqual(model.snapTime(t('08:07') + 29 * 1000, minuteSnap), t('08:07'));
+assert.strictEqual(model.snapTime(t('08:07') + 31 * 1000, minuteSnap), t('08:08'));
+assert.strictEqual(model.snapTime(dayRange.start - H, minuteSnap), dayRange.start);
+assert.strictEqual(model.snapTime(dayRange.end + H, minuteSnap), dayRange.end);
+// Magnet-Kante im Umkreis hat Vorrang, die nächste gewinnt.
+const magnets = {...minuteSnap, anchors: [t('08:03'), t('08:10')], magnetMs: 4 * M};
+assert.strictEqual(model.snapTime(t('08:06'), magnets), t('08:03'));
+assert.strictEqual(model.snapTime(t('08:07'), magnets), t('08:10'));
+assert.strictEqual(model.snapTime(t('08:20'), magnets), t('08:20'), 'außerhalb des Umkreises gilt das Raster');
+
+const range = {from: t('09:00'), to: t('10:00')};
+const open = {from: t('09:00'), to: null};
+// Kanten.
+assert.deepStrictEqual(model.dragBlock(range, 'start', 0, t('08:30'), minuteSnap), {from: t('08:30'), to: t('10:00')});
+assert.deepStrictEqual(model.dragBlock(range, 'start', 0, t('10:30'), minuteSnap), {from: t('09:59'), to: t('10:00')},
+    'Beginn bleibt mindestens eine Minute vor dem Ende');
+assert.deepStrictEqual(model.dragBlock(range, 'end', 0, t('11:15'), minuteSnap), {from: t('09:00'), to: t('11:15')});
+assert.deepStrictEqual(model.dragBlock(range, 'end', 0, t('08:00'), minuteSnap), {from: t('09:00'), to: t('09:01')});
+assert.deepStrictEqual(model.dragBlock(open, 'start', 0, t('08:45'), minuteSnap), {from: t('08:45'), to: null});
+assert.deepStrictEqual(model.dragBlock(open, 'end', 0, t('09:30'), minuteSnap), {from: t('09:00'), to: t('09:30')},
+    'Ziehen an der rechten Kante macht aus dem Wechsel einen Bereich');
+// Verschieben: Länge bleibt, im Tag geklammert.
+assert.deepStrictEqual(model.dragBlock(range, 'move', 95 * M + 10 * 1000, 0, minuteSnap), {from: t('10:35'), to: t('11:35')});
+assert.deepStrictEqual(model.dragBlock(range, 'move', 20 * H, 0, minuteSnap), {from: dayRange.end - H, to: dayRange.end});
+assert.deepStrictEqual(model.dragBlock(range, 'move', -20 * H, 0, minuteSnap), {from: dayRange.start, to: dayRange.start + H});
+assert.deepStrictEqual(model.dragBlock(open, 'move', -30 * M, 0, minuteSnap), {from: t('08:30'), to: null});
+// Verschieben mit Magnet: die Kante, die näher an einer Magnet-Kante liegt, rastet ein.
+const moveMagnets = {...minuteSnap, anchors: [t('10:07')], magnetMs: 4 * M};
+assert.deepStrictEqual(model.dragBlock(range, 'move', 5 * M, 0, moveMagnets), {from: t('09:07'), to: t('10:07')}, 'Ende rastet ein');
+assert.deepStrictEqual(model.dragBlock(range, 'move', 65 * M, 0, moveMagnets), {from: t('10:07'), to: t('11:07')}, 'Beginn rastet ein');
+// Zeichnen: in beide Richtungen, mindestens eine Minute.
+const drawOrigin = {from: t('12:00'), to: null};
+assert.deepStrictEqual(model.dragBlock(drawOrigin, 'draw', 0, t('12:40'), minuteSnap), {from: t('12:00'), to: t('12:40')});
+assert.deepStrictEqual(model.dragBlock(drawOrigin, 'draw', 0, t('11:20'), minuteSnap), {from: t('11:20'), to: t('12:00')});
+assert.deepStrictEqual(model.dragBlock(drawOrigin, 'draw', 0, t('12:00'), minuteSnap), {from: t('12:00'), to: t('12:01')});
+
+// Griffe an den Blöcken, nicht an entfernten.
+const handleRow = timeline.correctionRowHtml(edited, dayRange);
+assert.strictEqual((handleRow.match(/data-handle="start"/g) || []).length, 2);
+assert.strictEqual((handleRow.match(/data-handle="end"/g) || []).length, 2);
+
 console.log('time_correction_model_checks: ok');

@@ -116,7 +116,9 @@
 
 .tc-panel-head {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 8px;
 }
 
@@ -331,4 +333,269 @@
 
 .tc-table-wrap .tc-empty {
     padding: 0.75rem;
+}
+
+/* Bearbeitungsmodus: zwei Ebenen (Klammer links), zusammengeführt zum Ergebnis */
+
+.tc-layers {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tc-layers::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: -12px;
+    width: 6px;
+    border: 2px solid var(--purple-text);
+    border-right: 0;
+    border-radius: 6px 0 0 6px;
+}
+
+.tc-merge {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    gap: 10px;
+    color: var(--purple-text);
+    font-weight: 700;
+    line-height: 1;
+}
+
+.tc-merge span {
+    grid-column: 2;
+    border-top: 1px dashed var(--purple-text);
+    padding-top: 2px;
+    text-align: center;
+}
+
+.tc-seg-genesys {
+    background: color-mix(in srgb, var(--tc-color, var(--grey-text)) 14%, var(--ui-surface-card));
+    border-right: 2px solid var(--ui-surface-card);
+}
+
+.tc-seg-genesys .tc-seg-label {
+    color: var(--ui-text);
+    font-weight: 600;
+}
+
+.tc-track-corrections {
+    background: var(--ui-surface-soft);
+}
+
+.tc-block {
+    position: absolute;
+    height: 26px;
+    box-sizing: border-box;
+    min-width: 10px;
+    border: 2px solid var(--purple-text);
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--tc-color, var(--grey-text)) 45%, var(--ui-surface-card));
+    container-type: inline-size;
+}
+
+.tc-block .tc-seg-label {
+    line-height: 22px;
+}
+
+/* Wechsel ab Zeitpunkt: Fähnchen am Beginn, rechte Kante gestrichelt bis zum wirksamen Ende. */
+.tc-block-open {
+    border-right-style: dashed;
+    border-radius: 0 6px 6px 0;
+}
+
+.tc-block-open::before {
+    content: "";
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: -2px;
+    width: 3px;
+    background: var(--purple-text);
+}
+
+/* Ohne Wirkung: vollständig von einer späteren Korrektur überdeckt. */
+.tc-block-idle {
+    background: var(--ui-surface-card);
+    border-style: dotted;
+}
+
+.tc-block.is-selected {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--purple-text) 45%, transparent);
+    z-index: 2;
+}
+
+.tc-block {
+    cursor: pointer;
+}
+
+.tc-block:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.tc-block-changed {
+    border-style: dashed;
+}
+
+.tc-block-removed {
+    border-style: dashed;
+    background: var(--ui-surface-card);
+}
+
+.tc-block-removed .tc-seg-label {
+    color: var(--ui-text-muted);
+    text-decoration: line-through;
+}
+
+/* Neuer oder geänderter Block ohne Grund: Speichern bleibt gesperrt. */
+.tc-block-missing {
+    border-color: var(--ui-error-text);
+}
+
+/* Formular im Bearbeitungsmodus */
+
+.tc-editor {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ui-border);
+}
+
+.tc-editor-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tc-summary {
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.tc-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 14px;
+    margin-top: 10px;
+}
+
+.tc-form-title {
+    align-self: center;
+    min-width: 3rem;
+    color: var(--purple-text);
+    font-weight: 700;
+}
+
+.tc-field .ui-input {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.95rem;
+}
+
+.tc-field-reason {
+    flex: 1 1 280px;
+}
+
+.tc-field-reason .ui-input[aria-invalid="true"] {
+    border-color: var(--ui-error-text);
+}
+
+.tc-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.4rem;
+    color: var(--ui-text);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.tc-form-error {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--ui-error-text);
+    font-size: 0.85rem;
+}
+
+.tc-form-error:empty {
+    display: none;
+}
+
+.tc-save {
+    margin-left: auto;
+}
+
+.tc-row-note {
+    display: block;
+    color: var(--purple-text);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+/* Vorschau fehlt oder ist veraltet: Ergebnis überdeckt, bis die SD-API geantwortet hat. */
+.tc-pending {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(135deg,
+        color-mix(in srgb, var(--ui-surface-card) 70%, transparent) 0 6px,
+        color-mix(in srgb, var(--ui-surface-card) 45%, transparent) 6px 12px);
+}
+
+.tc-change-lines {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--ui-text-strong);
+    font-variant-numeric: tabular-nums;
+    user-select: text;
+}
+
+#tcModal .ui-modal-header h3 {
+    margin: 0;
+}
+
+/* Direkte Bedienung: zeichnen auf der leeren Zeile, verschieben am Körper, Kanten an den Griffen */
+
+.tc-track-corrections {
+    cursor: crosshair;
+    touch-action: none;
+    user-select: none;
+}
+
+.tc-block {
+    cursor: grab;
+}
+
+.tc-dragging .tc-block,
+.tc-dragging .tc-track-corrections {
+    cursor: grabbing;
+}
+
+.tc-handle {
+    position: absolute;
+    top: -2px;
+    bottom: -2px;
+    width: 7px;
+    cursor: ew-resize;
+}
+
+.tc-handle-start {
+    left: -4px;
+}
+
+.tc-handle-end {
+    right: -4px;
+}
+
+.tc-block.is-selected .tc-handle::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 2px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--purple-text);
 }

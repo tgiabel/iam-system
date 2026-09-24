@@ -177,6 +177,11 @@ class PageTests(unittest.TestCase):
         self.assertIn('id="tcTimeline"', response.text)
         self.assertIn('id="tcChangesBox"', response.text)
         self.assertIn('id="tcRevokedBox"', response.text)
+        self.assertIn('id="tcEdit"', response.text)
+        self.assertIn('id="tcForm"', response.text)
+        self.assertIn('id="tcSave"', response.text)
+        self.assertIn('id="tcModal"', response.text)
+        self.assertIn('maxlength="255"', response.text)
 
     def test_page_redirects_without_permission(self):
         self.context = authz("SOFA-TOOL-GQ")

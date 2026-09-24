@@ -47,12 +47,47 @@
         <p id="tcEmpty" class="tc-empty">Mitarbeiter wählen.</p>
         <div id="tcTimelinePanel" hidden>
             <div class="tc-panel-head">
+                <div class="tc-edit-actions">
+                    <button type="button" id="tcEdit" class="ui-flat-button btn-sm">Bearbeiten</button>
+                    <button type="button" id="tcEditClose" class="ui-flat-button btn-sm" hidden>Abbrechen</button>
+                </div>
                 <div class="tc-range" role="group" aria-label="Ausschnitt">
                     <button type="button" class="ui-flat-button btn-sm" data-range="work" aria-pressed="true">Arbeitszeit</button>
                     <button type="button" class="ui-flat-button btn-sm" data-range="day" aria-pressed="false">Ganzer Tag</button>
                 </div>
             </div>
             <div id="tcTimeline" class="tc-timeline"></div>
+            <div id="tcEditor" class="tc-editor" hidden>
+                <div class="tc-editor-bar">
+                    <button type="button" id="tcAdd" class="ui-flat-button btn-sm">+ Korrektur</button>
+                    <span id="tcSummary" class="tc-summary" role="status"></span>
+                    <button type="button" id="tcSave" class="btn btn-primary btn-sm tc-save" disabled>Speichern</button>
+                </div>
+                <form id="tcForm" class="tc-form" hidden>
+                    <span id="tcFormTitle" class="tc-form-title"></span>
+                    <label class="ui-field-group tc-field">
+                        <span class="ui-field-label">Status</span>
+                        <select id="tcFormStatus" class="ui-input">
+                            <option>ONLINE</option><option>BIPAU</option><option>PAUSE</option><option>HOME</option>
+                        </select>
+                    </label>
+                    <label class="ui-field-group tc-field">
+                        <span class="ui-field-label">Von</span>
+                        <input type="time" id="tcFormFrom" class="ui-input" step="60" required>
+                    </label>
+                    <label class="ui-field-group tc-field">
+                        <span class="ui-field-label">Bis</span>
+                        <input type="time" id="tcFormTo" class="ui-input" step="60">
+                    </label>
+                    <label class="tc-check"><input type="checkbox" id="tcFormOpen"> offen</label>
+                    <label class="ui-field-group tc-field tc-field-reason">
+                        <span class="ui-field-label">Grund</span>
+                        <input type="text" id="tcFormReason" class="ui-input" maxlength="255" autocomplete="off">
+                    </label>
+                    <button type="button" id="tcFormRemove" class="ui-flat-button btn-sm">Entfernen</button>
+                    <p id="tcFormError" class="tc-form-error" role="alert"></p>
+                </form>
+            </div>
             <details id="tcRevokedBox" class="tc-details" hidden>
                 <summary>Zurückgenommene Korrekturen <span id="tcRevokedCount"></span></summary>
                 <div id="tcRevoked" class="tc-table-wrap"></div>
@@ -64,5 +99,20 @@
         <summary>Opcyc-Datensätze <span id="tcChangeCount"></span></summary>
         <div id="tcChanges"></div>
     </details>
+
+    <div id="tcModal" class="ui-modal-overlay" aria-hidden="true">
+        <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="tcModalTitle">
+            <div class="ui-modal-header">
+                <h3 id="tcModalTitle"></h3>
+            </div>
+            <div id="tcModalBody" class="ui-modal-body">
+                <p class="ui-field-label">Deine Änderungen</p>
+                <ul id="tcModalChanges" class="tc-change-lines"></ul>
+            </div>
+            <div class="ui-modal-footer">
+                <button type="button" id="tcModalReload" class="btn btn-primary btn-sm">Neu laden</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

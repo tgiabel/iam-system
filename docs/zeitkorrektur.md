@@ -27,8 +27,14 @@ Diese Punkte gelten vor dem restlichen Text.
 | 1.6 | Verlauf „Zurückgenommene Korrekturen“ (aufklappbar, nur wenn vorhanden): Nr., Zeitraum, Status, Grund, angelegt und zurückgenommen (Name · Zeit) | erledigt |
 | 1.7 | Hinweis Schattenbetrieb | entfällt: keine Betriebsinfo für Steuerer |
 | 1.8 | Hinweis bei `delivered=false` | entfällt; wirkt nur in der Liste „Opcyc-Datensätze“ (siehe 1.5) |
-| 2 | Bearbeiten per Formular: drei Zeilen, Blöcke anlegen/ändern/entfernen, Vorschau, Speichern, 409/422 am Block | offen |
-| 3 | Direkte Bedienung: zeichnen, verschieben, ziehen, Einrasten, magnetische Kanten, Grenze „jetzt“, Tastatur | offen |
+| 2.1 | Bearbeitungsmodus: Genesys (jeder Eintrag einzeln), Korrekturen (aktive als Blöcke, Unterzeilen, der spätere oben), Ergebnis; Klammer „zusammengeführt“ | erledigt |
+| 2.2 | Formular: „+ Korrektur“ (08:00 bzw. jetzt, offen, zuletzt gewählter Status), Block per Klick/Enter wählen, Status/Von/Bis/offen/Grund, Entfernen/Wiederherstellen; Zeitfelder enden bei „jetzt“; Nachfrage bei ungespeicherten Änderungen; `buildChangeRequest` | erledigt |
+| 2.3 | Vorschau nach jeder Änderung (300 ms entprellt, nicht bei reinen Grund-Änderungen), wirksames Ende neuer Blöcke aus `create_index`; Ergebnis überdeckt, solange die Vorschau fehlt; Speichern mit `revision`, danach kanonische Zeile und „n angelegt · m zurückgenommen“ | erledigt |
+| 2.4 | 409 und `day_not_allowed`: Modal mit den eigenen Änderungen als Text, nur „Neu laden“, Seite schreibgeschützt; übrige 422 (fachlich mit `loc`, Schemafehler als Liste) am Block: rot, gewählt, Meldung im Formular | erledigt |
+| 3.1 | Direkte Bedienung: auf leerer Zeile zeichnen (Bereich) oder klicken (Wechsel ab Zeitpunkt), am Körper verschieben, an den Griffen Beginn/Ende ziehen (rechte Kante macht einen offenen Wechsel zum Bereich), Esc bricht ab; Vorschau nach dem Loslassen | erledigt |
+| 3.2 | Einrasten (5 min, Shift 1 min) und magnetische Kanten | offen |
+| 3.3 | Grenze „jetzt“ | offen |
+| 3.4 | Tastaturbedienung | offen |
 
 ### Proxy
 
