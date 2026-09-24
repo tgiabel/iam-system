@@ -27,3 +27,308 @@
     margin: 0;
     color: var(--ui-text-muted);
 }
+
+.tc-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 20px;
+    margin-bottom: 12px;
+}
+
+.tc-search {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    flex: 1 1 280px;
+    max-width: 380px;
+}
+
+.tc-search .ui-input {
+    padding: 0.6rem 0.9rem;
+}
+
+.tc-user-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 18rem;
+    margin: 4px 0 0;
+    padding: 4px;
+    overflow-y: auto;
+    list-style: none;
+    background: var(--ui-surface-card);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    box-shadow: var(--ui-shadow-md);
+}
+
+.tc-user-option,
+.tc-user-empty {
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+}
+
+.tc-user-option {
+    color: var(--ui-text-strong);
+    cursor: pointer;
+}
+
+.tc-user-option:hover,
+.tc-user-option.is-active {
+    background: var(--ui-surface-soft);
+}
+
+.tc-user-empty {
+    color: var(--ui-text-muted);
+}
+
+.tc-days {
+    display: flex;
+    gap: 6px;
+}
+
+.tc-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.tc-loaded-at,
+.tc-status {
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+}
+
+.tc-status {
+    margin: 0 0 12px;
+}
+
+.tc-status:empty {
+    display: none;
+}
+
+/* Zeitleiste */
+
+.tc-panel-head {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 8px;
+}
+
+.tc-range {
+    display: flex;
+    gap: 4px;
+}
+
+.tc-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tc-row {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+}
+
+.tc-row-label {
+    color: var(--ui-text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.tc-track {
+    position: relative;
+    height: 44px;
+    border-radius: 8px;
+    background: var(--ui-surface-muted);
+    overflow: hidden;
+}
+
+.tc-axis {
+    height: 20px;
+    background: var(--ui-surface-card);
+    overflow: visible;
+}
+
+.tc-tick {
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-50%);
+    color: var(--ui-text-muted);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Statusfarben; die Farbe ist nie die einzige Information (Beschriftung, Tooltip, Liste). */
+.tc-status-ONLINE { --tc-color: var(--green-text); }
+.tc-status-BIPAU { --tc-color: var(--color-primary); }
+.tc-status-PAUSE { --tc-color: var(--orange-text); }
+.tc-status-HOME { --tc-color: var(--grey-text); }
+
+.tc-seg {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    box-sizing: border-box;
+    border-right: 1px solid var(--ui-surface-card);
+    background: color-mix(in srgb, var(--tc-color, var(--grey-text)) 32%, var(--ui-surface-card));
+    container-type: inline-size;
+}
+
+.tc-seg.tc-status-HOME {
+    background-color: color-mix(in srgb, var(--tc-color) 14%, var(--ui-surface-card));
+    background-image: repeating-linear-gradient(135deg, transparent 0 6px,
+        color-mix(in srgb, var(--tc-color) 22%, transparent) 6px 8px);
+}
+
+.tc-seg-label {
+    display: block;
+    padding: 0 6px;
+    overflow: hidden;
+    color: var(--ui-text-strong);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 32px;
+    white-space: nowrap;
+}
+
+@container (max-width: 3.2rem) {
+    .tc-seg-label {
+        visibility: hidden;
+    }
+}
+
+/* Korrigierte Strecken: lila Streifen oben; Wechselmarke am Beginn jedes Segments. */
+.tc-stripe {
+    position: absolute;
+    top: 0;
+    height: 5px;
+    background: var(--purple-text);
+    pointer-events: none;
+}
+
+.tc-marker {
+    position: absolute;
+    bottom: 0;
+    width: 0;
+    height: 0;
+    border-right: 5px solid transparent;
+    border-bottom: 7px solid var(--grey-text);
+    border-left: 5px solid transparent;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.tc-marker-correction {
+    border-bottom-color: var(--purple-text);
+}
+
+/* Am heutigen Tag: Linie „jetzt“, danach liegt nur, was Genesys bisher gemeldet hat. */
+.tc-now {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--ui-error-text);
+}
+
+.tc-future {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(135deg,
+        color-mix(in srgb, var(--ui-surface-card) 55%, transparent) 0 4px, transparent 4px 8px);
+    pointer-events: none;
+}
+
+/* Listen unter der Zeitleiste */
+
+.tc-details {
+    margin-top: 16px;
+}
+
+.tc-details > summary {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.tc-details > summary span {
+    color: var(--ui-text-muted);
+    font-weight: 400;
+}
+
+.tc-table-wrap {
+    max-height: 50vh;
+    margin-top: 8px;
+    overflow: auto;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+}
+
+.tc-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+/* Direkt auf der Seite, ohne Panel: Die Tabelle selbst ist deckend. */
+.tc-page-details > div {
+    margin-top: 8px;
+}
+
+.tc-page-details .tc-table {
+    border: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+}
+
+.tc-page-details .tc-empty {
+    margin: 0;
+    padding: 0.75rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+}
+
+.tc-table th {
+    position: sticky;
+    top: 0;
+    padding: 0.55rem 0.75rem;
+    background: var(--table-header-bg);
+    color: var(--text-inverse);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.tc-table td {
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid var(--ui-border);
+    color: var(--ui-text);
+    font-size: 0.88rem;
+}
+
+.tc-num {
+    font-variant-numeric: tabular-nums;
+}
+
+.tc-origin-correction {
+    color: var(--purple-text);
+    font-weight: 700;
+}
+
+.tc-table-wrap .tc-empty {
+    padding: 0.75rem;
+}

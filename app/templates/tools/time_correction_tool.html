@@ -12,18 +12,57 @@
 <link rel="stylesheet" href="/static/css/time_correction.css?v={{ static_v }}">
 {% endblock %}
 
+{% block scripts %}
+<script src="/static/js/tools/time_correction_model.js?v={{ static_v }}"></script>
+<script src="/static/js/tools/time_correction_timeline.js?v={{ static_v }}"></script>
+<script src="/static/js/tools/time_correction.js?v={{ static_v }}"></script>
+{% endblock %}
+
 {% block content %}
 <div id="tcTool" class="tc-page">
     <div class="ui-section-header tc-heading">
         <div class="ui-section-heading">
             <p class="ui-section-kicker">Genesys Cloud</p>
             <h1 class="ui-section-title">Zeitkorrektur</h1>
-            <p class="ui-section-copy">Statuszeiten eines Mitarbeiters für heute oder gestern korrigieren. Angezeigt wird, was an Opcyc geht.</p>
         </div>
     </div>
 
-    <section id="tcView" class="tc-panel" aria-live="polite">
-        <p class="tc-empty">Mitarbeiter wählen, um die Zeitleiste zu sehen.</p>
+    <div class="tc-toolbar">
+        <div class="tc-search">
+            <label class="ui-field-label" for="tcUserQuery">Mitarbeiter</label>
+            <input type="search" id="tcUserQuery" class="ui-input" placeholder="Name" autocomplete="off"
+                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="tcUserList">
+            <ul id="tcUserList" class="tc-user-list" role="listbox" aria-label="Treffer" hidden></ul>
+        </div>
+        <div id="tcDays" class="tc-days" role="group" aria-label="Tag"></div>
+        <div class="tc-meta">
+            <span id="tcLoadedAt" class="tc-loaded-at"></span>
+            <button type="button" id="tcReload" class="ui-flat-button ui-flat-button--icon" aria-label="Neu laden" title="Neu laden" hidden>&#x21bb;</button>
+        </div>
+    </div>
+
+    <p id="tcStatus" class="tc-status" role="status" aria-live="polite"></p>
+
+    <section id="tcView" class="tc-panel">
+        <p id="tcEmpty" class="tc-empty">Mitarbeiter wählen.</p>
+        <div id="tcTimelinePanel" hidden>
+            <div class="tc-panel-head">
+                <div class="tc-range" role="group" aria-label="Ausschnitt">
+                    <button type="button" class="ui-flat-button btn-sm" data-range="work" aria-pressed="true">Arbeitszeit</button>
+                    <button type="button" class="ui-flat-button btn-sm" data-range="day" aria-pressed="false">Ganzer Tag</button>
+                </div>
+            </div>
+            <div id="tcTimeline" class="tc-timeline"></div>
+            <details id="tcRevokedBox" class="tc-details" hidden>
+                <summary>Zurückgenommene Korrekturen <span id="tcRevokedCount"></span></summary>
+                <div id="tcRevoked" class="tc-table-wrap"></div>
+            </details>
+        </div>
     </section>
+
+    <details id="tcChangesBox" class="tc-details tc-page-details" hidden>
+        <summary>Opcyc-Datensätze <span id="tcChangeCount"></span></summary>
+        <div id="tcChanges"></div>
+    </details>
 </div>
 {% endblock %}

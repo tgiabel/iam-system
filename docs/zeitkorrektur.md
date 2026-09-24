@@ -21,12 +21,12 @@ Diese Punkte gelten vor dem restlichen Text.
 |---|---|---|
 | 1.1 | Proxy-Router `app/routes/time_corrections.py` und `api_client.time_corrections_request` | erledigt |
 | 1.2 | Seite `/tools/zeitkorrektur` und Kachel „Zeitkorrektur“ (Tools, Kicker „Genesys Cloud“) | erledigt |
-| 1.3 | Mitarbeitersuche und Tagesumschalter | offen |
-| 1.4 | Kanonische Ergebniszeile mit Zeitachse | offen |
-| 1.5 | Liste „Wechsel an Opcyc“ | offen |
-| 1.6 | Verlauf der zurückgenommenen Korrekturen | offen |
-| 1.7 | Hinweis Schattenbetrieb | offen |
-| 1.8 | Hinweis bei `delivered=false` | offen |
+| 1.3 | Mitarbeitersuche (Combobox, ab 2 Zeichen, 250 ms) und Tagesumschalter aus `GET /days`; Auswahl in der URL, Stand und Neu laden | erledigt |
+| 1.4 | Kanonische Ergebniszeile mit Zeitachse (Berlin, 23/25 h), Ausschnitt Arbeitszeit/ganzer Tag, Linie „jetzt“; Zeilen-HTML ohne ids in `time_correction_timeline.js` | erledigt |
+| 1.5 | Liste „Opcyc-Datensätze“ (aufklappbar): je Segment aus `merged` Uhrzeit hh:mm:ss (Berlin, abgeschnitten wie `strftime`), Status, Herkunft; bei `delivered=false` leer mit „Keine Opcyc-Datensätze entstanden.“ | erledigt |
+| 1.6 | Verlauf „Zurückgenommene Korrekturen“ (aufklappbar, nur wenn vorhanden): Nr., Zeitraum, Status, Grund, angelegt und zurückgenommen (Name · Zeit) | erledigt |
+| 1.7 | Hinweis Schattenbetrieb | entfällt: keine Betriebsinfo für Steuerer |
+| 1.8 | Hinweis bei `delivered=false` | entfällt; wirkt nur in der Liste „Opcyc-Datensätze“ (siehe 1.5) |
 | 2 | Bearbeiten per Formular: drei Zeilen, Blöcke anlegen/ändern/entfernen, Vorschau, Speichern, 409/422 am Block | offen |
 | 3 | Direkte Bedienung: zeichnen, verschieben, ziehen, Einrasten, magnetische Kanten, Grenze „jetzt“, Tastatur | offen |
 
@@ -93,8 +93,6 @@ Geschätzte Antwortgröße für einen Mitarbeiter (JSON, unkomprimiert):
 
 ```
 ┌ Zeitkorrektur ───────────────────────────────────────────────────────────────┐
-│ ⓘ Schattenbetrieb: Korrekturen werden gespeichert und in die Tagesdatei        │
-│   übernommen, aber noch NICHT an Opcyc geliefert.                             │
 │ Mitarbeiter [ Erika Beispiel      ▾]   [Heute Di 23.09.][Gestern Mo 22.09.]    │
 │ Stand 10:42 ⟳    Ausschnitt: (•) Arbeitszeit ( ) ganzer Tag      [Bearbeiten]  │
 ├───────────────────────────────────────────────────────────────────────────────┤
@@ -109,14 +107,14 @@ Geschätzte Antwortgröße für einen Mitarbeiter (JSON, unkomprimiert):
 │          Grund* [Dienstbeginn laut Teamleitung 08:00           ]  [Entfernen]  │
 │ Änderungen: 1 neu · 0 geändert · 0 entfernt           [Verwerfen] [Speichern]  │
 ├───────────────────────────────────────────────────────────────────────────────┤
-│ Wechsel an Opcyc (Liste)   ▸ Verlauf: 2 zurückgezogene Korrekturen             │
+│ ▸ Opcyc-Datensätze (8)     ▸ Zurückgenommene Korrekturen (2)                   │
 └───────────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Kopf**
-- **Schattenbetrieb-Hinweis:** fester Text im Template. Bei der Umschaltung von genesys-sync wird diese eine Zeile gelöscht. Ein API-Flag dafür lohnt sich nicht.
+- **Keine Betriebsinfos:** Die Seite richtet sich an Steuerer. Hinweise zu Schattenbetrieb oder Lieferstatus gibt es nicht, auch keine erklärenden Untertitel.
 - **Mitarbeitersuche:** Combobox auf `GET /users?q=`, ab 2 Zeichen, 250 ms entprellt. Auswahl und Tag stehen in der URL (`?user=u-1&date=2026-09-22`, per `history.replaceState`), damit Neuladen und Links funktionieren.
-- **Tagesumschalter:** genau zwei Knöpfe, „heute“ und „gestern“ aus `GET /time-corrections/days`. Ältere Tage bietet die Seite gar nicht an.
+- **Tagesumschalter:** genau zwei Knöpfe, „heute“ und „gestern“ aus `GET /time-corrections/days`. Ältere Tage bietet die Seite gar nicht an. Ein Tag in der URL, den die API nicht anbietet, fällt auf heute zurück.
 - **Stand:** Uhrzeit des letzten Ladens und ein Knopf ⟳. Es wird nicht automatisch abgefragt.
 
 **Zeitachse**
@@ -125,8 +123,8 @@ Geschätzte Antwortgröße für einen Mitarbeiter (JSON, unkomprimiert):
 
 **Standardansicht (kanonisch)**
 - Es gibt nur die Zeile **Ergebnis**. Ohne Korrekturen ist das schlicht Genesys, mit Korrekturen die zusammengeführte Zeitleiste, die an Opcyc ginge.
-- Darunter lässt sich eine Liste **„Wechsel an Opcyc“** aufklappen: Uhrzeit (hh:mm:ss), Status, Herkunft. Sie entspricht Zeile für Zeile der Snapshot-CSV von genesys-sync und ist damit Abnahmehilfe und barrierearme Alternative zur Grafik.
-- Hatte der Mitarbeiter keinen Wechsel und hat keine Korrektur (`delivered=false`), erscheint der Hinweis „Steht heute nicht in der Lieferung“.
+- Darunter lässt sich eine Liste **„Opcyc-Datensätze“** aufklappen: Uhrzeit (hh:mm:ss), Status, Herkunft. Sie entspricht Zeile für Zeile der Snapshot-CSV von genesys-sync und ist damit Abnahmehilfe und barrierearme Alternative zur Grafik.
+- Hatte der Mitarbeiter keinen Wechsel und hat keine Korrektur (`delivered=false`), entstehen keine Datensätze: Die Liste zeigt (0) und aufgeklappt „Keine Opcyc-Datensätze entstanden.“ Einen eigenen Hinweis gibt es nicht.
 
 **Bearbeitungsmodus** (Knopf „Bearbeiten“; entfällt, sobald die SD-API den Tag mit `day_not_allowed` ablehnt)
 - Es erscheinen die Zeilen **Genesys** (fest) und **Korrekturen** (bearbeitbar). Die Ergebniszeile wird zur Vorschau.
@@ -199,7 +197,7 @@ Genesys und Korrekturen sind links mit einer Klammer zusammengefasst: „⊕ zus
 | `app/main.py` | `include_router(..., prefix="/api")` | 2 |
 | `app/routes/pages.py` | `/tools/zeitkorrektur` hinter `require_permission("SOFA-TOOL-ZK", redirect_to="/tools")`. Außerdem `SOFA-TOOL-ZK` in die Rechteliste von `tools()` aufnehmen | 15 |
 | `app/templates/tools.html` | Kachel „Zeitkorrektur“ (Kicker „Genesys Cloud“) | 15 |
-| `app/templates/tools/time_correction_tool.html` (neu) | Kopf, Schattenbetrieb-Hinweis, Container für die Zeilen, Formular, Speicherleiste, Modals | 120 |
+| `app/templates/tools/time_correction_tool.html` (neu) | Kopf, Container für die Zeilen, Formular, Speicherleiste, Modals | 120 |
 | `app/static/js/tools/time_correction_model.js` (neu) | **reine Funktionen**, ohne DOM, wie `task_view_model.js`: Zeit↔Prozent, Achsenbeschriftung (Berlin, 23/25 h), Einrasten, Unterzeilen-Layout, Arbeitszeit-Ausschnitt, `buildChangeRequest`, Prüfung „Grund fehlt“ | 250 |
 | `app/static/js/tools/time_correction.js` (neu) | DOM, Pointer Events (`pointerdown/move/up` + `setPointerCapture`), Fetch, Zustand (Server-Stand + Liste der Bearbeitungsblöcke) | 550 |
 | `app/static/css/time_correction.css` (neu) | Zeilen, Statusfarben über vorhandene Tokens, Rahmen, Streifen, Griffe | 200 |
@@ -211,7 +209,7 @@ Genesys und Korrekturen sind links mit einer Klammer zusammengefasst: „⊕ zus
 **Rechte:** Eine Zeile `SOFA-TOOL-ZK` in `SOFA.resources` plus Zuweisung an eine Rolle. Das ist eine Datenbankaktion des Nutzers und gehört nicht zum Code. `sofa_permissions.json` braucht keinen Eintrag, denn die Tool-Optionen sind dort leer.
 
 **Schritte (je einzeln deploybar und abnehmbar):**
-1. **Lesen:** Proxy, Seite, Kachel, Suche, Tagesumschalter, Ergebniszeile, Liste „Wechsel an Opcyc“, Verlauf. *Abnahme:* Die Liste stimmt für einen Testmitarbeiter mit der `snapshot`-CSV von genesys-sync überein. Umfang ca. 45 % der Summe.
+1. **Lesen:** Proxy, Seite, Kachel, Suche, Tagesumschalter, Ergebniszeile, Liste „Opcyc-Datensätze“, Verlauf. *Abnahme:* Die Liste stimmt für einen Testmitarbeiter mit der `snapshot`-CSV von genesys-sync überein. Umfang ca. 45 % der Summe.
 2. **Bearbeiten per Formular:** Bearbeitungsmodus mit drei Zeilen. Blöcke werden nur über das Formular angelegt, geändert und entfernt. Dazu Vorschau, Speichern, 409 und 422. Damit ist der Auftrag fachlich vollständig („Zeitpunkt oder Bereich anlegen, zurücknehmen“). Umfang ca. 35 %.
 3. **Direkte Bedienung:** In der Zeile zeichnen, verschieben und ziehen, dazu Einrasten und magnetische Kanten. Umfang ca. 20 %.
 

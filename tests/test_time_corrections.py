@@ -1,6 +1,9 @@
 import asyncio
 import json
+import os
+import subprocess
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
@@ -166,6 +169,14 @@ class PageTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('id="tcTool"', response.text)
         self.assertIn("/static/css/time_correction.css", response.text)
+        self.assertIn('id="tcUserQuery"', response.text)
+        self.assertIn('id="tcDays"', response.text)
+        scripts = [response.text.index(f"/static/js/tools/{name}.js")
+                   for name in ("time_correction_model", "time_correction_timeline", "time_correction")]
+        self.assertEqual(scripts, sorted(scripts))
+        self.assertIn('id="tcTimeline"', response.text)
+        self.assertIn('id="tcChangesBox"', response.text)
+        self.assertIn('id="tcRevokedBox"', response.text)
 
     def test_page_redirects_without_permission(self):
         self.context = authz("SOFA-TOOL-GQ")
@@ -183,6 +194,19 @@ class PageTests(unittest.TestCase):
         self.assertEqual(self.client.get("/tools/zeitkorrektur").status_code, 200)
         self.context = authz("SOFA-TOOL-GQ")
         self.assertNotIn('href="/tools/zeitkorrektur"', self.client.get("/tools").text)
+
+class FrontendModelTests(unittest.TestCase):
+    def test_model_checks_in_node(self):
+        # Kein Überspringen ohne Node: Fehlt node, schlägt der Test fehl.
+        # Zeitzone bewusst fern von Berlin, die Funktionen dürfen nicht von ihr abhängen.
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [os.environ.get("SOFA_NODE_BINARY", "node"), "tests/time_correction_model_checks.js"],
+            cwd=str(root), env=dict(os.environ, TZ="America/Los_Angeles"), capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("time_correction_model_checks: ok", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
