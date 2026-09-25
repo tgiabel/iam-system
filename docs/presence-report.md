@@ -11,7 +11,7 @@ Vorgaben aus genesys-sync: [`/var/www/genesys-sync/docs/auftrag-presence-bericht
 | Teil | Stand |
 |---|---|
 | SD-API (A1–A5) | deployt als `sd-api:96f3804`, Migrationen angewendet, Grants gesetzt. Vertrag: `docs/presence-report-api.md` in der SD-API |
-| SOFA (B1–B4) | Branch `feature/presence-report` im Live-Checkout, noch nicht nach `main` gemergt |
+| SOFA (B1–B4) | auf `main` (9431d8c), live über den Bind-Mount |
 | Sichtprüfung | Playwright gegen eine lokale SOFA-Instanz mit synthetischen API-Antworten: Hell, Dunkel, Servodata, 390 px. Mit Echtdaten erst nach der Rechtevergabe |
 | Rechte | angelegt, noch keiner Rolle zugewiesen (C3) |
 
