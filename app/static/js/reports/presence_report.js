@@ -1,6 +1,7 @@
 // Presence-Report: Tagesansicht mit Pseudonymen. Klarname und Einzeldatensätze gibt es nur je Zeile
 // über das Menü „⋯“, jeweils als eigener Abruf, den die SD-API protokolliert.
-(function () {
+// Die Skripte stehen im <head>: Start erst, wenn die Seite aufgebaut ist.
+document.addEventListener("DOMContentLoaded", function () {
     "use strict";
 
     const Model = window.PresenceReportModel;
@@ -429,4 +430,4 @@
     window.addEventListener("resize", () => closeRowMenu());
 
     load({keepNames: false});
-}());
+});

@@ -352,7 +352,7 @@
 }
 
 /* Einzeldatensätze unter der Zeile */
-.pr-table-card tbody .pr-detail-row td {
+.pr-table-card tbody > .pr-detail-row > td {
     padding: 0 0.85rem 0.85rem;
     background: var(--ui-surface-card);
 }
@@ -377,21 +377,30 @@
     font-variant-numeric: tabular-nums;
 }
 
-.pr-detail-table th,
-.pr-detail-table td {
+/* Die innere Tabelle erbt sonst Kopffarbe, Abstände und Hover der ui-table-card. */
+.pr-table-card .pr-detail-table thead {
+    background: transparent;
+}
+
+.pr-table-card .pr-detail-table th,
+.pr-table-card .pr-detail-table td {
     padding: 0.35rem 1.25rem 0.35rem 0;
     border-bottom: 1px solid var(--ui-border);
+    background: transparent;
     text-align: left;
 }
 
 .pr-table-card .pr-detail-table thead th {
     position: static;
-    background: transparent;
     color: var(--ui-text-muted);
     font-size: 0.7rem;
 }
 
-.pr-detail-table tbody tr:last-child td {
+.pr-table-card .pr-detail-table tbody tr:hover {
+    background: transparent;
+}
+
+.pr-table-card .pr-detail-table tbody tr:last-child td {
     border-bottom: 0;
 }
 

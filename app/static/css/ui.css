@@ -937,6 +937,7 @@ body.modal-open {
 .day-picker,
 .day-picker-days {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 6px;
 }
