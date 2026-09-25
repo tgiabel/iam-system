@@ -1,5 +1,8 @@
 import asyncio
+import os
+import subprocess
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import httpx
@@ -140,7 +143,17 @@ class PageTests(unittest.TestCase):
     def test_page_renders_with_report_permission(self):
         response = self.client.get("/tools/presence-report")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Presence-Report", response.text)
+        self.assertIn("/static/css/presence_report.css", response.text)
+        scripts = [response.text.index(f"/static/js/{name}.js")
+                   for name in ("day_picker", "reports/presence_report_model", "reports/presence_report")]
+        self.assertEqual(scripts, sorted(scripts))
+        for element in ('id="prReport"', 'id="prReload"', 'id="prLoadedAt"', 'id="prKpis"', 'id="prDays"',
+                        "data-day-prev", "data-day-pick", "data-day-input", "data-day-list", "data-day-next",
+                        'data-source="genesys"', 'data-source="opcyc"', 'id="prSearch"', 'id="prColumnsMenu"',
+                        'id="prCount"', 'id="prExport"', 'id="prHead"', 'id="prBody"', 'id="prRowMenu"'):
+            self.assertIn(element, response.text)
+        # Kein allgemeiner Klarnamen-Schalter: Namen gibt es nur je Zeile.
+        self.assertNotIn("Klarnamen", response.text)
 
     def test_page_redirects_without_permission(self):
         self.context = authz(pr.NAME, pr.DETAIL)
@@ -154,6 +167,19 @@ class PageTests(unittest.TestCase):
         self.assertIn('href="/tools/presence-report"', response.text)
         self.context = authz("SOFA-RPRT-LL")
         self.assertNotIn('href="/tools/presence-report"', self.client.get("/tools").text)
+
+
+class FrontendModelTests(unittest.TestCase):
+    def test_model_checks_in_node(self):
+        # Kein Überspringen ohne Node: Fehlt node, schlägt der Test fehl.
+        # Zeitzone bewusst fern von Berlin, die Funktionen dürfen nicht von ihr abhängen.
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [os.environ.get("SOFA_NODE_BINARY", "node"), "tests/presence_report_model_checks.js"],
+            cwd=str(root), env=dict(os.environ, TZ="America/Los_Angeles"), capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("presence report model checks ok", result.stdout)
 
 
 if __name__ == "__main__":

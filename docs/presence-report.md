@@ -59,9 +59,9 @@ Vorgaben aus genesys-sync: [`/var/www/genesys-sync/docs/auftrag-presence-bericht
 
 - **Pseudonym:** `MA-` plus 5 Zeichen Base32 aus HMAC-SHA256(Schlüssel, Tag + `user_id`). Innerhalb eines Tages ist es stabil, damit Neuladen, Sortieren und Suchen zusammenpassen. Von Tag zu Tag wechselt es, so lässt sich eine Person nicht über Tage verfolgen. Der Schlüssel wird per HMAC mit fester Zweckkennung aus dem vorhandenen Pflichtgeheimnis `INVENTORY_SECRET_PEPPER_B64` abgeleitet, eine neue Einstellung gibt es nicht. Gebildet wird über alle User aus `dim_user`, bei einer Kollision werden alle Pseudonyme des Tages länger.
 - **Keine `user_id` im Browser** (bestätigt). Auch mit den FN-Rechten nicht: Name und Einzeldatensätze werden über Tag + Pseudonym angefragt, die SD-API löst das Pseudonym selbst auf. Die Genesys-ID wäre ein dauerhaftes Pseudonym über alle Tage.
-- **Nur je Zeile.** Jeder Name und jede Detailansicht ist ein eigener, bewusster Abruf für genau einen Mitarbeiter. Die SD-API bietet keinen Aufruf für mehrere Namen auf einmal. Ein aufgedeckter Name bleibt nur bis zum Neuladen oder Tageswechsel stehen und wird nirgends gespeichert.
+- **Nur je Zeile.** Jeder Name und jede Detailansicht ist ein eigener, bewusster Abruf für genau einen Mitarbeiter. Die SD-API bietet keinen Aufruf für mehrere Namen auf einmal. Ein aufgedeckter Name bleibt nur bis zum Neuladen oder Tageswechsel stehen (beim Wechsel der Quelle bleibt er, das Pseudonym ist dasselbe) und wird nirgends gespeichert.
 - **Serverseitig geprüft:** Ohne das jeweilige FN-Recht liefert die SD-API weder Namen noch Einzeldatensätze (403). Der SOFA-Proxy prüft zusätzlich, `X-User-Id` kommt nur aus der Sitzung.
-- **Protokoll** in der SD-API-Datenbank (neue Tabelle `presence_report_access_log`): `actor_user_id`, `action` (`name` | `details`), `business_date`, `target_user_id`, `created_at`. Genau eine Zeile je erfolgreichem Abruf. Ein Wechsel der Quelle Genesys/Opcyc bei geöffneter Detailansicht ist ein neuer Abruf. Die Tabelle wird nur ergänzt, nie geändert oder gelöscht. Eine Oberfläche dafür gibt es im ersten Schritt nicht.
+- **Protokoll** in der SD-API-Datenbank (neue Tabelle `presence_report_access_log`): `actor_user_id`, `action` (`name` | `details`), `business_date`, `target_user_id`, `created_at`. Genau eine Zeile je erfolgreichem Abruf. Ein Wechsel der Quelle Genesys/Opcyc klappt geöffnete Detailansichten zu; erneutes Öffnen ist ein neuer Abruf. Nichts wird ohne Klick nachgeladen. Die Tabelle wird nur ergänzt, nie geändert oder gelöscht. Eine Oberfläche dafür gibt es im ersten Schritt nicht.
 - **CSV** enthält nur Pseudonyme und Summen, nie Namen oder Einzeldatensätze (wie im Anmeldeprotokoll).
 
 ## Schnittstellen
@@ -148,8 +148,8 @@ Entwickelt wird auf Branches bzw. in Worktrees (SD-API `feature/presence-report`
 | A4 | Name und Einzeldatensätze je Pseudonym samt Protokoll, CSV-Export |
 | A5 | Tests: Mitternacht, 29.03. und 25.10.2026, offene Einträge heute und gestern, `missing_since`, Korrekturen in der Opcyc-Sicht, Pseudonym (stabil am Tag, anders am Folgetag, nie `user_id` in der Antwort), 403 je Recht, genau eine Protokollzeile je Abruf und keine bei 403/404, 422, leere Tage vor `first_day`. Abnahmeskript Monatssummen. Vertrag `docs/presence-report-api.md`, Testbaseline nachziehen |
 | **SOFA** | |
-| B1 | Proxy `app/routes/presence_report.py` und `api_client.presence_report_request`, Seite, Kachel, Einträge in `sofa_permissions.json`, Recht in `tools()` aufnehmen |
-| B2 | `day_picker.js` mit Node-Tests und `.day-picker*` in `ui.css`. Tagesansicht: Datumswahl, Kennzahlen, Tabelle, Sortierung, Suche, Statusauswahl, Umschalter Genesys/Opcyc, CSV |
+| B1 | Proxy `app/routes/presence_report.py` und `api_client.presence_report_request`, Seite, Kachel, Recht in `tools()` aufnehmen (`sofa_permissions.json` führt Reports nicht einzeln, dort nichts zu tun) |
+| B2 | `day_picker.js` mit Node-Tests und `.day-picker*` in `ui.css`, reine Logik in `presence_report_model.js`. Tagesansicht: Datumswahl, Kennzahlen, Tabelle (`ui-table-card`), Sortierung, Suche, Statusauswahl, Umschalter Genesys/Opcyc, CSV |
 | B3 | Menü „⋯“ je Zeile: Klartext anzeigen, Details anzeigen |
 | B4 | Tests für Proxy und Rechte, dieses Dokument auf den Stand der Umsetzung bringen |
 | **Betrieb** | |

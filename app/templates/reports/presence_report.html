@@ -8,13 +8,82 @@
 
 {% block favicon %}/static/img/process.png{% endblock %}
 
+{% block css %}
+<link rel="stylesheet" href="/static/css/presence_report.css?v={{ static_v }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/day_picker.js?v={{ static_v }}"></script>
+<script src="/static/js/reports/presence_report_model.js?v={{ static_v }}"></script>
+<script src="/static/js/reports/presence_report.js?v={{ static_v }}"></script>
+{% endblock %}
+
 {% block content %}
-<div class="presence-report-page">
-    <div class="ui-section-header">
-        <div class="ui-section-heading">
-            <p class="ui-section-kicker">Genesys Cloud</p>
-            <h1 class="ui-section-title">Presence-Report</h1>
+<div id="prReport" class="pr-page">
+    <div class="pr-header">
+        <div class="ui-section-header pr-heading">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Genesys Cloud</p>
+                <h1 class="ui-section-title">Presence-Report</h1>
+            </div>
+        </div>
+        <div class="pr-refresh">
+            <button type="button" id="prReload" class="pr-icon-btn" aria-label="Neu laden" title="Neu laden">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.7"/><path d="M20 4v4.7h-4.7"/></svg>
+            </button>
+            <span id="prLoadedAt" class="pr-loaded-at"></span>
         </div>
     </div>
+
+    <section class="pr-kpis" aria-label="Summen je Status">
+        <div id="prKpis" class="pr-kpi-strip" aria-live="polite"></div>
+    </section>
+
+    <div class="pr-toolbar">
+        <div id="prDays" class="day-picker" role="group" aria-label="Tag">
+            <button type="button" class="day-picker-nav is-off" data-day-prev aria-label="Vorheriger Tag" title="Vorheriger Tag">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+            <span class="day-picker-pick">
+                <button type="button" class="ui-flat-button" data-day-pick aria-pressed="false">Datum wählen</button>
+                <input type="date" class="day-picker-input" data-day-input tabindex="-1" aria-hidden="true">
+            </span>
+            <span class="day-picker-days" data-day-list></span>
+            <button type="button" class="day-picker-nav is-off" data-day-next aria-label="Nächster Tag" title="Nächster Tag">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+        </div>
+        <div id="prSource" class="pr-source" role="group" aria-label="Quelle">
+            <button type="button" class="ui-flat-button" data-source="genesys" aria-pressed="true">Genesys</button>
+            <button type="button" class="ui-flat-button" data-source="opcyc" aria-pressed="false">Opcyc</button>
+        </div>
+    </div>
+
+    <div class="pr-filterbar">
+        <input type="search" id="prSearch" class="ui-input pr-search" placeholder="Pseudonym oder Name suchen…"
+               autocomplete="off" aria-label="Mitarbeiter suchen">
+        <div class="ui-filter-container">
+            <button type="button" id="prColumnsBtn" class="ui-flat-button" aria-expanded="false" aria-controls="prColumnsMenu">
+                Status
+                <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div id="prColumnsMenu" class="ui-filter-dropdown pr-columns-menu" role="group" aria-label="Sichtbare Status"></div>
+        </div>
+        <div class="pr-filtermeta">
+            <span id="prCount" class="ui-chip ui-chip-neutral">0 Mitarbeiter</span>
+            <a id="prExport" class="ui-flat-button" href="#" aria-disabled="true">CSV exportieren</a>
+        </div>
+    </div>
+
+    <section class="ui-table-card pr-table-card">
+        <div class="table-wrapper">
+            <table class="pr-table">
+                <thead id="prHead"></thead>
+                <tbody id="prBody"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <div id="prRowMenu" class="ui-filter-dropdown pr-row-menu" role="menu"></div>
 </div>
 {% endblock %}

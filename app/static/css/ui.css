@@ -931,3 +931,65 @@ body.modal-open {
         max-height: 50vh;
     }
 }
+
+/* Datumswahl (static/js/day_picker.js): ‹ [Datum wählen] [Gestern] [Heute] ›.
+   Aussehen wie in der Zeitkorrektur (.tc-days, .tc-pick, .tc-day-nav), die noch eigene Klassen hat. */
+.day-picker,
+.day-picker-days {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.day-picker-pick {
+    position: relative;
+}
+
+/* Unsichtbares Datumsfeld unter „Datum wählen“, öffnet den Kalender. */
+.day-picker-input {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 1px;
+    height: 1px;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.day-picker-nav {
+    display: inline-flex;
+    align-self: center;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+}
+
+/* Ohne Ziel unsichtbar, aber mit Platz, damit die Tage nicht verrutschen. */
+.day-picker-nav.is-off {
+    visibility: hidden;
+}
+
+.day-picker-nav:hover,
+.day-picker-nav:focus-visible {
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-strong);
+    outline: none;
+}
+
+.day-picker-nav svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}

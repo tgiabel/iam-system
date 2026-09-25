@@ -1,0 +1,411 @@
+/* Presence-Report. Tabelle, Sortierköpfe und Menüs aus ui.css (ui-table-card, ui-table-sort-button,
+   ui-filter-dropdown), Datumswahl aus ui.css (day-picker). Kopf und Kennzahlen wie Zeitkorrektur
+   bzw. IVR-Call-Detailreport. Flächen sind deckend: main trägt im Servodata-Theme ein Bild. */
+.pr-page {
+    width: 100%;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 28px 20px 32px;
+    box-sizing: border-box;
+}
+
+.pr-page [hidden] {
+    display: none !important;
+}
+
+.pr-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Kopf: Titel links, Neu laden rechts mit „Stand“ darunter. */
+.pr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.pr-heading {
+    margin-bottom: 1.25rem;
+}
+
+.pr-refresh {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.pr-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    box-shadow: var(--ui-shadow-sm);
+    cursor: pointer;
+}
+
+.pr-icon-btn:disabled {
+    cursor: progress;
+    opacity: 0.6;
+}
+
+.pr-icon-btn svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.pr-loaded-at {
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+/* Kennzahlen */
+.pr-kpis {
+    margin-bottom: 12px;
+}
+
+.pr-kpi-strip {
+    display: flex;
+    gap: 12px;
+    min-height: 4.6rem;
+    padding: 2px 2px 8px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-border) transparent;
+}
+
+.pr-kpi {
+    display: flex;
+    flex: 0 0 min(12.5rem, 70vw);
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-strong);
+}
+
+.pr-kpi.is-total {
+    position: relative;
+    flex-basis: auto;
+    min-width: 7.5rem;
+    margin-right: 12px;
+    border-color: rgba(var(--color-primary-rgb), 0.25);
+    background: var(--ui-surface-card);
+}
+
+.pr-kpi.is-total::after {
+    position: absolute;
+    top: 16%;
+    right: -7px;
+    width: 1px;
+    height: 68%;
+    background: var(--ui-border);
+    content: "";
+}
+
+.pr-kpi-value {
+    overflow: hidden;
+    font-size: 1.08rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pr-kpi-label,
+.pr-kpi-meta {
+    overflow: hidden;
+    color: var(--ui-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pr-kpi-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.pr-kpi-meta {
+    font-size: 0.75rem;
+}
+
+/* Leiste: Datumswahl links, Quelle rechts. */
+.pr-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px 20px;
+    margin-bottom: 16px;
+}
+
+.pr-source {
+    display: inline-flex;
+    gap: 6px;
+}
+
+/* Filter: Suche, Statusspalten, Zähler und Export. */
+.pr-filterbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 12px;
+    margin-bottom: 14px;
+}
+
+.pr-search {
+    flex: 0 1 22rem;
+    min-width: 12rem;
+}
+
+.pr-filtermeta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.pr-filtermeta a[aria-disabled="true"] {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.pr-columns-menu {
+    left: 0;
+    right: auto;
+    max-height: 22rem;
+    overflow-y: auto;
+}
+
+.pr-column-option {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 10px;
+    color: var(--menu-text);
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.pr-column-option:hover {
+    background: var(--menu-surface-hover);
+}
+
+.pr-column-option input {
+    accent-color: var(--color-primary);
+}
+
+/* Zeilenmenü „⋯“: sitzt fest im Fenster, damit die scrollende Tabelle es nicht abschneidet. */
+.pr-row-menu {
+    position: fixed;
+    top: 0;
+    right: 0;
+}
+
+/* Tabelle */
+.pr-table-card {
+    --ui-table-max-height: 70vh;
+}
+
+.pr-table-card thead th,
+.pr-table-card tbody td {
+    padding: 0.7rem 0.85rem;
+    white-space: nowrap;
+}
+
+.pr-table-card thead th {
+    font-size: 0.74rem;
+}
+
+/* Erste Spalte bleibt beim waagrechten Scrollen stehen. */
+.pr-col-name {
+    position: sticky;
+    left: 0;
+    min-width: 11rem;
+}
+
+.pr-table-card thead .pr-col-name {
+    z-index: 3;
+}
+
+.pr-table-card tbody .pr-col-name {
+    z-index: 1;
+    background: var(--ui-surface-card);
+}
+
+.pr-table-card tbody tr:hover .pr-col-name {
+    background: color-mix(in srgb, var(--ui-surface-soft) 82%, var(--ui-surface-card));
+}
+
+.pr-name,
+.pr-pseudonym {
+    display: block;
+}
+
+.pr-name {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.pr-pseudonym {
+    color: var(--ui-text-muted);
+    font-size: 0.78rem;
+}
+
+.pr-cell {
+    font-variant-numeric: tabular-nums;
+}
+
+.pr-duration,
+.pr-count {
+    display: block;
+}
+
+.pr-logged .pr-duration {
+    font-weight: 700;
+}
+
+.pr-count {
+    color: var(--ui-text-muted);
+    font-size: 0.78rem;
+}
+
+.pr-cell.is-empty {
+    color: var(--ui-text-muted);
+}
+
+/* Dauert noch an: Punkt vor der Dauer. */
+.pr-cell.is-open .pr-duration::before {
+    display: inline-block;
+    width: 0.45rem;
+    height: 0.45rem;
+    margin-right: 0.4rem;
+    border-radius: 999px;
+    background: var(--color-primary);
+    vertical-align: 0.1em;
+    content: "";
+}
+
+.pr-col-actions {
+    width: 3rem;
+    text-align: right;
+}
+
+.pr-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+}
+
+.pr-menu-btn:hover,
+.pr-menu-btn:focus-visible,
+.pr-menu-btn[aria-expanded="true"] {
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-strong);
+    outline: none;
+}
+
+.pr-menu-btn svg {
+    width: 1.2rem;
+    height: 1.2rem;
+    fill: currentColor;
+}
+
+.pr-row.is-expanded td {
+    border-bottom-color: transparent;
+}
+
+/* Einzeldatensätze unter der Zeile */
+.pr-table-card tbody .pr-detail-row td {
+    padding: 0 0.85rem 0.85rem;
+    background: var(--ui-surface-card);
+}
+
+.pr-detail {
+    position: sticky;
+    left: 0.85rem;
+    width: fit-content;
+    max-width: calc(100vw - 6rem);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-muted);
+}
+
+.pr-detail-note {
+    color: var(--ui-text-muted);
+}
+
+.pr-detail-table {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+.pr-detail-table th,
+.pr-detail-table td {
+    padding: 0.35rem 1.25rem 0.35rem 0;
+    border-bottom: 1px solid var(--ui-border);
+    text-align: left;
+}
+
+.pr-table-card .pr-detail-table thead th {
+    position: static;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font-size: 0.7rem;
+}
+
+.pr-detail-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.pr-detail-table tr.is-open td {
+    color: var(--ui-text-strong);
+    font-weight: 600;
+}
+
+.pr-error {
+    color: var(--danger-text);
+}
+
+@media (max-width: 700px) {
+    .pr-filtermeta {
+        margin-left: 0;
+    }
+}
