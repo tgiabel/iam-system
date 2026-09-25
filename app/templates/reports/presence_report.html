@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% set page_title = "Presence-Report" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% set widget_title = "Presence-Report" %}
+
+{% block favicon %}/static/img/process.png{% endblock %}
+
+{% block content %}
+<div class="presence-report-page">
+    <div class="ui-section-header">
+        <div class="ui-section-heading">
+            <p class="ui-section-kicker">Genesys Cloud</p>
+            <h1 class="ui-section-title">Presence-Report</h1>
+        </div>
+    </div>
+</div>
+{% endblock %}

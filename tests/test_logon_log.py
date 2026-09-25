@@ -78,7 +78,8 @@ class ProxyTests(unittest.TestCase):
         with self.assertRaises(Exception):asyncio.run(dependency(authz()))
         root=Path(__file__).parents[1]
         self.assertIn('href="/tools/logon-log"',(root/'app/templates/tools.html').read_text())
-        self.assertIn('"SOFA-RPRT-LL", redirect_to="/"',(root/'app/routes/pages.py').read_text())
+        tools_route=next(line for line in (root/'app/routes/pages.py').read_text().splitlines() if line.startswith('def tools('))
+        self.assertIn('"SOFA-RPRT-LL"',tools_route)
 
     def test_sensitive_controls_are_gated_by_template(self):
         from jinja2 import Environment,FileSystemLoader

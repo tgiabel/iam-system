@@ -5,6 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware  # type: ignore
 from app.routes.api import router as api_router
 from app.routes.logon_log import router as logon_log_router
 from app.routes.pages import router as page_router
+from app.routes.presence_report import router as presence_report_router
 from app.routes.shared import static_path
 from app.routes.time_corrections import router as time_corrections_router
 
@@ -35,3 +36,4 @@ app.include_router(page_router)
 app.include_router(api_router)
 app.include_router(logon_log_router, prefix="/api")
 app.include_router(time_corrections_router, prefix="/api")
+app.include_router(presence_report_router, prefix="/api")

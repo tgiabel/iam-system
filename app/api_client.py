@@ -137,6 +137,22 @@ class APIClient:
             timeout=timeout,
         )
 
+    # Presence-Report: Rechte prueft die SD-API ein zweites Mal, Mitarbeiter nur als Pseudonym.
+    async def presence_report_request(
+        self,
+        path: str,
+        actor_id: int,
+        *,
+        params: list[tuple[str, str]] | None = None,
+    ) -> httpx.Response:
+        return await self._request(
+            "GET",
+            REPORTING_BASE_URL,
+            "/presence" + path,
+            params=params,
+            headers={"X-User-Id": str(actor_id)},
+        )
+
     # Zeitkorrektur: Die SD-API kennt den Bearbeiter nur aus X-User-Id und prueft
     # SOFA-TOOL-ZK ein zweites Mal. Fehlerantworten reicht der Proxy unveraendert durch.
     async def time_corrections_request(
