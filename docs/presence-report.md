@@ -6,6 +6,15 @@ Ein allgemeiner Report über die Genesys-Presence aller Mitarbeiter je Tag. Er i
 
 Vorgaben aus genesys-sync: [`/var/www/genesys-sync/docs/auftrag-presence-bericht.md`](../../genesys-sync/docs/auftrag-presence-bericht.md). Wo dieses Dokument davon abweicht, ist das unten begründet.
 
+## Stand der Umsetzung (25.09.2026)
+
+| Teil | Stand |
+|---|---|
+| SD-API (A1–A5) | deployt als `sd-api:96f3804`, Migrationen angewendet, Grants gesetzt. Vertrag: `docs/presence-report-api.md` in der SD-API |
+| SOFA (B1–B4) | Branch `feature/presence-report` im Live-Checkout, noch nicht nach `main` gemergt |
+| Sichtprüfung | Playwright gegen eine lokale SOFA-Instanz mit synthetischen API-Antworten: Hell, Dunkel, Servodata, 390 px. Mit Echtdaten erst nach der Rechtevergabe |
+| Rechte | angelegt, noch keiner Rolle zugewiesen (C3) |
+
 ## Entscheidungen (25.09.2026)
 
 | Thema | Entscheidung |
