@@ -25,7 +25,7 @@
     border: 0;
 }
 
-/* Kopf: Titel links, Neu laden rechts mit „Stand“ darunter. */
+/* Kopf: Titel links, rechts Export und Neu laden mit „Stand“ darunter. */
 .pr-header {
     display: flex;
     justify-content: space-between;
@@ -35,6 +35,12 @@
 
 .pr-heading {
     margin-bottom: 1.25rem;
+}
+
+.pr-header-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
 }
 
 .pr-refresh {
@@ -57,6 +63,11 @@
     color: var(--ui-text-strong);
     box-shadow: var(--ui-shadow-sm);
     cursor: pointer;
+}
+
+.pr-icon-btn[aria-disabled="true"] {
+    opacity: 0.55;
+    pointer-events: none;
 }
 
 .pr-icon-btn:disabled {
@@ -155,50 +166,50 @@
     font-size: 0.75rem;
 }
 
-/* Leiste: Datumswahl links, Quelle rechts. */
+/* Leiste: Suche links, Datumswahl mittig, Status und Quelle rechts. */
 .pr-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
     gap: 12px 20px;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 }
 
-.pr-source {
-    display: inline-flex;
-    gap: 6px;
-}
-
-/* Filter: Suche, Statusspalten, Zähler und Export. */
-.pr-filterbar {
+.pr-toolbar-start,
+.pr-toolbar-end {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 10px 12px;
-    margin-bottom: 14px;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pr-toolbar-end {
+    justify-content: flex-end;
+    gap: 6px;
 }
 
 .pr-search {
     flex: 0 1 22rem;
-    min-width: 12rem;
+    min-width: 10rem;
 }
 
-.pr-filtermeta {
+.pr-days {
+    flex-wrap: nowrap;
+    justify-content: center;
+}
+
+.pr-days .day-picker-days {
+    flex-wrap: nowrap;
+}
+
+/* Trefferzahl rechts über der Tabelle. */
+.pr-table-meta {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-left: auto;
-}
-
-.pr-filtermeta a[aria-disabled="true"] {
-    opacity: 0.55;
-    pointer-events: none;
+    justify-content: flex-end;
+    margin-bottom: 10px;
 }
 
 .pr-columns-menu {
-    left: 0;
-    right: auto;
     max-height: 22rem;
     overflow-y: auto;
 }
@@ -413,8 +424,35 @@
     color: var(--danger-text);
 }
 
-@media (max-width: 700px) {
-    .pr-filtermeta {
-        margin-left: 0;
+/* Schmal: Suche und Menüs oben, Datumswahl darunter. */
+@media (max-width: 900px) {
+    .pr-toolbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .pr-days {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        flex-wrap: wrap;
+    }
+
+    .pr-days .day-picker-days {
+        flex-wrap: wrap;
+    }
+}
+
+/* Handy: Suche, Menüs und Datumswahl je eine Zeile. */
+@media (max-width: 600px) {
+    .pr-toolbar {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .pr-search {
+        flex: 1 1 8rem;
+        min-width: 0;
+    }
+
+    .pr-days {
+        grid-row: 3;
     }
 }

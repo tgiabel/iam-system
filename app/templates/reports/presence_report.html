@@ -27,11 +27,16 @@
                 <h1 class="ui-section-title">Presence-Report</h1>
             </div>
         </div>
-        <div class="pr-refresh">
-            <button type="button" id="prReload" class="pr-icon-btn" aria-label="Neu laden" title="Neu laden">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.7"/><path d="M20 4v4.7h-4.7"/></svg>
-            </button>
-            <span id="prLoadedAt" class="pr-loaded-at"></span>
+        <div class="pr-header-actions">
+            <a id="prExport" class="pr-icon-btn" href="#" aria-disabled="true" aria-label="CSV exportieren" title="CSV exportieren">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></svg>
+            </a>
+            <div class="pr-refresh">
+                <button type="button" id="prReload" class="pr-icon-btn" aria-label="Neu laden" title="Neu laden">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.7"/><path d="M20 4v4.7h-4.7"/></svg>
+                </button>
+                <span id="prLoadedAt" class="pr-loaded-at"></span>
+            </div>
         </div>
     </div>
 
@@ -40,7 +45,11 @@
     </section>
 
     <div class="pr-toolbar">
-        <div id="prDays" class="day-picker" role="group" aria-label="Tag">
+        <div class="pr-toolbar-start">
+            <input type="search" id="prSearch" class="ui-input pr-search" placeholder="Pseudonym oder Name suchen…"
+                   autocomplete="off" aria-label="Mitarbeiter suchen">
+        </div>
+        <div id="prDays" class="day-picker pr-days" role="group" aria-label="Tag">
             <button type="button" class="day-picker-nav is-off" data-day-prev aria-label="Vorheriger Tag" title="Vorheriger Tag">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
             </button>
@@ -53,26 +62,32 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
             </button>
         </div>
-        <div id="prSource" class="pr-source" role="group" aria-label="Quelle">
-            <button type="button" class="ui-flat-button" data-source="genesys" aria-pressed="true">Genesys</button>
-            <button type="button" class="ui-flat-button" data-source="opcyc" aria-pressed="false">Opcyc</button>
+        <div class="pr-toolbar-end">
+            <div class="ui-filter-container">
+                <button type="button" id="prColumnsBtn" class="ui-flat-button ui-flat-button--icon" aria-haspopup="true"
+                        aria-expanded="false" aria-controls="prColumnsMenu" aria-label="Status" title="Status">
+                    <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                        <path d="M4 5h16l-6.2 7.4v5.1l-3.6 2v-7.1z"/>
+                    </svg>
+                </button>
+                <div id="prColumnsMenu" class="ui-filter-dropdown pr-columns-menu" role="group" aria-label="Sichtbare Status"></div>
+            </div>
+            <div class="ui-filter-container">
+                <button type="button" id="prSourceBtn" class="ui-flat-button" aria-haspopup="menu" aria-expanded="false"
+                        aria-controls="prSourceMenu" title="Quelle">
+                    <span id="prSourceLabel">Genesys</span>
+                    <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div id="prSourceMenu" class="ui-filter-dropdown" role="menu" aria-label="Quelle">
+                    <button type="button" role="menuitemradio" data-source="genesys" aria-checked="true">Genesys</button>
+                    <button type="button" role="menuitemradio" data-source="opcyc" aria-checked="false">Opcyc</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="pr-filterbar">
-        <input type="search" id="prSearch" class="ui-input pr-search" placeholder="Pseudonym oder Name suchen…"
-               autocomplete="off" aria-label="Mitarbeiter suchen">
-        <div class="ui-filter-container">
-            <button type="button" id="prColumnsBtn" class="ui-flat-button" aria-expanded="false" aria-controls="prColumnsMenu">
-                Status
-                <svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
-            </button>
-            <div id="prColumnsMenu" class="ui-filter-dropdown pr-columns-menu" role="group" aria-label="Sichtbare Status"></div>
-        </div>
-        <div class="pr-filtermeta">
-            <span id="prCount" class="ui-chip ui-chip-neutral">0 Mitarbeiter</span>
-            <a id="prExport" class="ui-flat-button" href="#" aria-disabled="true">CSV exportieren</a>
-        </div>
+    <div class="pr-table-meta">
+        <span id="prCount" class="ui-chip ui-chip-neutral">0 Mitarbeiter</span>
     </div>
 
     <section class="ui-table-card pr-table-card">

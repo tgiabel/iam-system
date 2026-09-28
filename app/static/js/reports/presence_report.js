@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const Model = window.PresenceReportModel;
     const API = "/api/reporting/presence";
     const HIDDEN_KEY = "presenceReport.hiddenStatuses.";
+    const SOURCES = {genesys: "Genesys", opcyc: "Opcyc"};
     const DOTS = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>';
 
     const url = Model.readUrl(window.location.search);
@@ -31,7 +32,8 @@ document.addEventListener("DOMContentLoaded", function () {
     const $ = (id) => document.getElementById(id);
     const dom = {
         reload: $("prReload"), loadedAt: $("prLoadedAt"), kpis: $("prKpis"), days: $("prDays"),
-        source: $("prSource"), search: $("prSearch"), columnsBtn: $("prColumnsBtn"), columnsMenu: $("prColumnsMenu"),
+        sourceBtn: $("prSourceBtn"), sourceLabel: $("prSourceLabel"), sourceMenu: $("prSourceMenu"),
+        search: $("prSearch"), columnsBtn: $("prColumnsBtn"), columnsMenu: $("prColumnsMenu"),
         count: $("prCount"), exportLink: $("prExport"), head: $("prHead"), body: $("prBody"), rowMenu: $("prRowMenu"),
     };
     state.hidden = {genesys: storedHidden("genesys"), opcyc: storedHidden("opcyc")};
@@ -162,8 +164,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function render() {
         picker.render({day: state.day, ...state.calendar});
-        dom.source.querySelectorAll("[data-source]").forEach((button) => {
-            button.setAttribute("aria-pressed", String(button.dataset.source === state.source));
+        dom.sourceLabel.textContent = SOURCES[state.source];
+        dom.sourceMenu.querySelectorAll("[data-source]").forEach((button) => {
+            const active = button.dataset.source === state.source;
+            button.classList.toggle("is-active", active);
+            button.setAttribute("aria-checked", String(active));
         });
         const asOf = state.report && state.report.data_as_of;
         dom.loadedAt.textContent = asOf
@@ -203,6 +208,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const all = state.report ? state.report.statuses : [];
         const hidden = currentHidden();
         dom.columnsBtn.disabled = !all.length;
+        dom.columnsBtn.classList.toggle("is-active", all.some((status) => hidden.includes(status.key)));
         dom.columnsMenu.innerHTML = all.map((status) => (
             `<label class="pr-column-option"><input type="checkbox" data-status="${escapeHtml(status.key)}"`
             + `${hidden.includes(status.key) ? "" : " checked"}> <span>${escapeHtml(status.label)}</span></label>`
@@ -352,9 +358,30 @@ document.addEventListener("DOMContentLoaded", function () {
 
     dom.reload.addEventListener("click", () => load({keepNames: false}));
 
-    dom.source.addEventListener("click", (event) => {
+    // Aufklappmenüs der Leiste: Status (Spaltenwahl) und Quelle.
+    const menus = [
+        {button: dom.columnsBtn, menu: dom.columnsMenu},
+        {button: dom.sourceBtn, menu: dom.sourceMenu},
+    ];
+
+    function setMenu(entry, open) {
+        entry.menu.classList.toggle("active", open);
+        entry.button.setAttribute("aria-expanded", String(open));
+    }
+
+    menus.forEach((entry) => {
+        entry.button.addEventListener("click", () => {
+            const open = !entry.menu.classList.contains("active");
+            menus.forEach((other) => setMenu(other, other === entry && open));
+        });
+    });
+
+    dom.sourceMenu.addEventListener("click", (event) => {
         const button = event.target.closest("[data-source]");
-        if (!button || button.dataset.source === state.source) return;
+        if (!button) return;
+        setMenu(menus[1], false);
+        dom.sourceBtn.focus();
+        if (button.dataset.source === state.source) return;
         state.source = button.dataset.source;
         if (state.sortKey !== Model.NAME) state.sortKey = Model.LOGGED;
         load({keepNames: true});
@@ -388,17 +415,12 @@ document.addEventListener("DOMContentLoaded", function () {
         else toggleDetails(pseudonym);
     });
 
-    dom.columnsBtn.addEventListener("click", () => {
-        const open = !dom.columnsMenu.classList.contains("active");
-        dom.columnsMenu.classList.toggle("active", open);
-        dom.columnsBtn.setAttribute("aria-expanded", String(open));
-    });
-
     dom.columnsMenu.addEventListener("change", () => {
         const hidden = [...dom.columnsMenu.querySelectorAll("input[data-status]")]
             .filter((input) => !input.checked).map((input) => input.dataset.status);
         setHidden(hidden);
         if (hidden.includes(state.sortKey)) state.sortKey = Model.LOGGED;
+        dom.columnsBtn.classList.toggle("is-active", hidden.length > 0);
         renderKpis();
         renderTable();
     });
@@ -408,21 +430,20 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     document.addEventListener("click", (event) => {
-        if (!event.target.closest(".ui-filter-container")) {
-            dom.columnsMenu.classList.remove("active");
-            dom.columnsBtn.setAttribute("aria-expanded", "false");
-        }
+        menus.forEach((entry) => {
+            if (!entry.button.parentElement.contains(event.target)) setMenu(entry, false);
+        });
         if (state.menuFor && !event.target.closest("#prRowMenu, [data-menu]")) closeRowMenu();
     });
 
     document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape") return;
         if (state.menuFor) closeRowMenu(true);
-        if (dom.columnsMenu.classList.contains("active")) {
-            dom.columnsMenu.classList.remove("active");
-            dom.columnsBtn.setAttribute("aria-expanded", "false");
-            dom.columnsBtn.focus();
-        }
+        menus.forEach((entry) => {
+            if (!entry.menu.classList.contains("active")) return;
+            setMenu(entry, false);
+            entry.button.focus();
+        });
     });
 
     // Das Menü sitzt fest im Fenster; beim Scrollen gehörte es sonst zur falschen Zeile.
