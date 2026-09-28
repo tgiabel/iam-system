@@ -110,13 +110,13 @@ class TestIvrCallDetailsProxy(unittest.TestCase):
 
     def test_missing_day_defaults_to_yesterday(self):
         expected = (date.today() - timedelta(days=1)).isoformat()
-        self.assertEqual(api._resolve_ivr_report_day(None), expected)
+        self.assertEqual(api._resolve_ivr_call_details_day(None), expected)
 
     def test_today_future_and_invalid_days_are_rejected(self):
         rejected = (date.today().isoformat(), (date.today() + timedelta(days=1)).isoformat(), "24.08.2026")
         for value in rejected:
             with self.subTest(value=value), self.assertRaises(Exception) as raised:
-                api._resolve_ivr_report_day(value)
+                api._resolve_ivr_call_details_day(value)
             self.assertEqual(raised.exception.status_code, 400)
 
 

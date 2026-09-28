@@ -216,14 +216,6 @@ async def media_blocking_tool(request: Request, authz=Depends(require_admin_acce
     )
 
 
-@router.get("/tools/ivr-report", response_class=HTMLResponse)
-async def ivr_report_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-TIVR", redirect_to="/tools"))):
-    return templates.TemplateResponse(
-        "reports/ivr_report.html",
-        _build_template_context(request, user=authz.raw_user, authz=authz),
-    )
-
-
 @router.get("/tools/ivr-call-details", response_class=HTMLResponse)
 async def ivr_call_details_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-TIVR", redirect_to="/tools"))):
     return templates.TemplateResponse(

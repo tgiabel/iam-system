@@ -724,10 +724,6 @@ class APIClient:
         return await self._patch(Q_MANAGER_BASE_URL, f"/users/{user_id}/queues", payload=payload)
 
     # Reporting
-    async def get_ivr_report(self, day: str | None = None) -> dict:
-        params = {"day": day} if day else None
-        return await self._get(REPORTING_BASE_URL, "/ivr/report", params=params)
-
     async def get_ivr_call_details(self, day: str) -> dict:
         return await self._get(
             REPORTING_BASE_URL,

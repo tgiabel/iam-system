@@ -767,24 +767,7 @@ async def api_update_qmanager_user_queues(
 
 # Reporting
 
-@router.get("/reporting/ivr/report")
-async def api_get_ivr_report(
-    day: str | None = None,
-    current_user=Depends(require_permission("SOFA-RPRT-TIVR")),
-):
-    try:
-        result = await api_client.get_ivr_report(day=day)
-        return JSONResponse(content=result)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content=_error_content_from_response(exc.response),
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
-def _resolve_ivr_report_day(day: str | None) -> str:
+def _resolve_ivr_call_details_day(day: str | None) -> str:
     yesterday = date.today() - timedelta(days=1)
     if not day:
         return yesterday.isoformat()
@@ -805,7 +788,7 @@ async def api_get_ivr_call_details(
     day: str | None = None,
     current_user=Depends(require_permission("SOFA-RPRT-TIVR")),
 ):
-    report_day = _resolve_ivr_report_day(day)
+    report_day = _resolve_ivr_call_details_day(day)
     try:
         result = await api_client.get_ivr_call_details(day=report_day)
         return JSONResponse(content=result)
