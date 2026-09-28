@@ -1,0 +1,294 @@
+/* Compact SOFA-native presentation for the Tokenlöschungs-Report. */
+.tdr-page {
+    width: 100%;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 28px 20px 36px;
+    box-sizing: border-box;
+}
+
+.tdr-header,
+.tdr-period-header,
+.tdr-period-nav,
+.tdr-kpi-heading {
+    display: flex;
+    align-items: center;
+}
+
+.tdr-header,
+.tdr-period-header {
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.tdr-heading {
+    margin-bottom: 1.25rem;
+}
+
+.tdr-refresh {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.tdr-icon-btn,
+.tdr-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    box-shadow: var(--ui-shadow-sm);
+    cursor: pointer;
+}
+
+.tdr-icon-btn {
+    width: 3rem;
+    height: 3rem;
+}
+
+.tdr-nav-btn {
+    width: 2.45rem;
+    height: 2.45rem;
+}
+
+.tdr-icon-btn svg,
+.tdr-nav-btn svg {
+    width: 1.15rem;
+    height: 1.15rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tdr-icon-btn:disabled,
+.tdr-nav-btn:disabled {
+    opacity: 0.38;
+    cursor: default;
+}
+
+.tdr-loaded-at,
+.tdr-kpi-meta,
+.tdr-period-kicker {
+    color: var(--ui-text-muted);
+}
+
+.tdr-loaded-at {
+    min-height: 1rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.tdr-status {
+    min-height: 1.5rem;
+    margin: -0.5rem 0 0.65rem;
+    color: var(--ui-text-muted);
+    font-size: 0.86rem;
+}
+
+.tdr-status.is-error {
+    color: var(--color-danger, #b42318);
+}
+
+.tdr-status button {
+    margin-left: 0.5rem;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 750;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.tdr-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.tdr-kpi {
+    min-width: 0;
+    padding: 1.05rem 1.2rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.tdr-kpi.is-live {
+    border-color: rgba(var(--color-primary-rgb), 0.32);
+}
+
+.tdr-kpi-heading {
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.tdr-kpi-value {
+    display: block;
+    margin: 0.6rem 0 0.15rem;
+    color: var(--ui-text-strong);
+    font-size: clamp(2rem, 4vw, 3.25rem);
+    line-height: 1;
+}
+
+.tdr-period-card {
+    margin-top: 16px;
+    overflow: hidden;
+}
+
+.tdr-period-header {
+    padding: 1rem 1.1rem;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+}
+
+.tdr-period-header h2 {
+    margin: 0.12rem 0 0;
+    color: var(--ui-text-strong);
+    font-size: 1.08rem;
+}
+
+.tdr-period-kicker {
+    margin: 0;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.tdr-period-nav {
+    gap: 0.65rem;
+}
+
+.tdr-period-label {
+    min-width: 10.5rem;
+    color: var(--ui-text-strong);
+    font-weight: 800;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tdr-table-wrapper {
+    max-height: none;
+    background: var(--ui-surface-card);
+}
+
+.tdr-table {
+    width: 100%;
+    min-width: 920px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.tdr-table th,
+.tdr-table td {
+    padding: 0.9rem 0.75rem;
+    border-bottom: 0;
+    border-right: 1px solid var(--ui-border);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tdr-table th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    min-width: 9.5rem;
+    background: var(--ui-surface-card);
+    text-align: left;
+}
+
+.tdr-table thead th {
+    color: var(--ui-text-muted);
+    background: var(--ui-surface-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.tdr-table thead th:first-child {
+    background: var(--ui-surface-muted);
+}
+
+.tdr-table thead th span {
+    display: block;
+    margin-top: 0.18rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+.tdr-table tbody th {
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+
+.tdr-table td:last-child,
+.tdr-table th:last-child {
+    border-right: 0;
+}
+
+.tdr-table td strong {
+    color: var(--ui-text-strong);
+    font-size: 1.08rem;
+}
+
+.tdr-table .is-current {
+    background: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.tdr-table .is-current strong {
+    color: var(--color-primary);
+}
+
+.tdr-table .is-outside {
+    opacity: 0.42;
+}
+
+.tdr-empty {
+    margin: 0;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--ui-border);
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+@media (max-width: 680px) {
+    .tdr-page {
+        padding: 20px 12px 28px;
+    }
+
+    .tdr-kpis {
+        grid-template-columns: 1fr;
+    }
+
+    .tdr-period-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .tdr-period-nav {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .tdr-period-label {
+        min-width: 0;
+    }
+}

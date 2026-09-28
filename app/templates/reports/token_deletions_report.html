@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% set page_title = "Tokenlöschungs-Report" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Tool-Übersicht" %}
+{% set widget_title = "Tokenlöschungs-Report" %}
+
+{% block favicon %}/static/img/process.png{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/token_deletions_report.css?v={{ static_v }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/reports/token_deletions_report_model.js?v={{ static_v }}"></script>
+<script src="/static/js/reports/token_deletions_report.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% block content %}
+<div id="tdrReport" class="tdr-page">
+    <div class="tdr-header">
+        <div class="ui-section-header tdr-heading">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Genesys Cloud</p>
+                <h1 class="ui-section-title">Tokenlöschungs-Report</h1>
+            </div>
+        </div>
+        <div class="tdr-refresh">
+            <button type="button" id="tdrReload" class="tdr-icon-btn" aria-label="Neu laden" title="Neu laden">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.7"/><path d="M20 4v4.7h-4.7"/></svg>
+            </button>
+            <span id="tdrLoadedAt" class="tdr-loaded-at"></span>
+        </div>
+    </div>
+
+    <div id="tdrStatus" class="tdr-status" aria-live="polite"></div>
+
+    <section class="tdr-kpis" aria-label="Tokenlöschungen heute und gestern">
+        <article class="tdr-kpi is-live">
+            <div class="tdr-kpi-heading"><span>Heute</span><span class="ui-chip ui-chip-primary">LIVE</span></div>
+            <strong id="tdrTodayValue" class="tdr-kpi-value">–</strong>
+            <span id="tdrTodayDate" class="tdr-kpi-meta"></span>
+        </article>
+        <article class="tdr-kpi">
+            <div class="tdr-kpi-heading"><span>Gestern</span></div>
+            <strong id="tdrYesterdayValue" class="tdr-kpi-value">–</strong>
+            <span id="tdrYesterdayDate" class="tdr-kpi-meta"></span>
+        </article>
+    </section>
+
+    <section class="ui-table-card tdr-period-card" aria-labelledby="tdrYearHeading">
+        <header class="tdr-period-header">
+            <div>
+                <p class="tdr-period-kicker">Monatliche Summen</p>
+                <h2 id="tdrYearHeading">Jahresansicht</h2>
+            </div>
+            <div class="tdr-period-nav" role="group" aria-label="Jahr auswählen">
+                <button type="button" id="tdrYearPrev" class="tdr-nav-btn" aria-label="Vorheriges Jahr" title="Vorheriges Jahr">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <span id="tdrYearLabel" class="tdr-period-label">–</span>
+                <button type="button" id="tdrYearNext" class="tdr-nav-btn" aria-label="Nächstes Jahr" title="Nächstes Jahr">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </div>
+        </header>
+        <div class="table-wrapper tdr-table-wrapper">
+            <table class="tdr-table">
+                <thead id="tdrMonthsHead"></thead>
+                <tbody id="tdrMonthsBody"></tbody>
+            </table>
+        </div>
+        <p id="tdrYearEmpty" class="tdr-empty" hidden>In diesem Jahr liegen keine Tokenlöschungen vor.</p>
+    </section>
+
+    <section class="ui-table-card tdr-period-card" aria-labelledby="tdrWeekHeading">
+        <header class="tdr-period-header">
+            <div>
+                <p class="tdr-period-kicker">Tägliche Summen</p>
+                <h2 id="tdrWeekHeading">Wochenansicht</h2>
+            </div>
+            <div class="tdr-period-nav" role="group" aria-label="Woche auswählen">
+                <button type="button" id="tdrWeekPrev" class="tdr-nav-btn" aria-label="Vorherige Woche" title="Vorherige Woche">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+                </button>
+                <span id="tdrWeekLabel" class="tdr-period-label">–</span>
+                <button type="button" id="tdrWeekNext" class="tdr-nav-btn" aria-label="Nächste Woche" title="Nächste Woche">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+                </button>
+            </div>
+        </header>
+        <div class="table-wrapper tdr-table-wrapper">
+            <table class="tdr-table">
+                <thead id="tdrDaysHead"></thead>
+                <tbody id="tdrDaysBody"></tbody>
+            </table>
+        </div>
+        <p id="tdrWeekEmpty" class="tdr-empty" hidden>In dieser Woche liegen keine Tokenlöschungen vor.</p>
+    </section>
+</div>
+{% endblock %}

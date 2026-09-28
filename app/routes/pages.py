@@ -240,6 +240,16 @@ async def presence_report_tool(request: Request, authz=Depends(require_permissio
     )
 
 
+@router.get("/tools/token-deletion-report", response_class=HTMLResponse)
+async def token_deletion_report_tool(
+    request: Request, authz=Depends(require_permission("SOFA-RPRT-PRSNC", redirect_to="/tools"))
+):
+    return templates.TemplateResponse(
+        "reports/token_deletions_report.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz),
+    )
+
+
 @router.get("/tools/logon-log", response_class=HTMLResponse)
 async def logon_log_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-LL", redirect_to="/tools"))):
     return templates.TemplateResponse(
