@@ -630,12 +630,23 @@ body.mobile-nav-open .mobile-nav-toggle {
     pointer-events: none;
 }
 
+#nav-admin > .subnav {
+    left: 0;
+    padding-left: 0.45rem;
+    transform: translateY(-16px);
+    transform-origin: top left;
+}
+
 /* visible state controlled by JS by adding .open on parent */
 .dropdown.open > .subnav {
     display: flex;
     opacity: 1;
     transform: translateX(-50%) translateY(0);
     pointer-events: auto;
+}
+
+#nav-admin.open > .subnav {
+    transform: translateY(0);
 }
 
 .profile-dropdown > .subnav {
@@ -673,18 +684,36 @@ body.mobile-nav-open .mobile-nav-toggle {
     transition: color 0.18s ease;
 }
 
-.subnav-item::after,
-.subnav a::after {
+#nav-admin > .subnav .subnav-item {
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.profile-dropdown > .subnav .subnav-item {
+    justify-content: flex-end;
+    text-align: right;
+}
+
+.subnav-item-label {
+    display: inline-block;
+    position: relative;
+}
+
+.subnav-item-label::after {
     content: "";
     position: absolute;
-    left: 18%;
-    right: 18%;
-    bottom: 2px;
+    left: 0;
+    right: 0;
+    bottom: -4px;
     height: 2px;
     background: currentColor;
     transform: scaleX(0);
     transform-origin: left;
     transition: transform 0.18s ease;
+}
+
+.profile-dropdown > .subnav .subnav-item-label::after {
+    transform-origin: right;
 }
 
 .subnav-item:hover, .subnav a:hover,
@@ -696,9 +725,9 @@ body.mobile-nav-open .mobile-nav-toggle {
     color: var(--dropdown-text-hover);
 }
 
-.subnav-item:hover::after, .subnav a:hover::after,
-.subnav-item:focus-visible::after, .subnav a:focus-visible::after,
-.subnav-item.is-active::after {
+.subnav-item:hover .subnav-item-label::after,
+.subnav-item:focus-visible .subnav-item-label::after,
+.subnav-item.is-active .subnav-item-label::after {
     transform: scaleX(1);
 }
 
@@ -707,9 +736,9 @@ body.mobile-nav-open .mobile-nav-toggle {
     cursor: default;
 }
 
-.subnav-item.is-disabled::after,
-.subnav-item.is-disabled:hover::after,
-.subnav-item.is-disabled:focus-visible::after {
+.subnav-item.is-disabled .subnav-item-label::after,
+.subnav-item.is-disabled:hover .subnav-item-label::after,
+.subnav-item.is-disabled:focus-visible .subnav-item-label::after {
     transform: scaleX(0);
 }
 
@@ -726,6 +755,66 @@ body.mobile-nav-open .mobile-nav-toggle {
 .subnav-item.is-danger:hover, .subnav a.is-danger:hover,
 .subnav-item.is-danger:focus-visible, .subnav a.is-danger:focus-visible {
     color: #8f1d14;
+}
+
+.profile-subnav-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    padding-top: 0.7rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.profile-subnav-actions .profile-action-button {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 8px;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-subnav-actions .profile-action-button:hover,
+.profile-subnav-actions .profile-action-button:focus-visible {
+    background: transparent;
+    transform: none;
+}
+
+.problem-report-button {
+    color: var(--status-red-text);
+}
+
+.profile-action-icon,
+.profile-subnav-actions .theme-toggle-icon {
+    transition: filter 0.18s ease;
+}
+
+.problem-report-button:hover .profile-action-icon,
+.problem-report-button:focus-visible .profile-action-icon {
+    filter: drop-shadow(0 0 5px currentColor);
+}
+
+.profile-action-icon {
+    width: 24px;
+    height: 24px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.profile-subnav-actions .theme-toggle-button:hover .theme-toggle-icon,
+.profile-subnav-actions .theme-toggle-button:focus-visible .theme-toggle-icon {
+    filter: drop-shadow(0 0 5px rgba(var(--color-primary-rgb), 0.9));
 }
 
 .profile-modal {
@@ -781,10 +870,20 @@ body.mobile-nav-open .mobile-nav-toggle {
     border-radius: 999px;
 }
 
+.profile-subnav-actions .theme-toggle-button {
+    background: transparent;
+    border-radius: 0;
+}
+
 .theme-toggle-button:hover,
 .theme-toggle-button:focus-visible {
     background: var(--header-surface-hover);
     transform: translateY(-1px);
+}
+
+.profile-subnav-actions .theme-toggle-button:hover,
+.profile-subnav-actions .theme-toggle-button:focus-visible {
+    background: transparent;
 }
 
 .profile-button:hover,

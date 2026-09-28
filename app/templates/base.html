@@ -80,22 +80,22 @@
                             </button>
                             <div id="admin-subnav" class="subnav" role="menu" aria-label="Admin Menü" aria-hidden="true">
                                 {% if "SOFA-PAGE-USER" in authz.permissions %}
-                                    <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users">Userverwaltung</a>
+                                    <a href="/users" role="menuitem" class="subnav-item" data-nav-target="users"><span class="subnav-item-label">Userverwaltung</span></a>
                                 {% endif %}
                                 {% if "SOFA-PAGE-SYS" in authz.permissions %}
-                                    <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems">Systemverwaltung</a>
+                                    <a href="/systems" role="menuitem" class="subnav-item" data-nav-target="systems"><span class="subnav-item-label">Systemverwaltung</span></a>
                                 {% endif %}
                                 {% if "SOFA-PAGE-COMPUTER" in authz.permissions %}
-                                    <a href="/computers" role="menuitem" class="subnav-item" data-nav-target="computers">Rechnerverwaltung</a>
+                                    <a href="/computers" role="menuitem" class="subnav-item" data-nav-target="computers"><span class="subnav-item-label">Rechnerverwaltung</span></a>
                                 {% endif %}
                                 {% if "SOFA-PAGE-ROLE" in authz.permissions %}
-                                    <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles">Rollenmanagement</a>
+                                    <a href="/roles" role="menuitem" class="subnav-item" data-nav-target="roles"><span class="subnav-item-label">Rollenmanagement</span></a>
                                 {% endif %}
                                 {% if "SOFA-TOOL-IKS" in authz.permissions %}
-                                    <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks">Kontrollsystem</a>
+                                    <a href="/iks" role="menuitem" class="subnav-item" data-nav-target="iks"><span class="subnav-item-label">Kontrollsystem</span></a>
                                 {% endif %}
                                 {% if "SOFA-PAGE-CNSL" in authz.permissions %}
-                                    <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console">Konsole</a>
+                                    <a href="/console" role="menuitem" class="subnav-item" data-nav-target="console"><span class="subnav-item-label">Konsole</span></a>
                                 {% endif %}
                             </div>
                         </div>
@@ -125,21 +125,35 @@
                         <span class="profile-label">{{user.first_name}}</span>
                     </button>
                     <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
-                        <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1">Account</button>
-                        <button type="button" role="menuitem" class="subnav-item" data-profile-modal-trigger="password-change-modal">Passwort ändern</button>
-                        <button type="button" role="menuitem" class="subnav-item is-danger" data-profile-modal-trigger="stoerung-melden-modal">Störung melden</button>
-                        <a href="/logout" role="menuitem" class="subnav-item is-danger">Logout</a>
+                        <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1"><span class="subnav-item-label">Account</span></button>
+                        <button type="button" role="menuitem" class="subnav-item" data-profile-modal-trigger="password-change-modal"><span class="subnav-item-label">Passwort ändern</span></button>
+                        <a href="/logout" role="menuitem" class="subnav-item is-danger"><span class="subnav-item-label">Logout</span></a>
+                        <div class="profile-subnav-actions" role="group" aria-label="Schnellaktionen">
+                            <button type="button" role="menuitem" class="profile-action-button problem-report-button"
+                                    data-profile-modal-trigger="stoerung-melden-modal"
+                                    aria-label="Problem melden" title="Problem melden">
+                                <svg class="profile-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 3 3 19h18L12 3Z"></path>
+                                    <path d="M12 9v4"></path>
+                                    <circle cx="12" cy="16.5" r=".75"></circle>
+                                </svg>
+                            </button>
+                            <button id="theme-toggle-button" class="theme-toggle-button profile-action-button" type="button"
+                                    role="menuitem" aria-label="Theme wechseln" title="Theme wechseln">
+                                <img src="/static/img/sun-icon-white.png" alt="" class="theme-toggle-icon" id="theme-toggle-icon" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             {% else %}
                 <nav class="nav-links" role="navigation" aria-label="Login Navigation">
                     <a href="/login" class="nav-link" data-nav-target="login">Login</a>
                 </nav>
+                <button id="theme-toggle-button" class="theme-toggle-button" type="button"
+                        aria-label="Theme wechseln" title="Theme wechseln">
+                    <img src="/static/img/sun-icon-white.png" alt="" class="theme-toggle-icon" id="theme-toggle-icon" />
+                </button>
             {% endif %}
-            <button id="theme-toggle-button" class="theme-toggle-button" type="button"
-                    aria-label="Theme-Symbol wechseln" title="Theme-Symbol wechseln">
-                <img src="/static/img/sun-icon-white.png" alt="" class="theme-toggle-icon" id="theme-toggle-icon" />
-            </button>
         </div>
     </header>
     <div class="mobile-nav-panel" id="mobile-nav-panel" aria-hidden="true">

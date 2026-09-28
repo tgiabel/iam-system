@@ -27,9 +27,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const themeToggleButton = document.getElementById("theme-toggle-button");
     const themeToggleIcon = document.getElementById("theme-toggle-icon");
     const themes = [
-        { key: "light", icon: "/static/img/sun-icon-white.png", label: "Light Theme" },
-        { key: "dark", icon: "/static/img/moon-icon-white.png", label: "Dark Theme" },
-        { key: "servodata", icon: "/static/img/duck-icon-white.png", label: "Servodata-Theme" }
+        {
+            key: "light",
+            icon: "/static/img/sun-icon-white.png",
+            dropdownIcon: "/static/img/sun-icon.png",
+            label: "Light Theme"
+        },
+        {
+            key: "dark",
+            icon: "/static/img/moon-icon-white.png",
+            dropdownIcon: "/static/img/moon-icon-white.png",
+            label: "Dark Theme"
+        },
+        {
+            key: "servodata",
+            icon: "/static/img/duck-icon-white.png",
+            dropdownIcon: "/static/img/duck-icon-white.png",
+            label: "Servodata-Theme"
+        }
     ];
     const validThemeKeys = themes.map(theme => theme.key);
     let authzRefreshTimer = null;
@@ -204,7 +219,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!themeToggleButton || !themeToggleIcon) return;
 
         const activeTheme = getThemeByKey(themeKey);
-        themeToggleIcon.src = activeTheme.icon;
+        const isDropdownAction = Boolean(themeToggleButton.closest(".profile-subnav-actions"));
+        themeToggleIcon.src = isDropdownAction ? activeTheme.dropdownIcon : activeTheme.icon;
         themeToggleButton.setAttribute("data-theme", activeTheme.key);
         themeToggleButton.setAttribute("aria-label", `Aktives Theme: ${activeTheme.label}`);
         themeToggleButton.setAttribute("title", `Aktives Theme: ${activeTheme.label}`);
