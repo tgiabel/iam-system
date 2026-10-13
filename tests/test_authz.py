@@ -204,9 +204,12 @@ class TestHasPermission(unittest.TestCase):
         authz = self._make_authz(permissions=("SOFA-TOOL-ALL",))
         self.assertTrue(authz.has_any_tool())
 
-    def test_has_any_tool_false(self):
+    def test_personal_report_opens_workspace_for_all_signed_in_users(self):
         authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
-        self.assertFalse(authz.has_any_tool())
+        with patch("app.authz.is_configured", return_value=True):
+            self.assertTrue(authz.has_any_tool())
+        with patch("app.authz.is_configured", return_value=False):
+            self.assertFalse(authz.has_any_tool())
 
     def test_report_counts_as_workspace_access(self):
         authz = self._make_authz(permissions=("SOFA-RPRT-TIVR",))
@@ -356,10 +359,11 @@ class TestGetAuthzPayloadForTemplate(unittest.TestCase):
         payload = get_authz_payload_for_template(authz)
         self.assertTrue(payload["has_any_tool"])
 
-    def test_has_any_tool_false(self):
+    def test_personal_report_marks_workspace_available(self):
         authz = self._make_authz(permissions=("SOFA-PAGE-TODO",))
-        payload = get_authz_payload_for_template(authz)
-        self.assertFalse(payload["has_any_tool"])
+        with patch("app.authz.is_configured", return_value=True):
+            payload = get_authz_payload_for_template(authz)
+            self.assertTrue(payload["has_any_tool"])
 
     def test_permissions_sorted(self):
         authz = self._make_authz(permissions=("SOFA-TOOL-GQ", "SOFA-PAGE-TODO", "SOFA-FN-ONB"))

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% set page_title = "Meine Genesys-Zahlen" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Report-Übersicht" %}
+{% set widget_title = "Meine Genesys-Zahlen" %}
+{% block favicon %}/static/img/process.png{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/time_correction.css?v={{ static_v }}">
+<link rel="stylesheet" href="/static/css/agent_stats_report.css?v={{ static_v }}">
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/day_picker.js?v={{ static_v }}"></script>
+<script src="/static/js/tools/time_correction_model.js?v={{ static_v }}"></script>
+<script src="/static/js/tools/time_correction_timeline.js?v={{ static_v }}"></script>
+<script src="/static/js/reports/agent_stats_model.js?v={{ static_v }}"></script>
+<script defer src="/static/js/reports/agent_stats_report.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% block content %}
+<main id="agentStats" class="as-page">
+    <header class="as-header">
+        <div class="ui-section-header">
+            <div class="ui-section-heading">
+                <p class="ui-section-kicker">Genesys Cloud</p>
+                <h1 class="ui-section-title">Meine Genesys-Zahlen</h1>
+            </div>
+        </div>
+        <div class="as-refresh">
+            <span id="asAsOf" class="as-asof"></span>
+            <button id="asReload" class="ui-icon-button as-icon-btn" type="button" aria-label="Neu laden" title="Neu laden">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.7M20 4v4.7h-4.7"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="as-toolbar">
+        <div class="as-period" role="group" aria-label="Zeitraum">
+            <button type="button" class="ui-flat-button" data-period="day" aria-pressed="true">Tag</button>
+            <button type="button" class="ui-flat-button" data-period="month" aria-pressed="false">Monat</button>
+        </div>
+        <div id="asDayPicker" class="day-picker as-day-picker" role="group" aria-label="Tag">
+            <button type="button" data-day-prev class="day-picker-nav" aria-label="Vorheriger Tag" title="Vorheriger Tag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <span class="day-picker-pick"><button type="button" data-day-pick class="ui-flat-button day-picker-date">Datum wählen</button><input data-day-input type="date" class="day-picker-input" tabindex="-1" aria-label="Datum wählen"></span>
+            <span data-day-list class="day-picker-days"></span>
+            <button type="button" data-day-next class="day-picker-nav" aria-label="Nächster Tag" title="Nächster Tag"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
+        <div id="asMonthPicker" class="as-month-picker" role="group" aria-label="Monat" hidden>
+            <button id="asMonthPrev" type="button" class="ui-icon-button as-icon-btn" aria-label="Vorheriger Monat">‹</button>
+            <input id="asMonthInput" class="ui-input" type="month" aria-label="Monat wählen">
+            <button id="asMonthCurrent" type="button" class="ui-flat-button">Dieser Monat</button>
+            <button id="asMonthNext" type="button" class="ui-icon-button as-icon-btn" aria-label="Nächster Monat">›</button>
+        </div>
+    </div>
+
+    <p id="asStatus" class="as-status" role="status" aria-live="polite"></p>
+    <div id="asEmpty" class="ui-card as-panel as-empty" hidden></div>
+    <div id="asContent" hidden>
+        <section class="as-section" aria-labelledby="asPresenceHeading">
+            <div class="as-section-bar">
+                <h2 id="asPresenceHeading" class="as-section-name">Anwesenheit</h2>
+                <span id="asPresenceRange" class="as-muted"></span>
+                <span id="asLogTotal" class="ui-chip ui-chip-neutral as-total" hidden></span>
+                <button id="asStatusToggle" class="ui-flat-button btn-sm as-bar-toggle" type="button" aria-expanded="false" aria-controls="asStatuses" hidden><span>Status</span><svg class="as-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+            </div>
+            <div id="asStatuses" class="as-status-kpis"></div>
+            <div id="asTimelineWrap" class="ui-card as-panel as-timeline-wrap" hidden>
+                <div id="asTimeline" class="tc-timeline" role="img" aria-label="Anwesenheit im Tagesverlauf"></div>
+            </div>
+        </section>
+        <section class="as-section" aria-labelledby="asPhoneHeading">
+            <div class="as-section-bar">
+                <h2 id="asPhoneHeading" class="as-section-name">Telefonie<span id="asPhoneScope" class="as-scope" hidden></span></h2>
+                <button id="asQueueReset" class="ui-flat-button btn-sm as-reset" type="button" hidden>Zurücksetzen</button>
+                <span id="asPhoneRange" class="as-muted"></span>
+                <span id="asCallTotal" class="ui-chip ui-chip-neutral as-total" hidden></span>
+            </div>
+            <div class="as-calls">
+                <div class="as-calls-main">
+                    <div id="asCallBox" class="as-callbox">
+                        <div id="asPhoneSummary"></div>
+                        <div id="asQueueList" class="as-queue-list" role="group" aria-label="Nach Hotline filtern" hidden></div>
+                    </div>
+                    <div id="asOther" class="as-other"></div>
+                </div>
+                <aside id="asMetricsCard" class="ui-card as-panel as-metrics-card" aria-labelledby="asMetricsHeading">
+                    <button id="asMoreToggle" class="as-metrics-toggle" type="button" aria-expanded="false" aria-controls="asMoreMetrics">
+                        <span class="as-metrics-head">
+                            <span id="asMetricsHeading" class="as-card-title">Gesprächswerte</span>
+                            <span id="asCompareLabel" class="as-muted"></span>
+                            <svg class="as-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                        </span>
+                        <span id="asTimes" class="as-metrics"></span>
+                    </button>
+                    <div id="asMoreMetrics" class="as-metrics as-metrics-more" hidden></div>
+                </aside>
+            </div>
+        </section>
+    </div>
+</main>
+{% endblock %}

@@ -79,7 +79,8 @@ class ProxyTests(unittest.TestCase):
         root=Path(__file__).parents[1]
         self.assertIn('href="/tools/logon-log"',(root/'app/templates/tools.html').read_text())
         tools_route=next(line for line in (root/'app/routes/pages.py').read_text().splitlines() if line.startswith('def tools('))
-        self.assertIn('"SOFA-RPRT-LL"',tools_route)
+        self.assertIn('require_login', tools_route)
+        self.assertIn('{% if "SOFA-RPRT-LL" in authz.permissions %}', (root/'app/templates/tools.html').read_text())
 
     def test_sensitive_controls_are_gated_by_template(self):
         from jinja2 import Environment,FileSystemLoader

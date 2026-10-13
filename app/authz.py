@@ -7,6 +7,8 @@ import json
 from fastapi import Cookie, Depends
 from fastapi.exceptions import HTTPException  # type: ignore
 
+from app.agent_stats_token import is_configured
+
 
 def get_current_user(sofa_user: str | None):
     if sofa_user:
@@ -52,6 +54,10 @@ class AuthorizationContext:
         ))
 
     def has_any_tool(self) -> bool:
+        # Der persoenliche Genesys-Report liegt im Workspace und steht allen
+        # angemeldeten SOFA-Nutzern offen.
+        if self.user_id is not None and is_configured():
+            return True
         return any(
             self.has_permission(p) for p in self.permissions
             if p.startswith("SOFA-TOOL-")

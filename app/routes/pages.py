@@ -5,11 +5,11 @@ import json
 from fastapi import APIRouter, Cookie, Depends, Form, Request  # type: ignore
 from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 
+from app.agent_stats_token import is_configured, issue, verify
 from app.api_client import api_client
 from app.authz import (
     require_admin_access,
     require_any_permission,
-    require_any_permission_or_admin,
     require_login,
     require_permission,
     get_current_user,
@@ -60,6 +60,18 @@ async def login(request: Request, pnr: str = Form(...), password: str = Form(...
         samesite="lax",
         secure=_request_uses_https(request),
     )
+    # Eigene Identitaet fuer den Selbstreport. Ein fehlendes Secret laesst den
+    # Report geschlossen, ohne bestehende SOFA-Anmeldungen zu unterbrechen.
+    if isinstance(session_user.get("user_id"), int):
+        try:
+            signed = issue(session_user["user_id"])
+        except RuntimeError:
+            signed = None
+        if signed:
+            response.set_cookie(
+                key="sofa_agent_stats", value=signed, httponly=True,
+                max_age=3600 * 8, samesite="lax", secure=_request_uses_https(request),
+            )
     return response
 
 
@@ -71,6 +83,9 @@ def logout(request: Request):
         samesite="lax",
         secure=_request_uses_https(request),
     )
+    response.delete_cookie(
+        "sofa_agent_stats", samesite="lax", secure=_request_uses_https(request),
+    )
     return response
 
 
@@ -80,8 +95,29 @@ def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", r
 
 
 @router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_any_permission_or_admin("SOFA-TOOL-IKS", "SOFA-TOOL-DATX", "SOFA-TOOL-FORM", "SOFA-TOOL-GQ", "SOFA-TOOL-ZK", "SOFA-TOOL-SLOG", "SOFA-RPRT-TIVR", "SOFA-RPRT-LL", "SOFA-RPRT-PRSNC", redirect_to="/"))):
-    return templates.TemplateResponse("tools.html", _build_template_context(request, user=authz.raw_user, authz=authz))
+def tools(request: Request, authz=Depends(require_login)):
+    if not authz.has_any_tool() and not authz.has_admin_access():
+        return RedirectResponse(url="/", status_code=303)
+    show_tools = authz.has_admin_access() or any(
+        permission.startswith("SOFA-TOOL-") for permission in authz.permissions
+    )
+    return templates.TemplateResponse("tools.html", _build_template_context(
+        request, user=authz.raw_user, authz=authz, show_tools=show_tools,
+        agent_stats_configured=is_configured()))
+
+
+@router.get("/tools/agent-stats", response_class=HTMLResponse)
+def agent_stats_report(request: Request, authz=Depends(require_login)):
+    if not is_configured():
+        return RedirectResponse(url="/tools", status_code=303)
+    try:
+        signed_user_id = verify(request.cookies.get("sofa_agent_stats", ""))
+    except (ValueError, RuntimeError):
+        signed_user_id = None
+    if signed_user_id != authz.user_id:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("reports/agent_stats_report.html",
+                                      _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
 @router.get("/console", response_class=HTMLResponse)

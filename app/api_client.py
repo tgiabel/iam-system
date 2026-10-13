@@ -153,6 +153,19 @@ class APIClient:
             headers={"X-User-Id": str(actor_id)},
         )
 
+    async def agent_stats_request(
+        self,
+        token: str,
+        *,
+        params: list[tuple[str, str]] | None = None,
+    ) -> httpx.Response:
+        # Identitaet steckt im signierten Token; kein X-User-Id fuer diesen Selbstreport.
+        return await self._request(
+            "GET", REPORTING_BASE_URL, "/agent-stats", params=params,
+            headers={"Authorization": "Bearer " + token},
+            timeout=30,
+        )
+
     # Tokenlöschungs-Report: gleiche Reportberechtigung, keine personenbezogenen Funktionen.
     async def token_deletions_report_request(
         self,

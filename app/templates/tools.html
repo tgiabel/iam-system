@@ -13,27 +13,27 @@
         <div class="overview-tabs" role="tablist" aria-label="Tools Navigation">
             <button
                 type="button"
-                class="overview-tab active"
+                class="overview-tab{% if show_tools %} active{% endif %}"
                 data-tab="tools"
                 role="tab"
-                aria-selected="true"
+                aria-selected="{{ 'true' if show_tools else 'false' }}"
                 aria-controls="tab-tools"
                 id="overview-tab-tools">
                 Tools
             </button>
             <button
                 type="button"
-                class="overview-tab"
+                class="overview-tab{% if not show_tools %} active{% endif %}"
                 data-tab="reports"
                 role="tab"
-                aria-selected="false"
+                aria-selected="{{ 'false' if show_tools else 'true' }}"
                 aria-controls="tab-reports"
                 id="overview-tab-reports">
                 Reports
             </button>
         </div>
 
-        <section class="overview-panel active" id="tab-tools" role="tabpanel" aria-labelledby="overview-tab-tools">
+        <section class="overview-panel{% if show_tools %} active{% endif %}" id="tab-tools" role="tabpanel" aria-labelledby="overview-tab-tools">
             <div class="overview-section">
                 <div class="ui-section-header">
                     <div class="ui-section-heading">
@@ -226,7 +226,7 @@
             </div>
         </section>
 
-        <section class="overview-panel" id="tab-reports" role="tabpanel" aria-labelledby="overview-tab-reports">
+        <section class="overview-panel{% if not show_tools %} active{% endif %}" id="tab-reports" role="tabpanel" aria-labelledby="overview-tab-reports">
             <div class="overview-section">
                 <div class="ui-section-header">
                     <div class="ui-section-heading">
@@ -236,6 +236,29 @@
                 </div>
 
                 <div class="overview-card-grid">
+                    {% if agent_stats_configured %}
+                    <a href="/tools/agent-stats" class="overview-card overview-card-link report-card">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/process.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-warning">Persönlich</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Genesys Cloud</p>
+                                <h3 class="overview-card-title">Meine Genesys-Zahlen</h3>
+                            </div>
+                            <p class="overview-card-copy">Eigene Telefonie und Statuszeiten für Tag und Monat.</p>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">Report öffnen</span>
+                        </div>
+                    </a>
+                    {% endif %}
+
                                         {% if "SOFA-TOOL-IKS" in authz.permissions %}
                     <a href="/tools/iks" class="overview-card overview-card-link report-card">
                         <div class="overview-card-top">
