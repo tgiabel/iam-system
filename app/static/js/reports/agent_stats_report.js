@@ -180,7 +180,7 @@
         }
         const totals = Model.scopeTotals(phone, state.queue);
         const rows = Model.queueRows(phone);
-        const interactive = rows.length > 1;
+        const interactive = rows.length > 0;
         if (!interactive) state.queuesOpen = false;
         const calls = totals.answered + totals.not_answered;
         dom.asCallTotal.hidden = false;

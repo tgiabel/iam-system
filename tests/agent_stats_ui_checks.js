@@ -122,7 +122,20 @@ const toggleQueues = () => dom.asPhoneSummary.listeners.click(click('[data-toggl
     assert.ok(!dom.asTimelineWrap.classList.contains('has-focus'));
     assert.match(dom.asPhoneRange.textContent, /01\.10\.2026 – 12\.10\.2026/);
     assert.match(dom.asPhoneSummary.innerHTML, /Angenommen[\s\S]*Verpasst[\s\S]*Weitergeleitet/);
-    assert.doesNotMatch(dom.asPhoneSummary.innerHTML, /data-toggle-queues/, 'single queue is not expandable');
+    assert.match(dom.asPhoneSummary.innerHTML, /data-toggle-queues aria-expanded="false"/,
+        'single queue can be expanded');
+    toggleQueues();
+    assert.strictEqual(dom.asQueueList.hidden, false);
+    assert.match(dom.asQueueList.innerHTML, /data-queue="q"[\s\S]*Hotline/);
+    dom.asQueueList.listeners.click(click('[data-queue]', 'queue', 'q'));
+    assert.match(lastUrl, /queue=q/);
+    assert.strictEqual(dom.asPhoneScope.textContent, 'Hotline');
+    assert.strictEqual(dom.asQueueReset.hidden, false);
+    dom.asQueueReset.listeners.click();
+    assert.strictEqual(dom.asPhoneScope.hidden, true);
+    assert.doesNotMatch(lastUrl, /queue=/);
+    toggleQueues();
+    assert.strictEqual(dom.asQueueList.hidden, true);
     assert.strictEqual(dom.asCallTotal.textContent, '5 Anrufe');
     assert.doesNotMatch(dom.asTimes.innerHTML, /Annahmequote/);
     dom.asMoreToggle.listeners.click();
