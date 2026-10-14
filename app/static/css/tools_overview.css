@@ -473,6 +473,21 @@ body:has(#toolsOverview) > footer {
         grid-template-columns: minmax(0, 1fr);
     }
 
+    .workspace-pins-head {
+        position: relative;
+    }
+
+    .workspace-pins-info {
+        position: static;
+    }
+
+    .workspace-pins-tip {
+        left: 0;
+        right: 0;
+        width: auto;
+        max-width: none;
+    }
+
     .overview-card-top {
         flex-direction: column;
         align-items: flex-start;
