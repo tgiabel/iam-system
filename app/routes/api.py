@@ -984,9 +984,13 @@ async def api_user_resource_history(
 
 
 @router.get("/events")
-async def api_events(current_user=Depends(require_permission("SOFA-PAGE-CNSL"))):
+async def api_events(
+    from_date: str | None = None,
+    to_date: str | None = None,
+    current_user=Depends(require_permission("SOFA-PAGE-CNSL")),
+):
     try:
-        events = await api_client.get_events()
+        events = await api_client.get_events(from_date, to_date)
         return JSONResponse(content=_normalize_events_payload(events))
     except Exception as exc:
         return JSONResponse(content={"error": str(exc)}, status_code=500)

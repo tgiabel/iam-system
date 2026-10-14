@@ -1,6 +1,6 @@
 # Anfrage an die SD-API: Felder für die Kalender-Zusammenfassung
 
-Stand 14.10.2026. Betrifft `GET /sofa/events` (`event_router.get_events`, `EventListItem`). Hintergrund: [dashboard-redesign.md](dashboard-redesign.md).
+Stand 14.10.2026, **Entwurf, nicht versendet** (wird erst nach der Design-Abnahme zusammen mit den übrigen Wünschen geschickt, siehe [dashboard-redesign.md](dashboard-redesign.md)). Betrifft `GET /sofa/events` (`event_router.get_events`, `EventListItem`). Hintergrund: [dashboard-redesign.md](dashboard-redesign.md).
 
 ## Problem
 

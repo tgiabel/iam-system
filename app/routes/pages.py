@@ -9,12 +9,14 @@ from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 from app.agent_stats_token import is_configured, issue, verify
 from app.api_client import api_client
 from app.authz import (
+    build_authorization_context_from_user,
     require_admin_access,
     require_any_permission,
     require_login,
     require_permission,
     get_current_user,
 )
+from app.dashboard import build_dashboard_context
 from app.login_errors import login_error_message
 from app.workspace_catalog import visible_items
 from app.routes.shared import _build_session_user_from_login, _build_template_context, templates
@@ -33,9 +35,18 @@ def _request_uses_https(request: Request) -> bool:
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request, sofa_user: str | None = Cookie(default=None)):
+def index(
+    request: Request,
+    sofa_user: str | None = Cookie(default=None),
+    sofa_agent_stats: str | None = Cookie(default=None),
+    mock: str | None = None,
+):
     user = get_current_user(sofa_user)
-    return templates.TemplateResponse("dashboard.html", _build_template_context(request, user=user))
+    extra = {}
+    if user:
+        authz = build_authorization_context_from_user(user, user.get("sofa_permissions"))
+        extra = build_dashboard_context(authz, sofa_agent_stats or "", mock)
+    return templates.TemplateResponse("dashboard.html", _build_template_context(request, user=user, **extra))
 
 
 @router.get("/login", name="login", response_class=HTMLResponse)

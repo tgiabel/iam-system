@@ -1,132 +1,117 @@
 {% extends "base.html" %}
+{% from "macros/workspace.html" import workspace_item %}
 
 {% set page_title = "Dashboard" %}
 
 {% block css %}
-<link rel="stylesheet" href="/static/css/console.css">
-<link rel="stylesheet" href="/static/css/dashboard.css">
+<link rel="stylesheet" href="/static/css/ui.css">
+<link rel="stylesheet" href="/static/css/tools_overview.css?v={{ static_v }}">
+<link rel="stylesheet" href="/static/css/genesys_live.css?v={{ static_v }}">
+<link rel="stylesheet" href="/static/css/dashboard.css?v={{ static_v }}">
 {% endblock %}
 
 {% block content %}
-<div class="page-container dashboard-page">
-    {% if user %}
-        <div id="dashboard-stoerung-banner" hidden
-             style="align-items:center; gap:14px; padding:14px 20px; border:1.5px solid rgba(182,27,0,0.35); border-radius:18px; background:var(--status-red-bg); margin-bottom:0;">
-            <span style="font-size:1.1rem;color:var(--status-red-text);">⚠</span>
-            <div style="flex:1;">
-                <strong style="color:var(--status-red-text); font-size:0.9rem;">Aktive Betriebsstörung</strong>
-                <span id="dashboard-stoerung-count" style="color:var(--status-red-text); font-size:0.85rem; margin-left:6px;"></span>
+{% if user %}
+<div class="page-container dashboard-page" id="dashboard"
+     data-user-id="{{ user.user_id if user.user_id is not none else '' }}"
+     data-src-tasks="{{ dashboard_sources.tasks if dashboard_tasks else '' }}"
+     data-src-events="{{ dashboard_sources.events }}"
+     data-src-live="{{ dashboard_sources.live if dashboard_live else '' }}"
+     data-src-service-level="{{ dashboard_sources.service_level }}"
+     {% if dashboard_mock %}data-mock="{{ dashboard_mock }}"{% endif %}>
+    <div class="dash-top">
+        <header class="workspace-header">
+            <h1 class="ui-section-title workspace-title">Dashboard</h1>
+        </header>
+        <nav class="dash-pins" id="dash-pins" aria-label="Angeheftet"></nav>
+    </div>
+
+    <div class="dash-alert" id="dashboard-stoerung-banner" role="alert" hidden>
+        <span class="dash-alert-icon" aria-hidden="true">⚠</span>
+        <strong>Aktive Betriebsstörung</strong>
+        <span id="dashboard-stoerung-count"></span>
+        {% if dashboard_slog %}<a href="/tools/stoerungsprotokoll" class="btn btn-red dash-alert-link">Störungsprotokoll</a>{% endif %}
+    </div>
+
+    <div class="dash-layout{% if dashboard_live %} has-live{% endif %}" id="dash-layout">
+        <div class="dash-main">
+            <section class="dash-today" aria-labelledby="dash-today-title">
+                <h2 class="dash-label" id="dash-today-title">Heute <span class="dash-today-date" id="dash-today-date"></span></h2>
+                <div class="dash-stats">
+                    <div class="dash-stat" id="dash-stat-sl" data-stat="service-level" hidden>
+                        <span class="dash-stat-label">Servicelevel</span>
+                        <strong class="dash-stat-value" id="dash-sl-value">–</strong>
+                        <span class="dash-stat-sub" id="dash-sl-sub"></span>
+                    </div>
+                    {% if dashboard_tasks %}
+                    <a class="dash-stat" id="dash-stat-tasks" href="/tasks">
+                        <span class="dash-stat-label">Aufgaben aktiv</span>
+                        <strong class="dash-stat-value" id="dash-tasks-active">–</strong>
+                        <span class="dash-stat-chips">
+                            <span class="dash-chip dash-chip--mine" id="dash-tasks-mine" hidden></span>
+                            <span class="dash-chip dash-chip--today" id="dash-tasks-today" hidden></span>
+                            <span class="dash-chip dash-chip--tomorrow" id="dash-tasks-tomorrow" hidden></span>
+                            <span class="dash-chip dash-chip--overdue" id="dash-tasks-overdue" hidden></span>
+                        </span>
+                        <span class="dash-stat-sub" id="dash-tasks-split"></span>
+                    </a>
+                    <a class="dash-stat dash-stat--quiet" id="dash-stat-deferred" href="/tasks">
+                        <span class="dash-stat-label">Nachgelagert</span>
+                        <strong class="dash-stat-value" id="dash-deferred-value">–</strong>
+                    </a>
+                    {% endif %}
+                    <button type="button" class="dash-stat" id="dash-stat-events" data-stat="events" hidden>
+                        <span class="dash-stat-label">Termine</span>
+                        <strong class="dash-stat-value" id="dash-events-today">–</strong>
+                        <span class="dash-stat-sub" id="dash-events-tomorrow"></span>
+                    </button>
+                </div>
+            </section>
+
+            <div class="dash-lower">
+                <section class="dash-card dash-calendar" id="dash-calendar" aria-labelledby="dash-calendar-title" hidden>
+                    <div class="dash-card-head">
+                        <h2 class="dash-label" id="dash-calendar-title">Kalender</h2>
+                        <div class="dash-week-nav" aria-label="Kalenderwoche">
+                            <button type="button" class="dash-icon-btn" id="dash-week-prev" aria-label="Vorherige Kalenderwoche">←</button>
+                            <strong class="dash-week-label" id="dash-week-label">KW –</strong>
+                            <button type="button" class="dash-icon-btn" id="dash-week-next" aria-label="Nächste Kalenderwoche">→</button>
+                            <button type="button" class="dash-link-btn" id="dash-week-current">Heute</button>
+                        </div>
+                    </div>
+                    <div class="dash-week" id="dash-week" role="group" aria-label="Tage der Woche"></div>
+                    <div class="dash-cal-scroll">
+                        <div class="dash-cal-lines" id="dash-cal-lines" aria-live="polite"></div>
+                    </div>
+                </section>
             </div>
-            <a href="/tools/stoerungsprotokoll" class="btn btn-red" style="font-size:0.85rem; padding:8px 14px;">Zum Störungsprotokoll</a>
         </div>
 
-        <section class="dashboard-private" data-dashboard-private>
-            <div class="ui-section-header dashboard-section-header">
-                <div class="ui-section-heading">
-                    <p class="ui-section-kicker">Mein Bereich</p>
-                    <h2 class="ui-section-title">Persönliche Übersicht für {{ user.first_name or user.pnr or "dein Profil" }}</h2>
-                    <p class="ui-section-copy">Wochenkalender, aktuelle Task-Zahlen und deine angepinnten Arbeitsbereiche auf einen Blick.</p>
+        {% if dashboard_live %}
+        <aside class="gl-page dash-live" id="dash-live" aria-labelledby="panelTitle">
+            <section class="side-panel">
+                <div class="panel-head">
+                    <h2 id="panelTitle"><a href="/reports/genesys-live" class="dash-live-link">Genesys Live</a></h2>
+                    <span class="panel-mark asof"><span id="staleNotice" class="stale-notice" hidden>veraltet · </span><time id="updatedAt">–</time></span>
                 </div>
-                <div class="dashboard-private-badges">
-                    <span class="ui-chip ui-chip-primary">{{ user.primary_role.name if user.primary_role else "SOFA User" }}</span>
-                    <span class="ui-chip ui-chip-neutral">PNR {{ user.pnr or "-" }}</span>
-                </div>
-            </div>
+                <div id="panelContent"><p class="panel-empty">Lädt …</p></div>
+            </section>
+        </aside>
+        {% endif %}
+    </div>
 
-            <div class="dashboard-private-grid">
-                                <article class="ui-card dashboard-card dashboard-metrics-card">
-                    <div class="dashboard-card-head">
-                        <div>
-                            <p class="ui-section-kicker">Kennzahlen</p>
-                            <h3 class="ui-section-title">Tasks</h3>
-                        </div>
-                        <span class="ui-chip ui-chip-primary">Überblick</span>
-                    </div>
-
-                    <div class="dashboard-metrics-grid">
-                        <div class="dashboard-metric">
-                            <span class="dashboard-metric-label">Offene Aufgaben</span>
-                            <strong id="dashboard-open-count">-</strong>
-                        </div>
-                        <div class="dashboard-metric">
-                            <span class="dashboard-metric-label">Meine Aufgaben</span>
-                            <strong id="dashboard-my-count">-</strong>
-                        </div>
-                    </div>
-
-                    <div class="dashboard-link-row">
-                        <a href="/tasks" class="dashboard-inline-link">Zu meinen To-Dos</a>
-                    </div>
-                </article>
-
-                <article class="ui-card dashboard-card dashboard-pinned-card dashboard-pinned-card-compact">
-                    <div class="dashboard-card-head">
-                        <div>
-                            <p class="ui-section-kicker">Pinnwand</p>
-                            <h3 class="ui-section-title">Angepinnte Tools & Reports</h3>
-                        </div>
-                        <span class="ui-chip ui-chip-primary">Shortcuts</span>
-                    </div>
-
-                    <div class="dashboard-pin-grid dashboard-pin-grid-compact">
-                        <a href="/tools/request-templates" class="dashboard-pin-card">
-                            <span class="ui-chip ui-chip-primary">Tool</span>
-                            <strong>Berechtigungsformulare</strong>
-                            <span>Vorlagen (Word & PDF) pflegen und Dokumente erzeugen.</span>
-                        </a>
-                        <a href="/tools/datex" class="dashboard-pin-card">
-                            <span class="ui-chip ui-chip-primary">Tool</span>
-                            <strong>DAT-Export Check</strong>
-                            <span>Exportdateien schnell prüfen.</span>
-                        </a>
-                        <a href="/reports/iks" class="dashboard-pin-card">
-                            <span class="ui-chip ui-chip-primary">Tool</span>
-                            <strong>IKS-Bericht Generator</strong>
-                            <span>Kontrollen direkt anstoßen.</span>
-                        </a>
-                        <article class="dashboard-pin-card dashboard-pin-card-add is-disabled" aria-disabled="true">
-                            <span class="ui-chip ui-chip-neutral">Hinzufügen</span>
-                            <strong>Neues Element</strong>
-                            <span>Später per Dialog anpinnen.</span>
-                        </article>
-                    </div>
-                    <div class="dashboard-link-row">
-                        <a href="/workspace" class="dashboard-inline-link">Zu Tools & Reports</a>
-                    </div>
-                </article>
-                <section class="ui-card console-calendar dashboard-calendar-card" aria-labelledby="console-calendar-title">
-                    <div class="console-calendar-head">
-                        <div class="ui-section-heading">
-                            <p class="ui-section-kicker">Wochenansicht</p>
-                            <h3 class="ui-section-title" id="console-calendar-title">Kalenderwoche</h3>
-                            <p class="ui-section-copy" id="console-calendar-copy">
-                                Deine Prozess-Events der sichtbaren Woche werden hier gesammelt dargestellt.
-                            </p>
-                        </div>
-                        <div class="console-calendar-nav" aria-label="Kalenderwochen-Navigation">
-                            <button type="button" class="btn btn-secondary" id="console-week-prev" aria-label="Vorherige Kalenderwoche">←</button>
-                            <div class="console-week-labels">
-                                <strong id="console-week-label">KW -</strong>
-                                <span id="console-week-range">-</span>
-                            </div>
-                            <button type="button" class="btn btn-secondary" id="console-week-next" aria-label="Nächste Kalenderwoche">→</button>
-                            <button type="button" class="btn btn-secondary" id="console-week-current">Heute</button>
-                        </div>
-                    </div>
-
-                    <div class="console-calendar-feedback" id="console-calendar-feedback" role="status">
-                        Events werden geladen…
-                    </div>
-                    <div class="console-calendar-grid" id="console-calendar-grid" aria-live="polite"></div>
-                </section>
-
-            </div>
-        </section>
-    {% endif %}
+    <template id="dash-pin-source">
+        {% for item in dashboard_items %}{{ workspace_item(item) }}{% endfor %}
+    </template>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/console.js?v={{ static_v }}"></script>
+<script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
+<script src="/static/js/workspace_pins.js?v={{ static_v }}"></script>
+<script src="/static/js/dashboard_model.js?v={{ static_v }}"></script>
+<script src="/static/js/calendar_summary.js?v={{ static_v }}"></script>
+<script src="/static/js/reports/genesys_live_panel.js?v={{ static_v }}"></script>
 <script src="/static/js/dashboard.js?v={{ static_v }}"></script>
 {% endblock %}

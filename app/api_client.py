@@ -379,8 +379,9 @@ class APIClient:
         return await self._post(ACCESS_BASE_URL, f"/roles/{role_id}/resources/requirement", payload=payload)
 
     # SOFA
-    async def get_events(self) -> list[dict]:
-        return await self._get(SOFA_BASE_URL, "/events")
+    async def get_events(self, from_date: str | None = None, to_date: str | None = None) -> list[dict]:
+        params = {key: value for key, value in (("from_date", from_date), ("to_date", to_date)) if value}
+        return await self._get(SOFA_BASE_URL, "/events", params=params or None)
 
     async def get_backlogs(self) -> list[dict]:
         return await self._get(SOFA_BASE_URL, "/backlogs/")

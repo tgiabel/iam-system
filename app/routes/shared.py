@@ -172,6 +172,10 @@ def _normalize_event_record(event: dict) -> dict:
         "user_id": _coerce_int(_first_defined_value(event, ["user_id", "target_user_id"])),
         "process_id": _coerce_int(event.get("process_id")),
         "role_id": _coerce_int(event.get("role_id")),
+        # Optionale Zusatzfelder der SD-API (Anfrage: docs/backend-request-event-summary.md).
+        "role_name": str(event.get("role_name") or "").strip() or None,
+        "process_type": str(event.get("process_type") or "").strip().upper() or None,
+        "user_name": str(event.get("user_name") or "").strip() or None,
     }
 
 

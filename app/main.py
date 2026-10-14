@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI  # type: ignore
 from fastapi.staticfiles import StaticFiles  # type: ignore
 from starlette.middleware.base import BaseHTTPMiddleware  # type: ignore
@@ -56,3 +58,9 @@ app.include_router(presence_report_router, prefix="/api")
 app.include_router(agent_stats_report_router, prefix="/api")
 app.include_router(genesys_live_router, prefix="/api")
 app.include_router(token_deletions_report_router, prefix="/api")
+
+# Mock-Daten fuer das Dashboard-Design gibt es nur in der Entwicklungsinstanz.
+if os.getenv("APP_ENV") == "development":
+    from app.routes.dashboard_mock import router as dashboard_mock_router
+
+    app.include_router(dashboard_mock_router, prefix="/api")
