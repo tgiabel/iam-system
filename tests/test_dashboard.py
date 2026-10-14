@@ -129,9 +129,10 @@ class RenderedDashboardTests(unittest.TestCase):
         main = self.main_of(self.page('SOFA-PAGE-TODO'))
         self.assertFalse('ui-section-copy' in main or 'ui-chip' in main or 'ui-section-kicker' in main)
 
-    def test_task_tiles_need_the_task_permission(self):
-        self.assertTrue('id="dash-stat-tasks"' in self.page('SOFA-PAGE-TODO'))
-        self.assertFalse('id="dash-stat-tasks"' in self.page('SOFA-TOOL-ZK'))
+    def test_page_has_side_bar_but_no_title_or_kpi_cards(self):
+        main = self.main_of(self.page('SOFA-TOOL-ZK'))
+        self.assertTrue('id="dash-side"' in main and 'id="dash-day-lines"' in main and 'id="dash-weekdays"' in main)
+        self.assertFalse('<h1' in main or 'dash-stat' in main)
 
     def test_live_panel_only_with_valid_cookie(self):
         self.assertFalse('id="dash-live"' in self.page('SOFA-TOOL-ZK'))

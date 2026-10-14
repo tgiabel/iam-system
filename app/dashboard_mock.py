@@ -250,6 +250,24 @@ def mock_events(scenario: str = "normal", today: date | None = None) -> list[dic
             cursor += 1
             events.append(_event("ROLE_ASSIGNMENT", day(min(today.weekday(), 4)), None, cursor, pid, today,
                                  role=_SKILLS[2], status="FAILED"))
+            events += _today_events(today, cursor, pid, 5 if heavy else 4)
+    return events
+
+
+def _today_events(today: date, cursor: int, pid: int, onboardings: int) -> list[dict]:
+    """Ein gut gefuellter heutiger Tag, damit die Tagesansicht ("A, B + x weitere") sichtbar ist."""
+    events = []
+    for index in range(onboardings):
+        pid += 1
+        events.append(_event("ONBOARDING", today, 8, cursor + 20 + index, pid, today))
+    pid += 1
+    for index in range(3):
+        events.append(_event("TRAINING_SCHEDULE", today, 14, cursor + 30 + index, pid, today, role=_SKILLS[0]))
+    for index in range(2):
+        pid += 1
+        events.append(_event("ROLE_ASSIGNMENT", today, None, cursor + 40 + index, pid, today, role=_SKILLS[1]))
+    pid += 1
+    events.append(_event("OFFBOARDING", today, 16, cursor + 50, pid, today))
     return events
 
 

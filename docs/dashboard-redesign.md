@@ -11,6 +11,19 @@ Erste Version am 14.10.2026 auf `feature/dashboard-redesign`, **nur mit Mock-Dat
 - **Genesys-Live-Panel** liegt jetzt als `genesys_live_panel.js` (reine Funktionen, UMD) vor; Report-Seite und Dashboard teilen es. Das CSS bleibt vorerst in `genesys_live.css` (Dashboard bindet es mit ein und überschreibt die Außenmaße in `dashboard.css`); die Aufteilung folgt, wenn das Design steht.
 - **Tests:** `tests/dashboard_model_checks.js` (Kennzahlen, Servicelevel, Kalender-Zusammenfassung), `tests/test_dashboard.py` (Mock-Daten, Kontext, Rendering je Rechtekombination), `tests/genesys_live_checks.js` angepasst.
 
+### Umbau nach der ersten Rückmeldung (14.10.2026)
+
+Gefiel nicht: Titel, KPI-Kacheln, Kalenderkarte. Jetzt: **kein Seitentitel**, **keine KPI-Kacheln** (vorerst entfernt; `dashboard_model.js`, Mock-Routen für Aufgaben und Servicelevel, Tests und Kontext bleiben für später erhalten), der **Kalender entfällt** und wird durch eine **Seitenleiste links** ersetzt. Dreiteiliges Layout: Seitenleiste | Mitte (Angeheftet als Kachelkarte, Platz für spätere Inhalte) | Live-Panel.
+
+- **Seitenleiste:** oben „Heute“ (Tagesansicht, detailliert), darunter „Woche“ (KW-Navigation, Wochentage, Wochenzusammenfassung).
+- **Tagesansicht:** je Art (bei Schulung und Rollen je Rolle) eine Zeile mit Namen: „Onboarding für Jonas Brandt, Ben Lorenz + 3 weitere“, „Retouren-Schulung für Tim Vogel, Sara Neumann + 1 weitere“, „Rollenzuweisung Technik für Luca Roth“. Darunter Uhrzeit, Chip „erledigt“ oder „Fehler“. Namen aus `user_name`, sonst aus dem Beschreibungstext.
+- **Wochenansicht:** zusammengefasst wie bisher („5 Onboardings geplant“, „Retouren-Schulung für 3 Mitarbeiter geplant“) mit Tagen und Uhrzeit darunter.
+- **Wochentage:** nur Text ohne Rahmen, heute fett, Auswahl in Akzentfarbe mit Unterstrich, ein kleiner Punkt unter Tagen mit Terminen, Wochenende blasser. Ein Klick auf einen Tag zeigt ihn im Tagesbereich (Überschrift wird „Donnerstag, 15.10.“, daneben ein Link „Heute“). Die Wochenzusammenfassung bleibt dabei die ganze Woche. Beim Wochenwechsel wählt die Leiste den Montag (aktuelle Woche: heute).
+- Jede Zeile öffnet den Dialog mit allen zugehörigen Events (auch die „weitere“).
+- Die Leiste entfällt ohne Meldung, wenn `/api/events` 401/403 liefert.
+
+Die folgenden Entscheidungen zu Titel, Heute-Kacheln, Pins und Kalender sind durch diesen Umbau überholt; sie bleiben als Verlauf stehen.
+
 ## Ideen des Nutzers
 
 - **Genesys Cloud Live:** nur das Panel ohne Filter, über alle Queues.

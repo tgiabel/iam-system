@@ -89,4 +89,40 @@ assert.equal(noUser[0].text, "2 Onboardings geplant", "ohne user_id zaehlen Even
 
 assert.equal(calendar.lineText("training", "", 1, "geplant"), "Schulung für 1 Mitarbeiter geplant");
 
+// ---------- Tagesansicht ----------
+assert.equal(calendar.nameOf({ user_name: "Mia Hoffmann" }), "Mia Hoffmann");
+assert.equal(calendar.nameOf({ description: "Onboarding-Termin für Jonas Brandt." }), "Jonas Brandt", "Name aus dem Text");
+assert.equal(calendar.nameOf({ description: "Beratung für Kunden Schulung für Lea Keller." }), "Lea Keller", "letztes 'für' gilt");
+assert.equal(calendar.nameOf({}), "");
+assert.equal(calendar.roleOf({ description: "Retouren Schulung für Lea Keller." }), "Retouren");
+assert.equal(calendar.roleOf({ description: "Kündigung für Lea Keller." }), "Kündigung");
+assert.equal(calendar.joinNames(["A", "B"]), "A, B");
+assert.equal(calendar.joinNames(["A", "B", "C"]), "A, B + 1 weitere");
+assert.equal(calendar.joinNames(["A", "B", "A", "C", "D", "E"]), "A, B + 3 weitere", "doppelte Namen zaehlen einmal");
+assert.equal(calendar.joinNames([]), "");
+
+const day = [
+    ev("ONBOARDING", "2026-10-14", { user_name: "A" }), ev("ONBOARDING", "2026-10-14", { user_name: "B" }),
+    ev("ONBOARDING", "2026-10-14", { user_name: "C" }), ev("ONBOARDING", "2026-10-14", { user_name: "D" }),
+    ev("TRAINING_SCHEDULE", "2026-10-14", { user_name: "E", role_name: "Retouren", display_at: "2026-10-14T14:00:00" }),
+    ev("TRAINING_SCHEDULE", "2026-10-14", { user_name: "F", role_name: "Retouren", display_at: "2026-10-14T13:30:00" }),
+    ev("TRAINING_SCHEDULE", "2026-10-14", { user_name: "G", role_name: "Kündigung" }),
+    ev("ROLE_ASSIGNMENT", "2026-10-14", { user_name: "H", role_name: "Technik", event_status: "FAILED" }),
+    ev("OFFBOARDING", "2026-10-14", { user_name: "I", event_status: "EXECUTED" }),
+    ev("RETRAIN", "2026-10-14", { event_status: "SKIPPED", user_name: "X" })
+];
+const dayLines = calendar.summarizeDay(day);
+assert.deepEqual(dayLines.map(line => line.text), [
+    "Onboarding für A, B + 2 weitere",
+    "Offboarding für I",
+    "Kündigung-Schulung für G",
+    "Retouren-Schulung für E, F",
+    "Rollenzuweisung Technik für H"
+]);
+assert.equal(dayLines[3].time, "13:30", "fruehste Uhrzeit der Gruppe");
+assert.deepEqual(dayLines.map(line => line.state), ["planned", "done", "planned", "planned", "failed"]);
+assert.equal(dayLines[4].failedExtra, 1);
+assert.equal(calendar.summarizeDay(null).length, 0);
+assert.equal(calendar.summarizeDay([ev("ONBOARDING", "2026-10-14"), ev("ONBOARDING", "2026-10-14")])[0].text, "2 Onboarding", "ohne Namen zaehlen Events");
+
 console.log("Dashboard model OK");

@@ -142,6 +142,78 @@
         });
     }
 
+    // Name der betroffenen Person; ältere Antworten tragen ihn nur im Text ("... für Mia Hoffmann.").
+    function nameOf(event) {
+        const name = String(event.user_name || "").trim();
+        if (name) return name;
+        const match = /^.* für (.+?)\.?$/.exec(String(event.description || ""));
+        return match ? match[1].trim() : "";
+    }
+
+    // Rolle bei Zuweisung, Entzug und Schulung ("<Rolle> für <Name>." bzw. "<Rolle> Schulung für <Name>.").
+    function roleOf(event) {
+        const name = String(event.role_name || "").trim();
+        if (name) return name;
+        const match = /^(.+?)(?: Schulung)? für /.exec(String(event.description || ""));
+        return match ? match[1].trim() : "";
+    }
+
+    // "A, B + 2 weitere": höchstens zwei Namen, der Rest als Zahl.
+    function joinNames(names, limit = 2) {
+        const unique = Array.from(new Set(names.filter(Boolean)));
+        if (unique.length <= limit) return unique.join(", ");
+        return `${unique.slice(0, limit).join(", ")} + ${unique.length - limit} weitere`;
+    }
+
+    const DAY_LABELS = {
+        onboarding: "Onboarding",
+        offboarding: "Offboarding",
+        change: "Abteilungswechsel",
+        retrain: "Nachschulung",
+        other: "Termin"
+    };
+
+    function dayLabel(kind, role) {
+        if (kind === "training") return trainingName(role);
+        if (kind === "assignment") return role ? `Rollenzuweisung ${role}` : "Rollenzuweisung";
+        if (kind === "removal") return role ? `Rollenentzug ${role}` : "Rollenentzug";
+        return DAY_LABELS[kind];
+    }
+
+    // Tagesansicht: je Art (bei Schulung und Rollen je Rolle) eine Zeile mit den Namen der Betroffenen.
+    function summarizeDay(events) {
+        const groups = new Map();
+        (Array.isArray(events) ? events : []).forEach(event => {
+            const status = normalizeStatus(event);
+            if (!COUNTED_STATUS.has(status) || !dayKeyOf(event)) return;
+            const kind = kindOf(event);
+            const role = ["training", "assignment", "removal"].includes(kind) ? roleOf(event) : "";
+            const key = `${kind}|${role}`;
+            if (!groups.has(key)) groups.set(key, { kind, role, events: [] });
+            groups.get(key).events.push({ ...event, _status: status });
+        });
+
+        return Array.from(groups.entries()).map(([id, group]) => {
+            const names = group.events.map(nameOf);
+            const people = joinNames(names);
+            const failed = group.events.filter(event => event._status === "FAILED").length;
+            const planned = group.events.filter(event => event._status === "PLANNED").length;
+            const label = dayLabel(group.kind, group.role);
+            return {
+                id: `day|${id}`,
+                kind: group.kind,
+                text: people ? `${label} für ${people}` : (group.events.length > 1 ? `${group.events.length} ${label}` : label),
+                time: group.events.map(timeOf).filter(Boolean).sort()[0] || "",
+                state: failed ? "failed" : planned ? "planned" : "done",
+                failedExtra: failed,
+                events: group.events.sort(byMoment)
+            };
+        }).sort((left, right) => {
+            const kindDiff = KIND_ORDER.indexOf(left.kind) - KIND_ORDER.indexOf(right.kind);
+            return kindDiff || left.text.localeCompare(right.text, "de");
+        });
+    }
+
     function eventsOnDay(events, dayKey) {
         return (Array.isArray(events) ? events : []).filter(event => dayKeyOf(event) === dayKey);
     }
@@ -151,5 +223,5 @@
         return summarize(eventsOnDay(events, dayKey)).reduce((sum, line) => sum + line.total, 0);
     }
 
-    return { kindOf, skillOf, dayKeyOf, timeOf, summarize, eventsOnDay, dayTotal, lineText, KIND_ORDER };
+    return { kindOf, skillOf, nameOf, roleOf, joinNames, dayKeyOf, timeOf, summarize, summarizeDay, eventsOnDay, dayTotal, lineText, KIND_ORDER };
 }));
