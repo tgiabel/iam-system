@@ -1,7 +1,9 @@
 import base64
 import os
 import re
+import subprocess
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -78,6 +80,7 @@ class RenderedCardTests(unittest.TestCase):
             with self.subTest(card=card[:120]):
                 for part in ('overview-card-icon', 'overview-card-kicker', 'overview-card-title',
                              'overview-card-copy', 'overview-card-cta', 'overview-card-popout',
+                             'overview-card-pin',
                              'overview-card-main-link', 'data-workspace-id='):
                     self.assertIn(part, card)
                 self.assertNotIn('<a href', card.split('overview-card-footer')[1])
@@ -96,6 +99,27 @@ class RenderedCardTests(unittest.TestCase):
         html = self.client.get('/tools').text
         self.assertNotIn('workspace-tools-title', html)
         self.assertIn('workspace-reports-title', html)
+
+    def test_pin_row_has_four_slots_and_user_key(self):
+        html = self.client.get('/tools').text
+        self.assertEqual(html.count('data-pin-slot'), 4)
+        self.assertIn('data-user-id="42"', html)
+        self.assertIn('/static/js/workspace_pins.js', html)
+
+    def test_pin_row_follows_the_columns(self):
+        self.assertEqual(self.client.get('/tools').text.count('workspace-pins-group"'), 2)
+        self.context = authz('SOFA-RPRT-LL')
+        html = self.client.get('/tools').text
+        self.assertEqual(html.count('workspace-pins-group"'), 1)
+        self.assertEqual(html.count('data-pin-slot'), 4)
+
+
+class PinModelTests(unittest.TestCase):
+    def test_pin_logic_in_node(self):
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run([os.environ.get('SOFA_NODE_BINARY', 'node'), 'tests/workspace_pins_checks.js'],
+                                cwd=root, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == '__main__':

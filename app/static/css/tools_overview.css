@@ -29,7 +29,7 @@ body:has(#toolsOverview) > footer {
     min-height: 0;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
+    gap: 1rem;
 }
 
 .workspace-column {
@@ -215,7 +215,8 @@ body:has(#toolsOverview) > footer {
     font-weight: 700;
 }
 
-.overview-card-popout {
+.overview-card-popout,
+.overview-card-pin {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -230,15 +231,183 @@ body:has(#toolsOverview) > footer {
 }
 
 .overview-card-popout:hover,
-.overview-card-popout:focus-visible {
+.overview-card-popout:focus-visible,
+.overview-card-pin:hover,
+.overview-card-pin:focus-visible {
     color: var(--color-primary);
     border-color: rgba(var(--color-primary-rgb), 0.28);
     transform: translateY(-1px);
 }
 
-.overview-card-popout svg {
+.overview-card-popout svg,
+.overview-card-pin svg {
     width: 1.1rem;
     height: 1.1rem;
+}
+
+.overview-card-pin[aria-pressed="true"] {
+    color: var(--color-primary);
+    border-color: rgba(var(--color-primary-rgb), 0.28);
+    background: rgba(var(--color-primary-rgb), 0.1);
+}
+
+.overview-card-pin[aria-pressed="true"] svg {
+    fill: currentColor;
+}
+
+/* Pin-Zeile: vier Plaetze in derselben Breite wie die Karten darunter. */
+.workspace-pins {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.workspace-pins-head {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--ui-text-muted);
+}
+
+.workspace-pins-title {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.workspace-pins-info {
+    position: relative;
+    display: inline-flex;
+    cursor: help;
+    border-radius: 999px;
+}
+
+.workspace-pins-info:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.workspace-pins-info svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.workspace-pins-tip {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 0.5rem);
+    left: -0.5rem;
+    width: max-content;
+    max-width: 20rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 10px;
+    border: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-md);
+    color: var(--ui-text);
+    font-size: 0.88rem;
+    line-height: 1.4;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.workspace-pins-info:hover .workspace-pins-tip,
+.workspace-pins-info:focus-visible .workspace-pins-tip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.workspace-pins-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.workspace-pins-row.is-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* --ws-gutter: Breite des Scrollbalkens der Spalten, per JS gemessen. */
+.workspace-pins-group {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    padding-right: var(--ws-gutter, 0px);
+}
+
+.workspace-pins-row.is-single .workspace-pins-group {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workspace-pin-slot {
+    min-width: 0;
+    min-height: 4.5rem;
+    display: flex;
+}
+
+.workspace-pin-slot.is-empty {
+    border: 1px dashed var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface-muted);
+}
+
+.workspace-pin-slot > .overview-card {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Kompakte Karte: Icon, Titel, Aktionen in einer Zeile. */
+.overview-card.is-compact {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.75rem;
+    min-height: 0;
+    padding: 0.75rem 0.9rem;
+}
+
+.overview-card.is-compact .overview-card-top,
+.overview-card.is-compact .overview-card-footer {
+    display: contents;
+}
+
+.overview-card.is-compact .overview-card-chips,
+.overview-card.is-compact .overview-card-copy,
+.overview-card.is-compact .overview-card-cta {
+    display: none;
+}
+
+.overview-card.is-compact .overview-card-icon-wrap {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 12px;
+}
+
+.overview-card.is-compact .overview-card-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.overview-card.is-compact .overview-card-body {
+    min-width: 0;
+}
+
+.overview-card.is-compact .overview-card-heading {
+    gap: 0.15rem;
+}
+
+.overview-card.is-compact .overview-card-kicker,
+.overview-card.is-compact .overview-card-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.overview-card.is-compact .overview-card-title {
+    font-size: 1.05rem;
 }
 
 @media (max-width: 900px) {
@@ -250,6 +419,21 @@ body:has(#toolsOverview) > footer {
 
     body:has(#toolsOverview) > main {
         flex: 1 0 auto;
+    }
+
+    .workspace-pins-row,
+    .workspace-pins-row.is-single {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .workspace-pins-row .workspace-pins-group,
+    .workspace-pins-row.is-single .workspace-pins-group {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding-right: 0;
+    }
+
+    .workspace-pin-slot.is-empty {
+        display: none;
     }
 
     .tools-overview-page,
@@ -282,6 +466,11 @@ body:has(#toolsOverview) > footer {
 @media (max-width: 720px) {
     main {
         padding: 0 1rem;
+    }
+
+    .workspace-pins-row .workspace-pins-group,
+    .workspace-pins-row.is-single .workspace-pins-group {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .overview-card-top {

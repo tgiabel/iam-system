@@ -9,7 +9,32 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-container tools-overview-page" id="toolsOverview">
+<div class="page-container tools-overview-page" id="toolsOverview" data-user-id="{{ user.user_id if user and user.user_id is not none else '' }}">
+    {% if workspace_tools or workspace_reports %}
+    <section class="workspace-pins" aria-labelledby="workspace-pins-title">
+        <div class="workspace-pins-head">
+            <h2 class="workspace-pins-title" id="workspace-pins-title">Angeheftet</h2>
+            <span class="workspace-pins-info" tabindex="0" role="img" aria-label="Angeheftete Tools und Reports erscheinen im Dashboard. Es sind 4 Pins möglich.">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M12 16v-4"/>
+                    <path d="M12 8h.01"/>
+                </svg>
+                <span class="workspace-pins-tip" role="tooltip">Angeheftete Tools und Reports erscheinen im Dashboard. Es sind 4 Pins möglich; der älteste wird ersetzt.</span>
+            </span>
+        </div>
+        {# Gruppen spiegeln die Spalten darunter, damit die Plätze genauso breit sind wie die Karten. #}
+        {% set pin_groups = 2 if workspace_tools and workspace_reports else 1 %}
+        <div class="workspace-pins-row{% if pin_groups == 1 %} is-single{% endif %}">
+            {% for _ in range(pin_groups) %}
+            <div class="workspace-pins-group">
+                {% for _ in range(4 // pin_groups) %}<div class="workspace-pin-slot" data-pin-slot></div>{% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
     <div class="workspace-columns">
         {% if workspace_tools %}
         <section class="workspace-column" aria-labelledby="workspace-tools-title">
@@ -36,6 +61,7 @@
 </div>
 
 {% block scripts %}
+    <script src="/static/js/workspace_pins.js?v={{ static_v }}"></script>
     <script src="/static/js/tools.js?v={{ static_v }}"></script>
 {% endblock %}
 
