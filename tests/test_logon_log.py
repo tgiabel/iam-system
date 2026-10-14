@@ -78,9 +78,9 @@ class ProxyTests(unittest.TestCase):
         with self.assertRaises(Exception):asyncio.run(dependency(authz()))
         root=Path(__file__).parents[1]
         from app.workspace_catalog import CATALOG
-        item=next(item for item in CATALOG if item.href=='/tools/logon-log')
+        item=next(item for item in CATALOG if item.href=='/reports/logon-log')
         self.assertEqual(item.permission,ll.REPORT)
-        tools_route=next(line for line in (root/'app/routes/pages.py').read_text().splitlines() if line.startswith('def tools('))
+        tools_route=next(line for line in (root/'app/routes/pages.py').read_text().splitlines() if line.startswith('def workspace('))
         self.assertIn('require_login', tools_route)
 
     def test_sensitive_controls_are_gated_by_template(self):
@@ -107,12 +107,12 @@ class RealRouteTests(unittest.TestCase):
         self.client=TestClient(app)
 
     def test_page_renders_report_and_hides_sensitive_controls(self):
-        response=self.client.get('/tools/logon-log')
+        response=self.client.get('/reports/logon-log')
         self.assertEqual(response.status_code,200)
         self.assertIn('id="llReport"',response.text)
         self.assertNotIn('id="llNames"',response.text)
         self.assertNotIn('id="llAnalyze"',response.text)
-        self.assertIn('Anmeldeprotokoll',self.client.get('/tools').text)
+        self.assertIn('Anmeldeprotokoll',self.client.get('/workspace').text)
 
     def test_proxy_is_mounted_and_ignores_browser_actor_header(self):
         calls=[]

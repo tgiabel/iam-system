@@ -6,6 +6,8 @@ Plan vom 14.10.2026. Teil 1 von drei UI-Aufwertungen; Tasks siehe [tasks-kanban.
 
 Umgesetzt am 14.10.2026 auf `feature/workspace-layout` (W1–W4). Gegenüber dem ursprünglichen Plan geändert: Einträge sind Zeilen in einer Liste je Spalte statt Karten; Beschreibung nur als Tooltip, keine Badges und Kicker; die Pin-Zeile ist ein zentriertes Dock mit quadratischen Kacheln (Pin oben rechts, Pop-out unten rechts, Titel unten angedockt); Spaltenköpfe mit farbiger Trennlinie (Tools blau, Reports orange).
 
+Adressen: Die Übersicht liegt unter `/workspace`, Tools unter `/tools/…`, Reports unter `/reports/…`. Die alten Pfade (`/tools`, `/tools/<report>`, `/iks`) leiten mit 307 samt Query-String weiter. Die Weiterleitung ist bewusst temporär, damit nach einem Rollback keine gemerkte Umleitung ins Leere zeigt. Templates und JS der Reports bleiben in ihren bisherigen Ordnern.
+
 ## Ziel
 
 Tools und Reports stehen gleichzeitig auf einer Seite, ohne Tab-Wechsel. Bis zu vier Einträge lassen sich anheften; sie stehen in ihrer Liste oben und sind die Grundlage für die spätere Pinnwand im Dashboard.

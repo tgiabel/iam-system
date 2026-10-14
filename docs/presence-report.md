@@ -110,7 +110,7 @@ Antwort von `/day` (verbindlich ist der Vertrag `docs/presence-report-api.md` in
 
 ## Oberfläche
 
-Seite `/tools/presence-report`, Kachel in der Tool-Übersicht (Kicker „Genesys Cloud“, Titel „Presence-Report“, Chip „Presence“, Muster der Report-Kacheln). Keine erklärenden Untertitel oder Betriebshinweise.
+Seite `/reports/presence-report`, Kachel in der Tool-Übersicht (Kicker „Genesys Cloud“, Titel „Presence-Report“, Chip „Presence“, Muster der Report-Kacheln). Keine erklärenden Untertitel oder Betriebshinweise.
 
 ```
 Genesys Cloud

@@ -1,6 +1,6 @@
 # Meine Genesys-Zahlen
 
-Persönlicher, lesender Report unter `/tools/agent-stats`, für alle angemeldeten SOFA-Nutzer. Der Browser sendet weder eine interne User-ID noch eine Genesys-ID. Tag und Monat stehen in der URL (`period`, `anchor`); der Tagesmodus verwendet die Berliner Presence-Zeitleiste aus der Zeitkorrektur als lesende Grafik. Es gibt keine Interaktionstabelle, kein Ranking und keinen Managerzugriff.
+Persönlicher, lesender Report unter `/reports/agent-stats`, für alle angemeldeten SOFA-Nutzer. Der Browser sendet weder eine interne User-ID noch eine Genesys-ID. Tag und Monat stehen in der URL (`period`, `anchor`); der Tagesmodus verwendet die Berliner Presence-Zeitleiste aus der Zeitkorrektur als lesende Grafik. Es gibt keine Interaktionstabelle, kein Ranking und keinen Managerzugriff.
 
 ## Kennzahlen
 

@@ -123,7 +123,7 @@ class PageTests(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_page_contains_compact_report_views(self):
-        response = self.client.get("/tools/token-deletion-report")
+        response = self.client.get("/reports/token-deletion-report")
         self.assertEqual(response.status_code, 200)
         self.assertIn("/static/css/token_deletions_report.css", response.text)
         model = response.text.index("/static/js/reports/token_deletions_report_model.js")
@@ -139,13 +139,13 @@ class PageTests(unittest.TestCase):
             self.assertNotIn(excluded, response.text)
 
     def test_page_and_card_follow_presence_report_permission(self):
-        tools = self.client.get("/tools").text
-        self.assertIn('href="/tools/token-deletion-report"', tools)
+        tools = self.client.get("/workspace").text
+        self.assertIn('href="/reports/token-deletion-report"', tools)
         self.context = authz("SOFA-RPRT-LL")
-        denied = self.client.get("/tools/token-deletion-report", follow_redirects=False)
+        denied = self.client.get("/reports/token-deletion-report", follow_redirects=False)
         self.assertEqual(denied.status_code, 303)
-        self.assertEqual(denied.headers["location"], "/tools")
-        self.assertNotIn('href="/tools/token-deletion-report"', self.client.get("/tools").text)
+        self.assertEqual(denied.headers["location"], "/workspace")
+        self.assertNotIn('href="/reports/token-deletion-report"', self.client.get("/workspace").text)
 
 
 class FrontendModelTests(unittest.TestCase):

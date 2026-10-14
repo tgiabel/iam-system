@@ -191,18 +191,18 @@ class PageTests(unittest.TestCase):
         self.context = authz("SOFA-TOOL-GQ")
         response = self.client.get("/tools/zeitkorrektur", follow_redirects=False)
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers["location"], "/tools")
+        self.assertEqual(response.headers["location"], "/workspace")
 
     def test_tools_overview_card_follows_page_permission(self):
-        response = self.client.get("/tools")
+        response = self.client.get("/workspace")
         self.assertEqual(response.status_code, 200)
         self.assertIn('href="/tools/zeitkorrektur"', response.text)
         # Kachel und Seite folgen derselben Regel; die Wildcard deckt beide ab (PermissionSet).
         self.context = authz("SOFA-TOOL-ALL")
-        self.assertIn('href="/tools/zeitkorrektur"', self.client.get("/tools").text)
+        self.assertIn('href="/tools/zeitkorrektur"', self.client.get("/workspace").text)
         self.assertEqual(self.client.get("/tools/zeitkorrektur").status_code, 200)
         self.context = authz("SOFA-TOOL-GQ")
-        self.assertNotIn('href="/tools/zeitkorrektur"', self.client.get("/tools").text)
+        self.assertNotIn('href="/tools/zeitkorrektur"', self.client.get("/workspace").text)
 
 class FrontendModelTests(unittest.TestCase):
     def test_model_checks_in_node(self):

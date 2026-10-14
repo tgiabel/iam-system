@@ -1,6 +1,6 @@
 # Genesys Cloud Live
 
-Lesende Live-Übersicht unter `/tools/genesys-live` für alle angemeldeten SOFA-Nutzer. Die Workspace-Karte erscheint, wenn das gemeinsame Secret für den persönlichen Genesys-Report eingerichtet ist. Seite und BFF-Route verwenden `require_login`; ein eigenes Report-Recht gibt es nicht.
+Lesende Live-Übersicht unter `/reports/genesys-live` für alle angemeldeten SOFA-Nutzer. Die Workspace-Karte erscheint, wenn das gemeinsame Secret für den persönlichen Genesys-Report eingerichtet ist. Seite und BFF-Route verwenden `require_login`; ein eigenes Report-Recht gibt es nicht.
 
 ## Daten und Oberfläche
 

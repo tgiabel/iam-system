@@ -70,7 +70,7 @@ global.window = {AgentStatsModel: Model,
     TimeCorrectionModel: {dayRange() { return {start: 0, end: 1}; }, nowPercent() { return null; }},
     TimeCorrectionTimeline: {axisHtml(range) { timelineRange = range; return 'axis'; }, genesysRowHtml() { return 'timeline'; }},
     DayPicker: {mount() { return {render() {}}; }, shiftDay() { return '2026-10-11'; }},
-    location: {search: '', pathname: '/tools/agent-stats'},
+    location: {search: '', pathname: '/reports/agent-stats'},
     history: {replaceState(_state, _title, url) { lastUrl = url; }}, addEventListener() {}};
 global.fetch = async () => { requests += 1; return {ok: true, json: async () => current}; };
 require('../app/static/js/reports/agent_stats_report.js');

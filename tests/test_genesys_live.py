@@ -50,14 +50,14 @@ class GenesysLiveTests(unittest.TestCase):
         self.assertEqual(calls[0][1]['headers'], {'Authorization': 'Bearer signed-token'})
 
     def test_page_requires_matching_signed_identity(self):
-        self.assertIn('/tools/genesys-live', self.client.get('/tools').text)
-        self.assertEqual(self.client.get('/tools/genesys-live', follow_redirects=False).status_code, 303)
-        page = self.client.get('/tools/genesys-live', cookies={'sofa_agent_stats': self.token})
+        self.assertIn('/reports/genesys-live', self.client.get('/workspace').text)
+        self.assertEqual(self.client.get('/reports/genesys-live', follow_redirects=False).status_code, 303)
+        page = self.client.get('/reports/genesys-live', cookies={'sofa_agent_stats': self.token})
         self.assertEqual(page.status_code, 200)
         self.assertIn('Genesys Cloud Live', page.text)
         self.assertNotIn('preview-switch', page.text)
         self.context = authz(99)
-        self.assertEqual(self.client.get('/tools/genesys-live', cookies={'sofa_agent_stats': self.token},
+        self.assertEqual(self.client.get('/reports/genesys-live', cookies={'sofa_agent_stats': self.token},
                                          follow_redirects=False).status_code, 303)
 
     def test_proxy_forwards_only_signed_identity_and_disables_cache(self):

@@ -141,7 +141,7 @@ class PageTests(unittest.TestCase):
         self.client = TestClient(app)
 
     def test_page_renders_with_report_permission(self):
-        response = self.client.get("/tools/presence-report")
+        response = self.client.get("/reports/presence-report")
         self.assertEqual(response.status_code, 200)
         self.assertIn("/static/css/presence_report.css", response.text)
         scripts = [response.text.index(f"/static/js/{name}.js")
@@ -157,16 +157,16 @@ class PageTests(unittest.TestCase):
 
     def test_page_redirects_without_permission(self):
         self.context = authz(pr.NAME, pr.DETAIL)
-        response = self.client.get("/tools/presence-report", follow_redirects=False)
+        response = self.client.get("/reports/presence-report", follow_redirects=False)
         self.assertEqual(response.status_code, 303)
-        self.assertEqual(response.headers["location"], "/tools")
+        self.assertEqual(response.headers["location"], "/workspace")
 
     def test_tools_overview_card_follows_report_permission(self):
-        response = self.client.get("/tools")
+        response = self.client.get("/workspace")
         self.assertEqual(response.status_code, 200)
-        self.assertIn('href="/tools/presence-report"', response.text)
+        self.assertIn('href="/reports/presence-report"', response.text)
         self.context = authz("SOFA-RPRT-LL")
-        self.assertNotIn('href="/tools/presence-report"', self.client.get("/tools").text)
+        self.assertNotIn('href="/reports/presence-report"', self.client.get("/workspace").text)
 
 
 class FrontendModelTests(unittest.TestCase):

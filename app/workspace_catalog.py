@@ -1,6 +1,6 @@
 """Katalog der Workspace-Einträge (Tools und Reports).
 
-Einzige Quelle für die Karten auf /tools. Sichtbarkeit wird hier aufgelöst,
+Einzige Quelle für die Einträge auf /workspace. Sichtbarkeit wird hier aufgelöst,
 die Einträge selbst bleiben reine Daten, damit der Katalog später auch als JSON
 im Dashboard ausgeliefert werden kann.
 """
@@ -62,43 +62,43 @@ CATALOG: tuple[WorkspaceItem, ...] = (
         admin_only=True,
     ),
     WorkspaceItem(
-        id="genesys-live", kind="report", href="/tools/genesys-live", icon="process.png",
+        id="genesys-live", kind="report", href="/reports/genesys-live", icon="process.png",
         title="Genesys Cloud Live",
         copy="Besetzung und Anwesenheit der Queues in Echtzeit.",
         needs_agent_stats=True,
     ),
     WorkspaceItem(
-        id="agent-stats", kind="report", href="/tools/agent-stats", icon="process.png",
+        id="agent-stats", kind="report", href="/reports/agent-stats", icon="process.png",
         title="Meine Genesys-Zahlen",
         copy="Eigene Telefonie und Statuszeiten für Tag und Monat.",
         needs_agent_stats=True,
     ),
     WorkspaceItem(
-        id="iks", kind="report", href="/tools/iks", icon="roles.png",
+        id="iks", kind="report", href="/reports/iks", icon="roles.png",
         title="IKS Kontrollberichte",
         copy="Prozesse, Rollen und dokumentierte Systemzugriffe kontrollieren und auditsicher exportieren.",
         permission="SOFA-TOOL-IKS",
     ),
     WorkspaceItem(
-        id="ivr-call-details", kind="report", href="/tools/ivr-call-details", icon="process.png",
+        id="ivr-call-details", kind="report", href="/reports/ivr-call-details", icon="process.png",
         title="IVR Call-Detailreport",
         copy="Calls beider Servicerufnummern mit ihrem vollständigen Routingverlauf analysieren.",
         permission="SOFA-RPRT-TIVR",
     ),
     WorkspaceItem(
-        id="presence-report", kind="report", href="/tools/presence-report", icon="process.png",
+        id="presence-report", kind="report", href="/reports/presence-report", icon="process.png",
         title="Presence-Report",
         copy="Statuszeiten und Statuswechsel der Mitarbeiter je Tag auswerten.",
         permission="SOFA-RPRT-PRSNC",
     ),
     WorkspaceItem(
-        id="token-deletion-report", kind="report", href="/tools/token-deletion-report", icon="process.png",
+        id="token-deletion-report", kind="report", href="/reports/token-deletion-report", icon="process.png",
         title="Tokenlöschungs-Report",
         copy="Tokenlöschungen als schnelle Tages- und Monatssummen auswerten.",
         permission="SOFA-RPRT-PRSNC",
     ),
     WorkspaceItem(
-        id="logon-log", kind="report", href="/tools/logon-log", icon="process.png",
+        id="logon-log", kind="report", href="/reports/logon-log", icon="process.png",
         title="Anmeldeprotokoll",
         copy="Client-Anmeldungen auswerten und Parallelzugriffe prüfen.",
         permission="SOFA-RPRT-LL",

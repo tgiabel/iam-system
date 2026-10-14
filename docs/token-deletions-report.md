@@ -1,6 +1,6 @@
 # Tokenlöschungs-Report
 
-Der zusätzliche Report unter `/tools/token-deletion-report` bildet die kompakte Funktion des
+Der zusätzliche Report unter `/reports/token-deletion-report` bildet die kompakte Funktion des
 früheren Token-Dashboards im SOFA-Design ab. Der allgemeine Presence-Report bleibt unverändert.
 
 ## Inhalt

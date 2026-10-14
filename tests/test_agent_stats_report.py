@@ -65,23 +65,23 @@ class ProxyTests(unittest.TestCase):
         self.token = issue(42)
 
     def test_all_logged_in_users_see_workspace_and_report_card(self):
-        page = self.client.get('/tools')
+        page = self.client.get('/workspace')
         self.assertEqual(page.status_code, 200)
-        self.assertIn('/tools/agent-stats', page.text)
+        self.assertIn('/reports/agent-stats', page.text)
         self.assertIn('workspace-reports-title', page.text)
 
     def test_report_is_not_advertised_before_key_is_configured(self):
         with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': ''}):
-            self.assertEqual(self.client.get('/tools', follow_redirects=False).status_code, 303)
-            self.assertEqual(self.client.get('/tools/agent-stats', follow_redirects=False).status_code, 303)
+            self.assertEqual(self.client.get('/workspace', follow_redirects=False).status_code, 303)
+            self.assertEqual(self.client.get('/reports/agent-stats', follow_redirects=False).status_code, 303)
 
     def test_report_page_requires_signed_identity_matching_session(self):
-        self.assertEqual(self.client.get('/tools/agent-stats', follow_redirects=False).status_code, 303)
-        page = self.client.get('/tools/agent-stats', cookies={'sofa_agent_stats': self.token})
+        self.assertEqual(self.client.get('/reports/agent-stats', follow_redirects=False).status_code, 303)
+        page = self.client.get('/reports/agent-stats', cookies={'sofa_agent_stats': self.token})
         self.assertEqual(page.status_code, 200)
         self.assertIn('Anwesenheit', page.text)
         self.context = authz(99)
-        self.assertEqual(self.client.get('/tools/agent-stats', cookies={'sofa_agent_stats': self.token},
+        self.assertEqual(self.client.get('/reports/agent-stats', cookies={'sofa_agent_stats': self.token},
                                          follow_redirects=False).status_code, 303)
 
     def test_proxy_rejects_forged_unsigned_session_and_forwards_only_safe_parameters(self):

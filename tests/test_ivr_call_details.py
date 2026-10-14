@@ -61,7 +61,7 @@ class TestIvrCallDetailsAuthorization(unittest.TestCase):
         with self.assertRaises(Exception) as denied:
             asyncio.run(dependency(make_authz()))
         self.assertEqual(denied.exception.status_code, 303)
-        self.assertEqual(denied.exception.headers["Location"], "/tools")
+        self.assertEqual(denied.exception.headers["Location"], "/workspace")
 
     def test_proxy_requires_tivr_permission(self):
         dependency = permission_dependency(api.api_get_ivr_call_details, "current_user")
@@ -77,7 +77,7 @@ class TestIvrCallDetailsAuthorization(unittest.TestCase):
 
     def test_tool_card_uses_same_permission(self):
         from app.workspace_catalog import CATALOG
-        item = next(item for item in CATALOG if item.href == "/tools/ivr-call-details")
+        item = next(item for item in CATALOG if item.href == "/reports/ivr-call-details")
         self.assertEqual(item.permission, PERMISSION)
 
 

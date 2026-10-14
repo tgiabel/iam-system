@@ -95,8 +95,8 @@ def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", r
     return templates.TemplateResponse("tasks.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
-@router.get("/tools", response_class=HTMLResponse)
-def tools(request: Request, authz=Depends(require_login)):
+@router.get("/workspace", response_class=HTMLResponse)
+def workspace(request: Request, authz=Depends(require_login)):
     if not authz.has_any_tool() and not authz.has_admin_access():
         return RedirectResponse(url="/", status_code=303)
     sections = visible_items(authz, is_configured())
@@ -105,10 +105,36 @@ def tools(request: Request, authz=Depends(require_login)):
         workspace_tools=sections["tools"], workspace_reports=sections["reports"]))
 
 
-@router.get("/tools/agent-stats", response_class=HTMLResponse)
+# Alte Adressen vor /workspace und /reports. Bewusst temporaer (307): ein Browser merkt sich
+# die Umleitung nicht, nach einem Rollback funktionieren die alten Pfade also wieder direkt.
+LEGACY_REPORT_SLUGS = (
+    "genesys-live", "agent-stats", "iks", "ivr-call-details",
+    "presence-report", "token-deletion-report", "logon-log",
+)
+
+
+def _redirect_keeping_query(request: Request, path: str) -> RedirectResponse:
+    query = request.url.query
+    return RedirectResponse(url=f"{path}?{query}" if query else path, status_code=307)
+
+
+@router.get("/tools", include_in_schema=False)
+async def legacy_workspace(request: Request):
+    return _redirect_keeping_query(request, "/workspace")
+
+
+async def _legacy_report(request: Request):
+    return _redirect_keeping_query(request, "/reports/" + request.url.path.rsplit("/", 1)[-1])
+
+
+for _slug in LEGACY_REPORT_SLUGS:
+    router.add_api_route(f"/tools/{_slug}", _legacy_report, methods=["GET"], include_in_schema=False)
+
+
+@router.get("/reports/agent-stats", response_class=HTMLResponse)
 def agent_stats_report(request: Request, authz=Depends(require_login)):
     if not is_configured():
-        return RedirectResponse(url="/tools", status_code=303)
+        return RedirectResponse(url="/workspace", status_code=303)
     try:
         signed_user_id = verify(request.cookies.get("sofa_agent_stats", ""))
     except (ValueError, RuntimeError):
@@ -119,10 +145,10 @@ def agent_stats_report(request: Request, authz=Depends(require_login)):
                                       _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
-@router.get("/tools/genesys-live", response_class=HTMLResponse)
+@router.get("/reports/genesys-live", response_class=HTMLResponse)
 def genesys_live_page(request: Request, authz=Depends(require_login)):
     if not is_configured():
-        return RedirectResponse(url="/tools", status_code=303)
+        return RedirectResponse(url="/workspace", status_code=303)
     try:
         signed_user_id = verify(request.cookies.get("sofa_agent_stats", ""))
     except (ValueError, RuntimeError):
@@ -191,11 +217,11 @@ async def role_details(request: Request, role_id: str, authz=Depends(require_per
 
 @router.get("/iks")
 async def iks(request: Request):
-    return RedirectResponse(url="/tools/iks", status_code=308)
+    return RedirectResponse(url="/reports/iks", status_code=307)
 
 
-@router.get("/tools/iks", response_class=HTMLResponse)
-async def iks_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-IKS", redirect_to="/tools"))):
+@router.get("/reports/iks", response_class=HTMLResponse)
+async def iks_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-IKS", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "tools/iks_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -203,7 +229,7 @@ async def iks_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL
 
 
 @router.get("/tools/datex", response_class=HTMLResponse)
-async def datex_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-DATX", redirect_to="/tools"))):
+async def datex_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-DATX", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "tools/datex_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -211,14 +237,14 @@ async def datex_tool(request: Request, authz=Depends(require_permission("SOFA-TO
 
 
 @router.get("/tools/request-templates", response_class=HTMLResponse)
-async def request_templates_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-FORM", redirect_to="/tools"))):
+async def request_templates_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-FORM", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "tools/request_templates_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 @router.get("/tools/genesys-queue-manager", response_class=HTMLResponse)
-async def genesys_queue_manager_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-GQ", redirect_to="/tools"))):
+async def genesys_queue_manager_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-GQ", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "tools/genesys_queue_manager_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -226,7 +252,7 @@ async def genesys_queue_manager_tool(request: Request, authz=Depends(require_per
 
 
 @router.get("/tools/zeitkorrektur", response_class=HTMLResponse)
-async def time_correction_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-ZK", redirect_to="/tools"))):
+async def time_correction_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-ZK", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "tools/time_correction_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -234,7 +260,7 @@ async def time_correction_tool(request: Request, authz=Depends(require_permissio
 
 
 @router.get("/tools/stoerungsprotokoll", response_class=HTMLResponse)
-async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-SLOG", redirect_to="/tools"))):
+async def stoerungsprotokoll_tool(request: Request, authz=Depends(require_permission("SOFA-TOOL-SLOG", redirect_to="/workspace"))):
     try:
         incidents = await api_client.list_incidents(authz)
     except Exception:
@@ -258,32 +284,32 @@ async def stoerungsprotokoll_detail(request: Request, incident_id: str, authz=De
 
 
 @router.get("/tools/media-blocking", response_class=HTMLResponse)
-async def media_blocking_tool(request: Request, authz=Depends(require_admin_access(redirect_to="/tools"))):
+async def media_blocking_tool(request: Request, authz=Depends(require_admin_access(redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "tools/media_blocking_tool.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 
-@router.get("/tools/ivr-call-details", response_class=HTMLResponse)
-async def ivr_call_details_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-TIVR", redirect_to="/tools"))):
+@router.get("/reports/ivr-call-details", response_class=HTMLResponse)
+async def ivr_call_details_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-TIVR", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "reports/ivr_call_details.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 
-@router.get("/tools/presence-report", response_class=HTMLResponse)
-async def presence_report_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-PRSNC", redirect_to="/tools"))):
+@router.get("/reports/presence-report", response_class=HTMLResponse)
+async def presence_report_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-PRSNC", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "reports/presence_report.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
     )
 
 
-@router.get("/tools/token-deletion-report", response_class=HTMLResponse)
+@router.get("/reports/token-deletion-report", response_class=HTMLResponse)
 async def token_deletion_report_tool(
-    request: Request, authz=Depends(require_permission("SOFA-RPRT-PRSNC", redirect_to="/tools"))
+    request: Request, authz=Depends(require_permission("SOFA-RPRT-PRSNC", redirect_to="/workspace"))
 ):
     return templates.TemplateResponse(
         "reports/token_deletions_report.html",
@@ -291,8 +317,8 @@ async def token_deletion_report_tool(
     )
 
 
-@router.get("/tools/logon-log", response_class=HTMLResponse)
-async def logon_log_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-LL", redirect_to="/tools"))):
+@router.get("/reports/logon-log", response_class=HTMLResponse)
+async def logon_log_tool(request: Request, authz=Depends(require_permission("SOFA-RPRT-LL", redirect_to="/workspace"))):
     return templates.TemplateResponse(
         "reports/logon_log.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),

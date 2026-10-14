@@ -1,6 +1,6 @@
 # IVR Call-Detailreport
 
-Der SOFA-Report ist unter `/tools/ivr-call-details` erreichbar und lädt seine Daten ausschließlich über den geschützten Proxy `GET /api/reporting/ivr/call-details?day=YYYY-MM-DD`. Beide Routen sowie die Tool-Karte verwenden `SOFA-RPRT-TIVR`.
+Der SOFA-Report ist unter `/reports/ivr-call-details` erreichbar und lädt seine Daten ausschließlich über den geschützten Proxy `GET /api/reporting/ivr/call-details?day=YYYY-MM-DD`. Beide Routen sowie die Tool-Karte verwenden `SOFA-RPRT-TIVR`.
 
 ## Backend-Abhängigkeit
 

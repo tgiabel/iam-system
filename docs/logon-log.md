@@ -2,7 +2,7 @@
 
 ## Lieferumfang und Betriebsgrenze
 
-Der Report unter `/tools/logon-log` liest ausschließlich über den SOFA-Proxy
+Der Report unter `/reports/logon-log` liest ausschließlich über den SOFA-Proxy
 `/api/reporting/logon-log` und SD-API `/reporting/logon-log`. Standard ist heute.
 Die bestehende CSV-Mail bleibt unverändert. Es gibt keinen Papierimport, keine
 neue Mailzustellung und keinen zusätzlichen Tagesabschluss.
