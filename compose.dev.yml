@@ -1,0 +1,24 @@
+name: sofa-dev
+
+services:
+  app:
+    build: .
+    env_file:
+      - /var/www/sofa-secrets/agent-stats.env
+    environment:
+      APP_ENV: development
+      RELEASE_SHA: development
+      SD_API_BASE_URL: http://api:8080
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+    ports:
+      - "127.0.0.1:8001:8000"
+    volumes:
+      - ./app:/app/app:ro
+    restart: unless-stopped
+    networks:
+      - dev_backend
+
+networks:
+  dev_backend:
+    external: true
+    name: sd-api-dev_dev_internal

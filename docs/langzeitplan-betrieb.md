@@ -1,6 +1,6 @@
 # Langzeitplan Betrieb – Prod-Release, Dev-Instanz, Rechte, PWA
 
-Stand 25.09.2026 · Status: Plan, nichts umgesetzt · wird Etappe für Etappe abgearbeitet. Etappen mit „auszuarbeiten“ brauchen vor der Umsetzung eine eigene Konzeptrunde.
+Stand 25.09.2026 · Historischer Langzeitplan. Die schlanke Betriebsstruktur ist in [deployment.md](deployment.md) beschrieben; die übrigen Etappen sind weiterhin Ideen und kein aktueller Deploy-Ablauf.
 
 ## Ziel
 

@@ -33,6 +33,19 @@ class ForwardedHeaderMiddleware(BaseHTTPMiddleware):
 
 
 app = FastAPI(title="SOFA Frontend")
+
+
+@app.get("/health", include_in_schema=False)
+def health():
+    import os
+
+    return {
+        "status": "ok",
+        "release": os.getenv("RELEASE_SHA", "development"),
+        "env": os.getenv("APP_ENV", "production"),
+    }
+
+
 app.add_middleware(ForwardedHeaderMiddleware)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 app.include_router(page_router)

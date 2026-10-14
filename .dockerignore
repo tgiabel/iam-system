@@ -1,0 +1,11 @@
+.git
+.env*
+.agents
+.aws
+.codex
+docs
+tests
+misc
+deprecated
+__pycache__
+*.pyc

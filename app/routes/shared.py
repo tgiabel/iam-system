@@ -18,7 +18,11 @@ from app.authz import (
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 static_path = os.path.join(base_dir, "static")
 templates = Jinja2Templates(directory=os.path.join(base_dir, "templates"))
-templates.env.globals["static_v"] = str(int(time.time()))
+app_env = os.getenv("APP_ENV", "production")
+templates.env.globals["static_v"] = (
+    os.getenv("RELEASE_SHA") if app_env == "production" else str(int(time.time()))
+)
+templates.env.globals["app_env"] = app_env
 
 
 def _first_defined_value(record: dict, keys: list[str], fallback=None):
