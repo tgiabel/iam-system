@@ -35,7 +35,7 @@
 
     <div class="workspace-columns">
         {% if workspace_tools %}
-        <section class="workspace-column" aria-labelledby="workspace-tools-title">
+        <section class="workspace-column workspace-column--tools" aria-labelledby="workspace-tools-title">
             <div class="workspace-column-head">
                 <h2 class="workspace-column-title" id="workspace-tools-title">Tools</h2>
                 <span class="workspace-column-count">{{ workspace_tools|length }}</span>
@@ -49,7 +49,7 @@
         {% endif %}
 
         {% if workspace_reports %}
-        <section class="workspace-column" aria-labelledby="workspace-reports-title">
+        <section class="workspace-column workspace-column--reports" aria-labelledby="workspace-reports-title">
             <div class="workspace-column-head">
                 <h2 class="workspace-column-title" id="workspace-reports-title">Reports</h2>
                 <span class="workspace-column-count">{{ workspace_reports|length }}</span>

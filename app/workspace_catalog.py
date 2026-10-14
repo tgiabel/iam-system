@@ -28,7 +28,7 @@ class WorkspaceItem:
 CATALOG: tuple[WorkspaceItem, ...] = (
     WorkspaceItem(
         id="request-templates", kind="tool", href="/tools/request-templates", icon="add.png",
-        label="Dokumente", title="Berechtigungsformulare",
+        label="Dokumente", title="Berechtigungs\u00adformulare",
         copy="Vorlagen verwalten und ausgefüllte Dokumente (Word & PDF) erzeugen.",
         permission="SOFA-TOOL-FORM",
     ),
