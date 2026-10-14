@@ -120,6 +120,20 @@ def agent_stats_report(request: Request, authz=Depends(require_login)):
                                       _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
+@router.get("/tools/genesys-live", response_class=HTMLResponse)
+def genesys_live_page(request: Request, authz=Depends(require_login)):
+    if not is_configured():
+        return RedirectResponse(url="/tools", status_code=303)
+    try:
+        signed_user_id = verify(request.cookies.get("sofa_agent_stats", ""))
+    except (ValueError, RuntimeError):
+        signed_user_id = None
+    if signed_user_id != authz.user_id:
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse("reports/genesys_live.html",
+                                      _build_template_context(request, user=authz.raw_user, authz=authz))
+
+
 @router.get("/console", response_class=HTMLResponse)
 def console(request: Request, authz=Depends(require_permission("SOFA-PAGE-CNSL", redirect_to="/"))):
     return templates.TemplateResponse("console.html", _build_template_context(request, user=authz.raw_user, authz=authz))

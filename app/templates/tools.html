@@ -237,6 +237,27 @@
 
                 <div class="overview-card-grid">
                     {% if agent_stats_configured %}
+                    <a href="/tools/genesys-live" class="overview-card overview-card-link report-card">
+                        <div class="overview-card-top">
+                            <div class="overview-card-icon-wrap">
+                                <img src="/static/img/process.png" class="overview-card-icon" alt="">
+                            </div>
+                            <div class="overview-card-chips">
+                                <span class="ui-chip ui-chip-warning">Live</span>
+                            </div>
+                        </div>
+                        <div class="overview-card-body">
+                            <div class="overview-card-heading">
+                                <p class="overview-card-kicker">Genesys Cloud</p>
+                                <h3 class="overview-card-title">Genesys Cloud Live</h3>
+                            </div>
+                        </div>
+                        <div class="overview-card-footer">
+                            <span class="overview-card-cta">Report öffnen</span>
+                        </div>
+                    </a>
+                    {% endif %}
+                    {% if agent_stats_configured %}
                     <a href="/tools/agent-stats" class="overview-card overview-card-link report-card">
                         <div class="overview-card-top">
                             <div class="overview-card-icon-wrap">

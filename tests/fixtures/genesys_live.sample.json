@@ -1,0 +1,1194 @@
+{
+ "as_of": "2026-10-13T11:08:12.000Z",
+ "stale": false,
+ "sources": {
+  "users": "2026-10-13T11:08:12.000Z",
+  "memberships": "2026-10-13T11:07:38.000Z",
+  "conversations": "2026-10-13T11:08:12.000Z"
+ },
+ "account_linked": true,
+ "statuses": {
+  "pause": [
+   {
+    "key": "p-break",
+    "label": "Pause"
+   },
+   {
+    "key": "p-meal",
+    "label": "Essenspause"
+   }
+  ],
+  "busy": [
+   {
+    "key": "p-meeting",
+    "label": "Besprechung"
+   },
+   {
+    "key": "p-callback",
+    "label": "Rückfrage"
+   },
+   {
+    "key": "p-training",
+    "label": "Schulung"
+   },
+   {
+    "key": "p-ticket",
+    "label": "Ticket"
+   },
+   {
+    "key": "p-token",
+    "label": "Tokenlöschung"
+   },
+   {
+    "key": "p-busy",
+    "label": "Sonstige",
+    "unspecified": true
+   }
+  ]
+ },
+ "queues": [
+  {
+   "queue_id": "q-15",
+   "name": "[PROD]_3D_Secure",
+   "label": "3D Secure",
+   "member_count": 11,
+   "joined_count": 6,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 0
+   },
+   "people": {
+    "present": 6,
+    "on_queue": {
+     "total": 2,
+     "idle": 0,
+     "interacting": 2,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 2,
+     "by_status": {
+      "p-break": 2,
+      "p-meal": 0
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 1,
+      "p-token": 1,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 0,
+    "offline": 0
+   }
+  },
+  {
+   "queue_id": "q-22",
+   "name": "[PROD]_Akquise",
+   "label": "Akquise",
+   "member_count": 20,
+   "joined_count": 14,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 2,
+    "waiting": 2
+   },
+   "people": {
+    "present": 13,
+    "on_queue": {
+     "total": 7,
+     "idle": 2,
+     "interacting": 3,
+     "communicating": 2,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 3,
+     "by_status": {
+      "p-break": 1,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 0,
+      "p-token": 1,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 2,
+    "offline": 1
+   }
+  },
+  {
+   "queue_id": "q-14",
+   "name": "[PROD]_Apple_Pay",
+   "label": "Apple Pay",
+   "member_count": 25,
+   "joined_count": 20,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 2,
+    "waiting": 0
+   },
+   "people": {
+    "present": 20,
+    "on_queue": {
+     "total": 12,
+     "idle": 2,
+     "interacting": 9,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 2,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 2,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 3,
+    "offline": 0
+   }
+  },
+  {
+   "queue_id": "q-09",
+   "name": "[PROD]_Backoffice",
+   "label": "Backoffice",
+   "member_count": 20,
+   "joined_count": 18,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 1,
+    "waiting": 1
+   },
+   "people": {
+    "present": 17,
+    "on_queue": {
+     "total": 10,
+     "idle": 3,
+     "interacting": 6,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 6,
+     "by_status": {
+      "p-break": 4,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 1,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 0,
+    "offline": 1
+   }
+  },
+  {
+   "queue_id": "q-06",
+   "name": "[PROD]_Bestellungen",
+   "label": "Bestellungen",
+   "member_count": 19,
+   "joined_count": 16,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 0
+   },
+   "people": {
+    "present": 14,
+    "on_queue": {
+     "total": 9,
+     "idle": 3,
+     "interacting": 3,
+     "communicating": 2,
+     "not_responding": 1
+    },
+    "pause": {
+     "total": 2,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 1,
+      "p-token": 1,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 1,
+    "offline": 2
+   }
+  },
+  {
+   "queue_id": "q-21",
+   "name": "[PROD]_Debit",
+   "label": "Debit",
+   "member_count": 18,
+   "joined_count": 11,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 1,
+    "waiting": 1
+   },
+   "people": {
+    "present": 10,
+    "on_queue": {
+     "total": 6,
+     "idle": 3,
+     "interacting": 3,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 0,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 0
+     }
+    },
+    "busy": {
+     "total": 4,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 1,
+      "p-ticket": 3,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 0,
+    "offline": 1
+   }
+  },
+  {
+   "queue_id": "q-12",
+   "name": "[PROD]_Eskalation",
+   "label": "Eskalation",
+   "member_count": 16,
+   "joined_count": 13,
+   "mine": {
+    "member": true,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 2,
+    "waiting": 1
+   },
+   "people": {
+    "present": 10,
+    "on_queue": {
+     "total": 6,
+     "idle": 1,
+     "interacting": 5,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 1,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 1
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 1,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 2,
+    "offline": 3
+   }
+  },
+  {
+   "queue_id": "q-17",
+   "name": "[PROD]_Helpline",
+   "label": "Helpline",
+   "member_count": 19,
+   "joined_count": 17,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 1,
+    "waiting": 0
+   },
+   "people": {
+    "present": 15,
+    "on_queue": {
+     "total": 8,
+     "idle": 2,
+     "interacting": 5,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 3,
+     "by_status": {
+      "p-break": 2,
+      "p-meal": 1
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 1,
+      "p-ticket": 0,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 3,
+    "offline": 2
+   }
+  },
+  {
+   "queue_id": "q-23",
+   "name": "[PROD]_Händler",
+   "label": "Händler",
+   "member_count": 28,
+   "joined_count": 23,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 1,
+    "waiting": 0
+   },
+   "people": {
+    "present": 20,
+    "on_queue": {
+     "total": 9,
+     "idle": 5,
+     "interacting": 4,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 3,
+     "by_status": {
+      "p-break": 1,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 4,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 1,
+      "p-ticket": 3,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 3,
+    "offline": 3
+   }
+  },
+  {
+   "queue_id": "q-07",
+   "name": "[PROD]_International",
+   "label": "International",
+   "member_count": 17,
+   "joined_count": 16,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 1,
+    "waiting": 1
+   },
+   "people": {
+    "present": 15,
+    "on_queue": {
+     "total": 7,
+     "idle": 2,
+     "interacting": 5,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 3,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 3
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 2,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 2,
+    "offline": 1
+   }
+  },
+  {
+   "queue_id": "q-11",
+   "name": "[PROD]_Marketing",
+   "label": "Marketing",
+   "member_count": 19,
+   "joined_count": 12,
+   "mine": {
+    "member": true,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 2
+   },
+   "people": {
+    "present": 12,
+    "on_queue": {
+     "total": 8,
+     "idle": 5,
+     "interacting": 2,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 2,
+     "by_status": {
+      "p-break": 1,
+      "p-meal": 1
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 1,
+      "p-ticket": 0,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 1,
+    "offline": 0
+   }
+  },
+  {
+   "queue_id": "q-24",
+   "name": "[PROD]_Open_Blockings",
+   "label": "Open Blockings",
+   "member_count": 22,
+   "joined_count": 17,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 0
+   },
+   "people": {
+    "present": 15,
+    "on_queue": {
+     "total": 7,
+     "idle": 1,
+     "interacting": 5,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 6,
+     "by_status": {
+      "p-break": 4,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 0,
+      "p-token": 1,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 1,
+    "offline": 2
+   }
+  },
+  {
+   "queue_id": "q-16",
+   "name": "[PROD]_PIN_Bestellung",
+   "label": "PIN Bestellung",
+   "member_count": 19,
+   "joined_count": 15,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 0
+   },
+   "people": {
+    "present": 12,
+    "on_queue": {
+     "total": 4,
+     "idle": 1,
+     "interacting": 3,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 5,
+     "by_status": {
+      "p-break": 3,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 2,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 0,
+    "offline": 3
+   }
+  },
+  {
+   "queue_id": "q-08",
+   "name": "[PROD]_Premium_Service",
+   "label": "Premium Service",
+   "member_count": 25,
+   "joined_count": 21,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 2,
+    "waiting": 1
+   },
+   "people": {
+    "present": 19,
+    "on_queue": {
+     "total": 15,
+     "idle": 5,
+     "interacting": 9,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 2,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 1,
+      "p-ticket": 0,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 0,
+    "offline": 2
+   }
+  },
+  {
+   "queue_id": "q-02",
+   "name": "[PROD]_Rechnung",
+   "label": "Rechnung",
+   "member_count": 25,
+   "joined_count": 19,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 1,
+    "waiting": 2
+   },
+   "people": {
+    "present": 15,
+    "on_queue": {
+     "total": 4,
+     "idle": 2,
+     "interacting": 2,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 7,
+     "by_status": {
+      "p-break": 3,
+      "p-meal": 4
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 1,
+      "p-ticket": 1,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 1,
+    "offline": 4
+   }
+  },
+  {
+   "queue_id": "q-20",
+   "name": "[PROD]_Referral",
+   "label": "Referral",
+   "member_count": 21,
+   "joined_count": 18,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 1
+   },
+   "people": {
+    "present": 14,
+    "on_queue": {
+     "total": 7,
+     "idle": 1,
+     "interacting": 6,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 4,
+     "by_status": {
+      "p-break": 1,
+      "p-meal": 3
+     }
+    },
+    "busy": {
+     "total": 0,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 0,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 3,
+    "offline": 4
+   }
+  },
+  {
+   "queue_id": "q-05",
+   "name": "[PROD]_Retouren",
+   "label": "Retouren",
+   "member_count": 26,
+   "joined_count": 20,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 3,
+    "waiting": 1
+   },
+   "people": {
+    "present": 17,
+    "on_queue": {
+     "total": 11,
+     "idle": 1,
+     "interacting": 8,
+     "communicating": 1,
+     "not_responding": 1
+    },
+    "pause": {
+     "total": 3,
+     "by_status": {
+      "p-break": 1,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 2,
+      "p-ticket": 0,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 0,
+    "offline": 3
+   }
+  },
+  {
+   "queue_id": "q-01",
+   "name": "[PROD]_Service_Inland",
+   "label": "Service Inland",
+   "member_count": 24,
+   "joined_count": 18,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 1
+   },
+   "people": {
+    "present": 16,
+    "on_queue": {
+     "total": 5,
+     "idle": 1,
+     "interacting": 4,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 5,
+     "by_status": {
+      "p-break": 1,
+      "p-meal": 4
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 2,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 4,
+    "offline": 2
+   }
+  },
+  {
+   "queue_id": "q-19",
+   "name": "[PROD]_Social_Card",
+   "label": "Social Card",
+   "member_count": 20,
+   "joined_count": 16,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 1,
+    "waiting": 2
+   },
+   "people": {
+    "present": 14,
+    "on_queue": {
+     "total": 9,
+     "idle": 2,
+     "interacting": 6,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 0,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 0
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 1,
+      "p-ticket": 1,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 3,
+    "offline": 2
+   }
+  },
+  {
+   "queue_id": "q-10",
+   "name": "[PROD]_Sonderfälle",
+   "label": "Sonderfälle",
+   "member_count": 22,
+   "joined_count": 18,
+   "mine": {
+    "member": true,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 0
+   },
+   "people": {
+    "present": 15,
+    "on_queue": {
+     "total": 8,
+     "idle": 1,
+     "interacting": 6,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 2,
+     "by_status": {
+      "p-break": 0,
+      "p-meal": 2
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 2,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 2,
+    "offline": 3
+   }
+  },
+  {
+   "queue_id": "q-13",
+   "name": "[PROD]_Sperren",
+   "label": "Sperren",
+   "member_count": 20,
+   "joined_count": 14,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 2
+   },
+   "people": {
+    "present": 11,
+    "on_queue": {
+     "total": 4,
+     "idle": 1,
+     "interacting": 2,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 2,
+     "by_status": {
+      "p-break": 1,
+      "p-meal": 1
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 2,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 2,
+    "offline": 3
+   }
+  },
+  {
+   "queue_id": "q-03",
+   "name": "[PROD]_Technik",
+   "label": "Technik",
+   "member_count": 19,
+   "joined_count": 15,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 0
+   },
+   "people": {
+    "present": 11,
+    "on_queue": {
+     "total": 3,
+     "idle": 1,
+     "interacting": 2,
+     "communicating": 0,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 4,
+     "by_status": {
+      "p-break": 3,
+      "p-meal": 1
+     }
+    },
+    "busy": {
+     "total": 2,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 2,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 0,
+    "available": 2,
+    "offline": 4
+   }
+  },
+  {
+   "queue_id": "q-04",
+   "name": "[PROD]_Verträge",
+   "label": "Verträge",
+   "member_count": 21,
+   "joined_count": 18,
+   "mine": {
+    "member": true,
+    "joined": true
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 0
+   },
+   "people": {
+    "present": 13,
+    "on_queue": {
+     "total": 9,
+     "idle": 4,
+     "interacting": 4,
+     "communicating": 1,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 3,
+     "by_status": {
+      "p-break": 2,
+      "p-meal": 1
+     }
+    },
+    "busy": {
+     "total": 0,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 0,
+      "p-token": 0,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 0,
+    "offline": 5
+   }
+  },
+  {
+   "queue_id": "q-18",
+   "name": "[PROD]_Überlauf",
+   "label": "Überlauf",
+   "member_count": 28,
+   "joined_count": 22,
+   "mine": {
+    "member": false,
+    "joined": false
+   },
+   "voice": {
+    "interacting": 0,
+    "waiting": 1
+   },
+   "people": {
+    "present": 19,
+    "on_queue": {
+     "total": 11,
+     "idle": 1,
+     "interacting": 8,
+     "communicating": 2,
+     "not_responding": 0
+    },
+    "pause": {
+     "total": 3,
+     "by_status": {
+      "p-break": 3,
+      "p-meal": 0
+     }
+    },
+    "busy": {
+     "total": 1,
+     "by_status": {
+      "p-meeting": 0,
+      "p-callback": 0,
+      "p-training": 0,
+      "p-ticket": 0,
+      "p-token": 1,
+      "p-busy": 0
+     }
+    },
+    "away": 1,
+    "available": 3,
+    "offline": 3
+   }
+  }
+ ],
+ "total": {
+  "queue_count": 24,
+  "joined_count": 68,
+  "voice": {
+   "interacting": 18,
+   "waiting": 19
+  },
+  "people": {
+   "present": 56,
+   "on_queue": {
+    "total": 31,
+    "idle": 7,
+    "interacting": 21,
+    "communicating": 2,
+    "not_responding": 1
+   },
+   "pause": {
+    "total": 10,
+    "by_status": {
+     "p-break": 5,
+     "p-meal": 5
+    }
+   },
+   "busy": {
+    "total": 9,
+    "by_status": {
+     "p-meeting": 0,
+     "p-callback": 0,
+     "p-training": 2,
+     "p-ticket": 6,
+     "p-token": 1,
+     "p-busy": 0
+    }
+   },
+   "away": 1,
+   "available": 5,
+   "offline": 12
+  }
+ }
+}

@@ -166,6 +166,13 @@ class APIClient:
             timeout=30,
         )
 
+    async def genesys_live_request(self, token: str) -> httpx.Response:
+        return await self._request(
+            "GET", REPORTING_BASE_URL, "/genesys-live",
+            headers={"Authorization": "Bearer " + token},
+            timeout=12,
+        )
+
     # Tokenlöschungs-Report: gleiche Reportberechtigung, keine personenbezogenen Funktionen.
     async def token_deletions_report_request(
         self,

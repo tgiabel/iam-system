@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% set page_title = "Genesys Cloud Live" %}
+{% set sub_page = true %}
+{% set sub_page_back_url = "/tools" %}
+{% set sub_page_back_label = "Zurück zur Report-Übersicht" %}
+{% set widget_title = "Genesys Cloud Live" %}
+{% block css %}<link rel="stylesheet" href="/static/css/genesys_live.css?v={{ static_v }}">{% endblock %}
+{% block scripts %}<script defer src="/static/js/reports/genesys_live.js?v={{ static_v }}"></script>{% endblock %}
+{% block content %}
+<div id="genesysLive" class="gl-page site-shell">
+  <div class="page">
+
+      <header class="report-header">
+        <div class="report-title">
+          <p class="report-kicker">Genesys Cloud</p>
+          <h1>Genesys Cloud Live</h1>
+        </div>
+        <div class="report-actions">
+          <span class="asof" role="status" aria-live="polite"><span id="staleNotice" class="stale-notice" hidden>Daten veraltet · </span>Stand <time id="updatedAt">–</time></span>
+          <button type="button" class="icon-button" id="refreshButton" aria-label="Neu laden" title="Neu laden"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.6L20 8.7M20 4v4.7h-4.7"/></svg></button>
+        </div>
+      </header>
+
+      <div class="dashboard-layout">
+        <section class="queue-area" aria-labelledby="queuesTitle">
+          <div class="section-bar"><h2 id="queuesTitle">Meine Queues</h2><span class="count-pill" id="activeCount">–</span></div>
+          <div class="queue-carousel active-carousel">
+            <div class="queue-scroller" id="activeScroller">
+              <div class="queue-grid" id="activeQueues" role="group" aria-label="Aktivierte Queues"></div>
+              <div class="queue-grid inactive-grid inactive-strip" id="inactiveStrip" role="group" aria-label="Nicht aktivierte Queues"></div>
+            </div>
+            <button type="button" class="scroll-arrow scroll-arrow-prev" data-scroll="-1" aria-label="Vorherige Queues" title="Vorherige Queues" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+            <button type="button" class="scroll-arrow scroll-arrow-next" data-scroll="1" aria-label="Weitere Queues" title="Weitere Queues" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+          </div>
+          <section class="inactive-section" id="inactiveSection">
+            <button type="button" class="section-bar section-toggle" id="inactiveToggle" aria-expanded="false" aria-controls="inactiveCarousel"><svg class="toggle-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg><h2 id="inactiveTitle">Nicht aktivierte Queues</h2><span class="count-pill muted-pill" id="inactiveCount">–</span></button>
+            <div class="queue-carousel inactive-carousel" id="inactiveCarousel">
+              <div class="queue-scroller">
+                <div class="queue-grid inactive-grid" id="inactiveQueues" role="group" aria-labelledby="inactiveTitle"></div>
+              </div>
+              <button type="button" class="scroll-arrow scroll-arrow-prev" data-scroll="-1" aria-label="Vorherige Queues" title="Vorherige Queues" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+              <button type="button" class="scroll-arrow scroll-arrow-next" data-scroll="1" aria-label="Weitere Queues" title="Weitere Queues" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+            </div>
+          </section>
+        </section>
+
+        <aside class="side-panel" aria-labelledby="panelTitle">
+          <div class="panel-head">
+            <div><p class="panel-kicker">Live-Status</p><h2 id="panelTitle">Alle Queues</h2></div>
+            <span class="panel-mark" id="panelMark"></span>
+          </div>
+          <div id="selectionBar" class="selection-bar" hidden></div>
+          <div id="panelContent"></div>
+        </aside>
+      </div>
+  </div>
+</div>
+{% endblock %}
