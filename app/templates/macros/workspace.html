@@ -1,0 +1,33 @@
+{% macro workspace_card(item) %}
+<article class="overview-card{% if item.kind == 'report' %} report-card{% endif %}" data-workspace-id="{{ item.id }}">
+    <div class="overview-card-top">
+        <div class="overview-card-icon-wrap">
+            <img src="/static/img/{{ item.icon }}" class="overview-card-icon" alt="">
+        </div>
+        <div class="overview-card-chips">
+            {% for label, tone in item.chips %}
+            <span class="ui-chip ui-chip-{{ tone }}">{{ label }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="overview-card-body">
+        <div class="overview-card-heading">
+            <p class="overview-card-kicker">{{ item.kicker }}</p>
+            <h3 class="overview-card-title"><a href="{{ item.href }}" class="overview-card-main-link">{{ item.title }}</a></h3>
+        </div>
+        <p class="overview-card-copy">{{ item.copy }}</p>
+    </div>
+    <div class="overview-card-footer">
+        <span class="overview-card-cta">{{ "Report" if item.kind == "report" else "Tool" }} öffnen</span>
+        <div class="overview-card-actions">
+            <button type="button" class="overview-card-popout" aria-label="{{ item.title }} in neuem Fenster öffnen" title="In neuem Fenster öffnen">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</article>
+{% endmacro %}

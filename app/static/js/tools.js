@@ -36,14 +36,14 @@ function initPopoutButtons() {
         if (btn.dataset.popoutInit) return;
         btn.dataset.popoutInit = "1";
 
-        const card = btn.closest(".overview-card-link");
+        const card = btn.closest(".overview-card");
         if (!card) return;
 
         btn.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
 
-            const href = card.getAttribute("href");
+            const href = card.querySelector(".overview-card-main-link")?.getAttribute("href");
             if (!href) return;
 
             const url = new URL(href, window.location.origin);

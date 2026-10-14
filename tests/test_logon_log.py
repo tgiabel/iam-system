@@ -77,10 +77,11 @@ class ProxyTests(unittest.TestCase):
         self.assertIsNotNone(asyncio.run(dependency(authz(ll.REPORT))))
         with self.assertRaises(Exception):asyncio.run(dependency(authz()))
         root=Path(__file__).parents[1]
-        self.assertIn('href="/tools/logon-log"',(root/'app/templates/tools.html').read_text())
+        from app.workspace_catalog import CATALOG
+        item=next(item for item in CATALOG if item.href=='/tools/logon-log')
+        self.assertEqual(item.permission,ll.REPORT)
         tools_route=next(line for line in (root/'app/routes/pages.py').read_text().splitlines() if line.startswith('def tools('))
         self.assertIn('require_login', tools_route)
-        self.assertIn('{% if "SOFA-RPRT-LL" in authz.permissions %}', (root/'app/templates/tools.html').read_text())
 
     def test_sensitive_controls_are_gated_by_template(self):
         from jinja2 import Environment,FileSystemLoader

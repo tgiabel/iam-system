@@ -14,6 +14,7 @@ from app.authz import (
     require_permission,
     get_current_user,
 )
+from app.workspace_catalog import visible_items
 from app.routes.shared import _build_session_user_from_login, _build_template_context, templates
 
 
@@ -98,12 +99,10 @@ def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", r
 def tools(request: Request, authz=Depends(require_login)):
     if not authz.has_any_tool() and not authz.has_admin_access():
         return RedirectResponse(url="/", status_code=303)
-    show_tools = authz.has_admin_access() or any(
-        permission.startswith("SOFA-TOOL-") for permission in authz.permissions
-    )
+    sections = visible_items(authz, is_configured())
     return templates.TemplateResponse("tools.html", _build_template_context(
-        request, user=authz.raw_user, authz=authz, show_tools=show_tools,
-        agent_stats_configured=is_configured()))
+        request, user=authz.raw_user, authz=authz, show_tools=bool(sections["tools"]),
+        workspace_tools=sections["tools"], workspace_reports=sections["reports"]))
 
 
 @router.get("/tools/agent-stats", response_class=HTMLResponse)

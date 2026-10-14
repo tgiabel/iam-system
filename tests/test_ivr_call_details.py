@@ -76,9 +76,9 @@ class TestIvrCallDetailsAuthorization(unittest.TestCase):
         self.assertTrue(make_authz(PERMISSION).has_any_tool())
 
     def test_tool_card_uses_same_permission(self):
-        template = (Path(__file__).parents[1] / "app/templates/tools.html").read_text(encoding="utf-8")
-        self.assertIn('href="/tools/ivr-call-details"', template)
-        self.assertIn('{% if "SOFA-RPRT-TIVR" in authz.permissions %}', template)
+        from app.workspace_catalog import CATALOG
+        item = next(item for item in CATALOG if item.href == "/tools/ivr-call-details")
+        self.assertEqual(item.permission, PERMISSION)
 
 
 class TestIvrCallDetailsProxy(unittest.TestCase):

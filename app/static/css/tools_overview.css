@@ -92,17 +92,44 @@
     background-color: var(--color-primary);
 }
 
-.overview-card-link {
-    color: inherit;
-    text-decoration: none;
+.overview-card {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.overview-card-link:hover,
-.overview-card-link:focus-visible {
+.overview-card:hover,
+.overview-card:has(.overview-card-main-link:focus-visible) {
     transform: translateY(-3px);
     box-shadow: var(--ui-shadow-md);
+}
+
+/* Der Titel-Link deckt die ganze Karte ab; Aktionen liegen darüber. */
+.overview-card-main-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.overview-card-main-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+
+.overview-card-main-link:focus-visible {
     outline: none;
+}
+
+.overview-card:has(.overview-card-main-link:focus-visible) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.overview-card-actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 .report-card {
