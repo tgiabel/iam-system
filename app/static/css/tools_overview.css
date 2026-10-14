@@ -185,6 +185,17 @@ body:has(#toolsOverview) > footer {
     display: contents;
 }
 
+.workspace-pin-slot .ws-item-icon {
+    width: 3.25rem;
+    height: 3.25rem;
+    border-radius: 14px;
+}
+
+.workspace-pin-slot .ws-item-icon img {
+    width: 1.9rem;
+    height: 1.9rem;
+}
+
 .workspace-pin-slot .ws-item-pin {
     grid-area: pin;
     justify-self: end;
