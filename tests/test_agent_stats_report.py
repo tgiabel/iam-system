@@ -68,7 +68,7 @@ class ProxyTests(unittest.TestCase):
         page = self.client.get('/tools')
         self.assertEqual(page.status_code, 200)
         self.assertIn('/tools/agent-stats', page.text)
-        self.assertIn('data-tab="reports"', page.text)
+        self.assertIn('workspace-reports-title', page.text)
 
     def test_report_is_not_advertised_before_key_is_configured(self):
         with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': ''}):

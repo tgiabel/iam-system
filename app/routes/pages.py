@@ -101,7 +101,7 @@ def tools(request: Request, authz=Depends(require_login)):
         return RedirectResponse(url="/", status_code=303)
     sections = visible_items(authz, is_configured())
     return templates.TemplateResponse("tools.html", _build_template_context(
-        request, user=authz.raw_user, authz=authz, show_tools=bool(sections["tools"]),
+        request, user=authz.raw_user, authz=authz,
         workspace_tools=sections["tools"], workspace_reports=sections["reports"]))
 
 

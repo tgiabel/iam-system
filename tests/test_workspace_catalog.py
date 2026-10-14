@@ -85,10 +85,17 @@ class RenderedCardTests(unittest.TestCase):
     def test_card_is_not_wrapped_in_a_link(self):
         self.assertNotIn('overview-card-link', self.client.get('/tools').text)
 
-    def test_user_without_tools_gets_report_tab(self):
+    def test_both_lists_are_shown_without_tabs(self):
+        html = self.client.get('/tools').text
+        self.assertNotIn('overview-tab', html)
+        self.assertIn('workspace-tools-title', html)
+        self.assertIn('workspace-reports-title', html)
+
+    def test_list_without_entries_is_omitted(self):
         self.context = authz('SOFA-RPRT-LL')
         html = self.client.get('/tools').text
-        self.assertIn('class="overview-tab active"\n                data-tab="reports"', html)
+        self.assertNotIn('workspace-tools-title', html)
+        self.assertIn('workspace-reports-title', html)
 
 
 if __name__ == '__main__':

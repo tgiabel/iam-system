@@ -9,61 +9,30 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-container tools-overview-page">
-    <section class="tools-overview-shell">
-        <div class="overview-tabs" role="tablist" aria-label="Tools Navigation">
-            <button
-                type="button"
-                class="overview-tab{% if show_tools %} active{% endif %}"
-                data-tab="tools"
-                role="tab"
-                aria-selected="{{ 'true' if show_tools else 'false' }}"
-                aria-controls="tab-tools"
-                id="overview-tab-tools">
-                Tools
-            </button>
-            <button
-                type="button"
-                class="overview-tab{% if not show_tools %} active{% endif %}"
-                data-tab="reports"
-                role="tab"
-                aria-selected="{{ 'false' if show_tools else 'true' }}"
-                aria-controls="tab-reports"
-                id="overview-tab-reports">
-                Reports
-            </button>
-        </div>
-
-        <section class="overview-panel{% if show_tools %} active{% endif %}" id="tab-tools" role="tabpanel" aria-labelledby="overview-tab-tools">
-            <div class="overview-section">
-                <div class="ui-section-header">
-                    <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Arbeitswerkzeuge</p>
-                        <h2 class="ui-section-title">Meine Tools</h2>
-                    </div>
-                </div>
-
+<div class="page-container tools-overview-page" id="toolsOverview">
+    <div class="workspace-columns">
+        {% if workspace_tools %}
+        <section class="workspace-column" aria-labelledby="workspace-tools-title">
+            <h2 class="ui-section-title workspace-column-title" id="workspace-tools-title">Tools</h2>
+            <div class="workspace-column-scroll">
                 <div class="overview-card-grid">
                     {% for item in workspace_tools %}{{ workspace_card(item) }}{% endfor %}
                 </div>
             </div>
         </section>
+        {% endif %}
 
-        <section class="overview-panel{% if not show_tools %} active{% endif %}" id="tab-reports" role="tabpanel" aria-labelledby="overview-tab-reports">
-            <div class="overview-section">
-                <div class="ui-section-header">
-                    <div class="ui-section-heading">
-                        <p class="ui-section-kicker">Auswertungen</p>
-                        <h2 class="ui-section-title">Meine Reports</h2>
-                    </div>
-                </div>
-
+        {% if workspace_reports %}
+        <section class="workspace-column" aria-labelledby="workspace-reports-title">
+            <h2 class="ui-section-title workspace-column-title" id="workspace-reports-title">Reports</h2>
+            <div class="workspace-column-scroll">
                 <div class="overview-card-grid">
                     {% for item in workspace_reports %}{{ workspace_card(item) }}{% endfor %}
                 </div>
             </div>
         </section>
-    </section>
+        {% endif %}
+    </div>
 </div>
 
 {% block scripts %}
