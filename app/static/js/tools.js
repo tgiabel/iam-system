@@ -7,7 +7,7 @@ function initWorkspace() {
     const pins = window.WorkspacePins;
     const userId = page.dataset.userId;
     const slots = Array.from(page.querySelectorAll("[data-pin-slot]"));
-    const columnCards = Array.from(page.querySelectorAll(".workspace-column .overview-card"));
+    const columnCards = Array.from(page.querySelectorAll(".workspace-column .ws-item"));
     const visibleIds = columnCards.map(card => card.dataset.workspaceId);
     const cardById = new Map(columnCards.map(card => [card.dataset.workspaceId, card]));
 
@@ -26,20 +26,16 @@ function initWorkspace() {
                 slot.replaceChildren();
                 return;
             }
-            const clone = source.cloneNode(true);
-            clone.classList.add("is-compact");
-            clone.classList.remove("is-pinned");
-            slot.replaceChildren(clone);
+            slot.replaceChildren(source.cloneNode(true));
         });
-        page.querySelectorAll(".overview-card").forEach(card => {
+        page.querySelectorAll(".ws-item").forEach(card => {
             const isPinned = pinned.includes(card.dataset.workspaceId);
-            const title = card.querySelector(".overview-card-main-link")?.textContent.trim() || "";
-            const button = card.querySelector(".overview-card-pin");
+            const title = card.querySelector(".ws-item-link")?.textContent.trim() || "";
+            const button = card.querySelector(".ws-item-pin");
             if (!button) return;
             button.setAttribute("aria-pressed", String(isPinned));
             button.setAttribute("aria-label", `${title} ${isPinned ? "lösen" : "anheften"}`);
             button.title = isPinned ? "Pin lösen" : "Anheften";
-            if (!card.closest("[data-pin-slot]")) card.classList.toggle("is-pinned", isPinned);
         });
     }
 
@@ -50,17 +46,17 @@ function initWorkspace() {
     }
 
     page.addEventListener("click", (event) => {
-        const pinButton = event.target.closest(".overview-card-pin");
+        const pinButton = event.target.closest(".ws-item-pin");
         if (pinButton) {
             event.preventDefault();
-            const id = pinButton.closest(".overview-card")?.dataset.workspaceId;
+            const id = pinButton.closest(".ws-item")?.dataset.workspaceId;
             if (id) togglePin(id);
             return;
         }
-        const popout = event.target.closest(".overview-card-popout");
+        const popout = event.target.closest(".ws-item-popout");
         if (popout) {
             event.preventDefault();
-            openWidget(popout.closest(".overview-card"));
+            openWidget(popout.closest(".ws-item"));
         }
     });
 
@@ -71,20 +67,11 @@ function initWorkspace() {
         renderPins();
     });
 
-    // Der Scrollbalken der Spalten verengt die Karten; die Pin-Zeile bekommt dieselbe Breite.
-    const scroller = page.querySelector(".workspace-column-scroll");
-    function measureGutter() {
-        const gutter = scroller ? scroller.offsetWidth - scroller.clientWidth : 0;
-        page.style.setProperty("--ws-gutter", `${gutter}px`);
-    }
-    window.addEventListener("resize", measureGutter);
-    measureGutter();
-
     renderPins();
 }
 
 function openWidget(card) {
-    const href = card?.querySelector(".overview-card-main-link")?.getAttribute("href");
+    const href = card?.querySelector(".ws-item-link")?.getAttribute("href");
     if (!href) return;
     const url = new URL(href, window.location.origin);
     url.searchParams.set("view", "widget");

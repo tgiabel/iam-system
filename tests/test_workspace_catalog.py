@@ -31,8 +31,7 @@ class CatalogTests(unittest.TestCase):
         for item in CATALOG:
             with self.subTest(item=item.id):
                 self.assertIn(item.kind, ('tool', 'report'))
-                self.assertTrue(item.title and item.kicker and item.copy and item.icon)
-                self.assertTrue(item.chips)
+                self.assertTrue(item.title and item.label and item.copy and item.icon)
                 self.assertTrue(item.href.startswith('/tools/'))
 
     def test_every_entry_points_to_a_page_route(self):
@@ -71,22 +70,20 @@ class RenderedCardTests(unittest.TestCase):
 
     def cards(self):
         html = self.client.get('/tools').text
-        return re.findall(r'<article class="overview-card.*?</article>', html, re.S)
+        return re.findall(r'<article class="ws-item".*?</article>', html, re.S)
 
     def test_all_cards_share_the_same_parts(self):
         cards = self.cards()
         self.assertEqual(len(cards), len(CATALOG))
         for card in cards:
             with self.subTest(card=card[:120]):
-                for part in ('overview-card-icon', 'overview-card-kicker', 'overview-card-title',
-                             'overview-card-copy', 'overview-card-cta', 'overview-card-popout',
-                             'overview-card-pin',
-                             'overview-card-main-link', 'data-workspace-id='):
+                for part in ('ws-item-icon', 'ws-item-title', 'ws-item-label', 'ws-item-pin',
+                             'ws-item-popout', 'ws-item-link', 'data-workspace-id=', 'title="'):
                     self.assertIn(part, card)
-                self.assertNotIn('<a href', card.split('overview-card-footer')[1])
+                self.assertEqual(card.count('<a '), 1)
 
     def test_card_is_not_wrapped_in_a_link(self):
-        self.assertNotIn('overview-card-link', self.client.get('/tools').text)
+        self.assertEqual(self.client.get('/tools').text.count('<a href="/tools/'), len(CATALOG))
 
     def test_both_lists_are_shown_without_tabs(self):
         html = self.client.get('/tools').text
@@ -106,12 +103,17 @@ class RenderedCardTests(unittest.TestCase):
         self.assertIn('data-user-id="42"', html)
         self.assertIn('/static/js/workspace_pins.js', html)
 
-    def test_pin_row_follows_the_columns(self):
-        self.assertEqual(self.client.get('/tools').text.count('workspace-pins-group"'), 2)
-        self.context = authz('SOFA-RPRT-LL')
+    def test_page_has_a_title(self):
+        self.assertIn('<h1 class="ui-section-title workspace-title">Workspace</h1>', self.client.get('/tools').text)
+
+    def test_descriptions_are_not_shown_as_text(self):
         html = self.client.get('/tools').text
-        self.assertEqual(html.count('workspace-pins-group"'), 1)
-        self.assertEqual(html.count('data-pin-slot'), 4)
+        for item in CATALOG:
+            self.assertNotIn('>' + item.copy + '<', html)
+
+    def test_pin_row_keeps_four_slots_without_one_column(self):
+        self.context = authz('SOFA-RPRT-LL')
+        self.assertEqual(self.client.get('/tools').text.count('data-pin-slot'), 4)
 
 
 class PinModelTests(unittest.TestCase):
