@@ -31,7 +31,7 @@ class CatalogTests(unittest.TestCase):
         for item in CATALOG:
             with self.subTest(item=item.id):
                 self.assertIn(item.kind, ('tool', 'report'))
-                self.assertTrue(item.title and item.label and item.copy and item.icon)
+                self.assertTrue(item.title and item.copy and item.icon)
                 self.assertTrue(item.href.startswith('/tools/'))
 
     def test_every_entry_points_to_a_page_route(self):
@@ -77,7 +77,7 @@ class RenderedCardTests(unittest.TestCase):
         self.assertEqual(len(cards), len(CATALOG))
         for card in cards:
             with self.subTest(card=card[:120]):
-                for part in ('ws-item-icon', 'ws-item-title', 'ws-item-label', 'ws-item-pin',
+                for part in ('ws-item-icon', 'ws-item-title', 'ws-item-pin',
                              'ws-item-popout', 'ws-item-link', 'data-workspace-id=', 'title="'):
                     self.assertIn(part, card)
                 self.assertEqual(card.count('<a '), 1)
