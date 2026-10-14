@@ -38,4 +38,17 @@ vm.runInContext('selectedId = sample.queues.find(q => q.mine.member).queue_id; r
 assert.equal(element("panelMark").textContent, "Queue");
 assert.match(element("selectionBar").innerHTML, /Filter/);
 assert.match(vm.runInContext('queueCard({...sample.queues[0],label:"<Queue>"})', context), /&lt;Queue&gt;/);
+const waiting = [0, 3, 3, 1, 2, 5];
+const queues = sample.queues.slice(0, 6).map((q, i) => ({
+  ...q, voice: {...q.voice, waiting: waiting[i]},
+  mine: {member: true, joined: i < 4}
+}));
+context.sortedSample = {...sample, queues};
+vm.runInContext('live = sortedSample; layoutGrids = () => {}; renderCards()', context);
+const cardIds = html => [...html.matchAll(/data-queue-id="([^"]+)"/g)].map(match => match[1]);
+assert.deepEqual(cardIds(element("activeQueues").innerHTML), [queues[1], queues[2], queues[3], queues[0]].map(q => q.queue_id));
+assert.deepEqual(cardIds(element("inactiveQueues").innerHTML), [queues[5], queues[4]].map(q => q.queue_id));
+assert.deepEqual(cardIds(element("inactiveStrip").innerHTML), cardIds(element("inactiveQueues").innerHTML));
+vm.runInContext('live.queues[0].voice.waiting = 6; renderCards()', context);
+assert.equal(cardIds(element("activeQueues").innerHTML)[0], queues[0].queue_id);
 console.log("Genesys Live browser logic OK");

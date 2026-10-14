@@ -33,7 +33,9 @@ function queueCard(queue){
 
 function renderCards(){
   const mine=live?live.queues.filter(q=>q.mine.member):[];
-  const active=mine.filter(q=>q.mine.joined),inactive=mine.filter(q=>!q.mine.joined);
+  const byWaiting=(a,b)=>b.voice.waiting-a.voice.waiting;
+  const active=mine.filter(q=>q.mine.joined).sort(byWaiting);
+  const inactive=mine.filter(q=>!q.mine.joined).sort(byWaiting);
   $("activeCount").textContent=active.length;
   $("inactiveCount").textContent=inactive.length;
   const empty=!live?"":!live.account_linked?"Kein Genesys-Konto verknüpft":"Keine aktivierten Queues";
