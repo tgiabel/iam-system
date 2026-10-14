@@ -564,7 +564,8 @@
         const identifiers = [
             person?.pnr ? `PNR ${person.pnr}` : "",
             person?.racf ? `RACF ${person.racf}` : "",
-            person?.employee_number ? `Personalnr. ${person.employee_number}` : ""
+            person?.employee_number ? `Personalnr. ${person.employee_number}` : "",
+            person?.username ? `Benutzer ${person.username}` : ""
         ].filter(Boolean).join(" · ");
         return `<span class="iks-primary-text">${escapeHtml(labelOf(person))}</span>${identifiers ? `<span class="iks-secondary-text">${escapeHtml(identifiers)}</span>` : ""}`;
     }
@@ -579,23 +580,31 @@
             <thead><tr><th>Schritt</th><th>Verantwortung</th><th>Fälligkeit</th><th>Abschluss</th><th>Status</th><th>Ergebnis</th></tr></thead>
             <tbody>${steps.map(step => `<tr>
                 <td><span class="iks-primary-text">${escapeHtml(labelOf(step))}</span></td>
-                <td>${escapeHtml(labelOf(step.owner || step.responsible))}</td>
+                <td>${escapeHtml(labelOf(step.responsibility || step.owner || step.responsible))}</td>
                 <td>${escapeHtml(formatDateTime(step.due_at))}</td>
                 <td>${escapeHtml(formatDateTime(step.completed_at))}</td>
-                <td>${statusBadge(step.status, statusLabelOf(step))}</td>
+                <td>${statusBadge(step.status ?? step.result, statusLabelOf(step, step.status === undefined ? "result" : "status"))}</td>
                 <td>${escapeHtml(statusLabelOf(step, "result"))}</td>
             </tr>`).join("")}</tbody>
         </table></div>`;
     }
 
-    function renderProcessDetails(details) {
-        if (!details.instances.length) return renderEmpty("Für den gewählten Zeitraum wurden keine Prozessinstanzen geliefert.");
-        return `<div class="iks-detail-section">
-            <h4>Prozessinstanzen</h4>
-            ${details.instances.map((instance, index) => `
-                <details class="iks-process-instance" ${index === 0 ? "open" : ""}>
+    // Backend contract: instance.id/name describe the process, instance.person the target user.
+    function processInstanceSummary(instance) {
+        const person = instance.person || instance.subject || instance.user;
+        const processLabel = labelOf(instance.process_type || instance.process || instance.name);
+        const processLine = [
+            processLabel === "-" ? "" : processLabel,
+            instance.id ? `Prozess-ID ${instance.id}` : ""
+        ].filter(Boolean).join(" · ");
+        return `<div>${personCell(person)}${processLine ? `<span class="iks-secondary-text">${escapeHtml(processLine)}</span>` : ""}</div>`;
+    }
+
+    function renderProcessInstances(instances, { openFirst = false } = {}) {
+        return instances.map((instance, index) => `
+                <details class="iks-process-instance" ${openFirst && index === 0 ? "open" : ""}>
                     <summary>
-                        <div>${personCell(instance.subject || instance.user)}<span class="iks-secondary-text">${escapeHtml(labelOf(instance.process_type || instance.process))}</span></div>
+                        ${processInstanceSummary(instance)}
                         <div><span class="iks-secondary-text">Start</span><span class="iks-primary-text">${escapeHtml(formatDateTime(instance.started_at))}</span></div>
                         <div><span class="iks-secondary-text">Fälligkeit</span><span class="iks-primary-text">${escapeHtml(formatDateTime(instance.due_at))}</span></div>
                         <div><span class="iks-secondary-text">Abschluss</span><span class="iks-primary-text">${escapeHtml(formatDateTime(instance.completed_at))}</span></div>
@@ -605,8 +614,93 @@
                         ${instance.result ? `<p><strong>Ergebnis:</strong> ${escapeHtml(labelOf(instance.result))}</p>` : ""}
                         ${renderSteps(asArray(instance.steps))}
                     </div>
-                </details>`).join("")}
+                </details>`).join("");
+    }
+
+    function renderProcessDetails(details) {
+        if (!details.instances.length) return renderEmpty("Für den gewählten Zeitraum wurden keine Prozessinstanzen geliefert.");
+        return `<div class="iks-detail-section">
+            <h4>Prozessinstanzen</h4>
+            ${renderProcessInstances(details.instances, { openFirst: true })}
         </div>`;
+    }
+
+    const PROCESS_EXPORT_STYLES = `
+        :root { color-scheme: light; }
+        body { margin: 0; padding: 24px; background: #f4f6f8; color: #1f2933; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+        main { max-width: 1280px; margin: 0 auto; }
+        h1 { margin: 0 0 6px; font-size: 1.4rem; }
+        .iks-export-meta { margin: 0 0 18px; color: #52606d; font-size: 0.9rem; }
+        .iks-export-meta span + span::before { content: " · "; }
+        .iks-process-instance { border: 1px solid #d5dbe1; border-radius: 12px; background: #fff; overflow: hidden; }
+        .iks-process-instance + .iks-process-instance { margin-top: 8px; }
+        .iks-process-instance summary { position: relative; display: grid; grid-template-columns: minmax(240px, 1.3fr) repeat(3, minmax(130px, 0.65fr)) auto; gap: 12px; align-items: center; padding: 12px 15px 12px 30px; cursor: pointer; list-style: none; }
+        .iks-process-instance summary::-webkit-details-marker { display: none; }
+        .iks-process-instance summary::before { content: "▸"; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #7b8794; }
+        .iks-process-instance[open] summary::before { content: "▾"; }
+        .iks-process-instance[open] summary { background: #eef1f4; border-bottom: 1px solid #d5dbe1; }
+        .iks-process-steps { padding: 15px; }
+        .iks-process-steps p { margin: 0 0 10px; }
+        .iks-primary-text { display: block; font-weight: 700; color: #102a43; }
+        .iks-secondary-text { display: block; margin-top: 3px; color: #52606d; font-size: 0.82rem; overflow-wrap: anywhere; }
+        .iks-status-badge { display: inline-flex; padding: 3px 10px; border: 1px solid #d5dbe1; border-radius: 999px; background: #eef1f4; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+        .iks-status-badge.is-completed, .iks-status-badge.is-done { border-color: #a7d7b5; background: #e6f6ea; color: #1e6b34; }
+        .iks-status-badge.is-failed, .iks-status-badge.is-error, .iks-status-badge.is-blocked { border-color: #f0b4b4; background: #fdecec; color: #a61b1b; }
+        .iks-status-badge.is-open, .iks-status-badge.is-in-progress, .iks-status-badge.is-pending { border-color: #f2d48f; background: #fff6df; color: #8a5a00; }
+        .iks-table-wrap { overflow-x: auto; border: 1px solid #d5dbe1; border-radius: 10px; }
+        .iks-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+        .iks-table th, .iks-table td { padding: 9px 11px; border-bottom: 1px solid #e4e7eb; text-align: left; vertical-align: top; }
+        .iks-table th { background: #eef1f4; font-size: 0.76rem; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap; }
+        .iks-table tbody tr:last-child td { border-bottom: 0; }
+        .iks-empty { padding: 18px; border: 1px dashed #bcccdc; border-radius: 10px; color: #52606d; text-align: center; }
+        @media (max-width: 900px) { .iks-process-instance summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media print { body { background: #fff; padding: 0; } }
+    `;
+
+    function buildProcessInstancesExport(report) {
+        const instances = asArray(report.details?.instances);
+        const meta = [
+            `Zeitraum ${formatDate(report.period?.from)} – ${formatDate(report.period?.to)}`,
+            `${instances.length} Prozessinstanzen`,
+            `Erstellt ${formatDateTime(report.generated_at)}`,
+            `Berichts-ID ${valueOrDash(report.report_id)}`
+        ];
+        const title = displayLabel(report.title || "Prozesskontrolle");
+        return `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escapeHtml(title)}</title>
+<style>${PROCESS_EXPORT_STYLES}</style>
+</head>
+<body>
+<main>
+    <h1>${escapeHtml(title)}</h1>
+    <p class="iks-export-meta">${meta.map(item => `<span>${escapeHtml(item)}</span>`).join("")}</p>
+    ${instances.length
+        ? renderProcessInstances(instances)
+        : renderEmpty("Für den gewählten Zeitraum wurden keine Prozessinstanzen geliefert.")}
+</main>
+</body>
+</html>
+`;
+    }
+
+    function isClientProcessExport(report, format) {
+        return report?.report_type === "process" && format === "html";
+    }
+
+    function downloadProcessInstancesExport(report) {
+        const html = buildProcessInstancesExport(report);
+        const objectUrl = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = `${report.report_id || "iks-prozesskontrolle"}-prozessinstanzen.html`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
     }
 
     function roleOverviewItem(label, value) {
@@ -744,6 +838,13 @@
     }
 
     function getExportPresentation(reportType, format, defaultLabel) {
+        if (reportType === "process" && format === "html") {
+            return {
+                label: "Interaktiver Bericht",
+                primary: true,
+                title: "Prozessinstanzen als interaktiven HTML-Bericht herunterladen"
+            };
+        }
         const interactiveHtml = reportType === ACCESS_REVIEW_TYPE && format === "html";
         return {
             label: interactiveHtml ? "Bericht öffnen" : defaultLabel,
@@ -767,19 +868,20 @@
         DOM.exportButtons.forEach(button => {
             const format = button.dataset.iksExport;
             const url = getSafeExportUrl(report.exports?.[format]);
+            const available = Boolean(url) || isClientProcessExport(report, format);
             const presentation = getExportPresentation(
                 report.report_type,
                 format,
                 button.dataset.exportLabel || format.toUpperCase()
             );
             button.dataset.exportUrl = url || "";
-            button.disabled = !url;
-            button.textContent = url ? presentation.label : `${format.toUpperCase()} nicht verfügbar`;
-            button.title = url ? presentation.title : "Export nicht verfügbar";
+            button.disabled = !available;
+            button.textContent = available ? presentation.label : `${format.toUpperCase()} nicht verfügbar`;
+            button.title = available ? presentation.title : "Export nicht verfügbar";
             button.classList.toggle("btn-primary", presentation.primary);
             button.classList.toggle("btn-secondary", !presentation.primary);
             if (button.dataset.hideWhenUnavailable !== undefined) {
-                button.hidden = !url;
+                button.hidden = !available;
             }
         });
     }
@@ -840,6 +942,14 @@
 
     function handleExportClick(button, report = state.report) {
         const format = button.dataset.iksExport;
+        if (isClientProcessExport(report, format)) {
+            try {
+                downloadProcessInstancesExport(report);
+            } catch (error) {
+                showMessage(error.message || "Export konnte nicht erstellt werden.");
+            }
+            return;
+        }
         const url = getSafeExportUrl(button.dataset.exportUrl);
         if (!EXPORT_FORMATS.includes(format) || !url || !report) return;
 
@@ -944,6 +1054,7 @@
 
     if (typeof module !== "undefined" && module.exports) {
         module.exports = {
+            buildProcessInstancesExport,
             buildReportRequest,
             displayLabel,
             getExportOrder,
@@ -952,6 +1063,7 @@
             handleExportClick,
             isReportTypeAvailable,
             normalizeCatalog,
+            renderProcessDetails,
             validateReport
         };
     }

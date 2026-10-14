@@ -201,7 +201,6 @@ class IksFrontendContractTests(unittest.TestCase):
         self.assertNotIn("OFFBOARDING", script)
         self.assertNotIn("TEMPORARY_ROLE", script)
         self.assertNotIn("milestone_id", script)
-        self.assertNotIn("new Blob(", script)
 
     def test_template_uses_dedicated_theme_aware_stylesheet(self):
         template = (REPO_ROOT / "app/templates/tools/iks_tool.html").read_text(encoding="utf-8")
@@ -705,13 +704,23 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
                         title: 'Bericht in neuem Tab öffnen'
                     }
                 );
-                for (const reportType of ['process', 'role', 'system']) {
+                for (const reportType of ['role', 'system']) {
                     assert.deepStrictEqual(ui.getExportOrder(reportType), ['html', 'csv', 'json']);
                     assert.deepStrictEqual(
                         ui.getExportPresentation(reportType, 'html', 'HTML'),
                         { label: 'HTML', primary: false, title: 'HTML-Snapshot herunterladen' }
                     );
                 }
+                // Process reports replace the backend HTML snapshot with the client-side instance report.
+                assert.deepStrictEqual(
+                    ui.getExportPresentation('process', 'html', 'HTML'),
+                    {
+                        label: 'Interaktiver Bericht',
+                        primary: true,
+                        title: 'Prozessinstanzen als interaktiven HTML-Bericht herunterladen'
+                    }
+                );
+                assert.strictEqual(ui.getExportPresentation('process', 'csv', 'CSV').label, 'CSV');
 
                 const createdLinks = [];
                 const fetchCalls = [];
@@ -805,6 +814,51 @@ class IksAccessReviewUiLogicTests(unittest.TestCase):
                 console.error(error);
                 process.exit(1);
             });
+        """
+
+        completed = subprocess.run(
+            ["node", "-e", script, str(javascript_path)],
+            cwd=REPO_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_process_instances_show_target_and_export_collapsed(self):
+        javascript_path = REPO_ROOT / "app/static/js/tools/iks.js"
+        script = r"""
+            const assert = require('assert');
+            const ui = require(process.argv[1]);
+
+            // Payload shape as delivered by the SD-API process report.
+            const instance = {
+                id: '4711', name: 'Offboarding',
+                person: { id: '12', name: 'Erika Muster', pnr: 'P123' },
+                started_at: '2026-07-01T08:00:00Z', due_at: '2026-07-10T08:00:00Z',
+                completed_at: '2026-07-09T08:00:00Z', status: 'COMPLETED', result: 'COMPLETED',
+                steps: [{ name: 'AD-Konto', responsibility: 'Active Directory', due_at: null,
+                          completed_at: '2026-07-02T08:00:00Z', result: 'DONE', evidence_ref: 'task:1' }]
+            };
+            const details = ui.renderProcessDetails({ instances: [instance, Object.assign({}, instance, { id: '4712' })] });
+            assert.ok(details.includes('Erika Muster'));
+            assert.ok(details.includes('PNR P123'));
+            assert.ok(details.includes('Offboarding · Prozess-ID 4711'));
+            assert.ok(details.includes('Active Directory'));
+            assert.strictEqual((details.match(/ open>/g) || []).length, 1);
+
+            const html = ui.buildProcessInstancesExport({
+                report_type: 'process', report_id: 'IKS-1', title: 'Prozesskontrolle – Offboarding',
+                generated_at: '2026-10-01T08:00:00Z', period: { from: '2026-07-01', to: '2026-09-30' },
+                findings: [{ title: 'Prozess überfällig' }],
+                details: { instances: [instance, Object.assign({}, instance, { id: '4712' })] }
+            });
+            assert.ok(html.startsWith('<!doctype html>'));
+            assert.ok(html.includes('Offboarding · Prozess-ID 4712'));
+            assert.ok(html.includes('2 Prozessinstanzen'));
+            assert.ok(!html.includes('Prozess überfällig'));
+            assert.ok(!/<details[^>]*\bopen\b/.test(html));
+            assert.ok(!html.includes('<script'));
         """
 
         completed = subprocess.run(
