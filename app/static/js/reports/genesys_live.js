@@ -11,9 +11,8 @@ const $ = id => document.getElementById(id);
 const CARD_MIN_WIDTH = 176;
 const CARD_GAP = 10;
 const INACTIVE_KEY = "genesysLive.inactiveOpen";
-const PANEL_KEY = "genesysLive.panelGroups";
-let panelOpen = {queue:true,pause:false,busy:false};
-try { panelOpen = {...panelOpen,...JSON.parse(localStorage.getItem(PANEL_KEY)||"{}")}; } catch (error) {}
+const livePanel = window.GenesysLivePanel;
+let panelOpen = livePanel.loadOpen(localStorage);
 let inactiveOpen = false;
 try { inactiveOpen = localStorage.getItem(INACTIVE_KEY) === "1"; } catch (error) {}
 
@@ -86,29 +85,6 @@ function updateScrollArrows(){
   }
 }
 
-function kpiRow(label,value,denominator,color,{emphasis=false,waiting=false,tone="",hint="",child=false,solo=false}={}){
-  const percent=Math.max(0,Math.min(100,Math.round(value/Math.max(1,denominator)*100)));
-  return `<div class="kpi-row${emphasis?" is-emphasis":""}${waiting?" is-waiting":""}${child?" is-child":""}${solo?" is-solo":""}${tone?` is-${tone}`:""}${value===0?" is-zero":""}" style="--bar:${color}"><span class="kpi-row-label"${hint?` title="${safe(hint)}"`:""}>${label}</span><strong class="kpi-row-value">${value}</strong><span class="kpi-track" aria-hidden="true"><span class="kpi-fill" style="width:${percent}%"></span></span></div>`;
-}
-
-const CHEVRON='<svg class="kpi-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
-const INFO_ICON='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.1"/></svg>';
-
-// A status block: the parent row toggles its breakdown; collapsed, it may show a different headline row.
-function infoTip(id,label,body){
-  return `<span class="info-tip" tabindex="0" role="button" aria-label="${safe(label)}" aria-describedby="${id}">${INFO_ICON}</span><span class="info-tip-text" id="${id}" role="tooltip">${body}</span>`;
-}
-
-function kpiGroup(key,parent,children){
-  const open=panelOpen[key];
-  const head=open||!parent.collapsed?parent:{...parent,...parent.collapsed};
-  const percent=Math.max(0,Math.min(100,Math.round(head.value/Math.max(1,head.denominator)*100)));
-  return `<div class="kpi-group${open?" is-open":""}">
-    <button type="button" class="kpi-row kpi-parent${head.emphasis?" is-emphasis":""}${head.tone?` is-${head.tone}`:""}${head.value===0?" is-zero":""}" style="--bar:${head.color}" data-kpi-group="${key}" aria-expanded="${open}" aria-controls="kpi-${key}"><span class="kpi-row-label">${CHEVRON}${head.label}</span><strong class="kpi-row-value">${head.value}</strong><span class="kpi-track" aria-hidden="true"><span class="kpi-fill" style="width:${percent}%"></span></span></button>
-    <div class="kpi-children" id="kpi-${key}"${open?"":" hidden"}>${children.join("")}</div>
-  </div>`;
-}
-
 function renderPanel(){
   if(!live){$("panelContent").innerHTML=`<p class="panel-empty">${safe(loadError||"Lädt …")}</p>`;return}
   const queue=live.queues.find(q=>q.queue_id===selectedId);
@@ -121,34 +97,7 @@ function renderPanel(){
     selection.innerHTML=`<span>Filter · ${safe(queue.label)}</span><button type="button" class="clear-selection" id="clearSelection" aria-label="Queue-Filter aufheben" title="Filter aufheben">×</button>`;
   }else{selection.hidden=true;selection.innerHTML=""}
 
-  const voice=data.voice,people=data.people,onQueue=people.on_queue;
-  const voiceTotal=Math.max(1,voice.interacting+voice.waiting);
-  const otherOnQueue=onQueue.communicating+onQueue.not_responding;
-  const otherTip=infoTip("otherTip","Was zählt zu Sonstige?",`<span>In Warteschleife, aber gerade nicht für Queue-Anrufe bereit:</span><span class="info-tip-line"><span>Anruf außerhalb einer Queue</span><strong>${onQueue.communicating}</strong></span><span class="info-tip-line"><span>Nicht antwortend</span><strong>${onQueue.not_responding}</strong></span>`);
-  // Rows come from the response, so a new Genesys status shows up without a frontend change.
-  const statusRows=(group,color)=>live.statuses[group].map(row=>kpiRow(
-    row.unspecified?`${safe(row.label)}${infoTip(`${group}OtherTip`,"Was zählt zu Sonstige?","<span>Beschäftigt ohne nähere Angabe gewählt.</span>")}`:safe(row.label),
-    people[group].by_status[row.key]||0,people[group].total,color,{child:true}));
-  const attendance=[
-    kpiGroup("queue",{label:"In Warteschleife",value:onQueue.total,denominator:people.present,color:"var(--gl-blue-fill)",
-      collapsed:{label:"Frei in Warteschleife",value:onQueue.idle,denominator:onQueue.total,color:"var(--gl-green-fill)",emphasis:true,tone:"green"}},[
-      kpiRow("Davon frei",onQueue.idle,onQueue.total,"var(--gl-green-fill)",{child:true,emphasis:true,tone:"green"}),
-      kpiRow("Im Gespräch",onQueue.interacting,onQueue.total,"var(--gl-orange-fill)",{child:true,hint:"Genesys Interacting; umfasst auch andere Kanäle und Nachbearbeitung."}),
-      kpiRow(`Sonstige${otherTip}`,otherOnQueue,onQueue.total,"var(--gl-purple-fill)",{child:true}),
-    ]),
-    kpiGroup("pause",{label:"Pause",value:people.pause.total,denominator:people.present,color:"var(--gl-orange-fill)"},statusRows("pause","var(--gl-orange-fill)")),
-    kpiGroup("busy",{label:"Beschäftigt",value:people.busy.total,denominator:people.present,color:"var(--gl-red-fill)"},statusRows("busy","var(--gl-red-fill)")),
-    // Away is not used actively; the row only appears when someone is in it.
-    ...(people.away?[kpiRow("Außer Haus",people.away,people.present,"var(--gl-grey-fill)",{solo:true})]:[]),
-  ].join("");
-
-  $("panelContent").innerHTML=`
-    <div class="panel-group"><div class="group-heading"><h3 class="group-label">${PHONE_ICON}Interaktionen · Voice</h3><span class="group-total" title="Laufende und wartende Voice-Interaktionen">${voice.interacting+voice.waiting} gesamt</span></div>
-      ${kpiRow("Laufend",voice.interacting,voiceTotal,"var(--gl-blue-fill)",{emphasis:true})}
-      ${kpiRow("Wartend",voice.waiting,voiceTotal,"var(--gl-orange-fill)",{emphasis:true,waiting:true})}
-    </div>
-    <div class="panel-group attendance"><div class="group-heading"><h3 class="group-label">${AGENT_ICON}Anwesenheit</h3><span class="group-total" title="Eindeutige Personen, die nicht offline sind">${people.present} Anwesende</span></div>${attendance}</div>
-    ${queue?`<div class="panel-foot"><strong>${queue.joined_count}</strong> von ${queue.member_count} Mitgliedern aktiviert</div>`:""}`;
+  $("panelContent").innerHTML=livePanel.panelBody(live,data,queue,panelOpen);
 }
 
 function renderTime(){
@@ -196,7 +145,7 @@ document.addEventListener("click",event=>{
   const group=event.target.closest("[data-kpi-group]");
   if(group){
     panelOpen[group.dataset.kpiGroup]=!panelOpen[group.dataset.kpiGroup];
-    try{localStorage.setItem(PANEL_KEY,JSON.stringify(panelOpen))}catch(error){}
+    livePanel.saveOpen(localStorage,panelOpen);
     renderPanel();$(`kpi-${group.dataset.kpiGroup}`).previousElementSibling.focus();return
   }
   const clear=event.target.closest("#clearSelection");

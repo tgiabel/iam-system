@@ -20,6 +20,7 @@ const context = vm.createContext({
   localStorage: {getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); }},
   Intl, Date, Math, JSON, String, Number
 });
+vm.runInContext(fs.readFileSync("app/static/js/reports/genesys_live_panel.js", "utf8"), context);
 vm.runInContext(logic, context);
 context.sample = sample;
 vm.runInContext("live = sample; renderPanel(); renderTime()", context);
