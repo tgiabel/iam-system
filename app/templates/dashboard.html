@@ -2,9 +2,9 @@
 {% from "macros/workspace.html" import workspace_item %}
 
 {% set page_title = "Dashboard" %}
+{% block body_class %}{% if user %}app-fixed app-fixed-until-1100{% endif %}{% endblock %}
 
 {% block css %}
-<link rel="stylesheet" href="/static/css/ui.css">
 <link rel="stylesheet" href="/static/css/tools_overview.css?v={{ static_v }}">
 <link rel="stylesheet" href="/static/css/genesys_live.css?v={{ static_v }}">
 <link rel="stylesheet" href="/static/css/dashboard.css?v={{ static_v }}">
@@ -28,13 +28,13 @@
 
     <div class="dash-layout" id="dash-layout">
         <div class="dash-main">
-            <section class="dash-week" aria-labelledby="dash-hello">
+            <section class="ui-card dash-week" aria-labelledby="dash-hello">
                 <h1 class="dash-hello" id="dash-hello">Hallo{% if user.first_name %} {{ user.first_name }}{% endif %}</h1>
                 <div class="dash-week-body" id="dash-week" hidden>
                     <div class="dash-week-days">
-                        <button type="button" class="dash-icon-btn" id="dash-week-prev" aria-label="Vorherige Kalenderwoche">‹</button>
+                        <button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm dash-week-arrow" id="dash-week-prev" aria-label="Vorherige Kalenderwoche">‹</button>
                         <nav class="dash-days" id="dash-days" aria-label="Tag wählen"></nav>
-                        <button type="button" class="dash-icon-btn" id="dash-week-next" aria-label="Nächste Kalenderwoche">›</button>
+                        <button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm dash-week-arrow" id="dash-week-next" aria-label="Nächste Kalenderwoche">›</button>
                     </div>
                     <div class="dash-week-sum">
                         <span class="dash-week-label" id="dash-week-label" title="">Diese Woche</span>
@@ -55,7 +55,7 @@
                 </div>
 
                 {% if dashboard_sources.my_day %}
-                <section class="dash-card dash-me" id="dash-me" aria-labelledby="dash-me-title" hidden>
+                <section class="ui-card dash-card dash-me" id="dash-me" aria-labelledby="dash-me-title" hidden>
                     <h2 class="dash-label" id="dash-me-title">Mein Tag</h2>
                     <ul class="dash-me-list" id="dash-me-list" aria-live="polite"></ul>
                 </section>
@@ -83,7 +83,7 @@
             {% endif %}
 
             {% if dashboard_sources.service_level %}
-            <section class="dash-card dash-sl" id="dash-sl" hidden>
+            <section class="ui-card dash-card dash-sl" id="dash-sl" hidden>
                 <div class="dash-card-head">
                     <div class="dash-sl-pick" id="dash-sl-pick">
                         <button type="button" class="dash-sl-trigger" id="dash-sl-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="dash-sl-list">Gesamt-Servicelevel</button>

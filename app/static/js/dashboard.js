@@ -16,17 +16,11 @@
     const panel = window.GenesysLivePanel;
     const $ = id => document.getElementById(id);
 
-    const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]);
+    const { escapeHtml, fetchJson, withParams } = window.SofaUtils;
 
     function setText(id, value) {
         const element = $(id);
         if (element) element.textContent = value;
-    }
-
-    async function fetchJson(url, options = {}) {
-        const response = await fetch(url, { cache: "no-store", ...options });
-        const data = await response.json().catch(() => null);
-        return { ok: response.ok, status: response.status, data };
     }
 
     function readStorage() {
@@ -142,11 +136,10 @@
 
         async function fetchWeek(offset, key) {
             const start = weekStart(offset);
-            const params = new URLSearchParams({
+            const { ok, status, data } = await fetchJson(withParams(url, {
                 from_date: `${dayKeyOf(start)}T00:00:00`,
                 to_date: `${dayKeyOf(addDays(start, 6))}T23:59:59`
-            });
-            const { ok, status, data } = await fetchJson(`${url}${url.includes("?") ? "&" : "?"}${params}`);
+            }));
             if (status === 401 || status === 403) throw Object.assign(new Error("forbidden"), { forbidden: true });
             if (!ok || !Array.isArray(data)) throw new Error("events");
             state.weeks.set(key, data);
@@ -164,8 +157,8 @@
 
         function lineMarkup(line) {
             const chips = [
-                line.state === "done" ? '<span class="dash-chip">erledigt</span>' : "",
-                line.failedExtra ? `<span class="dash-chip dash-chip--overdue">${line.failedExtra} Fehler</span>` : ""
+                line.state === "done" ? '<span class="ui-chip ui-chip-sm ui-chip-neutral">erledigt</span>' : "",
+                line.failedExtra ? `<span class="ui-chip ui-chip-sm ui-chip-error">${line.failedExtra} Fehler</span>` : ""
             ].join("");
             return `<button type="button" class="dash-line" data-kind="${line.kind}" data-state="${line.state}" data-line="${escapeHtml(line.id)}">
                 <span class="dash-line-text">${escapeHtml(line.text)}</span>
@@ -281,7 +274,7 @@
                     return `<div class="dash-event" data-state="${escapeHtml(status.toLowerCase())}">
                         <span class="dash-event-when">${escapeHtml(`${formatWeekday(date)} ${formatDayMonth(date)}${time ? ` · ${time}` : ""}`)}</span>
                         <span class="dash-event-text">${escapeHtml(event.description || event.title || "")}</span>
-                        <span class="dash-chip${status === "FAILED" ? " dash-chip--overdue" : ""}">${escapeHtml(STATUS_LABELS[status] || status)}</span>
+                        <span class="ui-chip ui-chip-sm ${status === "FAILED" ? "ui-chip-error" : "ui-chip-neutral"}">${escapeHtml(STATUS_LABELS[status] || status)}</span>
                     </div>`;
                 }).join("");
             }
@@ -598,7 +591,7 @@
         async function refresh() {
             const [kind, id] = scope ? [scope.slice(0, 1), scope.slice(2)] : [];
             const params = kind === "g" ? { group_id: id } : kind === "q" ? { queue_id: id } : null;
-            const requestUrl = params ? `${url}${url.includes("?") ? "&" : "?"}${new URLSearchParams(params)}` : url;
+            const requestUrl = withParams(url, params || {});
             try {
                 const { ok, status, data } = await fetchJson(requestUrl);
                 if (status === 401 || status === 403) {
@@ -650,7 +643,7 @@
             }
             const current = ++request;
             try {
-                const { ok, status, data } = await fetchJson(`${url}${url.includes("?") ? "&" : "?"}${new URLSearchParams({ date: day })}`);
+                const { ok, status, data } = await fetchJson(withParams(url, { date: day }));
                 if (current !== request) return;
                 if (status === 401 || status === 403 || !ok) {
                     card.hidden = true;

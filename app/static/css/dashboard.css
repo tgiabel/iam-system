@@ -1,19 +1,4 @@
 /* Dashboard: Wochenkalender mit Tagesschublade, Live-Panel und angeheftete Einträge ohne Seitenscroll. */
-body:has(#dashboard) {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-}
-
-body:has(#dashboard) > main {
-    flex: 1 1 0;
-    min-height: 0;
-}
-
-body:has(#dashboard) > footer {
-    display: none;
-}
-
 .dashboard-page {
     flex: 1 1 0;
     min-height: 0;
@@ -189,16 +174,11 @@ a.dash-me-stat:focus-visible {
 .dashboard-page [data-kind="onboarding"] { --kind: var(--ui-green-text); }
 .dashboard-page [data-kind="offboarding"] { --kind: var(--ui-orange-text); }
 .dashboard-page [data-kind="training"] { --kind: var(--color-primary); }
-.dashboard-page [data-kind="change"] { --kind: #8d6fd6; }
-.dashboard-page [data-kind="assignment"] { --kind: #2f9c95; }
+.dashboard-page [data-kind="change"] { --kind: var(--event-change); }
+.dashboard-page [data-kind="assignment"] { --kind: var(--event-assignment); }
 .dashboard-page [data-kind="removal"] { --kind: var(--ui-red-text); }
-.dashboard-page [data-kind="retrain"] { --kind: #6f7f99; }
+.dashboard-page [data-kind="retrain"] { --kind: var(--event-retrain); }
 .dashboard-page [data-kind="other"] { --kind: var(--ui-text-muted); }
-
-:root[data-theme="dark"] .dashboard-page [data-kind="change"],
-:root[data-theme="servodata"] .dashboard-page [data-kind="change"] { --kind: #a882e6; }
-:root[data-theme="dark"] .dashboard-page [data-kind="assignment"],
-:root[data-theme="servodata"] .dashboard-page [data-kind="assignment"] { --kind: #4cc0b8; }
 
 .dash-label {
     color: var(--color-primary);
@@ -208,24 +188,6 @@ a.dash-me-stat:focus-visible {
     text-transform: uppercase;
 }
 
-.dash-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.05rem 0.5rem;
-    border-radius: 999px;
-    background: var(--ui-surface-muted);
-    color: var(--ui-text-muted);
-    font-size: 0.74rem;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-.dash-chip--overdue {
-    background: var(--ui-red-bg);
-    color: var(--ui-red-text);
-}
-
-.dash-icon-btn:focus-visible,
 .dash-dayt:focus-visible,
 .dash-badge:focus-visible,
 .dash-line:focus-visible {
@@ -239,10 +201,6 @@ a.dash-me-stat:focus-visible {
     z-index: 2;
     flex: none;
     padding: 0.9rem 0.9rem 0.8rem;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-lg);
-    background: var(--ui-surface-card);
-    box-shadow: var(--ui-shadow-sm);
 }
 
 /* Begrüßung oben in der Card, bündig mit der ersten Tageskachel. */
@@ -261,22 +219,10 @@ a.dash-me-stat:focus-visible {
     gap: 0.4rem;
 }
 
-.dash-icon-btn {
-    width: 1.9rem;
-    height: 1.9rem;
-    border: 0;
-    border-radius: 999px;
-    background: none;
-    color: var(--ui-text-muted);
-    font: inherit;
+/* Wochen-Pfeile: zentraler flacher Icon-Button, nur das Zeichen etwas größer. */
+.dash-week-arrow {
     font-size: 1.3rem;
     line-height: 1;
-    cursor: pointer;
-}
-
-.dash-icon-btn:hover {
-    background: var(--ui-surface-soft);
-    color: var(--color-primary);
 }
 
 .dash-days {
@@ -589,10 +535,6 @@ a.dash-me-stat:focus-visible {
     flex-direction: column;
     gap: 0.6rem;
     padding: 0.85rem 1.1rem 1rem;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-lg);
-    background: var(--ui-surface-card);
-    box-shadow: var(--ui-shadow-sm);
 }
 
 .dash-card-head {
@@ -975,16 +917,6 @@ a.dash-me-stat:focus-visible {
 
 /* ---------- Schmale Fenster ---------- */
 @media (max-width: 1100px) {
-    body:has(#dashboard) {
-        height: auto;
-        min-height: 100dvh;
-        overflow: auto;
-    }
-
-    body:has(#dashboard) > main {
-        flex: 1 0 auto;
-    }
-
     .dashboard-page,
     .dash-layout {
         flex: 0 0 auto;
