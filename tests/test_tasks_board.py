@@ -13,7 +13,7 @@ from app.main import app
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 10, 14, 11, 30)  # Mittwoch
-ME = {"user_id": 42, "name": "Test, Erika"}
+ME = {"user_id": 42, "name": "Erika Test"}
 
 # Felder, die SOFA vom Backend erwartet: TaskView plus die Wunschliste aus docs/tasks-kanban.md.
 TASK_FIELDS = {
@@ -145,7 +145,7 @@ class TasksBoardPageTests(unittest.TestCase):
             html = self.client.get("/tasks", params={"mock": "normal"}).text
         raw = html.split('id="task-board-data">', 1)[1].split("</script>", 1)[0]
         data = json.loads(raw)
-        self.assertEqual(data["me"], {"user_id": 42, "name": "Test, Erika"})
+        self.assertEqual(data["me"], {"user_id": 42, "name": "Erika Test"})
         self.assertTrue(data["tasks"])
 
     def test_board_needs_page_permission(self):

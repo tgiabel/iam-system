@@ -45,18 +45,18 @@ _ACCOUNT_NAMES = {
 }
 
 _TARGETS = (
-    "Musterfrau, Maria", "Schneider, Lukas", "Öztürk, Elif", "Weber, Jonas", "Krüger, Sophie",
-    "Neumann, Tim", "Schwarz, Hannah", "Zimmermann, Paul", "Braun, Lea", "Hartmann, Noah",
-    "Lange, Mia", "Schulz, Ben", "Wolf, Emilia", "Koch, Finn", "Richter, Clara", "Klein, David",
-    "Fischer, Lina", "Vogel, Elias", "Bauer, Ida", "Kaya, Deniz",
+    "Maria Musterfrau", "Lukas Schneider", "Elif Öztürk", "Jonas Weber", "Sophie Krüger",
+    "Tim Neumann", "Hannah Schwarz", "Paul Zimmermann", "Lea Braun", "Noah Hartmann",
+    "Mia Lange", "Ben Schulz", "Emilia Wolf", "Finn Koch", "Clara Richter", "David Klein",
+    "Lina Fischer", "Elias Vogel", "Ida Bauer", "Deniz Kaya",
 )
 
 _COLLEAGUES = (
-    (9101, "Becker, Jonas"),
-    (9102, "Schmitt, Leonie"),
-    (9103, "Yilmaz, Murat"),
-    (9104, "Hoffmann, Anna"),
-    (9105, "Wagner, Felix"),
+    (9101, "Jonas Becker"),
+    (9102, "Leonie Schmitt"),
+    (9103, "Murat Yilmaz"),
+    (9104, "Anna Hoffmann"),
+    (9105, "Felix Wagner"),
 )
 
 _PROCESS_MIX = (
@@ -118,8 +118,8 @@ def _detail_fixtures(tasks: list[dict], now: datetime) -> dict:
                   "Mit dem Fachbereich abgestimmt. Die Zuordnung ist geprüft.")
         elif task["status"] == "OPEN":
             note_at = min(now, created + timedelta(minutes=5))
-            event("ASSIGNED", min(now, created + timedelta(minutes=2)), "Becker, Jonas", 9101)
-            event("RELEASED", note_at, "Becker, Jonas", 9101,
+            event("ASSIGNED", min(now, created + timedelta(minutes=2)), *reversed(_COLLEAGUES[0]))
+            event("RELEASED", note_at, *reversed(_COLLEAGUES[0]),
                   "Bitte die Umsetzung zum Stichtag mit dem Fachbereich abstimmen.")
 
         identifier = f"user{task['target_user_id']}" if task["resource_type_id"] == ACCOUNT else None

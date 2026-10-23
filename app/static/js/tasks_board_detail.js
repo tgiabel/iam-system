@@ -34,10 +34,13 @@
             : { OPEN: "open", IN_PROGRESS: "progress", COMPLETED: "completed", BLOCKED: "blocked" }[task.status] || "neutral";
         const statusLabel = task => task.status === "OPEN" && Model.isDeferred(task) ? "Nachgelagert" : labels.status[task.status] || task.status;
         const actor = entry => Model.displayName(entry.user_name) || (entry.user_id ? `Bearbeiter #${entry.user_id}` : "System");
-        const textField = (label, id, value, { textarea = false, required = false, placeholder = "" } = {}) => `
+        const textField = (label, id, value, { textarea = false, required = false, placeholder = "", maxLength = null } = {}) => {
+            const limit = maxLength ? ` maxlength="${maxLength}"` : "";
+            return `
             <label class="tb-detail-field" for="${id}"><span>${esc(label)}${required ? " *" : ""}</span>
-            ${textarea ? `<textarea id="${id}" rows="3" placeholder="${esc(placeholder)}">${esc(value)}</textarea>` : `<input id="${id}" type="text" value="${esc(value)}" placeholder="${esc(placeholder)}"${required ? " required" : ""}>`}</label>`;
-        const commentField = () => textField("Kommentar", "tb-detail-comment", state.comment, {textarea: true, placeholder: "Hinweis für Verlauf oder Übergabe"});
+            ${textarea ? `<textarea id="${id}" rows="3" placeholder="${esc(placeholder)}"${limit}>${esc(value)}</textarea>` : `<input id="${id}" type="text" value="${esc(value)}" placeholder="${esc(placeholder)}"${required ? " required" : ""}${limit}>`}</label>`;
+        };
+        const commentField = () => textField("Kommentar", "tb-detail-comment", state.comment, {textarea: true, placeholder: "Hinweis für Verlauf oder Übergabe", maxLength: Model.COMMENT_MAX_LENGTH});
 
         function record(taskId, action, comment = null, extra = {}) {
             const task = getTasks().find(task => String(task.task_id) === String(taskId));

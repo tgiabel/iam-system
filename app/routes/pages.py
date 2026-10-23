@@ -117,7 +117,7 @@ def tasks(
     scenario = tasks_board_mock.mock_scenario(mock)
     if scenario:
         user = authz.raw_user or {}
-        name = ", ".join(part for part in (user.get("last_name"), user.get("first_name")) if part)
+        name = " ".join(part for part in (user.get("first_name"), user.get("last_name")) if part)
         board = tasks_board_mock.mock_board(scenario, {"user_id": authz.user_id, "name": name})
         # "</" escapen, damit der JSON-Block das <script>-Element nicht beenden kann.
         board_json = json.dumps(board, ensure_ascii=False).replace("</", "<\\/")

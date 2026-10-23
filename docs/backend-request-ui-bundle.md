@@ -1,6 +1,6 @@
 # Anfrage an die SD-API: Aufgaben-Board und Dashboard
 
-Stand 23.10.2026, **Entwurf, noch nicht versendet**. Bündelt alle offenen Wünsche aus dem Umbau der Aufgabenseite (Kanban) und des Dashboards. Ersetzt [backend-request-kanban-visibility.md](backend-request-kanban-visibility.md), [backend-request-event-summary.md](backend-request-event-summary.md) und Punkt 2 aus [backend-request-task-grouping.md](backend-request-task-grouping.md). Die Bulk-Endpunkte bleiben in [backend-request-bulk-tasks.md](backend-request-bulk-tasks.md).
+Stand 23.10.2026, **versendet und abgestimmt** (Ergebnis unter „Abstimmung mit dem Backend“). Bündelt alle offenen Wünsche aus dem Umbau der Aufgabenseite (Kanban) und des Dashboards. Ersetzt [backend-request-kanban-visibility.md](backend-request-kanban-visibility.md), [backend-request-event-summary.md](backend-request-event-summary.md) und Punkt 2 aus [backend-request-task-grouping.md](backend-request-task-grouping.md). Die Bulk-Endpunkte bleiben in [backend-request-bulk-tasks.md](backend-request-bulk-tasks.md).
 
 Grundlage ist die SD-API-Arbeitskopie vom 17.09.2026 (`ec2adf6`). Bitte gegen den aktuellen Stand prüfen; was es inzwischen gibt, einfach streichen.
 
@@ -24,6 +24,20 @@ Alles ist additiv: bestehende Felder, Endpunkte und Texte bleiben, damit ein Rol
 | D2 | Servicelevel-Route fertigstellen | Muss | klein (Branch existiert) |
 
 „Muss“ heißt: ohne den Punkt geht die jeweilige Seite nicht mit echten Daten live.
+
+## Abstimmung mit dem Backend (23.10.2026)
+
+Geprüft gegen SD-API `master` = `03df44c`. Korrekturen am Dokument sind unten eingearbeitet.
+
+- **Branches und Reihenfolge:** `feature/service-level-reporting` (D2) → `feature/task-overview-board` (A1–A4, C1, C2; Migration: Index `task_logs (action, timestamp)`, dazu Migration und Lesezweig für `COMMENTED`) → `feature/task-comments` (B1, B2-Schreibroute, C3) → `feature/integration-auto-complete` (B3) → `feature/event-list-fields` (D1).
+- **Namen:** `assigned_to_user_name` und `user_name` im Format „Vorname Nachname“ wie `target_user_name`.
+- **Kommentare** (B1, B2): höchstens 255 Zeichen (`task_logs.comment` ist `varchar(255)`), längere → 422. SOFA begrenzt die Felder entsprechend.
+- **`COMMENTED` in zwei Releases:** Migration und Lesen des neuen Werts kommen mit dem Overview-Release, die Schreibroute erst danach. Sonst liefert `/logs` nach einem Rollback für jeden Task mit Notiz einen 500er.
+- **Sichtbarkeit (A1/A2):** gilt nur für die neuen Listen. `open_tasks`, `blocked_tasks` und `user_tasks` bleiben unverändert; SOFA filtert sie weiter im Proxy.
+- **`completed_since`:** ohne Parameter bleibt `completed_tasks` leer (keine Mehrlast für die bisherige Seite). Obergrenze 500, darüber `completed_truncated: true`.
+- **B3:** Kennung ist die Genesys-UUID (`result.user_id`), wie sie die Integration schon heute aus `account_identifier` des Genesys-Kontos liest. Schlägt nur der Abschluss fehl, bleibt der Task in Bearbeitung, der Fehler steht im `BOT_RESPONSE`-Eintrag und die Antwort trägt `task_completed: false`.
+- **D1:** „Nachschulung“ als Titel für `RETRAIN` kommt mit.
+- **`CANCELLED`:** SOFA blendet abgebrochene Tasks im Board aus; von der API wird nichts gebraucht.
 
 ## A. Aufgabenübersicht `GET /sofa/tasks/overview`
 
@@ -49,11 +63,11 @@ Die eigenen erledigten Tasks daraus nutzt auch das Dashboard („Mein Tag“); d
 
 | Feld | Quelle (Vorschlag) | Zweck |
 |---|---|---|
-| `assigned_to_user_name` | `users` über `assigned_to_user_id`, Format „Nachname, Vorname“ wie `target_user_name` | Gruppenkopf „In Bearbeitung“, „erledigt von“ |
+| `assigned_to_user_name` | `users` über `assigned_to_user_id`, Format „Vorname Nachname“ wie `target_user_name` | Gruppenkopf „In Bearbeitung“, „erledigt von“ |
 | `assigned_at` | jüngster `ASSIGNED`-Eintrag in `task_logs` | Sortierung, „seit 3 T in Bearbeitung“ |
 | `completed_at` | jüngster `COMPLETED`-Eintrag in `task_logs` | Spalte „Erledigt“, „Mein Tag“ |
 
-Eine neue Spalte in `tasks` ist nicht nötig, es sei denn, ihr haltet sie für einfacher. Falls ihr ableitet: ein Index auf `task_logs (task_id, action)` dürfte reichen.
+Eine neue Spalte in `tasks` ist nicht nötig. Umsetzung: korrelierte `MAX(timestamp)`-Abfragen; für `completed_tasks` ein neuer Index auf `task_logs (action, timestamp)`.
 
 ### A4. `blocked_by` (Soll)
 
@@ -69,11 +83,11 @@ Blockierte Tasks sollen nennen, worauf sie warten (heute „Elternressource ders
 
 ### B1. Freigeben mit Kommentar
 
-`DELETE /sofa/tasks/{id}/assign` nimmt optional `comment` an (Query oder Body, wie es für euch passt) und schreibt ihn in den `RELEASED`-Eintrag. Heute geht ein Kommentar beim Freigeben verloren.
+`DELETE /sofa/tasks/{id}/assign` nimmt optional `comment` als Query-Parameter an (höchstens 255 Zeichen) und schreibt ihn in den `RELEASED`-Eintrag. Heute geht ein Kommentar beim Freigeben verloren.
 
 ### B2. Notiz ohne Statuswechsel (Soll)
 
-Neue `TaskAction.COMMENTED` und `POST /sofa/tasks/{id}/comments` mit `{ "user_id": 42, "comment": "…" }`. Erlaubt nur für eigene Tasks in Bearbeitung; leerer Kommentar → 422.
+Neue `TaskAction.COMMENTED` und `POST /sofa/tasks/{id}/comments` mit `{ "user_id": 42, "comment": "…" }`. Erlaubt nur für eigene Tasks in Bearbeitung; leerer Kommentar oder mehr als 255 Zeichen → 422. Braucht eine Migration (`task_logs.action` ist ein ENUM).
 
 ### B3. Automatisierung schließt selbst ab
 
@@ -83,7 +97,9 @@ Der Text „Integration gestartet - Warten auf Antwort“ im `BOT_DISPATCHED`-Ei
 
 Nicht gewünscht: ein Abschluss direkt aus „Offen“ im Backend. SOFA ruft dafür erst Übernehmen und dann Abschließen auf.
 
-## C. Verlauf `GET /sofa/tasks/{id}/history`
+## C. Verlauf `GET /sofa/tasks/{id}/logs`
+
+(In SOFA heißt die Proxy-Route `/api/tasks/{id}/history`.)
 
 Der Verlauf wird immer komplett geladen, Paginierung brauchen wir nicht.
 
@@ -107,9 +123,9 @@ Ohne die Felder liest SOFA Skill und Namen aus dem Beschreibungstext und erkennt
 
 ### D2. Servicelevel `GET /reporting/service-level`
 
-Liegt auf `feature/service-level-reporting` (`f4ec0dc`, nicht deployt). Vor dem Merge:
+Liegt auf `feature/service-level-reporting`, nicht deployt. Berliner Zeit ist mit `222468a` behoben, `groups` ist als leere Liste enthalten. Offen sind nur Rebase auf `master`, Gates und Merge.
 
-- Bug: Tagesgrenzen über `P1D` ohne Zeitzone, an Sommerzeit-Wechseln falsch. Bitte mit `Europe/Berlin` rechnen.
+- ~~Bug: Tagesgrenzen über `P1D` ohne Zeitzone~~ (behoben).
 - Antwort wie besprochen: `target_ratio`, `queues[{queue_id,label}]`, `scope{type,id,label}`, `day{date,…}`, `month{month,…}`, `previous_month{month,…}`, `days[7]{date,…}` (die sieben Tage vor heute), jeweils `ratio, numerator, denominator`. Ohne Parameter alle `[PROD]_`-Queues, mit `queue_id` eine Queue. Grundlage `oServiceLevel` aus den Genesys-Aggregaten.
 - Gruppen (`group_id`, `groups[]`) erst mit dem Servicelevel-Report; jetzt nicht nötig.
 
@@ -122,12 +138,12 @@ Liegt auf `feature/service-level-reporting` (`f4ec0dc`, nicht deployt). Vor dem 
 - Strukturierter Abschlusskontext (auslösende Task-ID bei mit abgeschlossenen Entzügen): kommt mit dem Sammelabschluss. Bis dahin vermerkt SOFA den Zusammenhang im Abschlusskommentar.
 - `ETag`/`updated_since` für das Nachladen: SOFA lädt die Übersicht zunächst komplett neu (alle 30–60 Sekunden bei sichtbarem Tab).
 
-## Fragen
+## Fragen und Antworten
 
-1. Wie groß wird `tasks/overview` bei großen Backlogs mit A1 und A2 (Tasks und Bytes)? Davon hängt ab, ob wir doch `updated_since` brauchen.
-2. Ist `process_id = null` bei einem Teil der Tasks gewollt (z. B. nachgelagerte Tasks) oder ein Altbestand? (aus [backend-request-task-grouping.md](backend-request-task-grouping.md))
-3. Darf `GET /sofa/tasks/{id}/history` für fremde Tasks desselben Backlogs aufgerufen werden? Wir würden es gern erlauben (nur lesend).
-4. `CANCELLED` blendet SOFA im Board aus. Gibt es Fälle, in denen ein abgebrochener Task sichtbar bleiben sollte?
+1. **Größe von `tasks/overview` mit A1 und A2:** ohne Datenbankzugriff nicht messbar. Das Backend liefert eine HeidiSQL-Abfrage (Tasks je Liste und Monat), die wir ausführen.
+2. **`process_id = null`:** prüft das Backend bei der Umsetzung an den Stellen, die Tasks anlegen.
+3. **Verlauf fremder Tasks:** `/logs` prüft heute nicht, wer anfragt; die Sperre liegt allein in SOFA. Lesen für fremde Tasks desselben Backlogs ist damit ohne API-Änderung möglich.
+4. **`CANCELLED`:** fachlich entschieden, SOFA blendet sie im Board aus.
 
 ## Danach auf SOFA-Seite
 

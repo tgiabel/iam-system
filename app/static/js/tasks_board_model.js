@@ -173,7 +173,7 @@
 
     // ---------- Namen ----------
 
-    // SOFA-Namen kommen als "Nachname, Vorname".
+    // Die SD-API liefert Namen als "Vorname Nachname"; "Nachname, Vorname" wird zur Sicherheit ebenso verstanden.
     function displayName(name) {
         const raw = String(name || "").trim();
         if (!raw.includes(",")) {
@@ -520,12 +520,20 @@
         return { ...assigned, status: "COMPLETED", completed_at: nowStamp };
     }
 
+    // task_logs.comment ist varchar(255); die SD-API lehnt längere Kommentare ab.
+    const COMMENT_MAX_LENGTH = 255;
+
     // Bis die SD-API einen strukturierten Abschlusskontext kennt, steht der Zusammenhang im Kommentar.
+    // Mit dem Hinweis davor darf der Kommentar die Grenze nicht überschreiten; der Rest wird gekürzt.
     const RELATED_REVOCATION_NOTE = "Mit dem Kontoentzug erledigt.";
 
     function relatedCompletionComment(comment) {
         const text = String(comment || "").trim();
-        return text ? `${RELATED_REVOCATION_NOTE} ${text}` : RELATED_REVOCATION_NOTE;
+        if (!text) {
+            return RELATED_REVOCATION_NOTE;
+        }
+        const full = `${RELATED_REVOCATION_NOTE} ${text}`;
+        return full.length <= COMMENT_MAX_LENGTH ? full : `${full.slice(0, COMMENT_MAX_LENGTH - 1).trimEnd()}…`;
     }
 
     function relatedRevocations(task, tasks, meId) {
@@ -568,6 +576,7 @@
 
     return {
         COLUMNS,
+        COMMENT_MAX_LENGTH,
         DONE_RANGES,
         RAIL_TABS,
         activeParkedSection,

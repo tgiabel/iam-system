@@ -11,7 +11,7 @@ const task = (id, extra = {}) => ({
     handling_type: "INTERNAL",
     provisioning_requirement: "REQUIRED",
     target_user_id: 600,
-    target_user_name: "Musterfrau, Maria",
+    target_user_name: "Maria Musterfrau",
     resource_name: `Ressource ${id}`,
     system_name: "Genesys",
     backlog_identifier: "TEL",
@@ -31,8 +31,8 @@ assert.equal(model.columnOf(task(5, { status: "COMPLETED" })), "done");
 assert.equal(model.columnOf(task(6, { status: "CANCELLED" })), null, "abgebrochene erscheinen nicht");
 
 // ---------- Eigen / fremd / auswählbar ----------
-const mine = task(10, { status: "IN_PROGRESS", assigned_to_user_id: ME, assigned_to_user_name: "Tesfe, Abel", assigned_at: "2026-10-14T08:00:00" });
-const foreign = task(11, { status: "IN_PROGRESS", assigned_to_user_id: 9101, assigned_to_user_name: "Becker, Jonas", assigned_at: "2026-10-12T09:00:00" });
+const mine = task(10, { status: "IN_PROGRESS", assigned_to_user_id: ME, assigned_to_user_name: "Abel Tesfe", assigned_at: "2026-10-14T08:00:00" });
+const foreign = task(11, { status: "IN_PROGRESS", assigned_to_user_id: 9101, assigned_to_user_name: "Jonas Becker", assigned_at: "2026-10-12T09:00:00" });
 assert.equal(model.isMine(mine, ME), true);
 assert.equal(model.isMine(task(12, { assigned_to_user_id: "42" }), ME), true, "IDs als String und Zahl");
 assert.equal(model.isForeign(foreign, ME), true);
@@ -97,12 +97,12 @@ const tasks = [
     task(1, { target_date: "2026-10-20" }),
     task(2, { target_date: "2026-10-01", created_at: "2026-10-13T08:00:00" }),
     task(3, { created_at: "2026-10-01T08:00:00" }),
-    task(4, { status: "BLOCKED", target_user_id: 601, target_user_name: "Zander, Ute" }),
-    task(5, { provisioning_requirement: "DEFERRED", target_user_id: 602, target_user_name: "Adler, Bea" }),
+    task(4, { status: "BLOCKED", target_user_id: 601, target_user_name: "Ute Zander" }),
+    task(5, { provisioning_requirement: "DEFERRED", target_user_id: 602, target_user_name: "Bea Adler" }),
     mine,
     foreign,
-    task(18, { status: "IN_PROGRESS", assigned_to_user_id: 9101, assigned_to_user_name: "Becker, Jonas", assigned_at: "2026-10-11T09:00:00" }),
-    task(19, { status: "IN_PROGRESS", assigned_to_user_id: 9102, assigned_to_user_name: "Anders, Lea", assigned_at: "2026-10-14T07:00:00" }),
+    task(18, { status: "IN_PROGRESS", assigned_to_user_id: 9101, assigned_to_user_name: "Jonas Becker", assigned_at: "2026-10-11T09:00:00" }),
+    task(19, { status: "IN_PROGRESS", assigned_to_user_id: 9102, assigned_to_user_name: "Lea Anders", assigned_at: "2026-10-14T07:00:00" }),
     done(40, "2026-10-14T09:00:00"),
     done(41, "2026-10-14T11:00:00", 9101),
     done(42, "2026-10-13T11:00:00"),
@@ -135,7 +135,7 @@ assert.deepEqual(model.columnTaskIds(board, "done"), [40]);
 
 board = model.buildBoard(tasks, { ...defaults, openGrouping: "person" }, ctx);
 assert.equal(board.open.groups.length, 1);
-assert.equal(board.open.groups[0].label, "Musterfrau, Maria");
+assert.equal(board.open.groups[0].label, "Maria Musterfrau");
 
 board = model.buildBoard(tasks, { ...defaults, search: "becker" }, ctx);
 assert.deepEqual(model.columnTaskIds(board, "progress"), [18, 11], "Suche findet Bearbeiter");
@@ -174,7 +174,7 @@ assert.deepEqual(model.rangeSelection([2, 1, 3, 7], 7, 1, selectable), [1, 7], "
 assert.deepEqual(model.rangeSelection([2, 1], 99, 1, selectable), [1], "ohne Anker nur das Ziel");
 
 // ---------- Simulierte Aktionen ----------
-const assigned = model.assignTo(task(70), { user_id: ME, name: "Tesfe, Abel" }, "2026-10-14T10:00:00");
+const assigned = model.assignTo(task(70), { user_id: ME, name: "Abel Tesfe" }, "2026-10-14T10:00:00");
 assert.equal(model.columnOf(assigned), "progress");
 assert.equal(model.isMine(assigned, ME), true);
 const released = model.release(assigned);
@@ -183,7 +183,7 @@ assert.equal(released.assigned_to_user_id, null);
 
 // Abschluss übernimmt offene Tasks; fremde und blockierte Tasks bleiben unangetastet.
 const stamp = "2026-10-14T12:00:00";
-const completed = model.completeTask(task(90), {user_id: ME, name: "Tesfe, Abel"}, stamp);
+const completed = model.completeTask(task(90), {user_id: ME, name: "Abel Tesfe"}, stamp);
 assert.equal(completed.status, "COMPLETED");
 assert.equal(completed.assigned_to_user_id, ME);
 assert.equal(completed.completed_at, stamp);
@@ -206,6 +206,11 @@ assert.deepEqual(model.relatedRevocations({...revoke, resource_type_id: 2}, [rel
 // Mit abgeschlossene Entzüge: generischer Hinweis im Kommentar, eigener Kommentar bleibt erhalten.
 assert.equal(model.relatedCompletionComment(""), "Mit dem Kontoentzug erledigt.");
 assert.equal(model.relatedCompletionComment("  Geprüft. "), "Mit dem Kontoentzug erledigt. Geprüft.");
+{
+    const long = model.relatedCompletionComment("x".repeat(model.COMMENT_MAX_LENGTH));
+    assert.equal(long.length, model.COMMENT_MAX_LENGTH, "Hinweis plus Kommentar bleibt bei 255 Zeichen");
+    assert.ok(long.endsWith("…"));
+}
 
 // Prozess-Suche und Hinweis auf blockierte Tasks je Prozess.
 {
