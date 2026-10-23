@@ -1,5 +1,7 @@
 # Anfrage an Backend-Team: Tasks anderer Bearbeiter und erledigte Tasks für die Kanban-Ansicht
 
+> Abgelöst durch [backend-request-ui-bundle.md](backend-request-ui-bundle.md) (23.10.2026). Bleibt als Verlauf stehen.
+
 ## Hintergrund
 
 Die Aufgabenseite wird zu einem Kanban-Board umgebaut (Spalten „Offen“, „In Bearbeitung“, „Erledigt“,

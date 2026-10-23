@@ -100,6 +100,8 @@ Ohne `role_name` im Payload steht bei Schulungen „Schulung für 5 Mitarbeiter�
 
 ## Wunschliste SD-API (zurückgestellt bis das Zielbild steht)
 
+Gebündelt in [backend-request-ui-bundle.md](backend-request-ui-bundle.md), Abschnitt D (23.10.2026).
+
 Geliefert mit SD-API Release 1 (Servicelevel, `completed_at`) und Release 2 (Event-Felder); SOFA ist angeschlossen (26.10.2026).
 
 1. **Events:** `role_name`, `process_type`, `user_name` in `GET /sofa/events` ([backend-request-event-summary.md](backend-request-event-summary.md), Entwurf, nicht versendet). Seit Release 2 geliefert; der Rückfall auf Beschreibungstext und Titelpräfix ist entfernt, das Dashboard setzt Release 2 voraus.

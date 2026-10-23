@@ -1,5 +1,7 @@
 # Anfrage an Backend-Team: Task-Felder für die Gruppierung auf der Aufgabenseite
 
+> Punkt 2 ist abgelöst durch [backend-request-ui-bundle.md](backend-request-ui-bundle.md) (`process_type` und `system_id` sind inzwischen im Overview). Punkt 1 steht dort als Frage 2.
+
 ## Hintergrund
 
 Die Aufgabenseite kann ihre Karten jetzt gruppieren – nach Person, Prozess,

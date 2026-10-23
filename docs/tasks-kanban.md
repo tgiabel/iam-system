@@ -182,6 +182,8 @@ Nur auf Dev: `/tasks?mock=normal|busy|quiet`, die bisherige Seite bleibt ohne Pa
 
 ### Backend-Wunschliste (gebündelt, erst nach Design-Abnahme)
 
+Gebündelt und mit dem SD-API-Stand abgeglichen in [backend-request-ui-bundle.md](backend-request-ui-bundle.md) (23.10.2026); die Liste unten ist der Verlauf.
+
 - `GET /sofa/tasks/view`: Felder `assigned_to_user_name`, `assigned_at`, `completed_at`, `process_id`/`process_name`, `system_id`/`system_name`; Parameter `completed_since`; Backlog-Sichtbarkeit serverseitig.
 - `integrate_user_in`: bei Erfolg Task abschließen, Log-Text korrigieren.
 - Freigeben mit optionalem `comment`; Notiz-Endpunkt (`TaskAction.COMMENTED`); Name statt nur `user_id` in den Logs.
