@@ -31,103 +31,119 @@ def _rng(scenario: str, today: date, salt: str) -> random.Random:
     return random.Random(f"{scenario}:{today.isoformat()}:{salt}")
 
 
-# ---------- Tasks ----------
-
-# Verteilung: (ueberfaellig, heute, morgen, spaeter, ohne Datum) je Liste
-_TASK_PROFILE = {
-    "normal": {"open": (3, 6, 4, 18, 5), "blocked": (1, 1, 1, 3, 0), "mine": 4, "in_progress": 11, "deferred": 14},
-    "busy": {"open": (8, 14, 9, 22, 6), "blocked": (3, 3, 2, 4, 1), "mine": 9, "in_progress": 21, "deferred": 31},
-    "quiet": {"open": (0, 1, 2, 4, 1), "blocked": (0, 0, 0, 1, 0), "mine": 1, "in_progress": 2, "deferred": 3},
-}
-_SYSTEMS = ("Microsoft", "Genesys", "SAP", "Opcyc", "VPN", "Telefonie")
-_PEOPLE = ("Hoffmann, Mia", "Brandt, Jonas", "Keller, Lea", "Vogel, Tim", "Neumann, Sara", "Lorenz, Ben")
-
-
-def _due_dates(today: date, counts: tuple[int, int, int, int, int], rng: random.Random) -> list[str | None]:
-    overdue, due_today, due_tomorrow, later, undated = counts
-    dates: list[str | None] = []
-    dates += [(today - timedelta(days=rng.randint(1, 6))).isoformat() for _ in range(overdue)]
-    dates += [today.isoformat()] * due_today
-    dates += [(today + timedelta(days=1)).isoformat()] * due_tomorrow
-    dates += [(today + timedelta(days=rng.randint(2, 21))).isoformat() for _ in range(later)]
-    dates += [None] * undated
-    return dates
-
-
-def mock_tasks_overview(scenario: str = "normal", today: date | None = None) -> dict:
-    scenario = normalize_scenario(scenario)
-    today = today or berlin_now().date()
-    profile = _TASK_PROFILE[scenario]
-    rng = _rng(scenario, today, "tasks")
-    deferred_left = profile["deferred"]
-    counter = 1000
-
-    def build(dates: list[str | None], status: str) -> list[dict]:
-        nonlocal counter, deferred_left
-        tasks = []
-        for target in dates:
-            counter += 1
-            deferred = deferred_left > 0 and rng.random() < 0.4
-            if deferred:
-                deferred_left -= 1
-            tasks.append({
-                "task_id": counter,
-                "status": status,
-                "target_date": target,
-                "system_name": rng.choice(_SYSTEMS),
-                "target_user_name": rng.choice(_PEOPLE),
-                "provisioning_requirement": "DEFERRED" if deferred else "REQUIRED",
-                "backlog_identifier": "IT",
-            })
-        return tasks
-
-    open_tasks = build(_due_dates(today, profile["open"], rng), "OPEN")
-    blocked_tasks = build(_due_dates(today, profile["blocked"], rng), "BLOCKED")
-    # Rest der nachgelagerten Tasks landet in den offenen, damit die Zahl stimmt.
-    for task in open_tasks:
-        if deferred_left <= 0:
-            break
-        if task["provisioning_requirement"] != "DEFERRED":
-            task["provisioning_requirement"] = "DEFERRED"
-            deferred_left -= 1
-    user_tasks = build(_due_dates(today, (0, min(2, profile["mine"]), 1, max(0, profile["mine"] - 3), 0), rng), "IN_PROGRESS")
-    return {
-        "open_tasks": open_tasks,
-        "blocked_tasks": blocked_tasks,
-        "user_tasks": user_tasks,
-        # Wunsch: Gesamtzahl aller Tasks in Bearbeitung (heute nur die eigenen in user_tasks).
-        "in_progress_total": profile["in_progress"],
-    }
-
-
 # ---------- Servicelevel ----------
 
+# Grundniveau je Szenario: Anteil rechtzeitig angenommener Anrufe und Anrufe je Queue und Werktag.
 _SERVICE_LEVEL = {
-    "normal": {"offered": 1240, "in_time": 1022, "answered": 1201, "yesterday": 79.1},
-    "busy": {"offered": 1860, "in_time": 1175, "answered": 1604, "yesterday": 74.3},
-    "quiet": {"offered": 214, "in_time": 203, "answered": 211, "yesterday": 91.8},
+    "normal": {"ratio": 0.82, "calls": 55},
+    "busy": {"ratio": 0.68, "calls": 85},
+    "quiet": {"ratio": 0.93, "calls": 9},
 }
+_SL_TARGET = 0.8
+# Beispielgruppe, bis Gruppen im Servicelevel-Report gepflegt werden.
+_SL_GROUPS = (("vrp", "VRP-Queues", 6),)
 
 
-def mock_service_level(scenario: str = "normal", now: datetime | None = None) -> dict:
+def _sl_bucket(numerator: int, denominator: int, **extra) -> dict:
+    return {**extra, "numerator": numerator, "denominator": denominator,
+            "ratio": round(numerator / denominator, 4) if denominator else None}
+
+
+def _prod_queues() -> list[dict]:
+    data = json.loads(_LIVE_SAMPLE.read_text(encoding="utf-8"))
+    return sorted(({"queue_id": q["queue_id"], "label": q["label"]} for q in data["queues"]),
+                  key=lambda q: q["label"].lower())
+
+
+def _queue_day(scenario: str, queue_id: str, day: date, partial: float = 1.0) -> tuple[int, int]:
+    """Rechtzeitig angenommene und gezaehlte Anrufe einer Queue an einem Tag (Wochenende ruhiger)."""
+    base = _SERVICE_LEVEL[scenario]
+    rng = _rng(scenario, day, f"sl|{queue_id}")
+    ratio = min(0.99, max(0.35, base["ratio"] + rng.uniform(-0.18, 0.12)))
+    volume = {5: 0.3, 6: 0.0}.get(day.weekday(), 1.0)
+    calls = max(0, int(base["calls"] * rng.uniform(0.2, 1.6) * volume * partial))
+    return round(calls * ratio), calls
+
+
+def _sum_days(scenario: str, queue_ids: list[str], days: list[date], today: date, partial: float) -> tuple[int, int]:
+    num = den = 0
+    for day in days:
+        for queue_id in queue_ids:
+            n, d = _queue_day(scenario, queue_id, day, partial if day == today else 1.0)
+            num += n
+            den += d
+    return num, den
+
+
+def mock_service_level(scenario: str = "normal", now: datetime | None = None,
+                       queue_id: str | None = None, group_id: str | None = None) -> dict:
+    """Vorschlag fuer GET /reporting/service-level (noch nicht in der SD-API): alle Prod-Queues, eine Gruppe
+    oder eine Queue; Tag, laufender Monat, Vormonat und die sieben Tage vor heute. Zaehler und Nenner wie
+    oServiceLevel, damit sich Queues und Tage addieren lassen."""
     scenario = normalize_scenario(scenario)
     now = now or berlin_now()
-    base = _SERVICE_LEVEL[scenario]
+    today = now.date()
+    partial = max(0.05, min(1.0, (now.hour * 60 + now.minute - 7 * 60) / (11 * 60)))
+    queues = _prod_queues()
+    groups = [{"group_id": gid, "label": label, "queue_ids": [q["queue_id"] for q in queues[:size]]}
+              for gid, label, size in _SL_GROUPS]
+    scope = {"type": "all", "id": None, "label": "Gesamt"}
+    queue_ids = [q["queue_id"] for q in queues]
+    if group_id:
+        group = next((g for g in groups if g["group_id"] == group_id), None)
+        if group:
+            scope = {"type": "group", "id": group_id, "label": group["label"]}
+            queue_ids = group["queue_ids"]
+    elif queue_id:
+        queue = next((q for q in queues if q["queue_id"] == queue_id), None)
+        if queue:
+            scope = {"type": "queue", "id": queue_id, "label": queue["label"]}
+            queue_ids = [queue_id]
+
+    month_start = today.replace(day=1)
+    prev_end = month_start - timedelta(days=1)
+    prev_start = prev_end.replace(day=1)
+    span = lambda start, end: [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    days = []
+    for offset in range(7, 0, -1):
+        day = today - timedelta(days=offset)
+        days.append(_sl_bucket(*_sum_days(scenario, queue_ids, [day], today, partial), date=day.isoformat()))
     return {
-        # Wunsch: Route fuer den Gesamt-Servicelevel des Tages aus Genesys (noch nicht in der SD-API).
         "as_of": now.isoformat(),
-        "date": now.date().isoformat(),
-        "target_percent": 80,
-        "threshold_seconds": 20,
-        "today": {
-            "offered": base["offered"],
-            "answered": base["answered"],
-            "answered_in_time": base["in_time"],
-            "abandoned": base["offered"] - base["answered"],
-            "percent": round(base["in_time"] / base["offered"] * 100, 1),
-        },
-        "yesterday": {"percent": base["yesterday"]},
+        "target_ratio": _SL_TARGET,
+        "queues": queues,
+        "groups": [{"group_id": g["group_id"], "label": g["label"]} for g in groups],
+        "scope": scope,
+        "day": _sl_bucket(*_sum_days(scenario, queue_ids, [today], today, partial), date=today.isoformat()),
+        "month": _sl_bucket(*_sum_days(scenario, queue_ids, span(month_start, today), today, partial),
+                            month=month_start.strftime("%Y-%m")),
+        "previous_month": _sl_bucket(*_sum_days(scenario, queue_ids, span(prev_start, prev_end), today, partial),
+                                     month=prev_start.strftime("%Y-%m")),
+        "days": days,
     }
+
+
+# ---------- Mein Tag ----------
+
+_MY_DAY = {"normal": (2, 48), "busy": (5, 83), "quiet": (0, 0)}
+
+
+def mock_my_day(scenario: str = "normal", day: date | None = None, now: datetime | None = None) -> dict:
+    """Was die angemeldete Person an einem Tag erledigt hat. Echte Quellen: calls_answered aus
+    reporting/agent-stats?period=day&anchor=<Tag> (answered); erledigte Aufgaben aus completed_tasks,
+    sobald die SD-API completed_at liefert. Zukuenftige Tage und Wochenenden bleiben leer."""
+    scenario = normalize_scenario(scenario)
+    now = now or berlin_now()
+    today = now.date()
+    day = day or today
+    tasks, calls = _MY_DAY[scenario]
+    if day > today or day.weekday() >= 5 or not calls:
+        tasks = calls = 0
+    else:
+        rng = _rng(scenario, day, "my-day")
+        share = max(0.0, min(1.0, (now.hour * 60 + now.minute - 8 * 60) / (9 * 60))) if day == today else 1.0
+        tasks, calls = (round(value * rng.uniform(0.5, 1.5) * share) for value in (tasks, calls))
+    return {"date": day.isoformat(), "tasks_completed": tasks, "calls_answered": calls}
 
 
 # ---------- Genesys Live ----------

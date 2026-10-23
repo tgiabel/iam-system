@@ -16,6 +16,8 @@
      data-user-id="{{ user.user_id if user.user_id is not none else '' }}"
      data-src-events="{{ dashboard_sources.events }}"
      data-src-live="{{ dashboard_sources.live if dashboard_live else '' }}"
+     data-src-service-level="{{ dashboard_sources.service_level }}"
+     data-src-my-day="{{ dashboard_sources.my_day }}"
      {% if dashboard_mock %}data-mock="{{ dashboard_mock }}"{% endif %}>
     <div class="dash-alert" id="dashboard-stoerung-banner" role="alert" hidden>
         <span class="dash-alert-icon" aria-hidden="true">⚠</span>
@@ -24,51 +26,85 @@
         {% if dashboard_slog %}<a href="/tools/stoerungsprotokoll" class="btn btn-red dash-alert-link">Störungsprotokoll</a>{% endif %}
     </div>
 
-    <div class="dash-layout{% if dashboard_live %} has-live{% endif %}" id="dash-layout">
-        <aside class="dash-side" id="dash-side" aria-label="Termine" hidden>
-            <section class="dash-side-section dash-side-day" aria-labelledby="dash-day-title">
-                <div class="dash-side-head">
-                    <h2 class="dash-label" id="dash-day-title">Heute</h2>
-                    <button type="button" class="dash-link-btn" id="dash-day-today" hidden>Heute</button>
-                </div>
-                <div class="dash-lines" id="dash-day-lines" aria-live="polite"></div>
-            </section>
-
-            <section class="dash-side-section dash-side-week" aria-labelledby="dash-week-title">
-                <div class="dash-side-head">
-                    <h2 class="dash-label" id="dash-week-title">Woche</h2>
-                    <div class="dash-week-nav" aria-label="Kalenderwoche">
+    <div class="dash-layout" id="dash-layout">
+        <div class="dash-main">
+            <section class="dash-week" aria-labelledby="dash-hello">
+                <h1 class="dash-hello" id="dash-hello">Hallo{% if user.first_name %} {{ user.first_name }}{% endif %}</h1>
+                <div class="dash-week-body" id="dash-week" hidden>
+                    <div class="dash-week-days">
                         <button type="button" class="dash-icon-btn" id="dash-week-prev" aria-label="Vorherige Kalenderwoche">‹</button>
-                        <span class="dash-week-label" id="dash-week-label">KW –</span>
+                        <nav class="dash-days" id="dash-days" aria-label="Tag wählen"></nav>
                         <button type="button" class="dash-icon-btn" id="dash-week-next" aria-label="Nächste Kalenderwoche">›</button>
                     </div>
+                    <div class="dash-week-sum">
+                        <span class="dash-week-label" id="dash-week-label" title="">Diese Woche</span>
+                        <div class="dash-badges" id="dash-badges" aria-live="polite"></div>
+                    </div>
                 </div>
-                <nav class="dash-weekdays" id="dash-weekdays" aria-label="Tag wählen"></nav>
-                <div class="dash-lines" id="dash-week-lines" aria-live="polite"></div>
             </section>
-        </aside>
 
-        <div class="dash-main">
-            <section class="dash-card dash-pins" aria-labelledby="dash-pins-title">
-                <div class="dash-card-head">
-                    <h2 class="dash-label" id="dash-pins-title">Angeheftet</h2>
-                    <a href="/workspace" class="dash-link">Workspace</a>
+            <div class="dash-left">
+                <div class="dash-day-clip" id="dash-day-clip" hidden>
+                    <section class="dash-day" id="dash-day" aria-labelledby="dash-day-title">
+                        <div class="dash-day-head">
+                            <h2 class="dash-label" id="dash-day-title">Heute</h2>
+                            <button type="button" class="dash-today-btn" id="dash-day-today" hidden>Zu heute</button>
+                        </div>
+                        <div class="dash-lines" id="dash-day-lines" aria-live="polite"></div>
+                    </section>
                 </div>
-                <div class="dash-pins-grid" id="dash-pins-grid"></div>
-            </section>
+
+                {% if dashboard_sources.my_day %}
+                <section class="dash-card dash-me" id="dash-me" aria-labelledby="dash-me-title" hidden>
+                    <h2 class="dash-label" id="dash-me-title">Mein Tag</h2>
+                    <ul class="dash-me-list" id="dash-me-list" aria-live="polite"></ul>
+                </section>
+                {% endif %}
+            </div>
+
+            <div class="dash-center">
+                <nav class="dash-dock" aria-label="Angeheftet">
+                    <div class="dash-dock-grid" id="dash-pins-grid"></div>
+                </nav>
+            </div>
         </div>
 
-        {% if dashboard_live %}
-        <aside class="gl-page dash-live" id="dash-live" aria-labelledby="panelTitle">
-            <section class="side-panel">
-                <div class="panel-head">
-                    <h2 id="panelTitle"><a href="/reports/genesys-live" class="dash-live-link">Genesys Live</a></h2>
-                    <span class="panel-mark asof"><span id="staleNotice" class="stale-notice" hidden>veraltet · </span><time id="updatedAt">–</time></span>
+        <div class="dash-right">
+            {% if dashboard_live %}
+            <aside class="gl-page dash-live" id="dash-live" aria-labelledby="panelTitle">
+                <section class="side-panel">
+                    <div class="panel-head">
+                        <h2 id="panelTitle"><a href="/reports/genesys-live" class="dash-live-link">Genesys Live</a></h2>
+                        <span class="panel-mark asof"><span id="staleNotice" class="stale-notice" hidden>veraltet · </span><time id="updatedAt">–</time></span>
+                    </div>
+                    <div id="panelContent"><p class="panel-empty">Lädt …</p></div>
+                </section>
+            </aside>
+            {% endif %}
+
+            {% if dashboard_sources.service_level %}
+            <section class="dash-card dash-sl" id="dash-sl" hidden>
+                <div class="dash-card-head">
+                    <div class="dash-sl-pick" id="dash-sl-pick">
+                        <button type="button" class="dash-sl-trigger" id="dash-sl-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="dash-sl-list">Gesamt-Servicelevel</button>
+                        <ul class="dash-sl-list" id="dash-sl-list" role="listbox" aria-label="Servicelevel für" tabindex="-1" hidden></ul>
+                    </div>
                 </div>
-                <div id="panelContent"><p class="panel-empty">Lädt …</p></div>
+                <div class="dash-sl-kpis">
+                    <div class="dash-sl-kpi">
+                        <span class="dash-sl-value" id="dash-sl-day">–</span>
+                        <span class="dash-sl-label">Heute</span>
+                        <div class="dash-sl-trend" id="dash-sl-trend"></div>
+                    </div>
+                    <div class="dash-sl-kpi">
+                        <span class="dash-sl-value" id="dash-sl-month">–</span>
+                        <span class="dash-sl-label" id="dash-sl-month-label">Monat</span>
+                        <p class="dash-sl-prev"><span id="dash-sl-prev-label">Vormonat</span>: <strong id="dash-sl-prev">–</strong></p>
+                    </div>
+                </div>
             </section>
-        </aside>
-        {% endif %}
+            {% endif %}
+        </div>
     </div>
 
     <template id="dash-pin-source">

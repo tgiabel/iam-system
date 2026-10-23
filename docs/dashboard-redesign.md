@@ -9,11 +9,11 @@ Erste Version am 14.10.2026 auf `feature/dashboard-redesign`, **nur mit Mock-Dat
 - **Mock-Schalter:** Nur mit `APP_ENV=development` (Dev-Instanz) gibt es die Routen `/api/dashboard-mock/…` (`app/routes/dashboard_mock.py`, Daten in `app/dashboard_mock.py`). `/?mock=normal` ist der Standard in Dev, `?mock=busy` (Servicelevel unter Ziel, viele Aufgaben, Live „veraltet“, Fehler im Kalender), `?mock=quiet` (ruhiger Tag), `?mock=0` zeigt die echten Quellen. In Prod werden die Routen nicht eingebunden, und `mock` wird ignoriert.
 - **Echtmodus (Prod, `?mock=0`):** Aufgaben über `/api/tasks/overview` (Recht `SOFA-PAGE-TODO`), Live-Panel über die echte Route (nur mit Secret und gültigem Cookie), Kalender über `/api/events` (bei 401/403 ohne Meldung ausgeblendet), Servicelevel und „Termine“ entfallen ohne Quelle.
 - **Genesys-Live-Panel** liegt jetzt als `genesys_live_panel.js` (reine Funktionen, UMD) vor; Report-Seite und Dashboard teilen es. Das CSS bleibt vorerst in `genesys_live.css` (Dashboard bindet es mit ein und überschreibt die Außenmaße in `dashboard.css`); die Aufteilung folgt, wenn das Design steht.
-- **Tests:** `tests/dashboard_model_checks.js` (Kennzahlen, Servicelevel, Kalender-Zusammenfassung), `tests/test_dashboard.py` (Mock-Daten, Kontext, Rendering je Rechtekombination), `tests/genesys_live_checks.js` angepasst.
+- **Tests:** `tests/calendar_summary_checks.js` (Kalender-Zusammenfassung), `tests/test_dashboard.py` (Mock-Daten, Kontext, Rendering je Rechtekombination), `tests/genesys_live_checks.js` angepasst.
 
 ### Umbau nach der ersten Rückmeldung (14.10.2026)
 
-Gefiel nicht: Titel, KPI-Kacheln, Kalenderkarte. Jetzt: **kein Seitentitel**, **keine KPI-Kacheln** (vorerst entfernt; `dashboard_model.js`, Mock-Routen für Aufgaben und Servicelevel, Tests und Kontext bleiben für später erhalten), der **Kalender entfällt** und wird durch eine **Seitenleiste links** ersetzt. Dreiteiliges Layout: Seitenleiste | Mitte (Angeheftet als Kachelkarte, Platz für spätere Inhalte) | Live-Panel.
+Gefiel nicht: Titel, KPI-Kacheln, Kalenderkarte. Jetzt: **kein Seitentitel**, **keine KPI-Kacheln** (entfernt; `dashboard_model.js` und die Mock-Route für Aufgaben sind seit dem Review am 23.10.2026 gelöscht), der **Kalender entfällt** und wird durch eine **Seitenleiste links** ersetzt. Dreiteiliges Layout: Seitenleiste | Mitte (Angeheftet als Kachelkarte, Platz für spätere Inhalte) | Live-Panel.
 
 - **Seitenleiste:** oben „Heute“ (Tagesansicht, detailliert), darunter „Woche“ (KW-Navigation, Wochentage, Wochenzusammenfassung).
 - **Tagesansicht:** je Art (bei Schulung und Rollen je Rolle) eine Zeile mit Namen: „Onboarding für Jonas Brandt, Ben Lorenz + 3 weitere“, „Retouren-Schulung für Tim Vogel, Sara Neumann + 1 weitere“, „Rollenzuweisung Technik für Luca Roth“. Darunter Uhrzeit, Chip „erledigt“ oder „Fehler“. Namen aus `user_name`, sonst aus dem Beschreibungstext.
@@ -103,9 +103,10 @@ Ohne `role_name` im Payload steht bei Schulungen „Schulung für 5 Mitarbeiter�
 Nichts davon ist angefragt. Es wird gesammelt und erst nach der Design-Abnahme gebündelt geschickt.
 
 1. **Events:** `role_name`, `process_type`, `user_name` in `GET /sofa/events` ([backend-request-event-summary.md](backend-request-event-summary.md), Entwurf, nicht versendet). Das Frontend fällt ohne die Felder auf Beschreibungstext und Titelpräfix zurück.
-2. **Tasks:** Gesamtzahl aller Tasks in Bearbeitung (`in_progress_total` im Mock). `tasks/overview` liefert heute nur offene, blockierte und die eigenen laufenden; ohne das Feld zählt „in Bearbeitung“ nur die eigenen.
-3. **Servicelevel:** Route für den Gesamt-Servicelevel des Tages aus Genesys (Form im Mock: `today.percent/offered/answered/answered_in_time/abandoned`, `yesterday.percent`, `target_percent`, `threshold_seconds`). Offen: Definition (Annahme in x Sekunden; welche Rufnummern, Queues, Abbrüche zählen), Aktualisierungstakt, Ziel.
-4. **Events-Recht:** `/api/events` auf Login umstellen (SOFA-seitig), wenn echte Daten angeschlossen werden.
+2. ~~**Tasks:** `in_progress_total`~~ entfällt mit den KPI-Kacheln (Review 23.10.2026).
+3. **Servicelevel:** `GET /reporting/service-level?queue_id=|group_id=` mit Cache, für die Dashboard-Card und den künftigen Servicelevel-Report. Ohne Parameter alle `[PROD]_`-Queues zusammen. Antwort (wie im Mock `app/dashboard_mock.py`): `target_ratio` (vorerst 0.8), `queues[{queue_id,label}]`, `groups[{group_id,label}]`, `scope{type,id,label}`, `day{date,…}`, `month{month,…}`, `previous_month{month,…}`, `days[7]{date,…}` (die sieben Tage vor heute), jeweils `ratio,numerator,denominator`. Die Card zeigt den laufenden Monat und darunter ausgeschrieben den Vormonat, den Trend unter „Heute“. Grundlage `oServiceLevel` aus den Genesys-Aggregaten (Tag gibt es schon in `q-manager/queues/overview`); nicht aus genesys-sync berechnen, dort fehlen in der Queue abgebrochene Anrufe. Gruppen pflegt später der Servicelevel-Report.
+4. **Events-Recht:** `/api/events` auf Login umstellen (SOFA-seitig), wenn echte Daten angeschlossen werden. Bestätigt am 23.10.2026: Alle Angemeldeten sehen den Kalender mit Namen, der Betriebsrat ist informiert.
+5. **Mein Tag:** kein eigener Endpunkt. Anrufe aus dem bestehenden agent-stats, erledigte Aufgaben aus `completed_tasks` (sobald mit `completed_at` geliefert). Die Zeile „Tickets“ entfällt, weil es keine Quelle gibt.
 
 ## Umsetzung
 
@@ -114,7 +115,7 @@ Die Schritte D1 bis D4 sind als erste Version mit Mock-Daten umgesetzt (Branch `
 - **D1 Gerüst, Pins:** erledigt (Kontext in `app/dashboard.py`, Template, Pins aus `<template>`).
 - **D2 Live-Panel:** erledigt (`genesys_live_panel.js`, Report-Seite weiter getestet). CSS-Aufteilung offen.
 - **D3 Kalender:** erledigt (`calendar_summary.js`, Dialog, Wochenband, `/api/events` mit Zeitraum).
-- **D4 Heute-Kacheln:** erledigt (`dashboard_model.js`).
+- **D4 Heute-Kacheln:** gebaut und wieder verworfen (Code am 23.10.2026 entfernt).
 - **D5 Abschluss:** Themes hell, dunkel, servodata, 1366×768, 1600×900, 1920×1080 ohne Seitenscroll und 420 px geprüft (Playwright, Dev-Instanz). Offen: Design-Iterationen nach Rückmeldung, Tastaturbedienung gezielt prüfen, CSS-Aufteilung, Entscheidung zu den Wunschlisten-Punkten, dann Anschluss an echte Daten (Mock-Schalter bleibt nur in Dev).
 
 ## Nicht Teil dieses Laufs

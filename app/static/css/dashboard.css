@@ -1,4 +1,4 @@
-/* Dashboard: Termine-Seitenleiste, angeheftete Einträge und Live-Panel ohne Seitenscroll. */
+/* Dashboard: Wochenkalender mit Tagesschublade, Live-Panel und angeheftete Einträge ohne Seitenscroll. */
 body:has(#dashboard) {
     height: 100dvh;
     min-height: 0;
@@ -48,7 +48,7 @@ body:has(#dashboard) > footer {
     padding: 0.5rem 0.9rem;
 }
 
-/* ---------- Raster: Seitenleiste, Mitte, Live-Panel ---------- */
+/* ---------- Raster: links Kalender, Tag und Mitte, rechts Genesys Live und Servicelevel ---------- */
 .dash-layout {
     flex: 1 1 0;
     min-height: 0;
@@ -56,25 +56,149 @@ body:has(#dashboard) > footer {
     gap: 1.25rem;
 }
 
-.dash-side {
-    flex: none;
-    width: clamp(300px, 25vw, 380px);
-}
-
-.gl-page.dash-live {
-    flex: none;
-    width: clamp(320px, 26vw, 420px);
-}
-
+/* Links: Kalender über die ganze Breite, darunter Tagesschublade und Mitte (unten die Pin-Leiste). */
 .dash-main {
+    --day-width: clamp(290px, 24vw, 380px);
     flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: calc(var(--day-width) + 1.25rem) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+}
+
+.dash-week {
+    grid-column: 1 / -1;
+}
+
+/* Unter dem Kalender links: Tagesschublade und direkt darunter „Mein Tag“. */
+.dash-left {
+    grid-column: 1;
+    grid-row: 2;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* Direkt unter der Schublade: was am gewählten Tag erledigt wurde, untereinander. */
+.dash-me {
+    margin-left: 1.25rem;
+    gap: 0.45rem;
+    padding: 0.8rem 1.1rem 0.85rem;
+}
+
+.dash-me-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dash-me-stat {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+a.dash-me-stat .dash-me-label::after {
+    content: " ›";
+    color: var(--color-primary);
+}
+
+a.dash-me-stat:hover .dash-me-label {
+    color: var(--color-primary);
+}
+
+a.dash-me-stat:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+    border-radius: 6px;
+}
+
+.dash-me-value {
+    min-width: 1.6rem;
+    color: var(--ui-text-strong);
+    font-size: 1.3rem;
+    font-weight: 750;
+    line-height: 1.15;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-me-label {
+    color: var(--ui-text-muted);
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+/* Zurück zum heutigen Tag: als Knopf erkennbar, nicht mit der Überschrift zu verwechseln. */
+.dash-today-btn {
+    margin-left: auto;
+    padding: 0.15rem 0.65rem;
+    border: 1px solid rgba(var(--color-primary-rgb), 0.4);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.dash-today-btn:hover {
+    border-color: var(--color-primary);
+}
+
+.dash-today-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.dash-center {
+    grid-column: 2;
+    grid-row: 2;
     min-width: 0;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 1rem 0 0 1.25rem;
+    container-type: inline-size;
+}
+
+.dash-right:not(:has(> :not([hidden]))) {
+    display: none;
+}
+
+.dash-right {
+    flex: none;
+    width: clamp(340px, 28vw, 420px);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
 }
+
+/* Farbe je Ereignisart: Kalenderpunkte, Badges, Tageszeilen und Hervorhebung. */
+.dashboard-page [data-kind="onboarding"] { --kind: var(--ui-green-text); }
+.dashboard-page [data-kind="offboarding"] { --kind: var(--ui-orange-text); }
+.dashboard-page [data-kind="training"] { --kind: var(--color-primary); }
+.dashboard-page [data-kind="change"] { --kind: #8d6fd6; }
+.dashboard-page [data-kind="assignment"] { --kind: #2f9c95; }
+.dashboard-page [data-kind="removal"] { --kind: var(--ui-red-text); }
+.dashboard-page [data-kind="retrain"] { --kind: #6f7f99; }
+.dashboard-page [data-kind="other"] { --kind: var(--ui-text-muted); }
+
+:root[data-theme="dark"] .dashboard-page [data-kind="change"],
+:root[data-theme="servodata"] .dashboard-page [data-kind="change"] { --kind: #a882e6; }
+:root[data-theme="dark"] .dashboard-page [data-kind="assignment"],
+:root[data-theme="servodata"] .dashboard-page [data-kind="assignment"] { --kind: #4cc0b8; }
 
 .dash-label {
     color: var(--color-primary);
@@ -101,99 +225,51 @@ body:has(#dashboard) > footer {
     color: var(--ui-red-text);
 }
 
-.dash-link,
-.dash-link-btn {
-    color: var(--color-primary);
-    font: inherit;
-    font-size: 0.85rem;
-    font-weight: 700;
-    text-decoration: none;
-    background: none;
-    border: 0;
-    cursor: pointer;
-    padding: 0.2rem 0.4rem;
-    border-radius: 8px;
-}
-
-.dash-link:hover,
-.dash-link-btn:hover {
-    background: var(--ui-surface-soft);
-}
-
-.dash-link:focus-visible,
-.dash-link-btn:focus-visible,
 .dash-icon-btn:focus-visible,
-.dash-wd:focus-visible,
-.dash-line:focus-visible,
-.dash-pin-empty:focus-visible {
+.dash-dayt:focus-visible,
+.dash-badge:focus-visible,
+.dash-line:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
 }
 
-/* ---------- Seitenleiste ---------- */
-.dash-side {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
+/* ---------- Wochenkalender ---------- */
+.dash-week {
+    position: relative;
+    z-index: 2;
+    flex: none;
+    padding: 0.9rem 0.9rem 0.8rem;
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-lg);
     background: var(--ui-surface-card);
     box-shadow: var(--ui-shadow-sm);
-    overflow: hidden;
 }
 
-.dash-side-section {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 0.9rem 1.1rem 0.8rem;
+/* Begrüßung oben in der Card, bündig mit der ersten Tageskachel. */
+.dash-hello {
+    margin: 0.1rem 0 0.8rem 2.55rem;
+    color: var(--ui-text-strong);
+    font-size: 1.6rem;
+    font-weight: 750;
+    line-height: 1.2;
 }
 
-.dash-side-day {
-    flex: 0 1 auto;
-    max-height: 46%;
-    overflow-y: auto;
-}
-
-.dash-side-week {
-    flex: 1 1 0;
-    overflow-y: auto;
-    border-top: 1px solid var(--ui-border);
-}
-
-.dash-side-head {
-    flex: none;
-    display: flex;
+.dash-week-days {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    min-height: 1.75rem;
-}
-
-.dash-week-nav {
-    display: flex;
-    align-items: center;
-    gap: 0.15rem;
-}
-
-.dash-week-label {
-    color: var(--ui-text-muted);
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
+    gap: 0.4rem;
 }
 
 .dash-icon-btn {
-    width: 1.7rem;
-    height: 1.7rem;
+    width: 1.9rem;
+    height: 1.9rem;
     border: 0;
     border-radius: 999px;
     background: none;
     color: var(--ui-text-muted);
     font: inherit;
-    font-size: 1.15rem;
+    font-size: 1.3rem;
     line-height: 1;
     cursor: pointer;
 }
@@ -203,61 +279,226 @@ body:has(#dashboard) > footer {
     color: var(--color-primary);
 }
 
-/* Wochentage: nur Text, Auswahl über Farbe und Unterstrich. */
-.dash-weekdays {
-    flex: none;
-    display: flex;
-    justify-content: space-between;
-    padding-bottom: 0.3rem;
+.dash-days {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.7fr));
+    gap: 0.6rem;
 }
 
-.dash-wd {
-    position: relative;
-    padding: 0.2rem 0.35rem 0.35rem;
-    border: 0;
-    border-radius: 0;
-    background: none;
-    color: var(--ui-text-muted);
-    font: inherit;
-    font-size: 0.88rem;
-    cursor: pointer;
-    box-shadow: inset 0 -2px 0 transparent;
-}
-
-.dash-wd:hover {
-    color: var(--color-primary);
-}
-
-.dash-wd.is-weekend {
-    color: color-mix(in srgb, var(--ui-text-muted) 70%, var(--ui-surface-card));
-}
-
-.dash-wd.is-today {
+/* Tageskachel: Wochentag, Datum, darunter je Art ein Punkt mit Anzahl. */
+.dash-dayt {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+        "name date"
+        "dots dots";
+    gap: 0.35rem;
+    min-height: 5.8rem;
+    padding: 0.55rem 0.65rem 0.6rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-card);
     color: var(--ui-text-strong);
-    font-weight: 800;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.dash-wd.has-events::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    bottom: 0.05rem;
-    width: 4px;
-    height: 4px;
-    margin-left: -2px;
-    border-radius: 50%;
-    background: var(--color-primary);
+.dash-dayt:hover {
+    border-color: rgba(var(--color-primary-rgb), 0.45);
 }
 
-.dash-wd.is-selected {
+.dash-dayt.is-weekend {
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+}
+
+.dash-dayt-name {
+    grid-area: name;
+    color: var(--ui-text-muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.dash-dayt-date {
+    grid-area: date;
+    font-size: 1.35rem;
+    font-weight: 750;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-dayt.is-today .dash-dayt-name,
+.dash-dayt.is-today .dash-dayt-date {
     color: var(--color-primary);
-    font-weight: 800;
-    box-shadow: inset 0 -2px 0 var(--color-primary);
 }
 
-.dash-wd.is-selected::after {
-    display: none;
+.dash-dayt.is-selected {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--ui-surface-card));
+    box-shadow: inset 0 0 0 1px var(--color-primary);
 }
+
+/* Hervorhebung über ein Wochen-Badge: Tage mit der Art leuchten in deren Farbe, der Rest tritt zurück. */
+.dash-dayt.is-match {
+    border-color: var(--kind);
+    box-shadow: inset 0 0 0 1px var(--kind);
+}
+
+.dash-dayt.is-dim {
+    border-color: var(--ui-border);
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+}
+
+.dash-dayt.is-dim .dash-dayt-name,
+.dash-dayt.is-dim .dash-dayt-date {
+    color: var(--ui-text-muted);
+}
+
+.dash-dots {
+    grid-area: dots;
+    align-self: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.dash-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4rem;
+    height: 1.4rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--kind);
+    color: var(--ui-surface-card);
+    font-size: 0.74rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.dash-dot.is-dim {
+    background: color-mix(in srgb, var(--kind) 30%, var(--ui-surface-card));
+}
+
+/* Wochenzeile: Bezeichnung und je Art ein Badge in der Farbe der Punkte. */
+.dash-week-sum {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.6rem;
+    margin: 0.8rem 2.3rem 0;
+}
+
+.dash-week-label {
+    align-self: flex-start;
+    margin-right: 0.2rem;
+    line-height: 1.75rem;
+    color: var(--ui-text-strong);
+    font-size: 0.88rem;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.dash-badges {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.dash-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.7rem;
+    border: 1px solid color-mix(in srgb, var(--kind) 40%, var(--ui-surface-card));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--kind) 12%, var(--ui-surface-card));
+    color: var(--kind);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 750;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.dash-badge:hover {
+    background: color-mix(in srgb, var(--kind) 22%, var(--ui-surface-card));
+}
+
+.dash-badge[aria-pressed="true"] {
+    border-color: var(--kind);
+    background: var(--kind);
+    color: var(--ui-surface-card);
+}
+
+.dash-week-sum .dash-empty {
+    padding: 0;
+    font-size: 0.85rem;
+}
+
+/* ---------- Tagesschublade: liegt hinter dem Kalender, die Oberkante bleibt verdeckt ---------- */
+.dash-day-clip {
+    position: relative;
+    z-index: 1;
+    flex: 0 1 auto;
+    min-height: 0;
+    flex: 0 1 auto;
+    min-height: 0;
+    display: flex;
+    margin: -1.5rem 0 0 1.25rem;
+    /* Oben abschneiden, damit die Schublade beim Herausgleiten nicht über dem Kalender auftaucht; Schatten bleibt. */
+    clip-path: inset(0 -2rem -2rem -2rem);
+}
+
+.dash-day {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 2.25rem 1.2rem 0.9rem;
+    border: 1px solid var(--ui-border);
+    border-top: 0;
+    border-radius: 0 0 var(--ui-radius-lg) var(--ui-radius-lg);
+    background: color-mix(in srgb, var(--ui-surface-soft) 92%, var(--ui-surface-card));
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.dash-day.is-sliding {
+    animation: dash-day-slide 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+@keyframes dash-day-slide {
+    from { transform: translateY(-100%); }
+    to { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dash-day.is-sliding {
+        animation: none;
+    }
+}
+
+.dash-day-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 1.75rem;
+    margin-bottom: 0.45rem;
+}
+
+.dash-day-head .dash-label {
+    font-size: 1rem;
+    letter-spacing: 0.06em;
+}
+
 
 .dash-lines {
     display: flex;
@@ -287,18 +528,6 @@ body:has(#dashboard) > footer {
     background: var(--ui-surface-soft);
 }
 
-.dash-line[data-kind="onboarding"] { --kind: var(--ui-green-text); }
-.dash-line[data-kind="offboarding"] { --kind: var(--ui-orange-text); }
-.dash-line[data-kind="training"] { --kind: var(--color-primary); }
-.dash-line[data-kind="change"] { --kind: #8d6fd6; }
-.dash-line[data-kind="assignment"] { --kind: #2f9c95; }
-.dash-line[data-kind="removal"] { --kind: var(--ui-red-text); }
-.dash-line[data-kind="retrain"] { --kind: #6f7f99; }
-
-:root[data-theme="dark"] .dash-line[data-kind="change"],
-:root[data-theme="servodata"] .dash-line[data-kind="change"] { --kind: #a882e6; }
-:root[data-theme="dark"] .dash-line[data-kind="assignment"],
-:root[data-theme="servodata"] .dash-line[data-kind="assignment"] { --kind: #4cc0b8; }
 
 .dash-line[data-state="done"] .dash-line-text {
     color: var(--ui-text-muted);
@@ -353,14 +582,13 @@ body:has(#dashboard) > footer {
     font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Angeheftet ---------- */
+/* ---------- Karten rechts ---------- */
 .dash-card {
-    --ws-tile: 8rem;
-    max-width: 100%;
+    flex: none;
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
-    padding: 0.85rem 1.1rem 1.1rem;
+    gap: 0.6rem;
+    padding: 0.85rem 1.1rem 1rem;
     border: 1px solid var(--ui-border);
     border-radius: var(--ui-radius-lg);
     background: var(--ui-surface-card);
@@ -371,70 +599,360 @@ body:has(#dashboard) > footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1.5rem;
+    gap: 1rem;
     min-height: 1.75rem;
 }
 
-.dash-pins-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.8rem;
-    /* Platz für Schatten und Hover-Hub der Kacheln */
-    padding: 0.3rem 0.35rem 0.4rem;
-    margin: -0.3rem -0.35rem -0.4rem;
+.dash-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
 
-.dash-pins .ws-item-actions {
-    display: none;
+/* ---------- Servicelevel: Kopf als Auswahl, darunter Tag und Monat ---------- */
+.dash-sl-pick {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
-.dash-pins .workspace-pin-slot > .ws-item {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    grid-template-areas:
-        "icon"
-        "title";
+/* Kopf wie bei Genesys Live, mit Pfeil als Hinweis auf die Auswahl. */
+.dash-sl-trigger {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0.15rem 1.55rem 0.15rem 0.35rem;
+    margin-left: -0.35rem;
+    border: 0;
+    border-radius: 8px;
+    position: relative;
+    background: transparent;
+    color: var(--ui-text-strong);
+    font: inherit;
+    font-size: 1.06rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
 }
 
-.dash-pins .workspace-pin-slot .ws-item-icon {
-    width: 2.6rem;
-    height: 2.6rem;
+.dash-sl-trigger::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 0.35rem;
+    width: 0.9rem;
+    height: 0.9rem;
+    margin-top: -0.45rem;
+    background: var(--ui-text-muted);
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
-.dash-pins .workspace-pin-slot .ws-item-icon img {
-    width: 1.55rem;
-    height: 1.55rem;
+.dash-sl-trigger:hover,
+.dash-sl-trigger[aria-expanded="true"] {
+    background-color: var(--ui-surface-soft);
 }
 
-.dash-pin-empty {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.8rem 1.4rem;
-    border: 1px dashed rgba(var(--color-primary-rgb), 0.45);
-    border-radius: 12px;
+.dash-sl-trigger:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* Liste mit begrenzter Höhe; öffnet nach oben, wenn unten kein Platz ist (dashboard.js). */
+.dash-sl-list {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.35rem);
+    left: -0.35rem;
+    min-width: 15rem;
+    max-width: min(22rem, 80vw);
+    margin: 0;
+    padding: 0.3rem;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    list-style: none;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
     background: var(--ui-surface-card);
-    color: var(--color-primary);
-    font-weight: 700;
-    text-decoration: none;
+    box-shadow: var(--ui-shadow-md);
 }
 
-.dash-pin-empty:hover,
-.dash-pin-empty:focus-visible {
-    border-color: var(--color-primary);
+.dash-sl-list.is-up {
+    top: auto;
+    bottom: calc(100% + 0.35rem);
+}
+
+.dash-sl-list:focus {
+    outline: none;
+}
+
+.dash-sl-list:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.dash-sl-option {
+    padding: 0.4rem 0.65rem 0.4rem 1.6rem;
+    border-radius: 8px;
+    color: var(--ui-text-strong);
+    font-size: 0.92rem;
+    line-height: 1.25;
+    cursor: pointer;
+}
+
+.dash-sl-option.is-active {
     background: var(--ui-surface-soft);
 }
 
-/* ---------- Live-Panel ---------- */
+.dash-sl-option[aria-selected="true"] {
+    color: var(--color-primary);
+    font-weight: 700;
+    background: no-repeat left 0.5rem center / 0.8rem url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f6be0' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+
+.dash-sl-option[aria-selected="true"].is-active {
+    background-color: var(--ui-surface-soft);
+}
+
+.dash-sl-sep {
+    height: 1px;
+    margin: 0.3rem 0.4rem;
+    background: var(--ui-border);
+}
+
+.dash-sl-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.dash-sl-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.dash-sl-kpi + .dash-sl-kpi {
+    padding-left: 1rem;
+    border-left: 1px solid var(--ui-border);
+}
+
+.dash-sl-value {
+    color: var(--ui-text-strong);
+    font-size: 1.9rem;
+    font-weight: 750;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-sl-kpis [data-status="good"] {
+    color: var(--ui-green-text);
+}
+
+.dash-sl-kpis [data-status="bad"] {
+    color: var(--ui-red-text);
+}
+
+/* Vormonat unten in der Monatsspalte, auf Höhe des Trends */
+.dash-sl-prev {
+    margin: auto 0 0;
+    padding-top: 0.45rem;
+    color: var(--ui-text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.dash-sl-prev strong {
+    color: var(--ui-text-strong);
+    font-size: 1rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+
+.dash-sl-label {
+    color: var(--ui-text-muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+/* 7-Tage-Trend unter dem Monat */
+.dash-sl-trend {
+    position: relative;
+    margin-top: 0.45rem;
+}
+
+.dash-sl-trend svg {
+    display: block;
+    width: 100%;
+    max-width: 12rem;
+    height: auto;
+    overflow: visible;
+}
+
+.dash-sl-goal {
+    stroke: var(--ui-text-muted);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.6;
+    vector-effect: non-scaling-stroke;
+}
+
+.dash-sl-line {
+    fill: none;
+    stroke: var(--ui-text-muted);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    opacity: 0.55;
+    vector-effect: non-scaling-stroke;
+}
+
+.dash-sl-dot {
+    stroke: var(--ui-surface-card);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+}
+
+.dash-sl-dot[data-status="good"] {
+    fill: var(--ui-green-text);
+}
+
+.dash-sl-dot[data-status="bad"] {
+    fill: var(--ui-red-text);
+}
+
+.dash-sl-hit {
+    fill: transparent;
+    cursor: default;
+}
+
+.dash-sl-tip {
+    position: absolute;
+    bottom: calc(100% + 0.3rem);
+    transform: translateX(-50%);
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    background: var(--ui-text-strong);
+    color: var(--ui-surface-card);
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+/* ---------- Pin-Leiste: unten mittig in der freien Mitte, wie das Dock im Workspace ---------- */
+.dash-dock {
+    max-width: 100%;
+    padding: 0.55rem;
+    border: 1px solid rgba(var(--color-primary-rgb), 0.25);
+    border-radius: var(--ui-radius-lg);
+    background: color-mix(in srgb, var(--color-primary) 7%, var(--ui-surface-card));
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.dash-dock-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 11.5rem));
+    gap: 0.55rem;
+}
+
+.dash-dock .workspace-pin-slot {
+    width: auto;
+    height: 3.6rem;
+    aspect-ratio: auto;
+}
+
+.dash-dock .ws-item-actions {
+    display: none;
+}
+
+.dash-dock .workspace-pin-slot > .ws-item {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "icon title";
+    align-items: center;
+    column-gap: 0.55rem;
+    padding: 0.4rem 0.65rem;
+    border-top-width: 3px;
+    border-radius: var(--ui-radius-md);
+}
+
+.dash-dock .workspace-pin-slot .ws-item-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 10px;
+}
+
+.dash-dock .workspace-pin-slot .ws-item-icon img {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.dash-dock .workspace-pin-slot .ws-item-title {
+    align-self: center;
+    font-size: 0.82rem;
+}
+
+.dash-dock .workspace-pin-slot.is-empty {
+    border-radius: var(--ui-radius-md);
+}
+
+.dash-dock .workspace-pin-slot.is-empty:hover,
+.dash-dock .workspace-pin-slot.is-empty:focus-visible {
+    border-color: var(--color-primary);
+    outline: none;
+}
+
+/* Schmalere Mitte: erst ohne Icons, dann zwei Reihen, statt Wörter mitten im Wort umzubrechen. */
+@container (max-width: 720px) {
+    .dash-dock .workspace-pin-slot > .ws-item {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "title";
+    }
+
+    .dash-dock .workspace-pin-slot .ws-item-icon {
+        display: none;
+    }
+}
+
+@container (max-width: 560px) {
+    .dash-dock-grid {
+        grid-template-columns: repeat(2, minmax(0, 11.5rem));
+    }
+
+    .dash-dock .workspace-pin-slot > .ws-item {
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas: "icon title";
+    }
+
+    .dash-dock .workspace-pin-slot .ws-item-icon {
+        display: inline-flex;
+    }
+}
+
+/* ---------- Live-Panel: so hoch wie der Inhalt, scrollt erst bei Platzmangel ---------- */
 .gl-page.dash-live {
+    flex: 0 1 auto;
     min-height: 0;
     display: flex;
+    flex-direction: column;
 }
 
 .gl-page.dash-live .side-panel {
-    flex: 1 1 0;
+    flex: 0 1 auto;
     margin: 0;
     border-radius: var(--ui-radius-lg);
     box-shadow: var(--ui-shadow-sm);
+}
+
+.gl-page.dash-live #panelContent {
+    flex: 0 1 auto;
 }
 
 .dash-live-link {
@@ -455,17 +973,7 @@ body:has(#dashboard) > footer {
     font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Niedrige und schmale Fenster ---------- */
-@media (max-width: 1500px) {
-    .dash-card {
-        --ws-tile: 7.5rem;
-    }
-
-    .dash-pins .workspace-pin-slot .ws-item-title {
-        font-size: 0.8rem;
-    }
-}
-
+/* ---------- Schmale Fenster ---------- */
 @media (max-width: 1100px) {
     body:has(#dashboard) {
         height: auto;
@@ -487,14 +995,31 @@ body:has(#dashboard) > footer {
         flex-direction: column;
     }
 
-    .dash-main { order: 1; }
-    .dash-side { order: 2; width: auto; }
-    .gl-page.dash-live { order: 3; width: auto; display: block; }
+    .dash-main {
+        flex: none;
+        grid-template-columns: minmax(0, 1fr);
+    }
 
-    .dash-side-day,
-    .dash-side-week {
-        max-height: none;
+    .dash-left {
+        width: calc(var(--day-width) + 1.25rem);
+    }
+
+    .dash-center {
+        grid-column: 1;
+        grid-row: 3;
+        padding: 1rem 0 0;
+    }
+
+    .dash-right {
+        width: auto;
+    }
+
+    .dash-day {
         overflow: visible;
+    }
+
+    .gl-page.dash-live {
+        display: block;
     }
 
     .gl-page.dash-live #panelContent {
@@ -503,6 +1028,84 @@ body:has(#dashboard) > footer {
 }
 
 @media (max-width: 720px) {
+    .dash-week {
+        padding: 0.7rem 0.4rem;
+    }
+
+    .dash-hello {
+        margin-left: 0.6rem;
+        font-size: 1.35rem;
+    }
+
+    .dash-week-days {
+        gap: 0.1rem;
+    }
+
+    .dash-days {
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 0.25rem;
+    }
+
+    .dash-dayt {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "name"
+            "date"
+            "dots";
+        grid-template-rows: auto auto 1fr;
+        min-height: 5.4rem;
+        padding: 0.4rem 0.35rem;
+        border-radius: var(--ui-radius-sm);
+        text-align: center;
+    }
+
+    .dash-dayt-name {
+        font-size: 0.68rem;
+        letter-spacing: 0;
+    }
+
+    .dash-dayt-date {
+        font-size: 1.1rem;
+    }
+
+    .dash-dots {
+        justify-content: center;
+        gap: 0.15rem;
+    }
+
+    .dash-dot {
+        min-width: 1.15rem;
+        height: 1.15rem;
+        padding: 0 0.2rem;
+        font-size: 0.65rem;
+    }
+
+    .dash-week-sum {
+        flex-direction: column;
+        align-items: flex-start;
+        margin: 0.7rem 0.4rem 0;
+    }
+
+    .dash-badges {
+        flex: none;
+    }
+
+    .dash-left {
+        width: auto;
+    }
+
+    .dash-day-clip {
+        margin: -1.5rem 0.6rem 0;
+    }
+
+    .dash-me {
+        margin-left: 0;
+    }
+
+    .dash-dock-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .dash-event {
         grid-template-columns: minmax(0, 1fr) auto;
     }

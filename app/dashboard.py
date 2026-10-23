@@ -35,20 +35,19 @@ def build_dashboard_context(authz: AuthorizationContext, agent_stats_cookie: str
     suffix = f"?scenario={scenario}" if scenario else ""
     if scenario:
         sources = {
-            "tasks": f"/api/dashboard-mock/tasks-overview{suffix}",
             "events": f"/api/dashboard-mock/events{suffix}",
             "live": f"/api/dashboard-mock/genesys-live{suffix}",
             "service_level": f"/api/dashboard-mock/service-level{suffix}",
+            "my_day": f"/api/dashboard-mock/my-day{suffix}",
         }
     else:
-        # Der Servicelevel hat noch keine echte Quelle; der Bereich entfaellt dann.
-        sources = {"tasks": "/api/tasks/overview", "events": "/api/events",
-                   "live": "/api/reporting/genesys-live", "service_level": ""}
+        # Servicelevel und "Mein Tag" haben noch keine echte Quelle; die Bereiche entfallen dann.
+        sources = {"events": "/api/events", "live": "/api/reporting/genesys-live",
+                   "service_level": "", "my_day": ""}
     return {
         "dashboard_items": items,
         "dashboard_sources": sources,
         "dashboard_mock": scenario,
         "dashboard_live": bool(scenario) or live_available(authz, agent_stats_cookie),
-        "dashboard_tasks": authz.has_permission("SOFA-PAGE-TODO"),
         "dashboard_slog": authz.has_permission("SOFA-TOOL-SLOG"),
     }

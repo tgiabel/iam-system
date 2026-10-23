@@ -15,6 +15,7 @@
     const NOUNS = {
         onboarding: ["Onboarding", "Onboardings"],
         offboarding: ["Offboarding", "Offboardings"],
+        training: ["Schulung", "Schulungen"],
         change: ["Abteilungswechsel", "Abteilungswechsel"],
         assignment: ["Rollenzuweisung", "Rollenzuweisungen"],
         removal: ["Rollenentzug", "Rollenentzüge"],
@@ -223,5 +224,19 @@
         return summarize(eventsOnDay(events, dayKey)).reduce((sum, line) => sum + line.total, 0);
     }
 
-    return { kindOf, skillOf, nameOf, roleOf, joinNames, dayKeyOf, timeOf, summarize, summarizeDay, eventsOnDay, dayTotal, lineText, KIND_ORDER };
+    // Zahlen je Art fuer Kalender-Punkte und Wochen-Badges: Schulungen zaehlen als Termin (je Skill und Tag),
+    // alle anderen Arten nach den Einheiten der Zusammenfassung.
+    function kindCounts(events) {
+        const counts = new Map();
+        summarize(events).forEach(line => {
+            counts.set(line.kind, (counts.get(line.kind) || 0) + (line.kind === "training" ? 1 : line.total));
+        });
+        return KIND_ORDER.filter(kind => counts.get(kind)).map(kind => ({ kind, count: counts.get(kind) }));
+    }
+
+    function countText(kind, count) {
+        return `${count} ${pluralNoun(kind, count)}`;
+    }
+
+    return { kindOf, skillOf, nameOf, roleOf, joinNames, dayKeyOf, timeOf, summarize, summarizeDay, eventsOnDay, dayTotal, kindCounts, countText, lineText, KIND_ORDER };
 }));
