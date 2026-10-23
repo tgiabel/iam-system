@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 from fastapi import APIRouter, Cookie, Depends, Form, Request  # type: ignore
 from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
@@ -14,11 +15,13 @@ from app.authz import (
     require_permission,
     get_current_user,
 )
+from app.login_errors import login_error_message
 from app.workspace_catalog import visible_items
 from app.routes.shared import _build_session_user_from_login, _build_template_context, templates
 
 
 router = APIRouter()
+logger = logging.getLogger("uvicorn.error")
 
 
 def _request_uses_https(request: Request) -> bool:
@@ -46,7 +49,10 @@ async def login(request: Request, pnr: str = Form(...), password: str = Form(...
         user_data = await api_client.login_user(pnr, password)
         session_user = await _build_session_user_from_login(user_data)
     except Exception as exc:
-        flash_messages = [("failure", str(exc))]
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        if status is None or status >= 500:
+            logger.warning("Login fehlgeschlagen: %r", exc, exc_info=exc)
+        flash_messages = [("failure", login_error_message(exc))]
         return templates.TemplateResponse(
             "login.html",
             _build_template_context(request, flash_messages=flash_messages, pnr=pnr),
