@@ -151,6 +151,12 @@ class PinModelTests(unittest.TestCase):
                                 cwd=root, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_workspace_ui_listeners_are_idempotent(self):
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run([os.environ.get('SOFA_NODE_BINARY', 'node'), 'tests/workspace_ui_checks.js'],
+                                cwd=root, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()
