@@ -43,15 +43,7 @@ const LABELS = {
         BOT_RESPONSE: "Bot-Antwort",
         MAIL_SENT: "E-Mail versendet"
     },
-    processes: {
-        SKILL_ASSIGNMENT: "Rollenzuweisung",
-        SKILL_REMOVAL: "Rollenentzug",
-        TEMPORARY_ROLE: "Temporäre Rolle",
-        ONBOARDING: "Onboarding",
-        OFFBOARDING: "Offboarding",
-        CHANGE: "Funktionswechsel",
-        ROLLBACK: "Rücknahme"
-    }
+    processes: sofaContract.PROCESS_TYPE_LABELS
 };
 
 const PROCESS_KEYS = {

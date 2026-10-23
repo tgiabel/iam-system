@@ -47,8 +47,11 @@
     --ui-status-progress-text: var(--ui-info-text);
     --ui-status-completed-bg: var(--ui-success-bg);
     --ui-status-completed-text: var(--ui-success-text);
-    --ui-status-blocked-bg: var(--ui-purple-bg);
-    --ui-status-blocked-text: var(--ui-purple-text);
+    /* Grau = blockiert, Lila = nachgelagert (gilt für alle Seiten). */
+    --ui-status-blocked-bg: var(--ui-grey-bg);
+    --ui-status-blocked-text: var(--ui-grey-text);
+    --ui-status-deferred-bg: var(--ui-purple-bg);
+    --ui-status-deferred-text: var(--ui-purple-text);
     --ui-status-neutral-bg: var(--ui-grey-bg);
     --ui-status-neutral-text: var(--ui-grey-text);
     --ui-accent-bg: var(--chip-accent-bg);

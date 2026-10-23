@@ -14,6 +14,17 @@
         return String(value).padStart(2, "0");
     }
 
+    // Anzeigenamen der Prozesstypen fuer alle Seiten.
+    const PROCESS_TYPE_LABELS = Object.freeze({
+        SKILL_ASSIGNMENT: "Rollenzuweisung",
+        SKILL_REMOVAL: "Rollenentzug",
+        TEMPORARY_ROLE: "Temporäre Rolle",
+        ONBOARDING: "Onboarding",
+        OFFBOARDING: "Offboarding",
+        CHANGE: "Abteilungswechsel",
+        ROLLBACK: "Rücknahme"
+    });
+
     function localDateKey(value = new Date()) {
         return `${value.getFullYear()}-${pad2(value.getMonth() + 1)}-${pad2(value.getDate())}`;
     }
@@ -507,6 +518,7 @@
     }
 
     return {
+        PROCESS_TYPE_LABELS,
         berlinDateKey,
         canPreviewReschedule,
         accountIdentifierOutcomeMessage,
