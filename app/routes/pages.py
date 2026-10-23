@@ -16,6 +16,7 @@ from app.authz import (
     require_permission,
     get_current_user,
 )
+from app import tasks_board_mock
 from app.dashboard import build_dashboard_context
 from app.login_errors import login_error_message
 from app.workspace_catalog import visible_items
@@ -108,7 +109,22 @@ def logout(request: Request):
 
 
 @router.get("/tasks", response_class=HTMLResponse)
-def tasks(request: Request, authz=Depends(require_permission("SOFA-PAGE-TODO", redirect_to="/"))):
+def tasks(
+    request: Request,
+    mock: str | None = None,
+    authz=Depends(require_permission("SOFA-PAGE-TODO", redirect_to="/")),
+):
+    scenario = tasks_board_mock.mock_scenario(mock)
+    if scenario:
+        user = authz.raw_user or {}
+        name = ", ".join(part for part in (user.get("last_name"), user.get("first_name")) if part)
+        board = tasks_board_mock.mock_board(scenario, {"user_id": authz.user_id, "name": name})
+        # "</" escapen, damit der JSON-Block das <script>-Element nicht beenden kann.
+        board_json = json.dumps(board, ensure_ascii=False).replace("</", "<\\/")
+        return templates.TemplateResponse(
+            "tasks_board.html",
+            _build_template_context(request, user=authz.raw_user, authz=authz, board_json=board_json, board_mock=scenario),
+        )
     return templates.TemplateResponse("tasks.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 

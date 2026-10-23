@@ -1,0 +1,1572 @@
+/* Aufgaben als Kanban: Leiste "Zurückgestellt" am linken Fensterrand, daneben drei Spalten als Arbeitsfluss.
+   Jede Spalte scrollt für sich, kein Seitenscroll. */
+body:has(#task-board) {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+body:has(#task-board) > main {
+    flex: 1 1 0;
+    min-height: 0;
+    align-items: stretch;
+    padding: 0;
+}
+
+body:has(#task-board) > footer {
+    display: none;
+}
+
+.tb-page {
+    /* Mindestbreite so, dass der Kopf von "Erledigt" (Titel, dreistelliger Zähler, Zeitraum) einzeilig bleibt. */
+    --tb-col-min-w: 18rem;
+    --tb-card-w: 14rem;
+    --tb-card-gap: 0.7rem;
+    --tb-col-pad: 0.7rem;
+    /* Platz fuer eine Scrollleiste, damit alle Spalten dieselbe Innenbreite haben. */
+    --tb-gutter: 15px;
+    --tb-gap: 7.5rem;
+    --tb-board-w: 200rem;
+    --tb-rail-closed: 3.6rem;
+    --tb-rail-open: 21.1rem;
+    /* Farbstufen des Ablaufs. Töne entstehen durch Mischen mit der deckenden Kartenfläche, also ohne Transparenz. */
+    --tb-c-open: var(--color-primary);
+    --tb-c-progress: var(--ui-orange-text);
+    --tb-c-done: var(--ui-green-text);
+    --tb-c-blocked: var(--ui-status-blocked-text);
+    --tb-c-deferred: var(--ui-status-deferred-text);
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    max-width: none;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    margin: 0;
+    padding: 0;
+    font-size: 1.05rem;
+}
+
+.tb-page [hidden] {
+    display: none !important;
+}
+
+/* _.css setzt span/label global auf 1rem; im Board erben sie. :where hält die Spezifität bei der von "span". */
+:where(.tb-page) :is(span, label) {
+    font-size: inherit;
+    color: inherit;
+}
+
+.tb-main {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.1rem 50px 1rem;
+}
+
+.tb-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* ---------- Werkzeugleiste ---------- */
+.tb-toolbar {
+    width: 100%;
+    max-width: var(--tb-board-w);
+    margin-inline: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem 0.6rem 1.1rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.tb-title {
+    margin: 0 0.5rem 0 0;
+    color: var(--ui-text-strong);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.tb-search {
+    flex: 0 1 22rem;
+    min-width: 8rem;
+}
+
+.tb-pop-wrap {
+    position: relative;
+}
+
+.tb-tool-btn,
+.tb-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text);
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tb-tool-btn:hover,
+.tb-toggle:hover {
+    background: var(--ui-surface-soft);
+}
+
+.tb-tool-btn.is-active,
+.tb-toggle[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    background: var(--ui-surface-soft);
+    color: var(--color-primary);
+}
+
+.tb-badge {
+    min-width: 1.2rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--color-primary);
+    color: var(--ui-surface-card);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2rem;
+    text-align: center;
+}
+
+.tb-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+}
+
+.tb-icon-btn:hover,
+.tb-icon-btn[aria-expanded="true"] {
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-strong);
+}
+
+.tb-icon-btn.is-active {
+    color: var(--color-primary);
+}
+
+.tb-tool-btn:focus-visible,
+.tb-toggle:focus-visible,
+.tb-icon-btn:focus-visible,
+.tb-card-main:focus-visible,
+.tb-card-check:focus-visible,
+.tb-person-head:focus-visible,
+.tb-rail-tab:focus-visible,
+.tb-seg button:focus-visible,
+.tb-tabs button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* ---------- Popover (Filter, Spaltenansicht) ---------- */
+.tb-pop {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    min-width: 14rem;
+    max-height: min(70vh, 32rem);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-md);
+    font-size: 0.95rem;
+}
+
+.tb-pop-right {
+    left: auto;
+    right: 0;
+}
+
+.tb-pop-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.tb-pop-group legend {
+    margin-bottom: 0.25rem;
+    padding: 0;
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.tb-pop-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.2rem 0.3rem;
+    border-radius: 8px;
+    color: var(--ui-text-strong);
+    cursor: pointer;
+}
+
+.tb-pop-group label:hover {
+    background: var(--ui-surface-soft);
+}
+
+.tb-pop-group input {
+    accent-color: var(--color-primary);
+}
+
+.tb-link-btn {
+    align-self: flex-start;
+    padding: 0.2rem 0.3rem;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tb-link-btn:disabled {
+    color: var(--ui-text-muted);
+    cursor: default;
+}
+
+/* ---------- Board: Offen >> In Bearbeitung >> Erledigt ---------- */
+.tb-board {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    max-width: var(--tb-board-w);
+    margin-inline: auto;
+    display: grid;
+    /* Die Spalten wachsen stufenlos mit dem Fenster und sind immer gleich breit. Die Luecken nehmen
+       hoechstens --tb-gap und schrumpfen bei Platzmangel zuerst, danach die Spalten bis zur Mindestbreite. */
+    --tb-cards: 1;
+    grid-template-columns: minmax(var(--tb-col-min-w), 1fr) minmax(1rem, var(--tb-gap)) minmax(var(--tb-col-min-w), 1fr) minmax(1rem, var(--tb-gap)) minmax(var(--tb-col-min-w), 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+/* Karten je Zeile: eine Zahl fürs ganze Board, damit alle Spalten gleich aufgebaut sind. Die nächste Stufe
+   greift, sobald jede Karte mindestens --tb-card-w breit bleibt, auch wenn die Lücken dafür bis 4rem schrumpfen.
+   Schwelle = 3 Spalten (n Karten + Abstände + Innenabstand + Rand + --tb-gutter) + 2 × 4rem:
+   2 Karten 101.6rem, 3 Karten 145.6rem (bei 14rem Karten, 0.7rem Abständen, 15px Scrollleiste). */
+.tb-main {
+    container: tb-main / inline-size;
+}
+
+@container tb-main (min-width: 101.6rem) {
+    .tb-board {
+        --tb-cards: 2;
+        --tb-gap: clamp(4rem, calc((100cqi - 3 * (2 * var(--tb-card-w) + var(--tb-card-gap) + 2 * var(--tb-col-pad) + 2px + var(--tb-gutter))) / 2), 7.5rem);
+    }
+}
+
+@container tb-main (min-width: 145.6rem) {
+    .tb-board {
+        --tb-cards: 3;
+        --tb-gap: clamp(4rem, calc((100cqi - 3 * (3 * var(--tb-card-w) + 2 * var(--tb-card-gap) + 2 * var(--tb-col-pad) + 2px + var(--tb-gutter))) / 2), 7.5rem);
+    }
+}
+
+/* Karten füllen die Spaltenbreite; keine Ränder neben den Karten. */
+@media (min-width: 901px) {
+    .tb-board .tb-cards {
+        display: grid;
+        grid-template-columns: repeat(var(--tb-cards), minmax(0, 1fr));
+        align-items: start;
+    }
+}
+
+.tb-col {
+    --tb-stage: var(--tb-c-open);
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--tb-stage) 22%, var(--ui-border));
+    border-top: 4px solid var(--tb-stage);
+    border-radius: var(--ui-radius-lg);
+    background: color-mix(in srgb, var(--tb-stage) 4%, var(--ui-surface-card));
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.tb-col[data-stage="progress"] {
+    --tb-stage: var(--tb-c-progress);
+}
+
+.tb-col[data-stage="done"] {
+    --tb-stage: var(--tb-c-done);
+}
+
+.tb-col-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.55rem;
+    min-height: 3.3rem;
+    padding: 0.55rem 0.7rem 0.55rem 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--tb-stage) 20%, var(--ui-border));
+    background: color-mix(in srgb, var(--tb-stage) 11%, var(--ui-surface-card));
+}
+
+.tb-col-title {
+    margin: 0;
+    color: var(--tb-stage);
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.tb-count {
+    min-width: 1.7rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tb-stage) 18%, var(--ui-surface-card));
+    color: var(--tb-stage);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.tb-col-tools {
+    margin-left: auto;
+}
+
+.tb-col-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: var(--tb-card-gap);
+    padding: var(--tb-col-pad) var(--tb-col-pad) 0.9rem;
+    scrollbar-gutter: stable;
+}
+
+/* Platz für die Auswahlleiste, damit sie die letzten Karten nicht verdeckt. */
+.has-selection .tb-col-body,
+.has-selection .tb-park-body {
+    padding-bottom: 4.5rem;
+}
+
+/* Flache Doppelpfeile mittig zwischen den Spalten, in der Farbe der nächsten Stufe. */
+.tb-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tb-flow-arrow {
+    width: 1.75rem;
+    max-width: 100%;
+}
+
+.tb-flow-arrow svg {
+    display: block;
+    width: 100%;
+    height: 2.5rem;
+    fill: none;
+    stroke: var(--tb-next);
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tb-flow-progress {
+    --tb-next: var(--tb-c-progress);
+}
+
+.tb-flow-done {
+    --tb-next: var(--tb-c-done);
+}
+
+.tb-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tb-group + .tb-group {
+    margin-top: 0.4rem;
+}
+
+.tb-group-label {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    margin: 0.2rem 0.2rem 0;
+    color: var(--ui-text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.tb-group-label > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tb-group-count {
+    color: var(--ui-text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
+.tb-empty {
+    margin: 0.6rem 0.4rem;
+    color: var(--ui-text-muted);
+    font-size: 0.95rem;
+}
+
+/* Erledigt: Zeitraum als Umschalter rechts im Kopf; bei schmaler Spalte bricht er in eine eigene Zeile. */
+.tb-seg {
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tb-stage) 14%, var(--ui-surface-card));
+}
+
+.tb-col[data-stage="done"] .tb-col-head {
+    flex-wrap: nowrap;
+}
+
+.tb-col[data-stage="done"] .tb-seg {
+    flex: 0 0 auto;
+}
+
+/* Kompakt, damit der Umschalter auch in der schmalen Spalte neben dem Titel Platz hat. */
+.tb-col[data-stage="done"] .tb-seg button {
+    padding: 0.2rem 0.5rem;
+    font-size: 0.82rem;
+}
+
+.tb-seg button {
+    flex: 1 1 0;
+    padding: 0.2rem 0.6rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.tb-seg button[aria-pressed="true"] {
+    background: var(--ui-surface-card);
+    color: var(--tb-stage);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+/* ---------- Karten: gemeinsame Hierarchie in allen Spalten ---------- */
+.tb-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--tb-card-gap);
+}
+
+/* Die Höhe folgt dem Inhalt; lange Ressourcen und Namen bleiben vollständig lesbar. */
+.tb-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: 16px;
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.tb-card:hover {
+    border-color: var(--ui-border-strong);
+}
+
+.tb-card-main {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    min-height: 11.5rem;
+    padding: 0.95rem;
+    border: 0;
+    border-radius: 15px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* Erste Zeile lässt rechts Platz für das Auswahlkästchen. */
+.tb-card-system {
+    overflow: hidden;
+    padding-right: 1.9rem;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tb-card-heading {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+    margin-top: 0.55rem;
+}
+
+.tb-card-title {
+    color: var(--ui-text-strong);
+    font-size: 1.22rem;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+}
+
+.tb-card-action {
+    font-size: 0.92rem;
+    font-weight: 650;
+    line-height: 1.3;
+}
+
+.tb-card-action.is-assign {
+    color: var(--ui-green-text);
+}
+
+.tb-card-action.is-revoke {
+    color: var(--ui-red-text);
+}
+
+.tb-card-person {
+    margin-top: 0.65rem;
+    color: var(--ui-text);
+    font-size: 1.06rem;
+    font-weight: 550;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.tb-card-for {
+    color: var(--ui-text-muted);
+    font-size: 0.88rem;
+    font-weight: 400;
+}
+
+.tb-card-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    margin-top: auto;
+    padding-top: 0.9rem;
+    color: var(--ui-text-muted);
+    font-size: 0.84rem;
+    line-height: 1.4;
+}
+
+.tb-card-context {
+    color: var(--ui-text-muted);
+    overflow-wrap: anywhere;
+}
+
+.tb-card-context > .tb-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+    margin-right: 0.3rem;
+    vertical-align: -0.1rem;
+}
+
+.tb-card-separator {
+    margin-inline: 0.35rem;
+}
+
+.tb-card-due {
+    color: var(--ui-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.tb-card-due.is-overdue,
+.tb-card-due.is-today {
+    padding: 0.08rem 0.45rem;
+    border-radius: 6px;
+    font-weight: 650;
+}
+
+.tb-card-due.is-overdue {
+    background: color-mix(in srgb, var(--ui-red-text) 13%, var(--ui-surface-card));
+    color: var(--ui-red-text);
+}
+
+.tb-card-due.is-today {
+    background: color-mix(in srgb, var(--ui-orange-text) 15%, var(--ui-surface-card));
+    color: var(--ui-orange-text);
+}
+
+/* Fremde Tasks: gedämpfte, aber deckende Fläche, ohne Schatten. */
+.tb-card.is-foreign {
+    background: var(--ui-surface-muted);
+    box-shadow: none;
+}
+
+.tb-card.is-foreign .tb-card-title {
+    font-weight: 600;
+}
+
+.tb-card.is-selected {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--ui-surface-card));
+    box-shadow: 0 0 0 1.5px var(--color-primary);
+}
+
+/* Auswahlkästchen: sichtbar bei Hover/Fokus oder sobald etwas ausgewählt ist. */
+.tb-card-check {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.4rem;
+    height: 1.4rem;
+    padding: 0;
+    border: 1.5px solid var(--ui-border-strong);
+    border-radius: 6px;
+    background: var(--ui-surface-card);
+    color: transparent;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.tb-card-check .tb-icon {
+    width: 1rem;
+    height: 1rem;
+    stroke-width: 2.6;
+}
+
+.tb-card:hover .tb-card-check,
+.tb-card:focus-within .tb-card-check,
+.has-selection .tb-card-check {
+    opacity: 1;
+}
+
+.tb-card-check[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--ui-surface-card);
+}
+
+@media (hover: none) {
+    .tb-card-check {
+        opacity: 1;
+    }
+}
+
+.tb-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 50%;
+    color: var(--ui-grey-text);
+    /* Hell ist --ui-grey-bg deckend; in den dunklen Themes über die Kartenfläche gelegt. */
+    background: linear-gradient(var(--ui-grey-bg), var(--ui-grey-bg)) var(--ui-surface-card);
+    font-size: 0.72rem;
+    font-weight: 750;
+    letter-spacing: 0.02em;
+}
+
+.tb-avatar.is-me {
+    background: var(--color-primary);
+    color: var(--ui-surface-card);
+}
+
+/* ---------- In Bearbeitung: nach Bearbeiter ---------- */
+.tb-person {
+    gap: 0.55rem;
+}
+
+.tb-person-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin: 0;
+    padding: 0.4rem 0.4rem;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--ui-text-strong);
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 650;
+    text-align: left;
+}
+
+button.tb-person-head {
+    cursor: pointer;
+}
+
+button.tb-person-head:hover {
+    background: color-mix(in srgb, var(--tb-stage) 10%, var(--ui-surface-card));
+}
+
+.tb-person:not(.is-me) .tb-person-head {
+    color: var(--ui-text);
+    font-weight: 600;
+}
+
+/* Prozessgruppe unter "Offen": Kopf zum Aufklappen, rechts daneben der Hinweis auf blockierte Tasks. */
+.tb-group-headrow {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.tb-group-headrow > .tb-person-head {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tb-group-blocked {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border: 1px solid color-mix(in srgb, var(--tb-c-blocked) 35%, var(--ui-border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tb-c-blocked) 12%, var(--ui-surface-card));
+    color: var(--tb-c-blocked);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.tb-group-blocked .tb-icon {
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+.tb-group-blocked:hover {
+    border-color: var(--tb-c-blocked);
+}
+
+.tb-group-blocked:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.tb-person-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tb-person-age {
+    color: var(--ui-text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.tb-chevron {
+    color: var(--ui-text-muted);
+    transition: transform 0.2s ease;
+}
+
+.tb-person.is-open .tb-chevron {
+    transform: rotate(90deg);
+}
+
+.tb-person.is-me {
+    padding-bottom: 0.7rem;
+    border-bottom: 1px dashed color-mix(in srgb, var(--tb-stage) 35%, var(--ui-border));
+}
+
+/* ---------- Leiste "Zurückgestellt": Reiter und anhängendes Panel ---------- */
+.tb-rail {
+    --tb-panel-stage: var(--tb-c-blocked);
+    --tb-panel-bg: color-mix(in srgb, var(--tb-panel-stage) 4%, var(--ui-surface-card));
+    position: relative;
+    isolation: isolate;
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 0;
+    width: var(--tb-rail-closed);
+    overflow: hidden;
+    transition: width 0.3s ease;
+}
+
+.tb-rail[data-active-section="deferred"] {
+    --tb-panel-stage: var(--tb-c-deferred);
+}
+
+.tb-rail.is-open {
+    width: var(--tb-rail-open);
+}
+
+/* Alle Reiter bleiben links vor dem Panel sichtbar und bedienbar. */
+.tb-rail-tabs {
+    position: absolute;
+    top: 1.1rem;
+    left: 0;
+    width: var(--tb-rail-closed);
+    display: flex;
+    flex-direction: column;
+}
+
+.tb-rail-tab {
+    --tb-stage: var(--ui-text-muted);
+    position: relative;
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    width: var(--tb-rail-closed);
+    padding: 0.85rem 0 0.8rem;
+    border: 1px solid var(--ui-border);
+    border-left: 0;
+    border-radius: 0 var(--ui-radius-lg) var(--ui-radius-lg) 0;
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+    color: var(--ui-text-muted);
+    font: inherit;
+    cursor: pointer;
+    transition: transform 0.3s ease, background-color 0.15s ease, filter 0.15s ease;
+}
+
+.tb-rail-tab.is-main {
+    z-index: 6;
+    gap: 0.9rem;
+    padding-bottom: 1rem;
+}
+
+.tb-rail:not(.is-open) .tb-rail-tabs:hover .tb-rail-tab.is-main {
+    background: var(--ui-surface-soft);
+}
+
+/* Geöffnet bilden die geraden Reiter mit der Fläche darunter einen gemeinsamen Block. */
+.tb-rail.is-open .tb-rail-tab {
+    width: calc(var(--tb-rail-closed) + 1px);
+    border-right-color: transparent;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.tb-rail.is-open .tb-rail-tab.is-main > .tb-chevron {
+    transform: rotate(180deg);
+}
+
+.tb-rail.is-open .tb-rail-tab.is-main {
+    border-color: var(--tb-panel-stage);
+    border-bottom-color: var(--ui-border);
+    border-right-color: transparent;
+    background: var(--tb-panel-bg);
+    color: var(--ui-text-strong);
+}
+
+.tb-rail.is-open .tb-rail-tab.is-main :is(.tb-rail-label, .tb-chevron) {
+    color: inherit;
+}
+
+/* Die Spaltenkanten setzen sich ueber die Flaeche unter den Reitern bis zum Fensterrand fort. */
+@media (min-width: 901px) {
+    .tb-rail.is-open::before,
+    .tb-rail.is-open::after {
+        content: "";
+        position: absolute;
+        z-index: 7;
+        left: 0;
+        width: calc(var(--tb-rail-closed) + 1px);
+        background: var(--tb-panel-stage);
+        pointer-events: none;
+    }
+
+    .tb-rail.is-open::before {
+        top: 1.1rem;
+        height: 4px;
+    }
+
+    .tb-rail.is-open::after {
+        bottom: 1rem;
+        height: 1px;
+    }
+}
+
+.tb-rail-tab + .tb-rail-tab {
+    margin-top: -1.2rem;
+    padding-top: 1.85rem;
+    border-top-right-radius: 0;
+}
+
+.tb-rail-tab.is-blocked {
+    --tb-stage: var(--tb-c-blocked);
+    z-index: 5;
+}
+
+.tb-rail-tab.is-deferred {
+    --tb-stage: var(--tb-c-deferred);
+    z-index: 4;
+}
+
+.tb-rail-tab.is-blocked,
+.tb-rail-tab.is-deferred {
+    border-color: color-mix(in srgb, var(--tb-stage) 72%, var(--ui-text-strong));
+    background: var(--tb-stage);
+    color: var(--ui-surface-card);
+}
+
+.tb-rail-tab.is-blocked:hover,
+.tb-rail-tab.is-deferred:hover {
+    filter: brightness(1.18);
+}
+
+.tb-rail.is-open .tb-rail-tab:not(.is-main) {
+    background: color-mix(in srgb, var(--tb-stage) 16%, var(--ui-surface-card));
+    color: var(--tb-stage);
+}
+
+.tb-rail.is-open .tb-rail-tab.is-active,
+.tb-rail .tb-rail-tab.is-active {
+    border-color: var(--tb-stage);
+    border-right-color: transparent;
+    background: var(--tb-stage);
+    color: var(--ui-surface-card);
+    filter: none;
+}
+
+/* Ein kleiner Pfeil verbindet die Auswahl auch unabhängig von ihrer Farbe mit dem Inhalt. */
+.tb-rail-tab.is-active::after {
+    content: "";
+    position: absolute;
+    right: -0.5rem;
+    top: calc(50% + 0.5rem);
+    border-block: 0.35rem solid transparent;
+    border-left: 0.45rem solid var(--tb-stage);
+    pointer-events: none;
+}
+
+.tb-rail-section-label {
+    display: none;
+}
+
+.tb-rail-tab-count {
+    font-size: 0.95rem;
+    font-weight: 750;
+    font-variant-numeric: tabular-nums;
+}
+
+.tb-rail-label {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    color: var(--ui-text-strong);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.tb-rail-body {
+    position: absolute;
+    z-index: 3;
+    inset: 1.1rem auto 1rem 0;
+    width: var(--tb-rail-open);
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 0 var(--tb-rail-closed);
+    overflow: hidden;
+    border: 1px solid var(--tb-panel-stage);
+    border-left: 0;
+    border-radius: 0 var(--ui-radius-lg) var(--ui-radius-lg) 0;
+    background: var(--tb-panel-bg);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform 0.3s ease, visibility 0s 0.3s;
+}
+
+.tb-rail.is-open .tb-rail-body {
+    transform: translateX(0);
+    visibility: visible;
+    transition-delay: 0s;
+}
+
+/* Die aktive Spalte zeichnet oben, rechts und unten zugleich den Panelrand. */
+.tb-rail-body:has(> .tb-park.is-active) {
+    border-width: 0;
+}
+
+/* Die Kanban-Spalte behaelt ihre eigene helle Listen- und Kopfflaeche. */
+.tb-park {
+    --tb-stage: var(--tb-c-blocked);
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    margin: 0;
+    border: 1px solid var(--tb-stage);
+    border-top: 4px solid var(--tb-stage);
+    border-left: 0;
+    border-radius: 0 var(--ui-radius-lg) var(--ui-radius-lg) 0;
+    background: color-mix(in srgb, var(--tb-stage) 4%, var(--ui-surface-card));
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.tb-park.is-deferred {
+    --tb-stage: var(--tb-c-deferred);
+}
+
+.tb-park-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 3.3rem;
+    margin: 0;
+    padding: 0.65rem 0.8rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--tb-stage) 20%, var(--ui-border));
+    background: color-mix(in srgb, var(--tb-stage) 11%, var(--ui-surface-card));
+    color: var(--tb-stage);
+    font: inherit;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.tb-park-head > .tb-icon:first-child {
+    color: inherit;
+}
+
+.tb-park-label {
+    flex: 1 1 auto;
+}
+
+.tb-park-count {
+    min-width: 1.7rem;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tb-stage) 16%, var(--ui-surface-card));
+    color: var(--tb-stage);
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.tb-park-body {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.7rem;
+}
+
+/* ---------- Auswahlleiste ---------- */
+.tb-selbar {
+    position: fixed;
+    z-index: 40;
+    left: 50%;
+    bottom: 1.2rem;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.45rem 0.4rem 1.1rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-lg);
+}
+
+.tb-selbar-count {
+    margin-right: 0.4rem;
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tb-selbar .btn {
+    padding: 0.45rem 0.95rem;
+    font-size: 0.92rem;
+}
+
+.tb-page .btn:is([data-detail-action="release"], [data-bulk="release"]) {
+    border-color: var(--ui-red-text);
+    color: var(--ui-red-text);
+}
+
+.tb-page .btn:is([data-detail-action="release"], [data-bulk="release"]):hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ui-red-text) 7%, var(--ui-surface-card));
+    border-color: var(--ui-red-text);
+    color: var(--ui-red-text);
+}
+
+/* ---------- Task-Modal: gleicher Kopf, Arbeitsbereich je Status ---------- */
+.tb-detail {
+    width: min(72rem, calc(100vw - 3rem));
+    height: fit-content;
+    max-height: min(49rem, calc(100dvh - 3rem));
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface-card);
+    color: var(--ui-text);
+    box-shadow: var(--ui-shadow-lg);
+    font-size: 1rem;
+    line-height: 1.45;
+}
+
+.tb-detail[open] { display: flex; flex-direction: column; }
+.tb-detail::backdrop { background: rgb(15 23 42 / 0.45); }
+.tb-detail p, .tb-detail h3, .tb-detail fieldset { margin: 0; }
+.tb-detail button, .tb-detail input, .tb-detail textarea { font: inherit; }
+.tb-detail button { touch-action: manipulation; }
+.tb-detail button:focus-visible, .tb-detail input:focus-visible, .tb-detail textarea:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+}
+
+.tb-detail-head {
+    flex: none;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding: 1.5rem 1.5rem 1.1rem;
+    border-bottom: 1px solid var(--ui-border);
+}
+.tb-detail-heading { min-width: 0; }
+.tb-detail-kicker { color: var(--ui-text-muted); font-size: 0.9rem; font-weight: 600; }
+.tb-detail-title {
+    margin: 0.3rem 0 0;
+    color: var(--ui-text-strong);
+    font-size: 1.9rem;
+    font-weight: 750;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+.tb-detail .tb-detail-operation { margin-top: 0.3rem; font-weight: 650; font-size: 1rem; }
+.tb-detail-operation.is-assign { color: var(--ui-green-text); }
+.tb-detail-operation.is-revoke { color: var(--ui-red-text); }
+.tb-detail .tb-detail-person { margin-top: 0.6rem; font-size: 1.25rem; font-weight: 600; color: var(--ui-text-strong); overflow-wrap: anywhere; }
+.tb-detail-head-tools { display: flex; flex: none; align-items: center; gap: 0.35rem; }
+.tb-detail-head-tools .tb-icon-btn { width: 2rem; height: 2rem; }
+.tb-detail-status {
+    --tb-status-color: var(--ui-blue-text);
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.65rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tb-status-color) 10%, var(--ui-surface-card));
+    color: var(--tb-status-color);
+    font-size: 0.82rem;
+    font-weight: 650;
+    white-space: nowrap;
+}
+.tb-detail[data-status="IN_PROGRESS"] .tb-detail-status { --tb-status-color: var(--ui-orange-text); }
+.tb-detail[data-status="COMPLETED"] .tb-detail-status { --tb-status-color: var(--ui-green-text); }
+.tb-detail[data-status="BLOCKED"] .tb-detail-status { --tb-status-color: var(--ui-grey-text); }
+.tb-detail-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.85fr); grid-template-rows: minmax(0, 1fr); flex: 1 1 auto; min-height: 0; }
+.tb-detail-task { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.tb-detail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem; }
+.tb-detail button.btn { font-weight: 750; letter-spacing: 0.01em; white-space: normal; }
+.tb-work-heading { display: flex; align-items: center; gap: 0.75rem; }
+.tb-detail h3.tb-work-heading { font-size: 1.35rem; font-weight: 750; }
+.tb-work-icon { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 1.8rem; height: 1.8rem; color: var(--tb-work-accent); }
+.tb-work-icon svg { width: 1.45rem; height: 1.45rem; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#tb-detail-work { --tb-work-accent: var(--ui-orange-text); }
+.tb-detail[data-mode="complete"] #tb-detail-work, .tb-detail[data-mode="mail"] #tb-detail-work { --tb-work-accent: var(--color-primary); }
+.tb-detail[data-mode="done"] #tb-detail-work { --tb-work-accent: var(--ui-green-text); }
+#tb-detail-work:not(:empty) { margin-top: 1.3rem; padding-top: 1.15rem; border-top: 2px solid color-mix(in srgb, var(--tb-work-accent) 55%, var(--ui-border)); }
+.tb-detail h3.tb-work-heading { color: var(--tb-work-accent); }
+.tb-detail-task .tb-detail-identifier { padding: 0.35rem 0; border-radius: 0; background: none; }
+#tb-detail-work.is-entering { animation: tb-work-enter 0.25s ease-out; }
+@keyframes tb-work-enter { from { opacity: 0.5; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+.tb-detail-context { display: flex; flex-wrap: wrap; gap: 0.9rem 1.8rem; margin: 0; }
+.tb-detail-context > div { min-width: 0; }
+.tb-detail-context dt { margin: 0 0 0.15rem; font-size: 0.78rem; color: var(--ui-text-muted); }
+.tb-detail-context dd { margin: 0; font-size: 1.08rem; font-weight: 650; color: var(--ui-text-strong); overflow-wrap: anywhere; }
+.tb-detail-context .tb-detail-reference { flex: 1 1 100%; }
+.tb-detail-reference dt { display: none; }
+.tb-detail-reference dd { font-size: 0.84rem; font-weight: 400; color: var(--ui-text-muted); }
+.tb-detail-due.is-overdue { color: var(--ui-red-text); font-weight: 650; }
+.tb-detail-due.is-today { color: var(--ui-orange-text); font-weight: 650; }
+.tb-detail h3 { font-size: 1.12rem; color: var(--ui-text-strong); font-weight: 700; }
+.tb-detail-work-section { display: flex; flex-direction: column; gap: 0.85rem; }
+.tb-detail-copy { color: var(--ui-text-muted); font-size: 0.96rem; }
+.tb-detail-hint { font-size: 0.8rem; color: var(--ui-text-muted); line-height: 1.4; }
+.tb-detail-inline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem 1rem; }
+.tb-detail-inline > p { flex: 1 1 15rem; }
+.tb-detail-inline > .btn { width: 100%; min-height: 3.1rem; padding: 0.75rem 1rem; text-align: left; }
+.tb-detail-note-actions { display: flex; justify-content: flex-end; }
+.tb-detail-inline-hint { color: var(--ui-orange-text); font-size: 0.86rem; }
+.tb-detail-notice { display: flex; flex-direction: column; gap: 0.45rem; padding: 0.15rem 0 0.15rem 0.8rem; border-left: 3px solid var(--ui-border-strong); }
+.tb-detail-notice p { font-size: 0.92rem; color: var(--ui-text-muted); }
+.tb-detail-notice.is-error { border-left-color: var(--ui-red-text); }
+.tb-detail-notice.is-error > strong { color: var(--ui-red-text); }
+.tb-detail-field { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.92rem; color: var(--ui-text-strong); }
+.tb-detail-field > span { font-weight: 700; }
+.tb-detail-field input, .tb-detail-field textarea {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--ui-border-strong);
+    border-radius: 10px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text-strong);
+    font-size: 0.96rem;
+    line-height: 1.4;
+    resize: vertical;
+}
+.tb-detail-field input[aria-invalid="true"] { border-color: var(--ui-red-text); }
+.tb-detail-field textarea { min-height: 5.2rem; }
+.tb-detail fieldset { min-width: 0; padding: 0.85rem 1rem; border: 1px solid var(--ui-border); border-radius: 12px; }
+.tb-detail legend { padding-inline: 0.25rem; color: var(--ui-text-strong); font-size: 0.93rem; font-weight: 650; }
+.tb-detail-choices label, .tb-detail-related label, .tb-detail-confirm { display: flex; align-items: flex-start; gap: 0.6rem; padding-block: 0.5rem; font-size: 0.94rem; cursor: pointer; }
+.tb-detail input:is([type="radio"], [type="checkbox"]) { flex: none; width: 1rem; height: 1rem; margin: 0.22rem 0 0; accent-color: var(--color-primary); }
+.tb-detail label strong { display: block; color: var(--ui-text-strong); font-weight: 600; }
+.tb-detail label small { display: block; margin-top: 0.2rem; color: var(--ui-text-muted); font-size: 0.8rem; }
+.tb-detail-confirm { padding: 0.8rem 1rem; border: 1px solid var(--ui-border); border-radius: 12px; }
+.tb-detail-confirm.is-warning { border-color: color-mix(in srgb, var(--ui-orange-text) 40%, var(--ui-border)); background: color-mix(in srgb, var(--ui-orange-text) 5%, var(--ui-surface-card)); }
+.tb-detail-confirm.is-warning strong { color: var(--ui-orange-text); }
+.tb-detail-result { display: flex; flex-direction: column; gap: 0.8rem; }
+.tb-detail-result h3 { color: var(--ui-green-text); }
+.tb-detail-result-comment { color: var(--ui-text-strong); white-space: pre-wrap; overflow-wrap: anywhere; }
+.tb-detail-identifier { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 10px; background: var(--ui-surface-soft); }
+.tb-detail-identifier > span { min-width: 0; }
+.tb-detail-identifier .tb-detail-hint, .tb-detail-identifier strong { display: block; }
+.tb-detail-identifier strong { font-size: 1rem; color: var(--ui-text-strong); user-select: text; overflow-wrap: anywhere; }
+.tb-detail-history { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; border-left: 1px solid var(--ui-border); background: var(--ui-surface-soft); }
+.tb-detail-section-head { display: flex; flex: none; align-items: center; min-height: 4rem; padding: 1rem 1.5rem; border-bottom: 1px solid var(--ui-border); }
+.tb-detail-section-head h3 { font-size: 1.1rem; font-weight: 700; }
+.tb-detail-section-head h3 .tb-detail-hint { margin-left: 0.4rem; }
+.tb-history-scroll { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; max-height: 28rem; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; padding: 1rem 1.5rem 1.4rem; scrollbar-gutter: stable; }
+.tb-history-scroll:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -3px; }
+.tb-history-older { flex: none; padding-bottom: 0.9rem; text-align: center; color: var(--ui-text-muted); font-size: 0.78rem; }
+.tb-detail .tb-link-btn { padding: 0; font-size: 0.9rem; font-weight: 700; text-align: left; }
+.tb-detail .tb-link-btn:disabled { opacity: 0.5; cursor: default; }
+.tb-timeline { --tb-line-inset: 0.5rem; --tb-line-width: 2px; --tb-dot-size: 8px; position: relative; flex: none; margin: auto 0 0; padding: 0 0 0 var(--tb-line-inset); list-style: none; }
+.tb-timeline > :is(.tb-timeline-day, .tb-timeline-entry) { background-image: linear-gradient(var(--ui-border-strong), var(--ui-border-strong)); background-size: var(--tb-line-width) 100%; background-position: left top; background-repeat: no-repeat; }
+.tb-timeline-day { padding: 0.6rem 0 0.85rem; font-size: 0.76rem; font-weight: 600; text-align: center; color: var(--ui-text-muted); }
+.tb-timeline-entry { position: relative; padding: 0.35rem 0 1.2rem 1.1rem; }
+.tb-timeline-entry::before { content: ""; position: absolute; top: 0.8rem; left: calc((var(--tb-line-width) - var(--tb-dot-size)) / 2); width: var(--tb-dot-size); height: var(--tb-dot-size); border-radius: 50%; background: var(--ui-border-strong); }
+.tb-timeline-entry:last-child { padding-bottom: 0.25rem; background-size: var(--tb-line-width) calc(0.8rem + var(--tb-dot-size) / 2); }
+.tb-timeline-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; color: var(--ui-text-muted); font-size: 0.83rem; }
+.tb-timeline-heading > span { min-width: 0; }
+.tb-timeline-heading strong { font-size: 0.92rem; font-weight: 650; color: var(--ui-text); overflow-wrap: anywhere; }
+.tb-timeline-action { display: block; margin-top: 0.08rem; font-size: 0.78rem; color: var(--ui-text-muted); }
+.tb-timeline-heading time { flex: none; font-size: 0.76rem; font-variant-numeric: tabular-nums; }
+.tb-timeline-tools { display: inline-flex; flex: none; align-items: center; gap: 0.4rem; }
+.tb-history-mail-toggle { flex: none; width: 1.6rem; height: 1.6rem; padding: 0.2rem; color: var(--ui-text-muted); }
+.tb-history-mail-toggle .tb-icon { width: 1rem; height: 1rem; }
+.tb-history-mail { margin-top: 0.6rem; padding-top: 0.65rem; border-top: 1px solid var(--ui-border-strong); color: var(--ui-text); }
+.tb-history-mail dl { display: grid; gap: 0.4rem; margin: 0 0 0.7rem; }
+.tb-history-mail dl > div { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 0.5rem; }
+.tb-history-mail dt { font-size: 0.78rem; color: var(--ui-text-muted); }
+.tb-history-mail dd { margin: 0; font-size: 0.88rem; overflow-wrap: anywhere; }
+.tb-history-mail-body { font-size: 0.94rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
+.tb-timeline-entry.has-comment::before { background: var(--color-primary); }
+.tb-timeline-entry > p { margin-top: 0.4rem; color: var(--ui-text); font-size: 0.96rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tb-timeline-entry.has-comment > p { padding: 0.75rem 0.85rem; border: 1px solid var(--ui-border); border-radius: 0 12px 12px 12px; background: var(--ui-surface-card); }
+.tb-timeline-entry.is-error > p { color: var(--ui-red-text); }
+.tb-timeline-entry > .tb-detail-identifier { margin-top: 0.45rem; background: var(--ui-surface-card); }
+.tb-timeline-entry.is-new { --tb-dot-size: 10px; }
+.tb-timeline-entry.is-new::before { background: var(--color-primary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary) 12%, var(--ui-surface-soft)); }
+.tb-timeline-entry.is-new .tb-timeline-heading strong { color: var(--color-primary); }
+.tb-timeline-entry.is-new > p { border-color: color-mix(in srgb, var(--color-primary) 40%, var(--ui-border)); }
+.tb-timeline-entry.is-new { animation: tb-history-enter 0.3s ease-out; }
+@keyframes tb-history-enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.tb-history-latest { position: absolute; right: 1rem; bottom: 1rem; display: inline-flex; align-items: center; justify-content: center; width: 2.6rem; height: 2.6rem; padding: 0; border: 1px solid var(--ui-border-strong); border-radius: 50%; background: var(--ui-surface-card); color: var(--color-primary); box-shadow: var(--ui-shadow-sm); cursor: pointer; }
+.tb-history-latest:hover { background: var(--ui-surface-soft); }
+.tb-history-latest .tb-icon { width: 1.3rem; height: 1.3rem; stroke-width: 2.3; }
+.tb-history-unread { position: absolute; top: -0.35rem; right: -0.35rem; min-width: 1.2rem; padding: 0.1rem 0.25rem; border-radius: 999px; background: var(--color-primary); color: var(--ui-surface-card); font-size: 0.7rem; font-weight: 700; line-height: 1.2; text-align: center; }
+.tb-detail-actions { flex: none; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid var(--ui-border); background: var(--ui-surface-card); }
+.tb-detail-actions .btn { width: 100%; min-width: 0; min-height: 3.2rem; text-align: left; font-size: 1.05rem; padding: 0.75rem 1.1rem; }
+.tb-detail-actions .btn-primary::after { content: "→"; float: right; font-size: 1.25rem; line-height: 1; }
+.tb-detail-running { color: var(--ui-text-muted); font-size: 0.85rem; }
+.tb-detail-error { color: var(--ui-red-text); font-size: 0.92rem; }
+.tb-detail-announcement { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 760px) {
+    .tb-detail { width: calc(100vw - 1rem); height: fit-content; max-height: calc(100dvh - 1rem); border-radius: 18px; }
+    .tb-detail-head { gap: 0.7rem; padding: 1.1rem 1rem 1rem; }
+    .tb-detail-title { font-size: 1.5rem; }
+    .tb-detail-head-tools { flex-wrap: wrap; justify-content: flex-end; max-width: 8.5rem; }
+    .tb-detail-status { order: 3; }
+    .tb-detail-layout { display: flex; flex-direction: column; overflow-y: auto; }
+    .tb-detail-task { flex: none; }
+    .tb-detail-body { flex: none; overflow: visible; padding: 1rem; }
+    .tb-detail-history { flex: none; height: auto; border-left: 0; border-top: 1px solid var(--ui-border); }
+    .tb-detail-section-head { padding: 0.85rem 1rem; min-height: 3rem; }
+    .tb-history-scroll { padding-inline: 1rem; }
+    .tb-detail-actions { padding: 0.85rem 1rem; }
+    .tb-detail-actions .btn { padding-inline: 0.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tb-rail,
+    .tb-rail-tab,
+    .tb-rail-body,
+    .tb-park,
+    .tb-chevron {
+        transition: none;
+    }
+    #tb-detail-work.is-entering, .tb-timeline-entry.is-new { animation: none; }
+}
+
+/* ---------- Schmaler: Ränder schrumpfen, Karten bleiben innerhalb der Spalten ---------- */
+.tb-tabs {
+    display: none;
+}
+
+@media (max-width: 1280px) {
+    .tb-main {
+        padding-inline: 1.5rem;
+    }
+}
+
+/* ---------- Handy: Spalten als Reiter ---------- */
+@media (max-width: 900px) {
+    .tb-page {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        padding: 0.75rem 1rem;
+    }
+
+    /* Werkzeugleiste, Reiter, Leiste und Board stehen direkt untereinander. */
+    .tb-main {
+        display: contents;
+    }
+
+    .tb-toolbar {
+        order: 1;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.6rem 0.75rem;
+    }
+
+    .tb-tabs {
+        order: 2;
+    }
+
+    .tb-rail,
+    .tb-board {
+        order: 3;
+    }
+
+    .tb-title {
+        flex: 1 1 auto;
+        font-size: 1.15rem;
+    }
+
+    .tb-search {
+        order: 9;
+        flex: 1 1 100%;
+    }
+
+    .tb-tabs {
+        display: flex;
+        gap: 0.25rem;
+        overflow-x: auto;
+        padding: 3px;
+        border-radius: 999px;
+        background: var(--ui-surface-muted);
+    }
+
+    .tb-tabs button {
+        flex: 1 0 auto;
+        padding: 0.4rem 0.7rem;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--ui-text-muted);
+        font: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .tb-tabs button[aria-pressed="true"] {
+        background: var(--ui-surface-card);
+        color: var(--ui-text-strong);
+        box-shadow: var(--ui-shadow-sm);
+    }
+
+    .tb-tab-count {
+        color: var(--ui-text-muted);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .tb-board {
+        max-width: none;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tb-flow,
+    .tb-board > .tb-col {
+        display: none;
+    }
+
+    .tb-board[data-active="open"] > [data-column="open"],
+    .tb-board[data-active="progress"] > [data-column="progress"],
+    .tb-board[data-active="done"] > [data-column="done"] {
+        display: flex;
+    }
+
+    /* Als Reiter ist die Leiste immer offen, ohne Kopf und ohne Trennlinie. */
+    .tb-rail,
+    .tb-rail.is-open {
+        display: none;
+        flex-direction: column;
+        flex: 1 1 0;
+        width: auto;
+        padding: 0;
+        border: 0;
+    }
+
+    .tb-page:has(.tb-board[data-active="parked"]) .tb-rail {
+        display: flex;
+    }
+
+    .tb-board[data-active="parked"] {
+        display: none;
+    }
+
+    .tb-rail .tb-rail-tabs {
+        position: static;
+        display: flex;
+        flex-direction: row;
+        flex: none;
+        gap: 0.5rem;
+        width: auto;
+        padding-bottom: 0.6rem;
+    }
+
+    .tb-rail .tb-rail-tab.is-main {
+        display: none;
+    }
+
+    .tb-rail .tb-rail-tab:not(.is-main) {
+        flex: 1 1 0;
+        flex-direction: row;
+        justify-content: center;
+        gap: 0.5rem;
+        width: auto;
+        margin: 0;
+        padding: 0.6rem;
+        border: 1px solid var(--ui-border);
+        border-radius: var(--ui-radius-md);
+        box-shadow: none;
+    }
+
+    .tb-rail-section-label {
+        display: inline;
+    }
+
+    .tb-rail .tb-rail-tab.is-active {
+        border-color: var(--tb-stage);
+    }
+
+    .tb-rail .tb-rail-tab:not(.is-main):not(.is-active) {
+        background: color-mix(in srgb, var(--tb-stage) 16%, var(--ui-surface-card));
+        color: var(--tb-stage);
+    }
+
+    .tb-rail-tab.is-active::after {
+        top: auto;
+        right: calc(50% - 0.35rem);
+        bottom: -0.55rem;
+        border: 0.35rem solid transparent;
+        border-top: 0.45rem solid var(--tb-stage);
+        border-bottom: 0;
+    }
+
+    .tb-rail .tb-rail-body,
+    .tb-rail.is-open .tb-rail-body {
+        position: static;
+        width: auto;
+        transform: none;
+        visibility: visible;
+        transition: none;
+        flex: 1 1 0;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+    }
+
+    .tb-rail .tb-park {
+        margin: 0;
+        border-left: 1px solid var(--tb-stage);
+        border-radius: var(--ui-radius-lg);
+    }
+
+    .tb-selbar {
+        bottom: 0.75rem;
+        max-width: calc(100vw - 1.5rem);
+    }
+}

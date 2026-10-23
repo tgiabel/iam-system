@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% set page_title = "Aufgaben" %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/ui.css">
+<link rel="stylesheet" href="/static/css/tasks_board.css?v={{ static_v }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-container tb-page" id="task-board" data-mock="{{ board_mock }}">
+    <script type="application/json" id="task-board-data">{{ board_json | safe }}</script>
+
+    <section class="tb-rail" id="tb-col-parked" data-column="parked" data-stage="parked" aria-label="Zurückgestellt"></section>
+
+    <div class="tb-main">
+        <header class="tb-toolbar">
+            <h1 class="tb-title">Aufgaben</h1>
+            <input type="search" id="tb-search" class="ui-input tb-search" placeholder="Suchen" aria-label="Aufgaben durchsuchen" autocomplete="off">
+            <div class="tb-pop-wrap">
+                <button type="button" class="tb-tool-btn" id="tb-filter-btn" aria-haspopup="true" aria-expanded="false" aria-controls="tb-filter-pop">
+                    <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16l-6.2 7.4v5.1l-3.6 2v-7.1z"/></svg>
+                    Filter
+                    <span class="tb-badge" id="tb-filter-count" hidden></span>
+                </button>
+                <div class="tb-pop" id="tb-filter-pop" hidden></div>
+            </div>
+            <button type="button" class="tb-toggle" id="tb-only-mine" aria-pressed="false">Nur meine</button>
+        </header>
+
+        <nav class="tb-tabs" id="tb-tabs" aria-label="Spalte wählen">
+            <button type="button" data-tab="parked">Zurückgestellt <span class="tb-tab-count" data-tab-count="parked"></span></button>
+            <button type="button" data-tab="open">Offen <span class="tb-tab-count" data-tab-count="open"></span></button>
+            <button type="button" data-tab="progress">In Bearbeitung <span class="tb-tab-count" data-tab-count="progress"></span></button>
+            <button type="button" data-tab="done">Erledigt <span class="tb-tab-count" data-tab-count="done"></span></button>
+        </nav>
+
+        <div class="tb-board" id="tb-board" data-active="open">
+            <section class="tb-col" data-column="open" data-stage="open" aria-labelledby="tb-title-open">
+                <header class="tb-col-head">
+                    <h2 class="tb-col-title" id="tb-title-open">Offen</h2>
+                    <span class="tb-count" id="tb-count-open">0</span>
+                    <div class="tb-pop-wrap tb-col-tools">
+                        <button type="button" class="tb-icon-btn" id="tb-open-options-btn" aria-haspopup="true" aria-expanded="false" aria-controls="tb-open-options" aria-label="Ansicht Offen" title="Ansicht">
+                            <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+                        </button>
+                        <div class="tb-pop tb-pop-right" id="tb-open-options" hidden>
+                            <fieldset class="tb-pop-group">
+                                <legend>Gruppierung</legend>
+                                <label><input type="radio" name="tb-open-grouping" value="none"> Keine</label>
+                                <label><input type="radio" name="tb-open-grouping" value="process"> Prozess</label>
+                                <label><input type="radio" name="tb-open-grouping" value="person"> Person</label>
+                                <label><input type="radio" name="tb-open-grouping" value="system"> System</label>
+                                <label><input type="radio" name="tb-open-grouping" value="backlog"> Backlog</label>
+                            </fieldset>
+                            <fieldset class="tb-pop-group">
+                                <legend>Sortierung</legend>
+                                <label><input type="radio" name="tb-open-sort" value="due"> Stichtag</label>
+                                <label><input type="radio" name="tb-open-sort" value="age"> Älteste zuerst</label>
+                            </fieldset>
+                        </div>
+                    </div>
+                </header>
+                <div class="tb-col-body" id="tb-body-open"></div>
+            </section>
+
+            <div class="tb-flow tb-flow-progress" aria-hidden="true">
+                <span class="tb-flow-arrow"><svg viewBox="0 0 28 40"><path d="M4 6l10 14-10 14M14 6l10 14-10 14"/></svg></span>
+            </div>
+
+            <section class="tb-col" data-column="progress" data-stage="progress" aria-labelledby="tb-title-progress">
+                <header class="tb-col-head">
+                    <h2 class="tb-col-title" id="tb-title-progress">In Bearbeitung</h2>
+                    <span class="tb-count" id="tb-count-progress">0</span>
+                </header>
+                <div class="tb-col-body" id="tb-body-progress"></div>
+            </section>
+
+            <div class="tb-flow tb-flow-done" aria-hidden="true">
+                <span class="tb-flow-arrow"><svg viewBox="0 0 28 40"><path d="M4 6l10 14-10 14M14 6l10 14-10 14"/></svg></span>
+            </div>
+
+            <section class="tb-col" data-column="done" data-stage="done" aria-labelledby="tb-title-done">
+                <header class="tb-col-head">
+                    <h2 class="tb-col-title" id="tb-title-done">Erledigt</h2>
+                    <span class="tb-count" id="tb-count-done">0</span>
+                    <div class="tb-seg tb-col-tools" role="group" aria-label="Zeitraum">
+                        <button type="button" data-done-range="today" aria-pressed="true">Heute</button>
+                        <button type="button" data-done-range="week" aria-pressed="false">Woche</button>
+                        <button type="button" data-done-range="month" aria-pressed="false">Monat</button>
+                    </div>
+                </header>
+                <div class="tb-col-body" id="tb-body-done"></div>
+            </section>
+        </div>
+    </div>
+
+    <div class="tb-selbar" id="tb-selbar" role="region" aria-label="Auswahl" hidden>
+        <span class="tb-selbar-count" id="tb-sel-count" aria-live="polite"></span>
+        <button type="button" class="btn btn-primary" data-bulk="assign" id="tb-bulk-assign">Übernehmen</button>
+        <button type="button" class="btn btn-secondary" data-bulk="release" id="tb-bulk-release" title="Zurück zu den offenen Aufgaben">Freigeben</button>
+        <button type="button" class="tb-icon-btn" data-bulk="clear" aria-label="Auswahl aufheben" title="Auswahl aufheben">
+            <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+    </div>
+
+    <dialog class="tb-detail" id="tb-detail" aria-labelledby="tb-detail-title">
+        <div class="tb-detail-head">
+            <div class="tb-detail-heading">
+                <p class="tb-detail-kicker" id="tb-detail-kicker"></p>
+                <h2 class="tb-detail-title" id="tb-detail-title"></h2>
+                <p class="tb-detail-operation" id="tb-detail-operation"></p>
+                <p class="tb-detail-person" id="tb-detail-person"></p>
+            </div>
+            <div class="tb-detail-head-tools">
+                <span class="tb-detail-status" id="tb-detail-status"></span>
+                <button type="button" class="tb-icon-btn" id="tb-detail-close" aria-label="Schließen">
+                    <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="tb-detail-layout">
+            <section class="tb-detail-task" aria-label="Aufgabe bearbeiten">
+                <div class="tb-detail-body" id="tb-detail-body" tabindex="-1">
+                    <dl class="tb-detail-context" id="tb-detail-context"></dl>
+                    <div id="tb-detail-work"></div>
+                </div>
+                <div class="tb-detail-actions" id="tb-detail-actions"></div>
+            </section>
+            <section class="tb-detail-history" id="tb-detail-history" aria-labelledby="tb-history-title">
+                <div class="tb-detail-section-head">
+                    <h3 id="tb-history-title">Verlauf <span id="tb-history-count" class="tb-detail-hint"></span></h3>
+                </div>
+                <div class="tb-history-scroll" id="tb-history-scroll" tabindex="0" aria-label="Aufgabenverlauf">
+                    <div class="tb-history-older" id="tb-history-older" hidden>Ältere Einträge</div>
+                    <ol class="tb-timeline" id="tb-history-list"></ol>
+                </div>
+                <button type="button" class="tb-history-latest" id="tb-history-latest" data-detail-action="latest" aria-label="Zum neuesten Eintrag" title="Zum neuesten Eintrag" hidden>
+                    <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                    <span class="tb-history-unread" id="tb-history-unread" aria-hidden="true" hidden></span>
+                </button>
+            </section>
+        </div>
+        <p class="tb-detail-announcement" id="tb-detail-announcement" role="status" aria-live="polite"></p>
+    </dialog>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
+<script src="/static/js/task_view_model.js?v={{ static_v }}"></script>
+<script src="/static/js/tasks_board_model.js?v={{ static_v }}"></script>
+<script src="/static/js/tasks_board_detail.js?v={{ static_v }}"></script>
+<script src="/static/js/tasks_board.js?v={{ static_v }}" defer></script>
+{% endblock %}
