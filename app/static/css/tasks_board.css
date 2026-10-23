@@ -1,22 +1,6 @@
 /* Aufgaben als Kanban: Leiste "Zurückgestellt" am linken Fensterrand, daneben drei Spalten als Arbeitsfluss.
    Jede Spalte scrollt für sich, kein Seitenscroll. */
-body:has(#task-board) {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-}
-
-body:has(#task-board) > main {
-    flex: 1 1 0;
-    min-height: 0;
-    align-items: stretch;
-    padding: 0;
-}
-
-body:has(#task-board) > footer {
-    display: none;
-}
-
+/* Vollbild über body.app-fixed app-fixed-flush (ui.css). */
 .tb-page {
     /* Mindestbreite so, dass der Kopf von "Erledigt" (Titel, dreistelliger Zähler, Zeitraum) einzeilig bleibt. */
     --tb-col-min-w: 18rem;
@@ -148,38 +132,12 @@ body:has(#task-board) > footer {
     text-align: center;
 }
 
-.tb-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    border: 0;
-    border-radius: 10px;
-    background: transparent;
-    color: var(--ui-text-muted);
-    cursor: pointer;
-}
-
-.tb-icon-btn:hover,
-.tb-icon-btn[aria-expanded="true"] {
-    background: var(--ui-surface-soft);
-    color: var(--ui-text-strong);
-}
-
-.tb-icon-btn.is-active {
-    color: var(--color-primary);
-}
-
 .tb-tool-btn:focus-visible,
 .tb-toggle:focus-visible,
-.tb-icon-btn:focus-visible,
 .tb-card-main:focus-visible,
 .tb-card-check:focus-visible,
 .tb-person-head:focus-visible,
 .tb-rail-tab:focus-visible,
-.tb-seg button:focus-visible,
 .tb-tabs button:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
@@ -460,45 +418,19 @@ body:has(#task-board) > footer {
     font-size: 0.95rem;
 }
 
-/* Erledigt: Zeitraum als Umschalter rechts im Kopf; bei schmaler Spalte bricht er in eine eigene Zeile. */
-.tb-seg {
-    display: inline-flex;
-    padding: 2px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--tb-stage) 14%, var(--ui-surface-card));
-}
-
+/* Erledigt: Zeitraum als Umschalter (.ui-segmented) rechts im Kopf, kompakt, damit er nie umbricht. */
 .tb-col[data-stage="done"] .tb-col-head {
     flex-wrap: nowrap;
 }
 
 .tb-col[data-stage="done"] .tb-seg {
+    --ui-segmented-accent: var(--tb-stage);
     flex: 0 0 auto;
 }
 
-/* Kompakt, damit der Umschalter auch in der schmalen Spalte neben dem Titel Platz hat. */
 .tb-col[data-stage="done"] .tb-seg button {
     padding: 0.2rem 0.5rem;
     font-size: 0.82rem;
-}
-
-.tb-seg button {
-    flex: 1 1 0;
-    padding: 0.2rem 0.6rem;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--ui-text-muted);
-    font: inherit;
-    font-size: 0.88rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.tb-seg button[aria-pressed="true"] {
-    background: var(--ui-surface-card);
-    color: var(--tb-stage);
-    box-shadow: var(--ui-shadow-sm);
 }
 
 /* ---------- Karten: gemeinsame Hierarchie in allen Spalten ---------- */
@@ -627,27 +559,15 @@ body:has(#task-board) > footer {
     margin-inline: 0.35rem;
 }
 
+/* Künftiger Stichtag als ruhiger Text; überfällig und heute fällig tragen zusätzlich ui-chip (eigene Farben). */
 .tb-card-due {
-    color: var(--ui-text-muted);
     font-variant-numeric: tabular-nums;
 }
 
-.tb-card-due.is-overdue,
-.tb-card-due.is-today {
-    padding: 0.08rem 0.45rem;
-    border-radius: 6px;
-    font-weight: 650;
+.tb-card-due:not(.ui-chip) {
+    color: var(--ui-text-muted);
 }
 
-.tb-card-due.is-overdue {
-    background: color-mix(in srgb, var(--ui-red-text) 13%, var(--ui-surface-card));
-    color: var(--ui-red-text);
-}
-
-.tb-card-due.is-today {
-    background: color-mix(in srgb, var(--ui-orange-text) 15%, var(--ui-surface-card));
-    color: var(--ui-orange-text);
-}
 
 /* Fremde Tasks: gedämpfte, aber deckende Fläche, ohne Schatten. */
 .tb-card.is-foreign {
@@ -1163,20 +1083,11 @@ button.tb-person-head:hover {
     width: min(72rem, calc(100vw - 3rem));
     height: fit-content;
     max-height: min(49rem, calc(100dvh - 3rem));
-    margin: auto;
-    padding: 0;
-    overflow: hidden;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-lg);
-    background: var(--ui-surface-card);
-    color: var(--ui-text);
-    box-shadow: var(--ui-shadow-lg);
     font-size: 1rem;
     line-height: 1.45;
 }
 
 .tb-detail[open] { display: flex; flex-direction: column; }
-.tb-detail::backdrop { background: rgb(15 23 42 / 0.45); }
 .tb-detail p, .tb-detail h3, .tb-detail fieldset { margin: 0; }
 .tb-detail button, .tb-detail input, .tb-detail textarea { font: inherit; }
 .tb-detail button { touch-action: manipulation; }
@@ -1209,22 +1120,6 @@ button.tb-person-head:hover {
 .tb-detail-operation.is-revoke { color: var(--ui-red-text); }
 .tb-detail .tb-detail-person { margin-top: 0.6rem; font-size: 1.25rem; font-weight: 600; color: var(--ui-text-strong); overflow-wrap: anywhere; }
 .tb-detail-head-tools { display: flex; flex: none; align-items: center; gap: 0.35rem; }
-.tb-detail-head-tools .tb-icon-btn { width: 2rem; height: 2rem; }
-.tb-detail-status {
-    --tb-status-color: var(--ui-blue-text);
-    display: inline-flex;
-    align-items: center;
-    padding: 0.22rem 0.65rem;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--tb-status-color) 10%, var(--ui-surface-card));
-    color: var(--tb-status-color);
-    font-size: 0.82rem;
-    font-weight: 650;
-    white-space: nowrap;
-}
-.tb-detail[data-status="IN_PROGRESS"] .tb-detail-status { --tb-status-color: var(--ui-orange-text); }
-.tb-detail[data-status="COMPLETED"] .tb-detail-status { --tb-status-color: var(--ui-green-text); }
-.tb-detail[data-status="BLOCKED"] .tb-detail-status { --tb-status-color: var(--ui-grey-text); }
 .tb-detail-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.85fr); grid-template-rows: minmax(0, 1fr); flex: 1 1 auto; min-height: 0; }
 .tb-detail-task { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .tb-detail-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1.5rem; }

@@ -364,20 +364,7 @@
         }
         return {
             count: sorted.length,
-            groups: groups.map(group => {
-                let label = group.label;
-                if (view.openGrouping === "process" && !group.isUngrouped) {
-                    const task = group.tasks[0];
-                    const name = String(task.process_name || "").trim()
-                        || lookups.processLabels?.[task.process_type]
-                        || String(task.process_type || "").trim()
-                        || "Prozess";
-                    const person = String(task.target_user_name || "").trim();
-                    const id = String(task.process_id ?? "").trim();
-                    label = [name, person, id ? `#${id}` : ""].filter(Boolean).join(" · ");
-                }
-                return { key: group.key, label, tasks: group.tasks };
-            })
+            groups: groups.map(group => ({ key: group.key, label: group.label, tasks: group.tasks }))
         };
     }
 
@@ -549,6 +536,36 @@
             canSelect(other, meId));
     }
 
+    // Abschluss einer Aufgabe: was er braucht (Konto-Entscheidung, Kennung, Bestätigungen) und was noch fehlt.
+    // Gilt für jeden Abschlussweg (Modal, später Sammelabschluss), damit die Sonderregeln überall greifen.
+    function completionPlan(task, {
+        tasks = [], meId = null, todayKey, manual = false, accountChoice = "", restored = false,
+        identifier = "", relatedIds = [], earlyIds = []
+    } = {}) {
+        const chosen = new Set(Array.from(relatedIds, String));
+        const confirmed = new Set(Array.from(earlyIds, String));
+        const archived = contract.getArchivedAccounts(task);
+        const archive = archived.find(account => String(account.userAccountHistoryId) === String(accountChoice)) || null;
+        const automatic = upper(task?.handling_type) === "BOT" && !manual && !archive;
+        const related = relatedRevocations(task, tasks, meId);
+        const included = [task, ...related.filter(other => chosen.has(String(other.task_id)))];
+        const early = included.filter(other => contract.isFutureRevocationTask(other, todayKey));
+        const needsIdentifier = contract.isAccountAssignmentTask(task) && !automatic && !archive &&
+            (!archived.length || accountChoice === "new");
+
+        let issue = null;
+        if (archived.length && !accountChoice) {
+            issue = { field: "accountChoice", message: "Bitte Wiederherstellung oder neues Konto wählen." };
+        } else if (archive && !restored) {
+            issue = { field: "restored", message: "Bitte die Wiederherstellung im Zielsystem bestätigen." };
+        } else if (needsIdentifier && !String(identifier || "").trim()) {
+            issue = { field: "identifier", message: "Bitte die Account-Kennung eintragen." };
+        } else if (early.some(other => !confirmed.has(String(other.task_id)))) {
+            issue = { field: "early", message: "Bitte jeden Entzug vor seinem Stichtag ausdrücklich bestätigen." };
+        }
+        return { archived, archive, automatic, related, included, early, needsIdentifier, issue };
+    }
+
     return {
         COLUMNS,
         DONE_RANGES,
@@ -566,6 +583,7 @@
         columnOf,
         columnTaskIds,
         completeTask,
+        completionPlan,
         countActiveFacets,
         createDefaultView,
         displayName,

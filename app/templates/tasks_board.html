@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% set page_title = "Aufgaben" %}
+{% block body_class %}app-fixed app-fixed-flush{% endblock %}
 
 {% block css %}
-<link rel="stylesheet" href="/static/css/ui.css">
 <link rel="stylesheet" href="/static/css/tasks_board.css?v={{ static_v }}">
 {% endblock %}
 
@@ -41,7 +41,7 @@
                     <h2 class="tb-col-title" id="tb-title-open">Offen</h2>
                     <span class="tb-count" id="tb-count-open">0</span>
                     <div class="tb-pop-wrap tb-col-tools">
-                        <button type="button" class="tb-icon-btn" id="tb-open-options-btn" aria-haspopup="true" aria-expanded="false" aria-controls="tb-open-options" aria-label="Ansicht Offen" title="Ansicht">
+                        <button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm" id="tb-open-options-btn" aria-haspopup="true" aria-expanded="false" aria-controls="tb-open-options" aria-label="Ansicht Offen" title="Ansicht">
                             <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
                         </button>
                         <div class="tb-pop tb-pop-right" id="tb-open-options" hidden>
@@ -84,7 +84,7 @@
                 <header class="tb-col-head">
                     <h2 class="tb-col-title" id="tb-title-done">Erledigt</h2>
                     <span class="tb-count" id="tb-count-done">0</span>
-                    <div class="tb-seg tb-col-tools" role="group" aria-label="Zeitraum">
+                    <div class="ui-segmented tb-seg tb-col-tools" role="group" aria-label="Zeitraum">
                         <button type="button" data-done-range="today" aria-pressed="true">Heute</button>
                         <button type="button" data-done-range="week" aria-pressed="false">Woche</button>
                         <button type="button" data-done-range="month" aria-pressed="false">Monat</button>
@@ -99,12 +99,12 @@
         <span class="tb-selbar-count" id="tb-sel-count" aria-live="polite"></span>
         <button type="button" class="btn btn-primary" data-bulk="assign" id="tb-bulk-assign">Übernehmen</button>
         <button type="button" class="btn btn-secondary" data-bulk="release" id="tb-bulk-release" title="Zurück zu den offenen Aufgaben">Freigeben</button>
-        <button type="button" class="tb-icon-btn" data-bulk="clear" aria-label="Auswahl aufheben" title="Auswahl aufheben">
+        <button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm" data-bulk="clear" aria-label="Auswahl aufheben" title="Auswahl aufheben">
             <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
     </div>
 
-    <dialog class="tb-detail" id="tb-detail" aria-labelledby="tb-detail-title">
+    <dialog class="ui-dialog tb-detail" id="tb-detail" aria-labelledby="tb-detail-title">
         <div class="tb-detail-head">
             <div class="tb-detail-heading">
                 <p class="tb-detail-kicker" id="tb-detail-kicker"></p>
@@ -114,7 +114,7 @@
             </div>
             <div class="tb-detail-head-tools">
                 <span class="tb-detail-status" id="tb-detail-status"></span>
-                <button type="button" class="tb-icon-btn" id="tb-detail-close" aria-label="Schließen">
+                <button type="button" class="ui-icon-button" id="tb-detail-close" aria-label="Schließen">
                     <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
                 </button>
             </div>

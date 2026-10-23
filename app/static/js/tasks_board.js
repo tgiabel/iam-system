@@ -63,11 +63,7 @@
 
     // ---------- Hilfen ----------
 
-    function escapeHtml(value) {
-        return String(value ?? "").replace(/[&<>"']/g, char => ({
-            "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-        }[char]));
-    }
+    const { escapeHtml } = window.SofaUtils;
 
     function berlinNowStamp() {
         const parts = new Intl.DateTimeFormat("en-CA", {
@@ -98,11 +94,7 @@
     }
 
     function processLabel(task) {
-        const type = LABELS.processes[task.process_type] || task.process_type || "";
-        if (!task.process_id) {
-            return type || "–";
-        }
-        return type ? `${type} #${task.process_id}` : `#${task.process_id}`;
+        return window.TaskViewModel.describeProcess(task, lookups);
     }
 
     // ---------- Karten ----------
@@ -131,7 +123,8 @@
         if (status === "OPEN" || status === "BLOCKED" || status === "IN_PROGRESS") {
             const due = Model.dueInfo(task, todayKey);
             if (due) {
-                meta.push(`<span class="tb-card-due is-${due.tone}" title="${escapeHtml(`Stichtag: ${window.SofaContract.formatDateKey(due.dueKey)}`)}">${escapeHtml(due.label)}</span>`);
+                const chip = { overdue: " ui-chip ui-chip-sm ui-chip-error", today: " ui-chip ui-chip-sm ui-chip-warning" }[due.tone] || "";
+                meta.push(`<span class="tb-card-due${chip}" title="${escapeHtml(`Stichtag: ${window.SofaContract.formatDateKey(due.dueKey)}`)}">${escapeHtml(due.label)}</span>`);
             }
         }
         const secondary = [];
@@ -598,7 +591,7 @@
         setTasks: updated => { tasks = updated; },
         assign: applyAssign, release: applyRelease, onChange: render,
         now: berlinNowStamp, formatDateTime, processLabel, backlogLookup,
-        labels: LABELS, escapeHtml
+        labels: LABELS
     });
 
     function openDetail(taskId) {

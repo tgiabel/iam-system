@@ -4,12 +4,12 @@
 
     window.TasksBoardDetail = { create };
 
-    function create({ Model, me, todayKey, details, getTasks, setTasks, assign, release, onChange, now, formatDateTime, processLabel, backlogLookup, labels, escapeHtml: esc }) {
+    function create({ Model, me, todayKey, details, getTasks, setTasks, assign, release, onChange, now, formatDateTime, processLabel, backlogLookup, labels }) {
+        const esc = window.SofaUtils.escapeHtml;
         const dialog = document.getElementById("tb-detail");
         const el = id => document.getElementById(id);
         let state = null;
         let opener = null;
-        let backdropPointer = null;
         const drafts = new Map();
         const HISTORY_PAGE_SIZE = 20;
         let highlightTimer = null;
@@ -26,7 +26,12 @@
         const button = (text, action, primary = false, extra = "") => `<button type="button" class="btn ${primary ? "btn-primary" : "btn-secondary"}" data-detail-action="${action}"${extra}>${esc(text)}</button>`;
         const editable = task => task.status === "IN_PROGRESS" && Model.isMine(task, me.user_id);
         const isAccount = task => contract.isAccountAssignmentTask(task);
-        const isEarly = task => contract.isFutureRevocationTask(task, todayKey);
+        const planOf = task => Model.completionPlan(task, {
+            tasks: getTasks(), meId: me.user_id, todayKey, manual: state.manual, accountChoice: state.accountChoice,
+            restored: state.restored, identifier: state.identifier, relatedIds: state.related, earlyIds: state.early
+        });
+        const statusTone = task => task.status === "OPEN" && Model.isDeferred(task) ? "deferred"
+            : { OPEN: "open", IN_PROGRESS: "progress", COMPLETED: "completed", BLOCKED: "blocked" }[task.status] || "neutral";
         const statusLabel = task => task.status === "OPEN" && Model.isDeferred(task) ? "Nachgelagert" : labels.status[task.status] || task.status;
         const actor = entry => Model.displayName(entry.user_name) || (entry.user_id ? `Bearbeiter #${entry.user_id}` : "System");
         const textField = (label, id, value, { textarea = false, required = false, placeholder = "" } = {}) => `
@@ -125,20 +130,16 @@
         }
 
         function identifierHtml(identifier) {
-            return `<div class="tb-detail-identifier"><span><span class="tb-detail-hint">Account-Kennung</span><strong>${esc(identifier)}</strong></span><button type="button" class="tb-icon-btn" data-copy-identifier="${esc(identifier)}" aria-label="Kennung kopieren" title="Kennung kopieren"><svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></svg></button></div>`;
+            return `<div class="tb-detail-identifier"><span><span class="tb-detail-hint">Account-Kennung</span><strong>${esc(identifier)}</strong></span><button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm" data-copy-identifier="${esc(identifier)}" aria-label="Kennung kopieren" title="Kennung kopieren"><svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></svg></button></div>`;
         }
 
         function completionHtml(task) {
-            const archived = archivedOf(task);
-            const automatic = task.handling_type === "BOT" && !state.manual;
-            const archive = archived.find(account => String(account.userAccountHistoryId) === state.accountChoice);
-            const related = Model.relatedRevocations(task, getTasks(), me.user_id);
-            const included = [task, ...related.filter(other => state.related.has(other.task_id))];
-            return `<section class="tb-detail-work-section">${workHeading(automatic && !archive ? "Automatisierung" : "Abschluss", "complete")}
+            const { archived, archive, automatic, related, early, needsIdentifier } = planOf(task);
+            return `<section class="tb-detail-work-section">${workHeading(automatic ? "Automatisierung" : "Abschluss", "complete")}
                 ${archived.length ? `<fieldset class="tb-detail-choices"><legend>Archiviertes Konto vorhanden</legend>${archived.map(account => `<label><input type="radio" name="tb-account-choice" value="${esc(account.userAccountHistoryId)}"${state.accountChoice === String(account.userAccountHistoryId) ? " checked" : ""}${account.restorable ? "" : " disabled"}><span><strong>${esc(account.accountIdentifier)}</strong><small>${account.restorable ? `Wiederherstellung bestätigen · archiviert ${esc(formatDateTime(account.archivedAt))}` : "Kennung inzwischen anderweitig vergeben"}</small></span></label>`).join("")}<label><input type="radio" name="tb-account-choice" value="new"${state.accountChoice === "new" ? " checked" : ""}><span>Neues Konto ${automatic ? "anlegen" : "erfassen"}</span></label></fieldset>` : ""}
-                ${archive ? `<label class="tb-detail-confirm"><input type="checkbox" id="tb-account-restored"${state.restored ? " checked" : ""}><span>Das Konto ${esc(archive.accountIdentifier)} wurde im Zielsystem wiederhergestellt.</span></label>` : isAccount(task) && !automatic && (!archived.length || state.accountChoice === "new") ? textField("Account-Kennung", "tb-complete-identifier", state.identifier, {required: true, placeholder: "Benutzername oder Account-Kennung"}) : ""}
+                ${archive ? `<label class="tb-detail-confirm"><input type="checkbox" id="tb-account-restored"${state.restored ? " checked" : ""}><span>Das Konto ${esc(archive.accountIdentifier)} wurde im Zielsystem wiederhergestellt.</span></label>` : needsIdentifier ? textField("Account-Kennung", "tb-complete-identifier", state.identifier, {required: true, placeholder: "Benutzername oder Account-Kennung"}) : ""}
                 ${related.length ? `<fieldset class="tb-detail-related"><legend>Umgesetzte Entzüge mit abschließen</legend>${related.map(other => `<label><input type="checkbox" data-related="${esc(other.task_id)}"${state.related.has(other.task_id) ? " checked" : ""}><span><strong>${esc(other.resource_name)}</strong><small>${esc(statusLabel(other))}${other.target_date ? ` · Stichtag ${esc(window.SofaContract.formatDateKey(String(other.target_date).slice(0, 10)))}` : ""}</small></span></label>`).join("")}</fieldset>` : ""}
-                ${included.filter(isEarly).map(other => `<label class="tb-detail-confirm is-warning"><input type="checkbox" data-early="${esc(other.task_id)}"${state.early.has(other.task_id) ? " checked" : ""}><span><strong>Entzug vor Stichtag</strong>${esc(other.resource_name)} ist erst für den ${esc(window.SofaContract.formatDateKey(String(other.target_date).slice(0, 10)))} vorgesehen. Trotzdem jetzt abschließen.</span></label>`).join("")}
+                ${early.map(other => `<label class="tb-detail-confirm is-warning"><input type="checkbox" data-early="${esc(other.task_id)}"${state.early.has(other.task_id) ? " checked" : ""}><span><strong>Entzug vor Stichtag</strong>${esc(other.resource_name)} ist erst für den ${esc(window.SofaContract.formatDateKey(String(other.target_date).slice(0, 10)))} vorgesehen. Trotzdem jetzt abschließen.</span></label>`).join("")}
                 ${commentField()}
                 <p class="tb-detail-error" id="tb-complete-error" role="alert" hidden></p>
             </section>`;
@@ -188,7 +189,7 @@
                 const expanded = state.mailExpanded.has(entry.index);
                 const comment = entry.action === "MAIL_SENT" && entry.comment === "Mailbeauftragung versendet" ? null : entry.comment;
                 return `${separator}<li class="tb-timeline-entry${comment && human ? " has-comment" : ""}${entry.error ? " is-error" : ""}${state.newEntries.has(entry.index) ? " is-new" : ""}" data-history-index="${entry.index}" data-history-action="${esc(entry.action)}">
-                    <div class="tb-timeline-heading"><span>${human ? `<strong>${esc(actor(entry))}</strong><span class="tb-timeline-action">${esc(actionLabel)}</span>` : esc(actionLabel)}</span><span class="tb-timeline-tools"><time datetime="${esc(entry.timestamp)}" title="${esc(formatDateTime(entry.timestamp))}">${esc(Model.timeOf(entry.timestamp))}</time>${mail ? `<button type="button" class="tb-icon-btn tb-history-mail-toggle" data-history-mail="${entry.index}" aria-label="${expanded ? "Mailinhalt ausblenden" : "Mailinhalt ansehen"}" title="${expanded ? "Mailinhalt ausblenden" : "Mailinhalt ansehen"}" aria-expanded="${expanded}" aria-controls="tb-history-mail-${entry.index}"><svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg></button>` : ""}</span></div>
+                    <div class="tb-timeline-heading"><span>${human ? `<strong>${esc(actor(entry))}</strong><span class="tb-timeline-action">${esc(actionLabel)}</span>` : esc(actionLabel)}</span><span class="tb-timeline-tools"><time datetime="${esc(entry.timestamp)}" title="${esc(formatDateTime(entry.timestamp))}">${esc(Model.timeOf(entry.timestamp))}</time>${mail ? `<button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm tb-history-mail-toggle" data-history-mail="${entry.index}" aria-label="${expanded ? "Mailinhalt ausblenden" : "Mailinhalt ansehen"}" title="${expanded ? "Mailinhalt ausblenden" : "Mailinhalt ansehen"}" aria-expanded="${expanded}" aria-controls="tb-history-mail-${entry.index}"><svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></svg></button>` : ""}</span></div>
                     ${comment ? `<p>${esc(comment)}</p>` : ""}${entry.result ? `<p class="tb-timeline-result">${esc(entry.result)}</p>` : ""}${entry.identifier ? identifierHtml(entry.identifier) : ""}${mail && expanded ? mailReadHtml(mail, entry.index) : ""}</li>`;
             }).join("") || `<li class="tb-detail-copy">Noch keine Einträge.</li>`;
         }
@@ -271,8 +272,7 @@
         function actionsHtml(task) {
             if (state.busy) return `<span class="tb-detail-running" role="status">Automatisierung wird ausgeführt …</span><button type="button" class="btn btn-primary" disabled>Wird ausgeführt …</button>`;
             if (state.step === "complete") {
-                const archive = archivedOf(task).find(account => String(account.userAccountHistoryId) === state.accountChoice);
-                const automatic = task.handling_type === "BOT" && !state.manual && !archive;
+                const { automatic } = planOf(task);
                 const confirm = task.status === "OPEN" ? automatic ? "Übernehmen & ausführen" : "Übernehmen & abschließen" : automatic ? "Automatisiert ausführen" : "Abschluss bestätigen";
                 return `${button(confirm, "confirm-complete", true)}${button("Zurück", "back")}`;
             }
@@ -298,6 +298,7 @@
             el("tb-detail-operation").className = `tb-detail-operation ${task.task_type === "REVOCATION" ? "is-revoke" : "is-assign"}`;
             el("tb-detail-person").textContent = `für ${Model.displayName(task.target_user_name) || "–"}`;
             el("tb-detail-status").textContent = statusLabel(task);
+            el("tb-detail-status").className = `tb-detail-status ui-status-badge ui-status-badge-sm ui-status-${statusTone(task)}`;
             el("tb-detail-context").innerHTML = contextHtml(task);
             el("tb-detail-work").innerHTML = workHtml(task);
             renderHistory(task);
@@ -327,15 +328,9 @@
         async function finish(task) {
             if (!Model.canSelect(task, me.user_id)) return;
             const info = infoOf(task);
-            const archived = archivedOf(task);
-            const archive = archived.find(account => String(account.userAccountHistoryId) === state.accountChoice);
-            const automatic = task.handling_type === "BOT" && !state.manual && !archive;
-            if (archived.length && !state.accountChoice) return validationError("Bitte Wiederherstellung oder neues Konto wählen.");
-            if (archive && !state.restored) return validationError("Bitte die Wiederherstellung im Zielsystem bestätigen.", "tb-account-restored");
-            if (isAccount(task) && !automatic && !archive && !state.identifier.trim()) return validationError("Bitte die Account-Kennung eintragen.", "tb-complete-identifier");
-            const related = Model.relatedRevocations(task, getTasks(), me.user_id).filter(other => state.related.has(other.task_id));
-            const included = [task, ...related];
-            if (included.some(other => isEarly(other) && !state.early.has(other.task_id))) return validationError("Bitte jeden Entzug vor seinem Stichtag ausdrücklich bestätigen.");
+            const { archive, automatic, included, issue } = planOf(task);
+            if (issue) return validationError(issue.message, { restored: "tb-account-restored", identifier: "tb-complete-identifier" }[issue.field]);
+            const related = included.slice(1);
 
             if (automatic) {
                 // Das Uebernehmen bleibt auch bei einem fehlgeschlagenen Versuch bestehen.
@@ -364,9 +359,9 @@
                 const current = getTasks().find(other => other.task_id === item.task_id);
                 if (!Model.canSelect(current, me.user_id)) continue;
                 if (current.status === "OPEN") assign([current.task_id]);
-                const related = current.task_id !== task.task_id;
-                record(current.task_id, "COMPLETED", related ? Model.relatedCompletionComment(state.comment) : state.comment.trim(), {
-                    result: archive && !related ? "Wiederherstellung im Zielsystem bestätigt" : null
+                const isRelated = current.task_id !== task.task_id;
+                record(current.task_id, "COMPLETED", isRelated ? Model.relatedCompletionComment(state.comment) : state.comment.trim(), {
+                    result: archive && !isRelated ? "Wiederherstellung im Zielsystem bestätigt" : null
                 });
             }
             info.account_identifier = isAccount(task) ? archive?.accountIdentifier || (automatic ? `user${task.target_user_id}` : state.identifier.trim()) : null;
@@ -418,25 +413,10 @@
                 if (target.checked) state.early.add(id); else state.early.delete(id);
             }
         });
-        function isBackdropEvent(event) {
-            const bounds = dialog.getBoundingClientRect();
-            return event.target === dialog && (event.clientX < bounds.left || event.clientX >= bounds.right ||
-                event.clientY < bounds.top || event.clientY >= bounds.bottom);
-        }
-
-        // Keine Textauswahl unterbrechen: Schliessen nur, wenn auch der Druck auf dem Hintergrund begann.
-        dialog.addEventListener("pointerdown", event => {
-            backdropPointer = { id: event.pointerId, started: event.isPrimary && event.button === 0 && isBackdropEvent(event), ended: false };
-        }, true);
-        dialog.addEventListener("pointerup", event => {
-            if (backdropPointer?.id === event.pointerId) backdropPointer.ended = isBackdropEvent(event);
-        }, true);
-        dialog.addEventListener("pointercancel", () => { backdropPointer = null; }, true);
+        window.SofaDialog.closeOnBackdrop(dialog, close);
 
         dialog.addEventListener("click", async event => {
-            const backdropClick = backdropPointer?.started && backdropPointer?.ended && isBackdropEvent(event);
-            backdropPointer = null;
-            if (event.target === dialog) { if (backdropClick) close(); return; }
+            if (event.target === dialog) return;
             if (!state || state.busy) return;
             capture();
             const task = taskOf();
@@ -493,7 +473,6 @@
         el("tb-detail-close").addEventListener("click", close);
         dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
         dialog.addEventListener("close", () => {
-            backdropPointer = null;
             clearTimeout(highlightTimer);
             const taskId = state?.taskId;
             if (state) drafts.set(String(state.taskId), state.comment);

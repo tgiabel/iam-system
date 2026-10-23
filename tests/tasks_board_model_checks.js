@@ -227,4 +227,35 @@ assert.equal(model.relatedCompletionComment("  Geprüft. "), "Mit dem Kontoentzu
     assert.equal(model.buildBoard(tasks, base, {meId: ME, todayKey: TODAY}).open.blockedByProcess, undefined);
 }
 
+// Abschlussregeln: gelten für jeden Abschlussweg.
+{
+    const account = task(301, {resource_type_id: 1, task_type: "ASSIGNMENT", status: "IN_PROGRESS", assigned_to_user_id: ME,
+        archived_accounts: [{user_account_history_id: 9, account_identifier: "alt1", archived_at: "2026-01-01T00:00:00"}]});
+    const plan = (t, input = {}) => model.completionPlan(t, {tasks: [t], meId: ME, todayKey: TODAY, ...input});
+    assert.equal(plan(account).issue.field, "accountChoice", "archiviertes Konto verlangt eine Entscheidung");
+    assert.equal(plan(account, {accountChoice: "9"}).issue.field, "restored");
+    assert.equal(plan(account, {accountChoice: "9", restored: true}).issue, null);
+    assert.equal(plan(account, {accountChoice: "9", restored: true}).archive.accountIdentifier, "alt1");
+    assert.equal(plan(account, {accountChoice: "new"}).issue.field, "identifier");
+    assert.equal(plan(account, {accountChoice: "new", identifier: " neu "}).issue, null);
+
+    const fresh = {...account, archived_accounts: []};
+    assert.equal(plan(fresh).needsIdentifier, true);
+    const bot = {...fresh, handling_type: "BOT"};
+    assert.equal(plan(bot).automatic, true);
+    assert.equal(plan(bot).issue, null, "Automatisierung braucht keine Kennung");
+    assert.equal(plan(bot, {manual: true}).issue.field, "identifier", "nach Fehlschlag manuell erfassen");
+
+    const revoke = task(310, {task_type: "REVOCATION", resource_type_id: 1, target_date: "2026-10-20", status: "IN_PROGRESS", assigned_to_user_id: ME});
+    const group = task(311, {task_type: "REVOCATION", target_date: "2026-10-30"});
+    const tasks = [revoke, group];
+    const early = model.completionPlan(revoke, {tasks, meId: ME, todayKey: TODAY, relatedIds: [311]});
+    assert.deepEqual(early.included.map(t => t.task_id), [310, 311]);
+    assert.deepEqual(early.early.map(t => t.task_id), [310, 311], "beide Entzüge liegen vor dem Stichtag");
+    assert.equal(early.issue.field, "early");
+    assert.equal(model.completionPlan(revoke, {tasks, meId: ME, todayKey: TODAY, relatedIds: [311], earlyIds: [310, 311]}).issue, null);
+    assert.equal(model.completionPlan(revoke, {tasks, meId: ME, todayKey: TODAY, earlyIds: [310]}).issue, null,
+        "nicht gewählte verwandte Entzüge brauchen keine Bestätigung");
+}
+
 console.log("tasks_board_model_checks: ok");
