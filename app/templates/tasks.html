@@ -328,10 +328,10 @@
     window.currentUserId = {{ user.user_id | tojson }};
 </script>
 
+{% endblock %}
+
 {% block scripts %}
     <script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
     <script src="/static/js/task_view_model.js?v={{ static_v }}"></script>
     <script src="/static/js/tasks.js?v={{ static_v }}"></script>
-{% endblock %}
-
 {% endblock %}
