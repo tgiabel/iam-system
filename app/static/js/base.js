@@ -4,6 +4,32 @@ function hasPerm(identifier) {
     return perms.includes(identifier) || (cat ? perms.includes(`SOFA-${cat}-ALL`) : false);
 }
 
+// Native <dialog>: schliesst nur, wenn Druck und Loslassen ausserhalb der Dialogflaeche liegen. So beendet
+// eine Textauswahl, die ausserhalb losgelassen wird, den Dialog nicht, und ein Klick auf den Innenabstand
+// des Dialogs (event.target ist dann ebenfalls der Dialog) zaehlt nicht als Hintergrund.
+window.SofaDialog = {
+    closeOnBackdrop(dialog, onClose = () => dialog.close()) {
+        let pointer = null;
+        const outside = event => {
+            const box = dialog.getBoundingClientRect();
+            return event.target === dialog && (event.clientX < box.left || event.clientX >= box.right ||
+                event.clientY < box.top || event.clientY >= box.bottom);
+        };
+        dialog.addEventListener("pointerdown", event => {
+            pointer = { id: event.pointerId, started: event.isPrimary && event.button === 0 && outside(event), ended: false };
+        }, true);
+        dialog.addEventListener("pointerup", event => {
+            if (pointer?.id === event.pointerId) pointer.ended = outside(event);
+        }, true);
+        dialog.addEventListener("pointercancel", () => { pointer = null; }, true);
+        dialog.addEventListener("click", event => {
+            const backdrop = pointer?.started && pointer?.ended && outside(event);
+            pointer = null;
+            if (backdrop) onClose();
+        });
+    }
+};
+
 document.addEventListener("DOMContentLoaded", () => {
     const AUTHZ_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
     const root = document.documentElement;

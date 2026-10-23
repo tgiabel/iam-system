@@ -671,15 +671,7 @@ select, input[type="date"] {
     box-sizing: border-box;
     overflow: auto;
     padding: 22px;
-    border: 1px solid var(--border-strong);
-    border-radius: 16px;
     color: var(--text-strong);
-    background: var(--surface-card);
-    box-shadow: 0 24px 60px rgba(18, 32, 48, 0.3);
-}
-
-.datex-detail-dialog::backdrop {
-    background: rgba(18, 32, 48, 0.55);
 }
 
 .datex-detail-dialog-header {

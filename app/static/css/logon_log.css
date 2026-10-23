@@ -327,26 +327,8 @@
 
 /* Dialoge */
 
-.ll-dialog {
-    width: min(920px, calc(100vw - 2rem));
-    max-height: calc(100vh - 2rem);
-    margin: auto;
-    padding: 0;
-    border: 1px solid var(--ui-border);
-    border-radius: var(--ui-radius-xl);
-    background: var(--ui-surface-card);
-    box-shadow: var(--ui-shadow-lg);
-    color: var(--ui-text);
-    overflow: hidden;
-}
-
 .ll-dialog-compact {
     width: min(620px, calc(100vw - 2rem));
-}
-
-.ll-dialog::backdrop {
-    background: var(--surface-overlay);
-    backdrop-filter: blur(12px);
 }
 
 .ll-dialog-form {

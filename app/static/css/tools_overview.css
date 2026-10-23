@@ -1,19 +1,10 @@
 /* Workspace: Titel, Pin-Zone, dann Tools und Reports als zwei getrennt scrollende Listen. */
-body:has(#toolsOverview) {
-    height: 100dvh;
-    min-height: 0;
-    overflow-x: hidden;
-    /* Erst wenn die Listen ihre Mindesthoehe nicht mehr bekommen, scrollt die Seite. */
-    overflow-y: auto;
-}
-
-body:has(#toolsOverview) > main {
-    flex: 1 1 0;
-    min-height: 0;
-}
-
-body:has(#toolsOverview) > footer {
-    display: none;
+/* Vollbild über body.app-fixed (ui.css). Erst wenn die Listen ihre Mindesthöhe nicht mehr bekommen, scrollt die Seite. */
+@media (min-width: 901px) {
+    body:has(#toolsOverview) {
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
 }
 
 .tools-overview-page {
@@ -512,16 +503,6 @@ body:has(#toolsOverview) > footer {
 }
 
 @media (max-width: 900px) {
-    body:has(#toolsOverview) {
-        height: auto;
-        min-height: 100dvh;
-        overflow: auto;
-    }
-
-    body:has(#toolsOverview) > main {
-        flex: 1 0 auto;
-    }
-
     .tools-overview-page,
     .workspace-columns {
         flex: 0 0 auto;

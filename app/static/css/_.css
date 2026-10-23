@@ -71,6 +71,10 @@
     --chip-accent-text: rgb(150 25 191);
     --task-completed-bg: #f4fbf6;
     --task-blocked-bg: #f2f2f4;
+    /* Ereignisarten im Kalender (Dashboard), soweit keine Statusfarbe passt. */
+    --event-change: #8d6fd6;
+    --event-assignment: #2f9c95;
+    --event-retrain: #6f7f99;
 
     /* Background treatment */
     --main-background-image: none;
@@ -177,6 +181,10 @@ html[data-theme="dark"] {
     --chip-accent-text: rgb(189 122 215);
     --task-completed-bg: #1a3d29;
     --task-blocked-bg: #282e3a;
+    /* Ereignisarten im Kalender (Dashboard), soweit keine Statusfarbe passt. */
+    --event-change: #a882e6;
+    --event-assignment: #4cc0b8;
+    --event-retrain: #6f7f99;
     --btn-primary-bg: #3552a8;
     --btn-primary-hover-bg: #3e5fc0;
     --btn-primary-border: rgba(143, 176, 255, 0.34);
@@ -252,6 +260,10 @@ html[data-theme="servodata"] {
     --chip-accent-text: rgb(189 122 215);
     --task-completed-bg: #1a3d29;
     --task-blocked-bg: #282e3a;
+    /* Ereignisarten im Kalender (Dashboard), soweit keine Statusfarbe passt. */
+    --event-change: #a882e6;
+    --event-assignment: #4cc0b8;
+    --event-retrain: #6f7f99;
     --main-background-image: url("../img/duck_duck_goose.png");
     --main-background-size: 520px auto;
     --main-background-repeat: repeat;

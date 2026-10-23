@@ -59,6 +59,46 @@
     --ui-accent-border: var(--chip-accent-border);
 }
 
+/* Vollbildseiten ohne Seitenscroll (Workspace, Dashboard, Aufgaben-Board, Genesys Live): Die Bereiche
+   scrollen für sich. Seiten setzen die Klassen über {% block body_class %}:
+   app-fixed            Grundlayout, Fußzeile entfällt
+   app-fixed-flush      ohne Seitenrand von main (der Inhalt bringt eigene Abstände mit)
+   app-fixed-until-NNN  unterhalb dieser Breite scrollt die Seite wieder normal */
+body.app-fixed {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+body.app-fixed > main {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+body.app-fixed > footer {
+    display: none;
+}
+
+body.app-fixed-flush > main {
+    padding: 0;
+    align-items: stretch;
+}
+
+@media (max-width: 800px) {
+    body.app-fixed-until-800 { height: auto; min-height: 100dvh; overflow: auto; }
+    body.app-fixed-until-800 > main { flex: 1 0 auto; }
+}
+
+@media (max-width: 900px) {
+    body.app-fixed-until-900 { height: auto; min-height: 100dvh; overflow: auto; }
+    body.app-fixed-until-900 > main { flex: 1 0 auto; }
+}
+
+@media (max-width: 1100px) {
+    body.app-fixed-until-1100 { height: auto; min-height: 100dvh; overflow: auto; }
+    body.app-fixed-until-1100 > main { flex: 1 0 auto; }
+}
+
 .ui-card {
     background: var(--ui-surface-card);
     border: 1px solid var(--ui-border);
@@ -146,6 +186,15 @@
     font-weight: 700;
     border: 1px solid transparent;
     white-space: nowrap;
+}
+
+/* Kompakte Variante für Zeilen, Karten und Listen; Farbe über die ui-chip-*-Klassen.
+   Die Schrift folgt der Umgebung (etwas kleiner als der Text daneben). */
+.ui-chip-sm {
+    min-height: 0;
+    padding: 0.05rem 0.45rem;
+    font-size: 0.95em;
+    line-height: 1.35;
 }
 
 .ui-chip-primary {
@@ -241,6 +290,26 @@
 
 .ui-modal-compact {
     width: min(720px, 100%);
+}
+
+/* Natives <dialog>: dieselbe Fläche wie .ui-modal, derselbe Hintergrund wie .ui-modal-overlay.
+   Schließen per Klick auf den Hintergrund: SofaDialog.closeOnBackdrop() in base.js. */
+.ui-dialog {
+    width: min(920px, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-xl);
+    background: var(--ui-surface-card);
+    color: var(--ui-text);
+    box-shadow: var(--ui-shadow-lg);
+}
+
+.ui-dialog::backdrop {
+    background: var(--surface-overlay);
+    backdrop-filter: blur(12px);
 }
 
 .ui-modal-header {
@@ -370,8 +439,12 @@
 }
 
 .ui-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 2.75rem;
     height: 2.75rem;
+    padding: 0;
     border: 1px solid var(--ui-border);
     border-radius: 999px;
     background: var(--ui-surface-card);
@@ -386,6 +459,39 @@
     transform: translateY(-1px);
     border-color: rgba(var(--color-primary-rgb), 0.28);
     box-shadow: var(--ui-shadow-sm);
+}
+
+/* Umschalter aus wenigen gleichrangigen Optionen (Buttons mit aria-pressed). Akzent über --ui-segmented-accent. */
+.ui-segmented {
+    --ui-segmented-accent: var(--color-primary);
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-segmented-accent) 14%, var(--ui-surface-card));
+}
+
+.ui-segmented > button {
+    flex: 1 1 0;
+    padding: 0.2rem 0.6rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--ui-text-muted);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ui-segmented > button[aria-pressed="true"] {
+    background: var(--ui-surface-card);
+    color: var(--ui-segmented-accent);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.ui-segmented > button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .ui-flat-button {
@@ -437,6 +543,14 @@
     padding: 0;
 }
 
+/* Kompakte Icon-Buttons in Spaltenköpfen, Listen und Verlaufseinträgen. */
+.ui-flat-button--icon.ui-flat-button--sm {
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    min-height: 2rem;
+}
+
 .btn-sm {
     min-height: 2.1rem;
     padding: 0.4rem 0.85rem;
@@ -486,11 +600,29 @@
     color: var(--ui-error-text);
 }
 
-.ui-status-accent,
-.ui-status-blocked {
+.ui-status-accent {
     background: var(--ui-purple-bg);
     border-color: color-mix(in srgb, var(--ui-purple-text) 22%, transparent);
     color: var(--ui-purple-text);
+}
+
+.ui-status-blocked {
+    background: var(--ui-status-blocked-bg);
+    border-color: color-mix(in srgb, var(--ui-status-blocked-text) 22%, transparent);
+    color: var(--ui-status-blocked-text);
+}
+
+.ui-status-deferred {
+    background: var(--ui-status-deferred-bg);
+    border-color: color-mix(in srgb, var(--ui-status-deferred-text) 22%, transparent);
+    color: var(--ui-status-deferred-text);
+}
+
+/* Kompakte Variante für Kopfzeilen und Karten. */
+.ui-status-badge-sm {
+    min-height: 0;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.8rem;
 }
 
 .ui-status-neutral {

@@ -19,8 +19,8 @@
             }
         }());
     </script>
-    <link rel="stylesheet" href="/static/css/_.css">
-    <link rel="stylesheet" href="/static/css/ui.css">
+    <link rel="stylesheet" href="/static/css/_.css?v={{ static_v }}">
+    <link rel="stylesheet" href="/static/css/ui.css?v={{ static_v }}">
     {% block css %}{% endblock %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -28,10 +28,11 @@
       href="https://fonts.googleapis.com/css2?family=Abel&display=swap"
       rel="stylesheet"
     />
+    <script src="/static/js/sofa_utils.js?v={{ static_v }}"></script>
     <script src="/static/js/base.js?v={{ static_v }}"></script>
     {% block scripts %}{% endblock %}
 </head>
-<body{% if is_widget_view %} class="widget-view"{% endif %}>
+<body class="{% block body_class %}{% endblock %}{% if is_widget_view %} widget-view{% endif %}">
     {% if not is_widget_view %}
     <header class="main-header">
         <div class="header-left">

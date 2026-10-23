@@ -1,7 +1,5 @@
 /* Genesys Cloud Live: preview geometry with SOFA surfaces and all three themes. */
-body:has(#genesysLive) { height: 100dvh; min-height: 0; overflow: hidden; }
-body:has(#genesysLive) > main { flex: 1 1 0; min-height: 0; padding: 0; align-items: stretch; }
-body:has(#genesysLive) > footer { display: none; }
+/* Vollbild über body.app-fixed (ui.css). */
 .gl-page {
   --gl-primary: var(--color-primary);
   --gl-soft: var(--surface-soft);
@@ -169,8 +167,6 @@ html[data-theme="dark"] .gl-page, html[data-theme="servodata"] .gl-page {
   .gl-page .kpi-row { padding: 4px 0; }
 }
 @media (max-width: 800px) {
-  body:has(#genesysLive) { height: auto; min-height: 100dvh; overflow: auto; }
-  body:has(#genesysLive) > main { flex: 1 0 auto; }
   .gl-page { flex: 1 0 auto; overflow: visible; }
   .gl-page .page { height: auto; padding: 18px 14px 30px; display: block; }
   .gl-page .report-header { margin-bottom: 18px; }

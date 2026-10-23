@@ -592,11 +592,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
     elements.detailClose.addEventListener("click", () => elements.detailDialog.close());
-    elements.detailDialog.addEventListener("click", (event) => {
-        if (event.target === elements.detailDialog) {
-            elements.detailDialog.close();
-        }
-    });
+    window.SofaDialog.closeOnBackdrop(elements.detailDialog);
 
     const exportPackage = async () => {
         const hasOutstandingInvalidMenge = state.records.some(

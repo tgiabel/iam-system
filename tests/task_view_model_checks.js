@@ -124,7 +124,8 @@ assert.strictEqual(backlogGroups[0].label, 'IT-Betrieb', 'Backlog-Label kommt au
 // Ein Prozess laeuft fuer genau eine Person, die gehoert ins Gruppenlabel.
 assert.strictEqual(
     viewModel.buildGroups([task({task_id: 22, process_name: 'Onboarding'})], 'process', {todayKey: TODAY})[0].label,
-    'Onboarding · Musterfrau, Maria'
+    'Onboarding · Musterfrau, Maria · #700',
+    'Prozess und Person zuerst, die ID am Ende'
 );
 assert.strictEqual(
     viewModel.buildGroups(
@@ -132,8 +133,8 @@ assert.strictEqual(
         'process',
         {todayKey: TODAY, processLabels: {ONBOARDING: 'Onboarding'}}
     )[0].label,
-    'Onboarding · #700 · Musterfrau, Maria',
-    'Ohne Prozessnamen bleibt Typ + ID als Kennzeichnung stehen'
+    'Onboarding · Musterfrau, Maria · #700',
+    'Ohne Prozessnamen stehen Typ, Person und zuletzt die ID'
 );
 assert.strictEqual(
     viewModel.buildGroups(
@@ -141,8 +142,8 @@ assert.strictEqual(
         'process',
         {todayKey: TODAY}
     )[0].label,
-    'Offboarding',
-    'Ohne Personennamen bleibt es beim reinen Prozesslabel'
+    'Offboarding · #700',
+    'Ohne Personennamen bleiben Prozess und ID'
 );
 
 // --- Listenreihenfolge -----------------------------------------------------

@@ -56,25 +56,22 @@
         return UNGROUPED_KEY;
     }
 
-    function describeProcess(task, lookups) {
+    // Name des Prozesses: eigener Name, sonst der Anzeigename des Typs.
+    function processName(task, lookups) {
         const name = firstNonEmpty(task, ["process_name"]);
         if (name !== null) {
             return String(name);
         }
-
         const processType = firstNonEmpty(task, ["process_type"]);
-        const typeLabel = processType === null
-            ? null
-            : (lookups?.processLabels?.[processType] || String(processType));
-        const id = firstNonEmpty(task, ["process_id"]);
+        return processType === null ? null : (lookups?.processLabels?.[processType] || String(processType));
+    }
 
-        if (typeLabel && id !== null) {
-            return `${typeLabel} · #${id}`;
-        }
-        if (typeLabel) {
-            return typeLabel;
-        }
-        return id === null ? "Ohne Prozess" : `Prozess #${id}`;
+    // Prozess, optional Person, die ID immer am Ende: "Onboarding · Musterfrau, Maria · #700".
+    function describeProcess(task, lookups, { withPerson = false } = {}) {
+        const id = firstNonEmpty(task, ["process_id"]);
+        const name = processName(task, lookups) || (id === null ? "Ohne Prozess" : "Prozess");
+        const person = withPerson ? firstNonEmpty(task, ["target_user_name"]) : null;
+        return [name, person, id === null ? null : `#${id}`].filter(part => part !== null).join(" · ");
     }
 
     const GROUP_DIMENSIONS = [
@@ -105,11 +102,7 @@
             emptyLabel: "Ohne Prozess",
             keyOf: task => buildKey(task, ["process_id"], ["process_name"]),
             // Ein Prozess laeuft immer fuer genau eine Person, die gehoert ins Gruppenlabel.
-            labelOf: (task, lookups) => {
-                const processLabel = describeProcess(task, lookups);
-                const person = firstNonEmpty(task, ["target_user_name"]);
-                return person === null ? processLabel : `${processLabel} · ${person}`;
-            }
+            labelOf: (task, lookups) => describeProcess(task, lookups, { withPerson: true })
         },
         {
             id: "system",
@@ -424,6 +417,7 @@
         compareTasks,
         createDefaultViewState,
         createFacet,
+        describeProcess,
         getGroupDimension,
         getGroupKey,
         hasActiveFilters,
