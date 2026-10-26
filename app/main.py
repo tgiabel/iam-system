@@ -6,10 +6,12 @@ from starlette.middleware.base import BaseHTTPMiddleware  # type: ignore
 
 from app.routes.api import router as api_router
 from app.routes.agent_stats_report import router as agent_stats_report_router
+from app.routes.dashboard import router as dashboard_router
 from app.routes.genesys_live import router as genesys_live_router
 from app.routes.logon_log import router as logon_log_router
 from app.routes.pages import router as page_router
 from app.routes.presence_report import router as presence_report_router
+from app.routes.service_level import router as service_level_router
 from app.routes.shared import static_path
 from app.routes.token_deletions_report import router as token_deletions_report_router
 from app.routes.time_corrections import router as time_corrections_router
@@ -57,6 +59,8 @@ app.include_router(time_corrections_router, prefix="/api")
 app.include_router(presence_report_router, prefix="/api")
 app.include_router(agent_stats_report_router, prefix="/api")
 app.include_router(genesys_live_router, prefix="/api")
+app.include_router(service_level_router, prefix="/api")
+app.include_router(dashboard_router, prefix="/api")
 app.include_router(token_deletions_report_router, prefix="/api")
 
 # Mock-Daten fuer das Dashboard-Design gibt es nur in der Entwicklungsinstanz.

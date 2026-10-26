@@ -19,7 +19,8 @@ def mock_scenario(query_value: str | None) -> str | None:
 
 
 def live_available(authz: AuthorizationContext, agent_stats_cookie: str) -> bool:
-    """Live-Panel nur mit eingerichtetem Secret und gueltigem Cookie dieser Person (wie die Report-Seite)."""
+    """Genesys-Bereiche (Live, Servicelevel, Anrufe) nur mit eingerichtetem Secret und gueltigem Cookie
+    dieser Person (wie die Report-Seite)."""
     if not is_configured():
         return False
     try:
@@ -41,9 +42,12 @@ def build_dashboard_context(authz: AuthorizationContext, agent_stats_cookie: str
             "my_day": f"/api/dashboard-mock/my-day{suffix}",
         }
     else:
-        # Servicelevel und "Mein Tag" haben noch keine echte Quelle; die Bereiche entfallen dann.
+        # Ohne Quelle entfaellt der Bereich: Servicelevel braucht den Report-Token, "Mein Tag" den Token
+        # (Anrufe) oder die Aufgabenseite (erledigte Aufgaben).
+        signed = live_available(authz, agent_stats_cookie)
         sources = {"events": "/api/events", "live": "/api/reporting/genesys-live",
-                   "service_level": "", "my_day": ""}
+                   "service_level": "/api/reporting/service-level" if signed else "",
+                   "my_day": "/api/dashboard/my-day" if signed or authz.has_permission("SOFA-PAGE-TODO") else ""}
     return {
         "dashboard_items": items,
         "dashboard_sources": sources,

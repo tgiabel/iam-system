@@ -179,7 +179,7 @@ _EVENT_COPY = {
     "ROLE_ASSIGNMENT": ("Rollenzuweisung", "{role} für {name}."),
     "ROLE_REMOVAL": ("Rollenentzug", "{role} für {name}."),
     "TRAINING_SCHEDULE": ("Schulung", "{role} Schulung für {name}."),
-    "RETRAIN": ("Event", "Geplantes Event für {name}."),
+    "RETRAIN": ("Nachschulung", "Geplantes Event für {name}."),
 }
 
 

@@ -9,10 +9,9 @@ const ev = (type, day, extra = {}) => ({
 });
 
 assert.equal(calendar.kindOf(ev("ROLE_ASSIGNMENT", "2026-10-14", { process_type: "CHANGE" })), "change");
-assert.equal(calendar.kindOf(ev("ROLE_REMOVAL", "2026-10-14", { title: "Abteilungswechsel: Altrolle entziehen" })), "change", "Fallback ueber den Titel");
+assert.equal(calendar.kindOf(ev("ROLE_REMOVAL", "2026-10-14", { title: "Abteilungswechsel: Altrolle entziehen" })), "removal", "nur process_type zaehlt, nicht der Titel");
 assert.equal(calendar.kindOf(ev("GIBTS_NICHT", "2026-10-14")), "other");
-assert.equal(calendar.skillOf(ev("TRAINING_SCHEDULE", "2026-10-14", { description: "Retouren Schulung für Mia Hoffmann." })), "Retouren", "Skill aus dem Text");
-assert.equal(calendar.skillOf(ev("TRAINING_SCHEDULE", "2026-10-14", { role_name: "Kündigung", description: "x" })), "Kündigung");
+assert.equal(calendar.roleOf(ev("TRAINING_SCHEDULE", "2026-10-14", { role_name: " Kündigung ", description: "Retouren Schulung für Mia Hoffmann." })), "Kündigung");
 assert.equal(calendar.timeOf(ev("ONBOARDING", "2026-10-14")), "");
 assert.equal(calendar.timeOf({ display_at: "2026-10-14T08:30:00" }), "08:30");
 
@@ -74,11 +73,8 @@ assert.equal(calendar.lineText("training", "", 1, "geplant"), "Schulung für 1 M
 
 // ---------- Tagesansicht ----------
 assert.equal(calendar.nameOf({ user_name: "Mia Hoffmann" }), "Mia Hoffmann");
-assert.equal(calendar.nameOf({ description: "Onboarding-Termin für Jonas Brandt." }), "Jonas Brandt", "Name aus dem Text");
-assert.equal(calendar.nameOf({ description: "Beratung für Kunden Schulung für Lea Keller." }), "Lea Keller", "letztes 'für' gilt");
-assert.equal(calendar.nameOf({}), "");
-assert.equal(calendar.roleOf({ description: "Retouren Schulung für Lea Keller." }), "Retouren");
-assert.equal(calendar.roleOf({ description: "Kündigung für Lea Keller." }), "Kündigung");
+assert.equal(calendar.nameOf({ description: "Onboarding-Termin für Jonas Brandt." }), "", "kein Name aus dem Text");
+assert.equal(calendar.roleOf({}), "");
 assert.equal(calendar.joinNames(["A", "B"]), "A, B");
 assert.equal(calendar.joinNames(["A", "B", "C"]), "A, B + 1 weitere");
 assert.equal(calendar.joinNames(["A", "B", "A", "C", "D", "E"]), "A, B + 3 weitere", "doppelte Namen zaehlen einmal");

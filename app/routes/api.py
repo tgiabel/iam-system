@@ -987,7 +987,7 @@ async def api_user_resource_history(
 async def api_events(
     from_date: str | None = None,
     to_date: str | None = None,
-    current_user=Depends(require_permission("SOFA-PAGE-CNSL")),
+    current_user=Depends(require_login),
 ):
     try:
         events = await api_client.get_events(from_date, to_date)

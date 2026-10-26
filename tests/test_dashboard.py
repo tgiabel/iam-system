@@ -9,12 +9,14 @@ from zoneinfo import ZoneInfo
 from pathlib import Path
 from unittest.mock import patch
 
+import httpx
 from fastapi.testclient import TestClient
 
 from app import dashboard, dashboard_mock
 from app.agent_stats_token import issue
 from app.authz import AuthorizationContext
 from app.main import app
+from app.routes import dashboard as dashboard_route, service_level
 
 SECRET = base64.b64encode(b'dashboard-test-secret-is-long-enough!').decode()
 ROOT = Path(__file__).resolve().parents[1]
@@ -116,10 +118,17 @@ class DashboardContextTests(unittest.TestCase):
     def test_real_sources_without_mock(self):
         with patch.object(dashboard, 'app_env', 'production'):
             context = dashboard.build_dashboard_context(self.authz('SOFA-PAGE-TODO'), '', None)
+            plain = dashboard.build_dashboard_context(self.authz(), '', None)
+            with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET}):
+                signed = dashboard.build_dashboard_context(self.authz(), issue(42), None)
         self.assertEqual(context['dashboard_sources']['events'], '/api/events')
-        self.assertEqual(context['dashboard_sources']['service_level'], '')
-        self.assertEqual(context['dashboard_sources']['my_day'], '')
+        self.assertEqual(context['dashboard_sources']['service_level'], '', 'Servicelevel braucht den Report-Token')
+        self.assertEqual(context['dashboard_sources']['my_day'], '/api/dashboard/my-day')
         self.assertFalse(context['dashboard_live'])
+        self.assertEqual((plain['dashboard_sources']['service_level'], plain['dashboard_sources']['my_day']), ('', ''))
+        self.assertEqual(signed['dashboard_sources']['service_level'], '/api/reporting/service-level')
+        self.assertEqual(signed['dashboard_sources']['my_day'], '/api/dashboard/my-day')
+        self.assertTrue(signed['dashboard_live'])
 
 
 class RenderedDashboardTests(unittest.TestCase):
@@ -176,3 +185,84 @@ class RenderedDashboardTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class DashboardDataRouteTests(unittest.TestCase):
+    def setUp(self):
+        env = patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET})
+        env.start()
+        self.addCleanup(env.stop)
+        self.client = TestClient(app)
+
+    def login(self, *permissions, signed=False):
+        self.client.cookies.clear()
+        self.client.cookies.set('sofa_user', user_cookie(*permissions))
+        if signed:
+            self.client.cookies.set('sofa_agent_stats', issue(42))
+
+    def test_events_need_only_a_login(self):
+        async def events(from_date, to_date):
+            return [{'event_id': 1, 'event_type': 'RETRAIN', 'title': 'Nachschulung', 'user_name': 'Mia Hoffmann'}]
+
+        self.assertEqual(self.client.get('/api/events', follow_redirects=False).status_code, 303)
+        self.login()
+        with patch('app.routes.api.api_client.get_events', events):
+            response = self.client.get('/api/events')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()[0]['user_name'], 'Mia Hoffmann')
+
+    def test_service_level_forwards_scope_with_signed_token(self):
+        calls = []
+
+        async def backend(token, params=None):
+            calls.append((token, params))
+            return httpx.Response(200, json={'scope': {'type': 'queue'}})
+
+        with patch.object(service_level.api_client, 'service_level_request', backend):
+            self.login()
+            self.assertEqual(self.client.get('/api/reporting/service-level').status_code, 401)
+            self.login(signed=True)
+            response = self.client.get('/api/reporting/service-level', params={'queue_id': 'q1'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+        self.assertEqual(calls, [(issue(42), [('queue_id', 'q1')])])
+
+    def test_my_day_counts_own_tasks_of_that_day_and_calls(self):
+        overview_calls = []
+
+        async def overview(user_id, completed_since=None):
+            overview_calls.append((user_id, completed_since))
+            return {'completed_tasks': [
+                {'task_id': 1, 'assigned_to_user_id': 42, 'completed_at': '2026-10-14T09:00:00'},
+                {'task_id': 2, 'assigned_to_user_id': 42, 'completed_at': '2026-10-15T08:00:00'},
+                {'task_id': 3, 'assigned_to_user_id': 7, 'completed_at': '2026-10-14T10:00:00'},
+            ]}
+
+        async def stats(token, params=None):
+            self.assertEqual(params, [('period', 'day'), ('anchor', '2026-10-14')])
+            return httpx.Response(200, json={'phone': {'available': True, 'summary': {'answered': 31}}},
+                                  request=httpx.Request('GET', 'http://sd-api.test'))
+
+        with patch.object(dashboard_route.api_client, 'get_task_overview', overview), \
+                patch.object(dashboard_route.api_client, 'agent_stats_request', stats):
+            self.login('SOFA-PAGE-TODO', signed=True)
+            both = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'}).json()
+            self.login('SOFA-PAGE-TODO')
+            tasks_only = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'}).json()
+            self.login(signed=True)
+            calls_only = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'}).json()
+        self.assertEqual(both, {'date': '2026-10-14', 'tasks_completed': 1, 'calls_answered': 31})
+        self.assertEqual(tasks_only, {'date': '2026-10-14', 'tasks_completed': 1})
+        self.assertEqual(calls_only, {'date': '2026-10-14', 'calls_answered': 31})
+        self.assertEqual(overview_calls, [(42, '2026-10-14')] * 2)
+
+    def test_my_day_drops_a_failing_part(self):
+        async def broken(*args, **kwargs):
+            raise RuntimeError('sd-api down')
+
+        with patch.object(dashboard_route.api_client, 'get_task_overview', broken), \
+                patch.object(dashboard_route.api_client, 'agent_stats_request', broken):
+            self.login('SOFA-PAGE-TODO', signed=True)
+            response = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'date': '2026-10-14'})

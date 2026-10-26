@@ -22,10 +22,9 @@
         retrain: ["Nachschulung", "Nachschulungen"],
         other: ["Termin", "Termine"]
     };
-    const SKILL_FROM_TEXT = /^(.+?) Schulung für /;
 
     function kindOf(event) {
-        if (String(event.process_type || "").toUpperCase() === "CHANGE" || /^Abteilungswechsel/.test(event.title || "")) {
+        if (String(event.process_type || "").toUpperCase() === "CHANGE") {
             return "change";
         }
         switch (String(event.event_type || "").toUpperCase()) {
@@ -50,12 +49,9 @@
         return match && match[1] !== "00:00" ? match[1] : "";
     }
 
-    // Der Skill ist die Rolle der Schulung; aeltere Antworten tragen ihn nur im Text.
-    function skillOf(event) {
-        const name = String(event.role_name || "").trim();
-        if (name) return name;
-        const match = SKILL_FROM_TEXT.exec(String(event.description || ""));
-        return match ? match[1].trim() : "";
+    // Rolle bei Zuweisung und Entzug, bei Schulungen der Skill.
+    function roleOf(event) {
+        return String(event.role_name || "").trim();
     }
 
     function normalizeStatus(event) {
@@ -100,7 +96,7 @@
             const dayKey = dayKeyOf(event);
             if (!COUNTED_STATUS.has(status) || !dayKey) return;
             const kind = kindOf(event);
-            const skill = kind === "training" ? skillOf(event) : "";
+            const skill = kind === "training" ? roleOf(event) : "";
             const groupKey = kind === "training" ? `training|${event.role_id ?? skill}|${dayKey}` : kind;
             if (!groups.has(groupKey)) groups.set(groupKey, { kind, skill, items: [] });
             groups.get(groupKey).items.push({ event, status, dayKey, unit: unitKey(kind, event, index) });
@@ -143,20 +139,9 @@
         });
     }
 
-    // Name der betroffenen Person; ältere Antworten tragen ihn nur im Text ("... für Mia Hoffmann.").
+    // Name der betroffenen Person.
     function nameOf(event) {
-        const name = String(event.user_name || "").trim();
-        if (name) return name;
-        const match = /^.* für (.+?)\.?$/.exec(String(event.description || ""));
-        return match ? match[1].trim() : "";
-    }
-
-    // Rolle bei Zuweisung, Entzug und Schulung ("<Rolle> für <Name>." bzw. "<Rolle> Schulung für <Name>.").
-    function roleOf(event) {
-        const name = String(event.role_name || "").trim();
-        if (name) return name;
-        const match = /^(.+?)(?: Schulung)? für /.exec(String(event.description || ""));
-        return match ? match[1].trim() : "";
+        return String(event.user_name || "").trim();
     }
 
     // "A, B + 2 weitere": höchstens zwei Namen, der Rest als Zahl.
@@ -238,5 +223,5 @@
         return `${count} ${pluralNoun(kind, count)}`;
     }
 
-    return { kindOf, skillOf, nameOf, roleOf, joinNames, dayKeyOf, timeOf, summarize, summarizeDay, eventsOnDay, dayTotal, kindCounts, countText, lineText, KIND_ORDER };
+    return { kindOf, nameOf, roleOf, joinNames, dayKeyOf, timeOf, summarize, summarizeDay, eventsOnDay, dayTotal, kindCounts, countText, lineText, KIND_ORDER };
 }));

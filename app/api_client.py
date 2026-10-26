@@ -166,6 +166,13 @@ class APIClient:
             timeout=30,
         )
 
+    async def service_level_request(self, token: str, params: list[tuple[str, str]] | None = None) -> httpx.Response:
+        return await self._request(
+            "GET", REPORTING_BASE_URL, "/service-level", params=params,
+            headers={"Authorization": "Bearer " + token},
+            timeout=30,
+        )
+
     async def genesys_live_request(self, token: str) -> httpx.Response:
         return await self._request(
             "GET", REPORTING_BASE_URL, "/genesys-live",
@@ -515,8 +522,11 @@ class APIClient:
     async def trigger_ext_onboarding(self, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/onboarding-ext", payload=payload)
 
-    async def get_task_overview(self, user_id: int) -> dict:
-        return await self._get(SOFA_BASE_URL, "/tasks/overview", params={"user_id": user_id})
+    async def get_task_overview(self, user_id: int, completed_since: str | None = None) -> dict:
+        params = {"user_id": user_id}
+        if completed_since:
+            params["completed_since"] = completed_since
+        return await self._get(SOFA_BASE_URL, "/tasks/overview", params=params)
 
     async def trigger_skill_assignment(self, payload) -> dict:
         return await self._post(SOFA_BASE_URL, "/processes/skill_assignment", payload=payload)
