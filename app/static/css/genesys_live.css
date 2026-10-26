@@ -23,7 +23,6 @@
   --gl-tip-bg: #162133;
   --gl-tip-text: #fff;
   --gl-tip-muted: #d6deeb;
-  --gl-stale-bg: #fff5e8;
   flex: 1 1 0;
   min-height: 0;
   width: 100%;
@@ -44,7 +43,6 @@ html[data-theme="dark"] .gl-page, html[data-theme="servodata"] .gl-page {
   --gl-tip-bg: #edf3ff;
   --gl-tip-text: #162133;
   --gl-tip-muted: #43536b;
-  --gl-stale-bg: #3b2d20;
 }
 .gl-page *, .gl-page *::before, .gl-page *::after { box-sizing: border-box; }
 .gl-page [hidden] { display: none !important; }
@@ -57,8 +55,8 @@ html[data-theme="dark"] .gl-page, html[data-theme="servodata"] .gl-page {
 .gl-page .report-title h1 { margin: 0; color: var(--gl-strong); font-size: clamp(1.2rem, 1.2vw + 1rem, 1.45rem); line-height: 1.15; font-weight: 750; }
 .gl-page .report-actions { display: flex; align-items: center; gap: 12px; }
 .gl-page .asof { color: var(--gl-muted); font-size: .76rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.gl-page .asof.is-stale { color: var(--gl-orange); font-weight: 700; }
-.gl-page .stale-notice { padding: 3px 7px; margin-right: 4px; border-radius: 6px; background: var(--gl-stale-bg); color: var(--gl-orange); }
+.gl-page .asof[data-tone="late"] { color: var(--gl-orange); font-weight: 700; }
+.gl-page .asof[data-tone="old"] { color: var(--ui-red-text); font-weight: 700; }
 .gl-page .icon-button { width: 38px; height: 38px; border: 1px solid var(--gl-border); border-radius: 10px; background: var(--gl-card); color: var(--gl-primary); display: grid; place-items: center; cursor: pointer; }
 .gl-page .icon-button:hover { background: var(--gl-soft); }
 .gl-page .icon-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

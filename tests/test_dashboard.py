@@ -160,10 +160,12 @@ class RenderedDashboardTests(unittest.TestCase):
         self.assertIn('Hallo Test</h1>', main)
         self.assertFalse('dash-stat' in main)
 
-    def test_live_panel_only_with_valid_cookie(self):
-        self.assertFalse('id="dash-live"' in self.page('SOFA-TOOL-ZK'))
-        self.assertTrue('id="dash-live"' in self.page('SOFA-TOOL-ZK', cookies={'sofa_agent_stats': issue(42)}))
-        self.assertFalse('id="dash-live"' in self.page('SOFA-TOOL-ZK', cookies={'sofa_agent_stats': issue(7)}))
+    def test_live_panel_whenever_genesys_is_configured(self):
+        # Ohne gueltigen Token bittet das Panel im Browser um neue Anmeldung, statt zu verschwinden.
+        self.assertTrue('id="dash-live"' in self.page('SOFA-TOOL-ZK'))
+        self.assertTrue('id="dash-live"' in self.page('SOFA-TOOL-ZK', cookies={'sofa_agent_stats': issue(7)}))
+        with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': ''}):
+            self.assertFalse('id="dash-live"' in self.page('SOFA-TOOL-ZK'))
 
     def pin_ids(self, html):
         template = html.split('<template id="dash-pin-source">', 1)[1].split('</template>', 1)[0]
@@ -266,3 +268,33 @@ class DashboardDataRouteTests(unittest.TestCase):
             response = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'date': '2026-10-14'})
+
+
+class ReportCookieRenewalTests(unittest.TestCase):
+    def setUp(self):
+        env = patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET})
+        env.start()
+        self.addCleanup(env.stop)
+
+    def renewed(self, cookie, user_id=42):
+        from fastapi.responses import Response
+        from starlette.requests import Request
+        from app.report_proxy import renew_report_cookie
+        headers = [(b'cookie', f'sofa_agent_stats={cookie}'.encode())] if cookie else []
+        request = Request({'type': 'http', 'headers': headers})
+        response = Response()
+        renew_report_cookie(request, response, user_id, secure=False)
+        return response.headers.get('set-cookie', '')
+
+    def test_only_a_valid_token_of_the_same_person_is_renewed(self):
+        import time
+        from app.agent_stats_token import verify
+        old = issue(42, now=time.time() - 3600)
+        cookie = self.renewed(old)
+        self.assertIn('sofa_agent_stats=', cookie)
+        fresh = cookie.split('sofa_agent_stats=', 1)[1].split(';', 1)[0]
+        self.assertNotEqual(fresh, old)
+        self.assertEqual(verify(fresh), 42)
+        self.assertEqual(self.renewed(issue(7)), '', 'fremder Token')
+        self.assertEqual(self.renewed(''), '', 'ohne Token stellt die Sitzung allein keinen aus')
+        self.assertEqual(self.renewed(issue(42, now=time.time() - 9 * 3600)), '', 'abgelaufen')

@@ -8,7 +8,7 @@ const logic = source.slice(0, source.indexOf('for(const scroller of document.que
 const elements = new Map();
 function element(id) {
   if (!elements.has(id)) elements.set(id, {
-    innerHTML: "", textContent: "", hidden: false, title: "",
+    innerHTML: "", textContent: "", hidden: false, title: "", dataset: {},
     classList: {toggle() {}}, parentElement: null
   });
   return elements.get(id);
@@ -30,11 +30,20 @@ assert.match(element("panelContent").innerHTML, /Anruf außerhalb einer Queue/);
 assert.match(element("panelContent").innerHTML, /Beschäftigt ohne nähere Angabe gewählt/);
 assert.match(element("panelContent").innerHTML, /Besprechung/);
 assert.match(element("panelContent").innerHTML, /is-zero/);
-assert.equal(element("updatedAt").textContent, "13:08:12");
-assert.equal(element("staleNotice").hidden, true);
+assert.match(element("asof").title, /^Stand 13:08:12$/);
 vm.runInContext("live.stale=true; renderTime()", context);
-assert.equal(element("staleNotice").hidden, false);
-assert.equal(element("asof").title, "Daten veraltet");
+assert.match(element("asof").title, /Daten veraltet/);
+
+// Alter statt Uhrzeit, Farbe nach Alter.
+const panelModule = require("../app/static/js/reports/genesys_live_panel.js");
+const asOf = "2026-10-26T10:00:00Z";
+const at = seconds => Date.parse(asOf) + seconds * 1000;
+assert.deepEqual(panelModule.freshness(asOf, false, at(30)), {text: "gerade eben", tone: "", title: "Stand 11:00:00"});
+assert.equal(panelModule.freshness(asOf, true, at(30)).tone, "late", "von der SD-API gemeldet veraltet");
+assert.deepEqual([panelModule.freshness(asOf, false, at(90)).text, panelModule.freshness(asOf, false, at(90)).tone], ["vor 1 Min.", "late"]);
+assert.deepEqual([panelModule.freshness(asOf, false, at(300)).text, panelModule.freshness(asOf, false, at(300)).tone], ["vor 5 Min.", "old"]);
+assert.equal(panelModule.freshness(asOf, false, at(7300)).text, "vor 2 Std.");
+assert.equal(panelModule.freshness("kaputt", false).text, "–");
 vm.runInContext('selectedId = sample.queues.find(q => q.mine.member).queue_id; renderPanel()', context);
 assert.equal(element("panelMark").textContent, "Queue");
 assert.match(element("selectionBar").innerHTML, /Filter/);

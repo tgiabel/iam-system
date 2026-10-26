@@ -52,6 +52,7 @@ def build_dashboard_context(authz: AuthorizationContext, agent_stats_cookie: str
         "dashboard_items": items,
         "dashboard_sources": sources,
         "dashboard_mock": scenario,
-        "dashboard_live": bool(scenario) or live_available(authz, agent_stats_cookie),
+        # Live steht immer da, sobald Genesys eingerichtet ist; ohne gueltigen Token bittet es um neue Anmeldung.
+        "dashboard_live": bool(scenario) or is_configured(),
         "dashboard_slog": authz.has_permission("SOFA-TOOL-SLOG"),
     }

@@ -336,44 +336,45 @@
         if (!aside || !url) return { refresh: async () => {} };
         let live = null;
         let loading = false;
-        let removed = false;
-        let timer = null;
+        let signedOut = false;
         const open = panel.loadOpen(readStorage());
 
         function render() {
             const content = $("panelContent");
-            if (!live) {
+            const info = live ? panel.freshness(live.as_of, live.stale) : { text: "–", tone: "", title: "" };
+            const mark = aside.querySelector(".asof");
+            mark.dataset.tone = info.tone;
+            mark.title = info.title;
+            $("updatedAt").textContent = info.text;
+            if (signedOut) {
+                content.innerHTML = '<p class="panel-empty">Für Genesys Live <a href="/login">neu anmelden</a></p>';
+            } else if (!live) {
                 content.innerHTML = '<p class="panel-empty">Live-Daten nicht verfügbar</p>';
-                return;
+            } else {
+                content.innerHTML = panel.panelBody(live, live.total, null, open);
             }
-            content.innerHTML = panel.panelBody(live, live.total, null, open);
-            $("staleNotice").hidden = !live.stale;
-            aside.querySelector(".asof").classList.toggle("is-stale", Boolean(live.stale));
-            $("updatedAt").textContent = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: TIME_ZONE }).format(new Date(live.as_of));
         }
 
-        function remove() {
-            removed = true;
-            clearInterval(timer);
-            aside.remove();
-        }
-
+        // Ein 503 heißt nur, dass Genesys gerade nicht antwortet: der letzte Stand bleibt und altert sichtbar.
+        // Ein ungültiger Report-Token (401) braucht eine neue Anmeldung; dann wird nicht mehr abgefragt.
         async function load() {
-            if (loading || removed) return;
+            if (loading || signedOut) return;
             loading = true;
             try {
                 const { ok, status, data } = await fetchJson(url);
-                // Report-Cookie abgelaufen: der Bereich entfällt ohne Meldung. Ein 503 der SD-API heißt nur,
-                // dass Genesys gerade nicht antwortet; dann bleibt der letzte Stand als "veraltet" stehen.
-                if (status === 401) return remove();
-                if (!ok || !data?.total) throw new Error("live");
-                live = data;
+                if (status === 401) {
+                    signedOut = true;
+                } else if (ok && data?.total) {
+                    live = data;
+                } else if (live) {
+                    live = { ...live, stale: true };
+                }
             } catch (_) {
                 if (live) live = { ...live, stale: true };
             } finally {
                 loading = false;
             }
-            if (aside.isConnected) render();
+            render();
         }
 
         aside.addEventListener("click", event => {
@@ -386,7 +387,7 @@
             $(`kpi-${key}`).previousElementSibling.focus();
         });
 
-        timer = setInterval(() => { if (!document.hidden) load(); }, REFRESH_LIVE_MS);
+        setInterval(() => { if (!document.hidden) load(); }, REFRESH_LIVE_MS);
         return { refresh: load };
     }
 

@@ -19,6 +19,18 @@
     const CHEVRON = '<svg class="kpi-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>';
     const INFO_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.1"/></svg>';
 
+    // Alter des Datenstands statt Uhrzeit: grau bis 1 Minute, orange danach oder wenn die SD-API selbst
+    // "veraltet" meldet, rot ab 5 Minuten. Die Uhrzeit steht im Tooltip.
+    function freshness(asOf, stale, now = Date.now()) {
+        const time = Date.parse(asOf);
+        if (!Number.isFinite(time)) return { text: "–", tone: "", title: "" };
+        const minutes = Math.max(0, Math.floor((now - time) / 60000));
+        const text = minutes < 1 ? "gerade eben" : minutes < 60 ? `vor ${minutes} Min.` : `vor ${Math.floor(minutes / 60)} Std.`;
+        const tone = minutes >= 5 ? "old" : minutes >= 1 || stale ? "late" : "";
+        const clock = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "Europe/Berlin" }).format(new Date(time));
+        return { text, tone, title: `Stand ${clock}${stale ? " · Daten veraltet" : ""}` };
+    }
+
     // Der Speicher kann fehlen oder werfen: dann gelten die Standardwerte.
     function loadOpen(storage) {
         try {
@@ -88,5 +100,5 @@
     ${queue ? `<div class="panel-foot"><strong>${queue.joined_count}</strong> von ${queue.member_count} Mitgliedern aktiviert</div>` : ""}`;
     }
 
-    return { PANEL_KEY, DEFAULT_OPEN, safe, AGENT_ICON, PHONE_ICON, loadOpen, saveOpen, kpiRow, infoTip, kpiGroup, panelBody };
+    return { PANEL_KEY, DEFAULT_OPEN, safe, AGENT_ICON, PHONE_ICON, freshness, loadOpen, saveOpen, kpiRow, infoTip, kpiGroup, panelBody };
 }));

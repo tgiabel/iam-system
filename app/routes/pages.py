@@ -6,7 +6,7 @@ import logging
 from fastapi import APIRouter, Cookie, Depends, Form, Request  # type: ignore
 from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 
-from app.agent_stats_token import is_configured, issue, verify
+from app.agent_stats_token import is_configured, verify
 from app.api_client import api_client
 from app.authz import (
     build_authorization_context_from_user,
@@ -20,6 +20,7 @@ from app import tasks_board_mock
 from app.dashboard import build_dashboard_context
 from app.helpers.time_utils import today_local
 from app.login_errors import login_error_message
+from app.report_proxy import set_report_cookie
 from app.workspace_catalog import visible_items
 from app.routes.shared import _build_session_user_from_login, _build_template_context, templates
 
@@ -80,18 +81,9 @@ async def login(request: Request, pnr: str = Form(...), password: str = Form(...
         samesite="lax",
         secure=_request_uses_https(request),
     )
-    # Eigene Identitaet fuer den Selbstreport. Ein fehlendes Secret laesst den
-    # Report geschlossen, ohne bestehende SOFA-Anmeldungen zu unterbrechen.
+    # Eigene, signierte Identitaet fuer die Genesys-Reports.
     if isinstance(session_user.get("user_id"), int):
-        try:
-            signed = issue(session_user["user_id"])
-        except RuntimeError:
-            signed = None
-        if signed:
-            response.set_cookie(
-                key="sofa_agent_stats", value=signed, httponly=True,
-                max_age=3600 * 8, samesite="lax", secure=_request_uses_https(request),
-            )
+        set_report_cookie(response, session_user["user_id"], secure=_request_uses_https(request))
     return response
 
 

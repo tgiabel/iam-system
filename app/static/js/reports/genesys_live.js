@@ -101,11 +101,11 @@ function renderPanel(){
 }
 
 function renderTime(){
+  const info=live?livePanel.freshness(live.as_of,live.stale):{text:"–",tone:"",title:""};
   const asof=$("updatedAt").parentElement;
-  asof.classList.toggle("is-stale",Boolean(live&&live.stale));
-  asof.title=live&&live.stale?"Daten veraltet":"";
-  $("staleNotice").hidden=!(live&&live.stale);
-  $("updatedAt").textContent=live?new Intl.DateTimeFormat("de-DE",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:"Europe/Berlin"}).format(new Date(live.as_of)):"–";
+  asof.dataset.tone=info.tone;
+  asof.title=info.title;
+  $("updatedAt").textContent=info.text;
 }
 
 async function load(manual=false){

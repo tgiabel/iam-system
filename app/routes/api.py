@@ -11,6 +11,7 @@ from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
+from app.report_proxy import renew_report_cookie
 from app.authz import (
     build_authorization_context_from_user,
     get_authz_payload_for_template,
@@ -844,6 +845,7 @@ async def api_session_authz_refresh(request: Request, sofa_user: str | None = Co
             samesite="lax",
             secure=_request_uses_https(request),
         )
+        renew_report_cookie(request, response, session_user_id, secure=_request_uses_https(request))
         return response
     except httpx.HTTPStatusError as exc:
         return JSONResponse(
