@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="page-container tb-page" id="task-board" data-mock="{{ board_mock }}">
+<div class="page-container tb-page" id="task-board"{% if board_mock %} data-mock="{{ board_mock }}"{% endif %}>
     <script type="application/json" id="task-board-data">{{ board_json | safe }}</script>
 
     <section class="tb-rail" id="tb-col-parked" data-column="parked" data-stage="parked" aria-label="Zurückgestellt"></section>
@@ -150,6 +150,8 @@
 <script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
 <script src="/static/js/task_view_model.js?v={{ static_v }}"></script>
 <script src="/static/js/tasks_board_model.js?v={{ static_v }}"></script>
+<script src="/static/js/tasks_board_data.js?v={{ static_v }}"></script>
+{% if board_mock %}<script src="/static/js/tasks_board_mock.js?v={{ static_v }}"></script>{% endif %}
 <script src="/static/js/tasks_board_detail.js?v={{ static_v }}"></script>
 <script src="/static/js/tasks_board.js?v={{ static_v }}" defer></script>
 {% endblock %}

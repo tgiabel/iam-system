@@ -432,9 +432,10 @@ for (const status of [400, 401, 403, 404, 409, 422]) {
 
     def test_templates_and_scripts_expose_required_controls(self):
         user_script = (ROOT / "app/static/js/userverwaltung.js").read_text(encoding="utf-8")
-        tasks_script = (ROOT / "app/static/js/tasks.js").read_text(encoding="utf-8")
+        board_model = (ROOT / "app/static/js/tasks_board_model.js").read_text(encoding="utf-8")
+        board_scripts = "".join((ROOT / "app/static/js" / name).read_text(encoding="utf-8")
+                                for name in ("tasks_board.js", "tasks_board_detail.js", "tasks_board_data.js"))
         user_template = (ROOT / "app/templates/userverwaltung.html").read_text(encoding="utf-8")
-        task_template = (ROOT / "app/templates/tasks.html").read_text(encoding="utf-8")
 
         self.assertNotIn("window.confirm", user_script)
         self.assertIn('id="process-cancel-reason"', user_template)
@@ -446,11 +447,9 @@ for (const status of [400, 401, 403, 404, 409, 422]) {
         self.assertIn('id="primary-role-change-date"', user_script)
         self.assertIn('id="skill-revoke-effective-date"', user_script)
         self.assertNotIn("payload.start_date = startDate", user_script[user_script.index("const skillRevokeModalController"):])
-        self.assertIn('id="task-modal-target-date"', task_template)
-        self.assertIn("showFutureRevocationWarning", tasks_script)
-        self.assertIn("sofaContract.canSendTaskMail", tasks_script)
-        self.assertIn("Die Auswahl enthält zukünftige Stichtage", tasks_script)
-        self.assertNotIn("X-User-Id", tasks_script)
+        self.assertIn("contract.isFutureRevocationTask", board_model)
+        self.assertIn("Entzug vor Stichtag", board_scripts)
+        self.assertNotIn("X-User-Id", board_scripts)
         self.assertNotIn("X-User-Id", user_script)
 
 

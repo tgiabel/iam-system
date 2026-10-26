@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 10, 14, 11, 30)  # Mittwoch
 ME = {"user_id": 42, "name": "Erika Test"}
 
-# Felder, die SOFA vom Backend erwartet: TaskView plus die Wunschliste aus docs/tasks-kanban.md.
+# Felder eines TaskContext aus GET /sofa/tasks/overview, die das Board nutzt (SD-API Release 1).
 TASK_FIELDS = {
     "task_id", "task_type", "status", "handling_type", "provisioning_requirement",
     "target_user_id", "target_user_name", "resource_id", "resource_type_id", "resource_name",
@@ -25,8 +25,9 @@ TASK_FIELDS = {
 }
 
 
-def user_cookie(*pages, user_id=42):
-    permissions = {"accessible_pages": [{"identifier": item} for item in pages]}
+def user_cookie(*pages, user_id=42, backlogs=()):
+    permissions = {"accessible_pages": [{"identifier": item} for item in pages],
+                   "accessible_backlogs": [{"identifier": item} for item in backlogs]}
     return json.dumps({"user_id": user_id, "pnr": "42", "first_name": "Erika", "last_name": "Test",
                        "primary_role": {"name": "Agent"}, "secondary_roles": [], "sofa_permissions": permissions})
 
@@ -131,20 +132,29 @@ class TasksBoardPageTests(unittest.TestCase):
         self.client = TestClient(app)
         self.client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-TODO"))
 
-    def test_board_only_with_mock_in_development(self):
+    def board_data(self, html):
+        return json.loads(html.split('id="task-board-data">', 1)[1].split("</script>", 1)[0])
+
+    def test_board_loads_its_tasks_and_mock_only_in_development(self):
+        with patch.dict(os.environ, {"APP_ENV": "production"}):
+            html = self.client.get("/tasks", params={"mock": "busy"}).text
+        self.assertIn('id="task-board"', html)
+        self.assertNotIn("data-mock", html)
+        self.assertNotIn("tasks_board_mock.js", html)
+        self.assertIn("tasks_board_data.js", html)
+        data = self.board_data(html)
+        self.assertEqual(set(data), {"me", "today", "mock"})
+        self.assertIsNone(data["mock"])
         with patch.dict(os.environ, {"APP_ENV": "development"}):
             html = self.client.get("/tasks", params={"mock": "busy"}).text
-            self.assertIn('id="task-board"', html)
-            self.assertIn('data-mock="busy"', html)
-            self.assertNotIn('id="task-board"', self.client.get("/tasks").text)
-        with patch.dict(os.environ, {"APP_ENV": "production"}):
-            self.assertNotIn('id="task-board"', self.client.get("/tasks", params={"mock": "busy"}).text)
+        self.assertIn('data-mock="busy"', html)
+        self.assertIn("tasks_board_mock.js", html)
+        self.assertEqual(self.board_data(html)["mock"], "busy")
 
     def test_board_data_is_embedded_safely(self):
         with patch.dict(os.environ, {"APP_ENV": "development"}):
             html = self.client.get("/tasks", params={"mock": "normal"}).text
-        raw = html.split('id="task-board-data">', 1)[1].split("</script>", 1)[0]
-        data = json.loads(raw)
+        data = self.board_data(html)
         self.assertEqual(data["me"], {"user_id": 42, "name": "Erika Test"})
         self.assertTrue(data["tasks"])
 
@@ -153,6 +163,79 @@ class TasksBoardPageTests(unittest.TestCase):
         with patch.dict(os.environ, {"APP_ENV": "development"}):
             response = self.client.get("/tasks", params={"mock": "normal"}, follow_redirects=False)
         self.assertIn(response.status_code, (302, 303, 307))
+
+
+class TasksProxyTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+        self.client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-TODO", backlogs=("IT",)))
+        relevant = patch("app.routes.api._get_relevant_task_or_raise", self.relevant)
+        relevant.start()
+        self.addCleanup(relevant.stop)
+        self.calls = []
+
+    async def relevant(self, task_id, authz):
+        self.calls.append(("relevant", task_id))
+        return {"task_id": task_id}
+
+    def test_overview_passes_completed_since_and_filters_every_list(self):
+        async def overview(user_id, completed_since=None):
+            self.calls.append(("overview", user_id, completed_since))
+            visible, hidden = {"task_id": 1, "backlog_identifier": "IT"}, {"task_id": 2, "backlog_identifier": "HR"}
+            lists = ("open_tasks", "blocked_tasks", "user_tasks", "others_in_progress_tasks", "completed_tasks")
+            return {**{key: [visible, hidden] for key in lists}, "completed_truncated": True}
+
+        with patch("app.routes.api.api_client.get_task_overview", overview):
+            data = self.client.get("/api/tasks/overview", params={"completed_since": "2026-10-01"}).json()
+            self.assertEqual(self.client.get("/api/tasks/overview", params={"completed_since": "kaputt"}).status_code, 422)
+        self.assertEqual(self.calls, [("overview", 42, "2026-10-01")])
+        for key in ("open_tasks", "blocked_tasks", "user_tasks", "others_in_progress_tasks", "completed_tasks"):
+            self.assertEqual([task["task_id"] for task in data[key]], [1], key)
+        self.assertTrue(data["completed_truncated"])
+
+    def test_release_forwards_a_trimmed_comment(self):
+        async def unassign(task_id, user_id, comment=None):
+            self.calls.append(("release", task_id, user_id, comment))
+            return {"task_id": task_id, "status": "OPEN"}
+
+        with patch("app.routes.api.api_client.unassign_task", unassign):
+            self.assertEqual(self.client.delete("/api/tasks/7/assign", params={"comment": "  Übergabe  "}).status_code, 200)
+            self.client.delete("/api/tasks/8/assign", params={"comment": "   "})
+            self.assertEqual(self.client.delete("/api/tasks/9/assign", params={"comment": "x" * 256}).status_code, 422)
+        self.assertEqual([call for call in self.calls if call[0] == "release"],
+                         [("release", 7, 42, "Übergabe"), ("release", 8, 42, None)])
+
+    def test_comment_is_checked_and_sent_as_the_signed_in_user(self):
+        async def add(task_id, user_id, comment):
+            self.calls.append(("comment", task_id, user_id, comment))
+            return {"status": "commented", "task_id": task_id}
+
+        with patch("app.routes.api.api_client.add_task_comment", add):
+            response = self.client.post("/api/tasks/7/comments", json={"comment": " Rückfrage gestellt ", "user_id": 999})
+            self.assertEqual(response.json(), {"status": "commented", "task_id": 7})
+            self.assertEqual(self.client.post("/api/tasks/7/comments", json={"comment": "  "}).status_code, 422)
+            self.assertEqual(self.client.post("/api/tasks/7/comments", json={"comment": "x" * 256}).status_code, 422)
+        self.assertEqual(self.calls, [("relevant", 7), ("comment", 7, 42, "Rückfrage gestellt")])
+
+    def test_client_sends_comment_with_user_header(self):
+        from app.api_client import APIClient, SOFA_BASE_URL
+        import asyncio
+        client = APIClient()
+        calls = []
+
+        async def request(method, base_url, path, **kwargs):
+            calls.append((method, path, kwargs.get("params"), kwargs.get("payload"), kwargs.get("headers")))
+            return {}
+
+        client._request_json = request
+        asyncio.run(client.add_task_comment(7, 42, "Notiz"))
+        asyncio.run(client.unassign_task(7, 42, "Übergabe"))
+        asyncio.run(client.unassign_task(7, 42))
+        self.assertEqual(calls, [
+            ("POST", "/tasks/7/comments", None, {"user_id": 42, "comment": "Notiz"}, {"X-User-Id": "42"}),
+            ("DELETE", "/tasks/7/assign", {"user_id": 42, "comment": "Übergabe"}, None, None),
+            ("DELETE", "/tasks/7/assign", {"user_id": 42}, None, None),
+        ])
 
 
 if __name__ == "__main__":

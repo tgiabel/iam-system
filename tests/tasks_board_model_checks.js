@@ -263,4 +263,43 @@ assert.equal(model.relatedCompletionComment("  Geprüft. "), "Mit dem Kontoentzu
         "nicht gewählte verwandte Entzüge brauchen keine Bestätigung");
 }
 
+// ---------- Daten der SD-API ----------
+assert.deepEqual(model.tasksFromOverview({
+    user_tasks: [{task_id: 1, status: "IN_PROGRESS"}],
+    open_tasks: [{task_id: 2}, {task_id: 1, status: "OPEN"}],
+    completed_tasks: [{task_id: 3}],
+    completed_truncated: false
+}).map(item => [item.task_id, item.status]), [[1, "IN_PROGRESS"], [2, undefined], [3, undefined]],
+"alle Listen in einer, jeder Task einmal");
+assert.deepEqual(model.tasksFromOverview(null), []);
+assert.equal(model.rangeStart("week", "2026-10-14"), "2026-10-12");
+assert.equal(model.rangeStart("month", "2026-10-14"), "2026-10-01");
+
+const entry = raw => model.historyEntry({timestamp: "2026-10-14T10:00:00", user_id: 7, user_name: "Erika Test", comment: null, details: null, ...raw});
+assert.equal(entry({action: "ASSIGNED"}).human, true);
+assert.equal(entry({action: "BOT_RESPONSE"}).human, false, "die SD-API schreibt den Bearbeiter auch an Systemeinträge");
+assert.equal(entry({action: "COMMENTED", user_id: null}).human, false);
+assert.deepEqual(entry({action: "MAIL_SENT", details: '{"recipient": "a@b.de", "subject": "S", "body": "B"}'}).details,
+    {recipient: "a@b.de", subject: "S", body: "B"});
+assert.equal(entry({action: "MAIL_SENT", details: "kein JSON"}).details, null);
+assert.equal(entry({action: "BOT_RESPONSE", details: '{"status": "error"}'}).error, true);
+assert.equal(entry({action: "BOT_RESPONSE", details: '{"status": "success"}'}).error, false);
+
+const facts = model.historyFacts([
+    entry({action: "MAIL_SENT", details: "{}"}),
+    entry({action: "BOT_RESPONSE", comment: "Fehlgeschlagen - Zielsystem nicht erreichbar", details: '{"status": "error"}'})
+]);
+assert.deepEqual(facts, {mailSent: true, automationError: "Fehlgeschlagen - Zielsystem nicht erreichbar", accountIdentifier: null, completionComment: null});
+assert.equal(model.historyFacts([
+    entry({action: "BOT_RESPONSE", details: '{"status": "error"}'}),
+    entry({action: "BOT_RESPONSE", details: '{"status": "success"}'})
+]).automationError, null, "der jüngste Versuch zählt");
+assert.equal(model.historyFacts([
+    entry({action: "BOT_RESPONSE", details: '{"status": "success"}'}),
+    entry({action: "BOT_RESPONSE", comment: "Integration erfolgreich, Task nicht abgeschlossen: Kennung vergeben", details: '{"status": "error"}'})
+]).automationError, "Integration erfolgreich, Task nicht abgeschlossen: Kennung vergeben", "gescheiterter Abschluss nach Integration");
+assert.deepEqual(model.historyFacts([
+    entry({action: "COMPLETED", comment: "Eingerichtet.", details: '{"resource": "AD", "account_identifier": "mmuster"}'})
+]), {mailSent: false, automationError: null, accountIdentifier: "mmuster", completionComment: "Eingerichtet."});
+
 console.log("tasks_board_model_checks: ok");

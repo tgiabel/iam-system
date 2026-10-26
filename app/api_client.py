@@ -457,8 +457,19 @@ class APIClient:
     async def assign_task(self, task_id: int, user_id: int) -> dict:
         return await self._patch(SOFA_BASE_URL, f"/tasks/{task_id}/assign", params={"user_id": user_id})
 
-    async def unassign_task(self, task_id: int, user_id: int) -> dict:
-        return await self._delete(SOFA_BASE_URL, f"/tasks/{task_id}/assign", params={"user_id": user_id})
+    async def unassign_task(self, task_id: int, user_id: int, comment: str | None = None) -> dict:
+        params = {"user_id": user_id}
+        if comment:
+            params["comment"] = comment
+        return await self._delete(SOFA_BASE_URL, f"/tasks/{task_id}/assign", params=params)
+
+    async def add_task_comment(self, task_id: int, user_id: int, comment: str) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            f"/tasks/{task_id}/comments",
+            payload={"user_id": user_id, "comment": comment},
+            headers={"X-User-Id": str(user_id)},
+        )
 
     async def bulk_assign_tasks(self, task_ids: list[int], user_id: int) -> dict:
         return await self._post(

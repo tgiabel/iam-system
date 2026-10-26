@@ -7,7 +7,7 @@ import re
 from urllib.parse import quote
 
 import httpx  # type: ignore
-from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Request, UploadFile  # type: ignore
+from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile  # type: ignore
 from fastapi.responses import JSONResponse, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
@@ -47,6 +47,8 @@ IKS_REPORT_PERMISSIONS = {
 }
 
 ISO_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+# task_logs.comment ist varchar(255); dieselbe Grenze steht als COMMENT_MAX_LENGTH in tasks_board_model.js.
+TASK_COMMENT_MAX_LENGTH = 255
 
 
 def _build_planned_role_request(payload: dict, initiator_user_id: int) -> dict:
@@ -1108,13 +1110,37 @@ async def api_assign_task(task_id: int, user_id: int, current_user=Depends(requi
 
 
 @router.delete("/tasks/{task_id}/assign")
-async def api_unassign_task(task_id: int, current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
+async def api_unassign_task(
+    task_id: int,
+    comment: str | None = Query(None, max_length=TASK_COMMENT_MAX_LENGTH),
+    current_user=Depends(require_permission("SOFA-PAGE-TODO")),
+):
     try:
         await _get_relevant_task_or_raise(task_id, current_user)
-        task = await api_client.unassign_task(task_id, current_user.user_id)
+        task = await api_client.unassign_task(task_id, current_user.user_id, (comment or "").strip() or None)
         return JSONResponse(content=task)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except HTTPException as exc:
+        raise exc
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/tasks/{task_id}/comments")
+async def api_add_task_comment(task_id: int, payload: dict, current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
+    comment = str((payload or {}).get("comment") or "").strip()
+    if not comment or len(comment) > TASK_COMMENT_MAX_LENGTH:
+        return JSONResponse(
+            content={"detail": f"Die Notiz muss 1 bis {TASK_COMMENT_MAX_LENGTH} Zeichen lang sein."},
+            status_code=422,
+        )
+    try:
+        await _get_relevant_task_or_raise(task_id, current_user)
+        result = await api_client.add_task_comment(task_id, current_user.user_id, comment)
+        return JSONResponse(content=result)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except HTTPException as exc:
         raise exc
     except Exception as exc:
@@ -1410,15 +1436,21 @@ async def api_start_ext_onboarding_process(
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+# Die SD-API filtert nur die neuen Listen selbst; SOFA wendet auf alle dieselbe Backlog-Regel an.
+TASK_OVERVIEW_LISTS = ("open_tasks", "blocked_tasks", "user_tasks", "others_in_progress_tasks", "completed_tasks")
+
+
 @router.get("/tasks/overview")
-async def api_tasks_overview(current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
+async def api_tasks_overview(
+    completed_since: date | None = None,
+    current_user=Depends(require_permission("SOFA-PAGE-TODO")),
+):
     try:
         user_id = current_user.user_id
-        tasks = await api_client.get_task_overview(user_id)
-        for key in ("open_tasks", "blocked_tasks", "user_tasks"):
+        tasks = await api_client.get_task_overview(user_id, completed_since.isoformat() if completed_since else None)
+        for key in TASK_OVERVIEW_LISTS:
             if isinstance(tasks.get(key), list):
                 tasks[key] = _filter_tasks_for_scope(tasks[key], current_user)
-        tasks.pop("completed_tasks", None)
         return JSONResponse(content=tasks)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)

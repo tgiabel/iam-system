@@ -1,4 +1,5 @@
-// Aufgaben als Kanban (Entwurf mit Mock-Daten, /tasks?mock=). Logik ohne DOM in tasks_board_model.js.
+// Aufgaben als Kanban. Logik ohne DOM in tasks_board_model.js, Daten über tasks_board_data.js
+// (in der Entwicklungsinstanz mit /tasks?mock= über tasks_board_mock.js).
 (function () {
     "use strict";
 
@@ -12,7 +13,9 @@
     const data = JSON.parse(dataEl.textContent);
     const me = data.me || {};
     const meId = me.user_id;
-    const todayKey = data.today;
+    let todayKey = data.today;
+    const REFRESH_MS = 60000;
+    const backend = data.mock ? window.TasksBoardMock.create(data, me, berlinNowStamp) : window.TasksBoardData.live();
     const storageKey = `sofa.tasks.board.v1.${meId ?? "anon"}`;
 
     const LABELS = {
@@ -23,9 +26,11 @@
     };
 
     const backlogLookup = {};
-    (data.backlogs || []).forEach(backlog => {
-        backlogLookup[backlog.technical_identifier] = { name: backlog.display_name || backlog.technical_identifier };
-    });
+    function setBacklogs(backlogs) {
+        backlogs.forEach(backlog => {
+            backlogLookup[backlog.technical_identifier] = { name: backlog.display_name || backlog.technical_identifier };
+        });
+    }
     const lookups = { processLabels: LABELS.processes, backlogLookup };
 
     const ICONS = {
@@ -35,7 +40,12 @@
         chevron: '<svg class="tb-icon tb-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
     };
 
-    let tasks = (data.tasks || []).slice();
+    let tasks = [];
+    // Bis zur ersten Antwort zeigen die Spalten "Lädt …"; ein späterer Fehler lässt den letzten Stand stehen.
+    let loadState = "loading";
+    let truncated = false;
+    let loadRequest = 0;
+    let bulkBusy = false;
     let view = loadView();
     let board = null;
     const selected = new Set();
@@ -187,6 +197,13 @@
         return view.search || Model.countActiveFacets(view) > 0 || view.onlyMine;
     }
 
+    function columnEmptyHtml(message) {
+        if (loadState !== "ready") {
+            return emptyHtml(loadState === "failed" ? "Aufgaben konnten nicht geladen werden" : "Lädt …");
+        }
+        return emptyHtml(filteredHint() ? "Keine Treffer" : message);
+    }
+
     // ---------- Spalten ----------
 
     function renderParked() {
@@ -244,7 +261,7 @@
         }).join("");
 
         const body = document.getElementById("tb-rail-body");
-        body.innerHTML = sections || emptyHtml(filteredHint() ? "Keine Treffer" : "Nichts zurückgestellt");
+        body.innerHTML = sections || columnEmptyHtml("Nichts zurückgestellt");
         [blocked, deferred].forEach(section => {
             const button = el.querySelector(`[data-rail-open="${section.key}"]`);
             button.hidden = section.count === 0;
@@ -279,7 +296,7 @@
         document.getElementById("tb-count-open").textContent = column.count;
         const body = document.getElementById("tb-body-open");
         if (!column.count) {
-            body.innerHTML = emptyHtml(filteredHint() ? "Keine Treffer" : "Keine offenen Aufgaben");
+            body.innerHTML = columnEmptyHtml("Keine offenen Aufgaben");
             return;
         }
         if (view.openGrouping === "none") {
@@ -314,7 +331,7 @@
         document.getElementById("tb-count-progress").textContent = column.count;
         const body = document.getElementById("tb-body-progress");
         if (!column.count) {
-            body.innerHTML = emptyHtml(filteredHint() ? "Keine Treffer" : "Nichts in Bearbeitung");
+            body.innerHTML = columnEmptyHtml("Nichts in Bearbeitung");
             return;
         }
 
@@ -363,10 +380,11 @@
         const body = document.getElementById("tb-body-done");
         if (!column.count) {
             const empty = { today: "Heute noch nichts erledigt", week: "Diese Woche nichts erledigt", month: "Diesen Monat nichts erledigt" };
-            body.innerHTML = emptyHtml(filteredHint() ? "Keine Treffer" : empty[view.doneRange]);
+            body.innerHTML = columnEmptyHtml(empty[view.doneRange]);
             return;
         }
-        body.innerHTML = column.groups.map(group => `
+        // Die SD-API liefert höchstens 1000 erledigte Aufgaben, die neuesten zuerst.
+        body.innerHTML = (truncated ? emptyHtml("Nur die neuesten 1000") : "") + column.groups.map(group => `
             <div class="tb-group">
                 ${groupLabelHtml(group.label, group.tasks.length)}
                 ${cardsHtml(group.tasks)}
@@ -503,8 +521,10 @@
         const assign = document.getElementById("tb-bulk-assign");
         const releaseBtn = document.getElementById("tb-bulk-release");
         assign.hidden = !summary.assignable.length;
+        assign.disabled = bulkBusy;
         assign.textContent = mixed ? `${summary.assignable.length} übernehmen` : "Übernehmen";
         releaseBtn.hidden = !summary.releasable.length;
+        releaseBtn.disabled = bulkBusy;
         releaseBtn.textContent = mixed ? `${summary.releasable.length} freigeben` : "Freigeben";
     }
 
@@ -545,51 +565,49 @@
         render();
     }
 
-    // ---------- Aktionen (simuliert) ----------
+    // ---------- Laden und Aktionen ----------
 
-    function applyAssign(ids) {
-        const now = berlinNowStamp();
-        const idSet = new Set(ids);
-        tasks = tasks.map(task => {
-            if (!idSet.has(task.task_id) || task.status !== "OPEN") return task;
-            detail.record(task.task_id, "ASSIGNED");
-            return Model.assignTo(task, me, now);
-        });
-        return ids.length;
-    }
-
-    function applyRelease(ids, comment = "") {
-        const idSet = new Set(ids);
-        tasks = tasks.map(task => {
-            if (!idSet.has(task.task_id) || task.status !== "IN_PROGRESS" || !Model.isMine(task, meId)) return task;
-            detail.record(task.task_id, "RELEASED", comment);
-            return Model.release(task);
-        });
-        return ids.length;
-    }
-
-    function runBulk(action) {
-        const summary = Model.summarizeSelection(tasks, selected, meId);
-        if (action === "assign" && summary.assignable.length) {
-            const count = applyAssign(summary.assignable.map(task => task.task_id));
-            summary.assignable.forEach(task => selected.delete(task.task_id));
-            flash(`${count} übernommen`);
-        }
-        if (action === "release" && summary.releasable.length) {
-            const count = applyRelease(summary.releasable.map(task => task.task_id));
-            summary.releasable.forEach(task => selected.delete(task.task_id));
-            flash(`${count} freigegeben`);
+    // Erledigte ab Beginn des gewählten Zeitraums; die letzte Anfrage gewinnt.
+    async function reload() {
+        const request = ++loadRequest;
+        if (!data.mock) todayKey = window.SofaContract.berlinDateKey();
+        const result = await backend.load(Model.rangeStart(view.doneRange, todayKey));
+        if (request !== loadRequest) return;
+        if (result.ok) {
+            tasks = result.data.tasks;
+            truncated = result.data.truncated;
+            loadState = "ready";
+        } else if (loadState !== "ready") {
+            loadState = "failed";
         }
         render();
     }
 
-    // ---------- Details (nur lokaler Entwurf) ----------
+    async function runBulk(action) {
+        const summary = Model.summarizeSelection(tasks, selected, meId);
+        const list = action === "assign" ? summary.assignable : summary.releasable;
+        if (!list.length || bulkBusy) return;
+        bulkBusy = true;
+        renderSelbar();
+        const ids = list.map(task => task.task_id);
+        const outcome = action === "assign" ? await backend.assign(ids) : await backend.release(ids);
+        outcome.done.forEach(id => selected.delete(id));
+        bulkBusy = false;
+        await reload();
+        const verb = action === "assign" ? "übernommen" : "freigegeben";
+        if (outcome.failed.length) {
+            flash(`${outcome.done.length} ${verb}, ${outcome.failed.length} nicht möglich: ${outcome.failed[0].message}`, "failure");
+        } else {
+            flash(`${outcome.done.length} ${verb}`);
+        }
+    }
+
+    // ---------- Details ----------
 
     const detail = window.TasksBoardDetail.create({
-        Model, me, todayKey, details: data.task_details || {},
+        Model, me, today: () => todayKey, backend,
         getTasks: () => tasks,
-        setTasks: updated => { tasks = updated; },
-        assign: applyAssign, release: applyRelease, onChange: render,
+        refresh: reload,
         now: berlinNowStamp, formatDateTime, processLabel, backlogLookup,
         labels: LABELS
     });
@@ -735,6 +753,7 @@
         const range = target.closest("[data-done-range]");
         if (range) {
             updateView({ doneRange: range.dataset.doneRange });
+            reload();
             return;
         }
 
@@ -815,4 +834,15 @@
 
     window.matchMedia("(max-width: 900px)").addEventListener("change", syncRailAccessibility);
     render();
+    backend.backlogs().then(backlogs => {
+        setBacklogs(backlogs);
+        render();
+    });
+    reload();
+    setInterval(() => {
+        if (!document.hidden && !detail.isBusy() && !bulkBusy) reload();
+    }, REFRESH_MS);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && !detail.isBusy() && !bulkBusy) reload();
+    });
 }());

@@ -492,7 +492,62 @@
         return orderedIds.slice(start, end + 1).filter(isSelectable);
     }
 
-    // ---------- Simulierte Aktionen (Entwurf ohne Backend) ----------
+    // ---------- Daten der SD-API ----------
+
+    // Die Übersicht liefert je Bereich eine Liste; das Board braucht eine. Ein Task steht nur einmal darin.
+    const OVERVIEW_LISTS = ["user_tasks", "others_in_progress_tasks", "open_tasks", "blocked_tasks", "completed_tasks"];
+
+    function tasksFromOverview(overview) {
+        const seen = new Set();
+        return OVERVIEW_LISTS.flatMap(key => (Array.isArray(overview?.[key]) ? overview[key] : []))
+            .filter(task => task && !seen.has(String(task.task_id)) && seen.add(String(task.task_id)));
+    }
+
+    // Systemeinträge stehen ohne Bearbeiter im Verlauf, auch wenn die SD-API den Bearbeiter mitschreibt.
+    const SYSTEM_ACTIONS = new Set(["CREATED", "UNBLOCKED", "BOT_DISPATCHED", "BOT_RESPONSE", "CANCELED", "RECLASSIFIED"]);
+
+    function parseDetails(details) {
+        if (details && typeof details === "object") return details;
+        try {
+            const value = JSON.parse(details);
+            return value && typeof value === "object" ? value : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    // Ein Eintrag aus GET /sofa/tasks/{id}/logs; details ist dort ein JSON-Text.
+    function historyEntry(raw) {
+        const action = upper(raw?.action);
+        const details = parseDetails(raw?.details);
+        return {
+            action,
+            timestamp: String(raw?.timestamp || ""),
+            user_id: raw?.user_id ?? null,
+            user_name: raw?.user_name || null,
+            comment: raw?.comment || null,
+            details,
+            human: raw?.user_id !== null && raw?.user_id !== undefined && !SYSTEM_ACTIONS.has(action),
+            error: action === "BOT_RESPONSE" && upper(details?.status) === "ERROR"
+        };
+    }
+
+    // Was das Detail aus dem Verlauf braucht. Ausschlaggebend ist jeweils der jüngste Eintrag; eine
+    // gescheiterte Automatisierung bringt ihren Grund mit (auch "Integration erfolgreich, Task nicht abgeschlossen").
+    function historyFacts(entries) {
+        const facts = { mailSent: false, automationError: null, accountIdentifier: null, completionComment: null };
+        (entries || []).forEach(entry => {
+            if (entry.action === "MAIL_SENT") facts.mailSent = true;
+            if (entry.action === "BOT_RESPONSE") facts.automationError = entry.error ? entry.comment || "Fehlgeschlagen" : null;
+            if (entry.action === "COMPLETED") {
+                facts.accountIdentifier = entry.details?.account_identifier || null;
+                facts.completionComment = entry.comment;
+            }
+        });
+        return facts;
+    }
+
+    // ---------- Lokale Aktionen (nur der Mock-Datenzugang) ----------
 
     function assignTo(task, me, nowStamp) {
         return {
@@ -602,18 +657,22 @@
         initials,
         isDeferred,
         isForeign,
+        historyEntry,
+        historyFacts,
         isInDoneRange,
         isMine,
         matchesView,
         normalizeView,
         processQuery,
         rangeSelection,
+        rangeStart,
         RELATED_REVOCATION_NOTE,
         relatedCompletionComment,
         relatedRevocations,
         release,
         serializeView,
         summarizeSelection,
+        tasksFromOverview,
         timeOf,
         weekStart
     };

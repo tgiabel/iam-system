@@ -96,16 +96,18 @@ def _weighted(rng: random.Random, pairs):
 
 
 def _detail_fixtures(tasks: list[dict], now: datetime) -> dict:
-    """Nur Beispieldaten fuer die Modal-Vorschau, getrennt von der TaskView-Form."""
+    """Verlauf je Task in der Form von GET /sofa/tasks/{id}/logs (details als JSON-Text), dazu der
+    Mock-Schalter automation_fails_once fuer tasks_board_mock.js."""
     details = {}
     for task in tasks:
         task_id = task["task_id"]
         created = datetime.fromisoformat(task["created_at"])
         history = []
 
-        def event(action, stamp, name="System", user_id=None, comment=None, **extra):
-            history.append({"action": action, "timestamp": _stamp(stamp), "user_name": name,
-                            "user_id": user_id, "comment": comment, **extra})
+        def event(action, stamp, name=None, user_id=None, comment=None, details=None):
+            history.append({"action": action, "timestamp": _stamp(stamp), "user_name": name, "user_id": user_id,
+                            "comment": comment,
+                            "details": json.dumps(details, ensure_ascii=False) if details is not None else None})
 
         event("CREATED", created)
         if task["assigned_at"]:
@@ -132,14 +134,16 @@ def _detail_fixtures(tasks: list[dict], now: datetime) -> dict:
                         "initiator_user_id": task["assigned_to_user_id"]}
                 event("MAIL_SENT", max(datetime.fromisoformat(task["assigned_at"]), completed - timedelta(minutes=1)),
                       task["assigned_to_user_name"], task["assigned_to_user_id"], "Mailbeauftragung versendet",
-                      details=json.dumps(mail, ensure_ascii=False))
+                      details=mail)
             if task["handling_type"] == "BOT":
-                event("BOT_RESPONSE", completed, "Automatisierung", result="Erfolgreich ausgeführt", identifier=identifier)
+                # Die SD-API schreibt den Bearbeiter auch an Systemeintraege.
+                event("BOT_RESPONSE", completed, task["assigned_to_user_name"], task["assigned_to_user_id"],
+                      "Erfolgreich ausgeführt", {"status": "success", "summary": "Erfolgreich ausgeführt", "user_id": identifier})
             event("COMPLETED", completed, task["assigned_to_user_name"], task["assigned_to_user_id"],
-                  "Entzug im Zielsystem geprüft." if task["task_type"] == "REVOCATION" else "Einrichtung im Zielsystem geprüft.")
+                  "Entzug im Zielsystem geprüft." if task["task_type"] == "REVOCATION" else "Einrichtung im Zielsystem geprüft.",
+                  {"resource": task["resource_name"], "account_identifier": identifier} if identifier else None)
 
-        details[str(task_id)] = {"history": history, "account_identifier": identifier if task["completed_at"] else None,
-                                 "automation_fails_once": task_id % 3 == 0}
+        details[str(task_id)] = {"history": history, "automation_fails_once": task_id % 3 == 0}
 
     completed_accounts = {
         (task["process_id"], task["system_id"], task["target_user_id"]): task
@@ -167,7 +171,8 @@ def _detail_fixtures(tasks: list[dict], now: datetime) -> dict:
         for index in range(44):
             history.append({"action": "COMMENTED", "timestamp": _stamp(start + (now - start) * ((index + 1) / 45)),
                             "user_name": _COLLEAGUES[index % len(_COLLEAGUES)][1],
-                            "user_id": _COLLEAGUES[index % len(_COLLEAGUES)][0], "comment": notes[index % len(notes)]})
+                            "user_id": _COLLEAGUES[index % len(_COLLEAGUES)][0], "comment": notes[index % len(notes)],
+                            "details": None})
     return details
 
 

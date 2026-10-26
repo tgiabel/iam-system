@@ -282,7 +282,7 @@ assert.deepStrictEqual(c.getArchivedAccounts({task_type: 'ASSIGNMENT', resource_
     def test_pages_expose_rehire_entry_and_restore_notice(self):
         user_template = read("app/templates/userverwaltung.html")
         user_script = read("app/static/js/userverwaltung.js")
-        task_script = read("app/static/js/tasks.js")
+        task_script = read("app/static/js/tasks_board_detail.js")
 
         onboarding_block = user_template[user_template.index('{% if "SOFA-FN-ONB" in authz.permissions %}\n                <button type="button" class="btn btn-sm btn-primary" id="rehire-action-btn"'):]
         self.assertIn('id="rehire-action-btn"', onboarding_block[:400])
@@ -293,12 +293,7 @@ assert.deepStrictEqual(c.getArchivedAccounts({task_type: 'ASSIGNMENT', resource_
         self.assertNotIn("account_decisions", user_script)
         self.assertNotIn("X-User-Id", user_script)
 
-        render_actions = task_script[task_script.index("function renderTaskActions(task) {"):]
-        self.assertLess(
-            render_actions.index("createArchivedAccountNotice(task)"),
-            render_actions.index('id: "task-comment"'),
-        )
-        self.assertIn("reactivate_user_account_history_id: account.userAccountHistoryId", task_script)
+        self.assertIn("payload.reactivate_user_account_history_id = plan.archive.userAccountHistoryId", task_script)
         self.assertNotIn("account_identifier_deviation", task_script)
 
 

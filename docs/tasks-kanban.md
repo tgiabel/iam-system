@@ -59,7 +59,7 @@ Filter (Suche, Backlog, Typ, Bearbeitungsart, „Nur meine“) gelten fürs ganz
 
 ### Stand Draft 1 (15.10.2026)
 
-Nur auf Dev: `/tasks?mock=normal|busy|quiet`, die bisherige Seite bleibt ohne Parameter. Neue Dateien: `app/tasks_board_mock.py` (Mock in `TaskView`-Form plus Wunschfelder), `app/templates/tasks_board.html`, `app/static/js/tasks_board_model.js` (Logik, getestet in `tests/tasks_board_model_checks.js`), `app/static/js/tasks_board.js`, `app/static/css/tasks_board.css`; Weiche in `app/routes/pages.py`. Übernehmen/Freigeben sind im Entwurf nur simuliert.
+Nur auf Dev: `/tasks?mock=normal|busy|quiet`, die bisherige Seite bleibt ohne Parameter (seit 26.10.2026 überholt, siehe Echtbetrieb). Neue Dateien: `app/tasks_board_mock.py` (Mock in `TaskView`-Form plus Wunschfelder), `app/templates/tasks_board.html`, `app/static/js/tasks_board_model.js` (Logik, getestet in `tests/tasks_board_model_checks.js`), `app/static/js/tasks_board.js`, `app/static/css/tasks_board.css`; Weiche in `app/routes/pages.py`. Übernehmen/Freigeben sind im Entwurf nur simuliert.
 
 ### Design-Runde 1 (16.10.2026)
 
@@ -190,6 +190,18 @@ Gebündelt und mit dem SD-API-Stand abgeglichen in [backend-request-ui-bundle.md
 - Verlauf wird immer komplett geladen, keine Paginierung (Entscheidung 23.10.2026). Das Modal rendert weiterhin in Schritten von 20 Eintraegen aus den geladenen Daten. Gewuenscht bleibt nur eine stabile Reihenfolge bei identischen Zeitstempeln.
 - Mail-Snapshot im vorhandenen `MAIL_SENT.details` auf die effektiven Queue-Felder erweitern (normalisierte Empfaenger inklusive automatisch ergaenzter CC, Absender); bestehende JSON-Payloads bleiben lesbar. Aufwand klein: in `task_service.send_mail` die zusammengefuehrte CC einmal berechnen und dieselben Werte an `queue_mail` und ins Log geben, dazu ein Test.
 - Abschlusskontext zurueckgestellt (Entscheidung 23.10.2026). Bis dahin erhalten mit abgeschlossene Entzuege einen generischen Hinweis ohne Verlinkung der ausloesenden Aufgabe. Er laeuft ohne Backend-Aenderung ueber den Abschlusskommentar. Die strukturierte Variante mit ausloesender Task-ID kommt mit dem Sammelabschluss.
+
+## Echtbetrieb (26.10.2026)
+
+Setzt SD-API Release 2 voraus (Freigeben mit Kommentar, Notiz-Endpunkt, Abschluss nach Integration); erst danach deployen.
+
+- `/tasks` zeigt immer das Board, die alte Aufgabenseite (`tasks.html`, `tasks.js`, `tasks.css`) ist entfernt.
+- Datenzugang: `tasks_board_data.js` spricht die SOFA-API, `tasks_board_mock.js` bietet dieselben Funktionen lokal und wird nur mit `?mock=` (Entwicklungsinstanz) geladen. Board und Modal haben damit einen Codepfad.
+- Laden: `GET /api/tasks/overview?completed_since=` mit dem Beginn des Erledigt-Zeitraums (Tag, Woche, Monat), alle Listen in einer (`tasksFromOverview`). Neu laden jede Minute bei sichtbarer Seite, beim Zurückkehren in den Tab und nach jeder Aktion. Mehr als 1000 erledigte: Hinweis „Nur die neuesten 1000“.
+- Der SOFA-Proxy wendet die Backlog-Regel auf alle fünf Listen an, auch auf die beiden, die die SD-API schon selbst filtert.
+- Aktionen: Übernehmen und Sammel-Übernehmen über `bulk-assign`, Freigeben einzeln mit Kommentar über `DELETE …/assign?comment=`, sonst `bulk-release`; Notiz `POST /api/tasks/{id}/comments`; Abschluss `…/complete` (Kennung oder Wiederherstellung); Mail aus `resources/mail_template` und `…/send_mail`; Automatisierung über `tasks/dispatch_bot`. Offene Aufgaben werden vor dem Abschluss übernommen; verwandte Entzüge erst, wenn der Haupt-Task abgeschlossen ist.
+- Verlauf: `GET /api/tasks/{id}/history`, immer komplett; `historyEntry` liest `details` (JSON), Systemeinträge (Erstellt, Automatisierung, Voraussetzung erfüllt) stehen ohne Bearbeiter. Mail-Snapshot, Account-Kennung des Abschlusses und eine gescheiterte Automatisierung (jüngster `BOT_RESPONSE` mit `status: error`) kommen aus dem Verlauf (`historyFacts`).
+- Dev hat derzeit keine Aufgaben in der Datenbank; geprüft sind die Abläufe im Mock und das Laden gegen die echte Dev-API.
 
 ## Offene Fragen für das Brainstorming
 

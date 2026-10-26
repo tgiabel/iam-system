@@ -18,6 +18,7 @@ from app.authz import (
 )
 from app import tasks_board_mock
 from app.dashboard import build_dashboard_context
+from app.helpers.time_utils import today_local
 from app.login_errors import login_error_message
 from app.workspace_catalog import visible_items
 from app.routes.shared import _build_session_user_from_login, _build_template_context, templates
@@ -114,18 +115,18 @@ def tasks(
     mock: str | None = None,
     authz=Depends(require_permission("SOFA-PAGE-TODO", redirect_to="/")),
 ):
+    user = authz.raw_user or {}
+    me = {"user_id": authz.user_id, "name": " ".join(part for part in (user.get("first_name"), user.get("last_name")) if part)}
+    # Die Aufgaben laedt das Board selbst; nur der Mock (Entwicklungsinstanz) bringt sie mit.
     scenario = tasks_board_mock.mock_scenario(mock)
-    if scenario:
-        user = authz.raw_user or {}
-        name = " ".join(part for part in (user.get("first_name"), user.get("last_name")) if part)
-        board = tasks_board_mock.mock_board(scenario, {"user_id": authz.user_id, "name": name})
-        # "</" escapen, damit der JSON-Block das <script>-Element nicht beenden kann.
-        board_json = json.dumps(board, ensure_ascii=False).replace("</", "<\\/")
-        return templates.TemplateResponse(
-            "tasks_board.html",
-            _build_template_context(request, user=authz.raw_user, authz=authz, board_json=board_json, board_mock=scenario),
-        )
-    return templates.TemplateResponse("tasks.html", _build_template_context(request, user=authz.raw_user, authz=authz))
+    board = tasks_board_mock.mock_board(scenario, me) if scenario else {"me": me, "today": today_local().isoformat()}
+    board["mock"] = scenario
+    # "</" escapen, damit der JSON-Block das <script>-Element nicht beenden kann.
+    board_json = json.dumps(board, ensure_ascii=False).replace("</", "<\\/")
+    return templates.TemplateResponse(
+        "tasks_board.html",
+        _build_template_context(request, user=authz.raw_user, authz=authz, board_json=board_json, board_mock=scenario),
+    )
 
 
 @router.get("/workspace", response_class=HTMLResponse)

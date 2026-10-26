@@ -21,9 +21,6 @@ class TaskViewModelTests(unittest.TestCase):
     def test_task_view_model_logic(self):
         self._run_node_checks("tests/task_view_model_checks.js")
 
-    def test_tasks_page_rendering_and_group_modal(self):
-        self._run_node_checks("tests/tasks_view_checks.js")
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,6 @@ const TODAY = '2026-09-18';
 function task(overrides) {
     return Object.assign({
         task_id: 1,
-        uiListState: 'open',
         status: 'OPEN',
         task_type: 'ASSIGNMENT',
         handling_type: 'INTERNAL',
@@ -49,8 +48,6 @@ assert.deepStrictEqual(
     'Leerer Backlog-Identifier zaehlt als nicht gesetzt'
 );
 
-assert.strictEqual(viewModel.isGroupingActive('none'), false);
-assert.strictEqual(viewModel.isGroupingActive('person'), true);
 assert.strictEqual(viewModel.getGroupDimension('gibtsnicht').id, 'none', 'Unbekannte Dimension faellt auf none');
 
 // --- Sortierung ------------------------------------------------------------
@@ -82,7 +79,7 @@ assert.strictEqual(
 
 const groupTasks = [
     task({task_id: 11, target_user_id: 10, target_date: '2026-12-01'}),
-    task({task_id: 12, target_user_id: 10, target_date: '2026-08-01', uiListState: 'blocked'}),
+    task({task_id: 12, target_user_id: 10, target_date: '2026-08-01'}),
     task({task_id: 13, target_user_id: 99, target_user_name: 'Beispiel, Bernd', target_date: '2026-09-30'}),
     task({task_id: 14, target_user_id: null, target_user_name: null, target_date: '2026-07-01'}),
 ];
@@ -99,17 +96,6 @@ assert.deepStrictEqual(
     personGroups[0].tasks.map(entry => entry.task_id),
     [12, 11],
     'Innerhalb der Gruppe gilt dieselbe Sortierung'
-);
-assert.strictEqual(personGroups[0].blockedCount, 1, 'Blockierte Tasks werden pro Gruppe gezaehlt');
-assert.strictEqual(
-    personGroups[0].face.task_id,
-    11,
-    'Die Schauseite ueberspringt blockierte Aufgaben'
-);
-assert.strictEqual(
-    viewModel.pickGroupFace([task({task_id: 30, uiListState: 'blocked'})]).task_id,
-    30,
-    'Besteht die Gruppe nur aus blockierten Aufgaben, zeigt der Stapel eben diese'
 );
 
 assert.deepStrictEqual(viewModel.buildGroups(groupTasks, 'none', {todayKey: TODAY}), []);
@@ -145,134 +131,6 @@ assert.strictEqual(
     'Offboarding · #700',
     'Ohne Personennamen bleiben Prozess und ID'
 );
-
-// --- Listenreihenfolge -----------------------------------------------------
-
-// In Listen stehen blockierte und nachgelagerte Aufgaben unten, sonst gilt die
-// normale Sortierung.
-const listTasks = [
-    task({task_id: 61, uiListState: 'blocked', target_date: '2026-01-01'}),
-    task({task_id: 62, provisioning_requirement: 'DEFERRED', target_date: '2026-01-02'}),
-    task({task_id: 63, target_date: '2026-12-01'}),
-    task({task_id: 64, target_date: '2026-08-01'}),
-];
-assert.deepStrictEqual(
-    viewModel.sortTasksForList(listTasks, TODAY).map(entry => entry.task_id),
-    [64, 63, 62, 61]
-);
-assert.deepStrictEqual(
-    viewModel.sortTasks(listTasks, TODAY).map(entry => entry.task_id),
-    [61, 62, 64, 63],
-    'Die Streifensortierung bleibt rein am Stichtag'
-);
-
-// --- Facetten (Include/Exclude) --------------------------------------------
-
-let facet = viewModel.createFacet();
-facet = viewModel.toggleFacetValue(facet, 'INTERNAL', 'include', true);
-facet = viewModel.toggleFacetValue(facet, 'BOT', 'include', true);
-assert.deepStrictEqual(facet, {include: ['INTERNAL', 'BOT'], exclude: []}, 'Mehrere Werte parallel einschliessbar');
-
-facet = viewModel.toggleFacetValue(facet, 'INTERNAL', 'exclude', true);
-assert.deepStrictEqual(
-    facet,
-    {include: ['BOT'], exclude: ['INTERNAL']},
-    'Ausschliessen entfernt denselben Wert aus dem Einschluss'
-);
-
-assert.strictEqual(viewModel.matchesFacet('INTERNAL', facet), false, 'Exclude schlaegt Include');
-assert.strictEqual(viewModel.matchesFacet('BOT', facet), true);
-assert.strictEqual(viewModel.matchesFacet('EXTERNAL', facet), false, 'Bei aktivem Include faellt der Rest raus');
-
-const excludeOnly = viewModel.toggleFacetValue(viewModel.createFacet(), 'EVENT', 'exclude', true);
-assert.strictEqual(viewModel.matchesFacet('EXTERNAL', excludeOnly), true, 'Reines Exclude laesst alles andere durch');
-assert.strictEqual(viewModel.isFacetActive(viewModel.createFacet()), false);
-assert.strictEqual(viewModel.isFacetActive(excludeOnly), true);
-
-facet = viewModel.toggleFacetValue(facet, 'INTERNAL', 'exclude', false);
-assert.deepStrictEqual(facet, {include: ['BOT'], exclude: []}, 'Abwaehlen entfernt nur den eigenen Modus');
-
-assert.strictEqual(
-    viewModel.matchesFacets(
-        task({handling_type: 'BOT', task_type: 'REVOCATION'}),
-        {handling: {include: ['BOT'], exclude: []}, taskType: {include: [], exclude: ['REVOCATION']}},
-        {handling: entry => entry.handling_type, taskType: entry => entry.task_type}
-    ),
-    false,
-    'Facetten werden UND-verknuepft'
-);
-
-// --- Persistierter Zustand -------------------------------------------------
-
-const restored = viewModel.normalizeViewState({
-    search: 'maria',
-    filters: {status: {include: ['OPEN'], exclude: 'kaputt'}, unbekannt: {include: ['x']}},
-    visibility: {showBlocked: true, showDeferred: 'ja'},
-    grouping: {dimension: 'person'},
-});
-assert.strictEqual(restored.search, 'maria');
-assert.deepStrictEqual(restored.filters.status, {include: ['OPEN'], exclude: []}, 'Kaputte Facettenteile fallen weg');
-assert.deepStrictEqual(restored.filters.backlog, {include: [], exclude: []});
-assert.strictEqual(restored.filters.unbekannt, undefined, 'Unbekannte Facetten werden verworfen');
-assert.strictEqual(restored.visibility.showBlocked, true);
-assert.strictEqual(restored.visibility.showDeferred, false, 'Nicht-Boolean bleibt beim Default');
-assert.strictEqual(restored.grouping.dimension, 'person');
-
-assert.deepStrictEqual(
-    viewModel.normalizeViewState(null),
-    viewModel.createDefaultViewState(),
-    'Fehlender Zustand ergibt den Default'
-);
-assert.strictEqual(
-    viewModel.normalizeViewState({grouping: {dimension: 'sternzeichen'}}).grouping.dimension,
-    'none',
-    'Unbekannte Dimension faellt auf none zurueck'
-);
-
-assert.strictEqual(viewModel.hasActiveFilters(viewModel.createDefaultViewState()), false);
-assert.strictEqual(viewModel.hasNonDefaultView(viewModel.createDefaultViewState()), false);
-assert.strictEqual(
-    viewModel.hasActiveFilters(viewModel.normalizeViewState({grouping: {dimension: 'person'}})),
-    false,
-    'Gruppierung ist kein Filter'
-);
-assert.strictEqual(
-    viewModel.hasNonDefaultView(viewModel.normalizeViewState({grouping: {dimension: 'person'}})),
-    true,
-    'Gruppierung macht die Ansicht aber zuruecksetzbar'
-);
-assert.strictEqual(
-    viewModel.hasNonDefaultView(viewModel.normalizeViewState({visibility: {showDeferred: true}})),
-    true
-);
-
-// --- Tabs im Gruppen-Modal -------------------------------------------------
-
-assert.deepStrictEqual(
-    viewModel.resolveGroupModalTab({open: 3, mine: 2}, 'open'),
-    {tab: 'open', close: false}
-);
-assert.deepStrictEqual(
-    viewModel.resolveGroupModalTab({open: 0, mine: 4}, 'open'),
-    {tab: 'mine', close: false},
-    'Leerer Tab wechselt auf den gefuellten'
-);
-assert.deepStrictEqual(
-    viewModel.resolveGroupModalTab({open: 5, mine: 0}, 'mine'),
-    {tab: 'open', close: false}
-);
-assert.deepStrictEqual(
-    viewModel.resolveGroupModalTab({open: 0, mine: 0}, 'mine'),
-    {tab: 'mine', close: true},
-    'Sind beide Tabs leer, schliesst das Modal'
-);
-
-// --- Task-Praedikate -------------------------------------------------------
-
-assert.strictEqual(viewModel.isBlockedTask(task({uiListState: 'blocked'})), true);
-assert.strictEqual(viewModel.isBlockedTask(task({})), false);
-assert.strictEqual(viewModel.isDeferredTask(task({provisioning_requirement: 'deferred'})), true);
-assert.strictEqual(viewModel.isDeferredTask(task({})), false, 'Fehlendes Feld gilt als REQUIRED');
 
 // --- Rueckmeldung nach dem Bot-Aufruf --------------------------------------
 
