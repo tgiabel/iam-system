@@ -323,7 +323,8 @@ const api = {
                 return null;
             }
 
-            showFlash("Bot erfolgreich dispatcht. Das Ergebnis erscheint später im Verlauf. Bitte Historie prüfen oder aktualisieren.", "success");
+            const feedback = taskVM.botDispatchFeedback(data);
+            showFlash(feedback.message, feedback.category);
             return data;
         } catch (err) {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");

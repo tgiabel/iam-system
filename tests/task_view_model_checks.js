@@ -273,4 +273,17 @@ assert.strictEqual(viewModel.isBlockedTask(task({})), false);
 assert.strictEqual(viewModel.isDeferredTask(task({provisioning_requirement: 'deferred'})), true);
 assert.strictEqual(viewModel.isDeferredTask(task({})), false, 'Fehlendes Feld gilt als REQUIRED');
 
+// --- Rueckmeldung nach dem Bot-Aufruf --------------------------------------
+
+assert.match(viewModel.botDispatchFeedback({status: 'success'}).message, /später im Verlauf/, 'Alte SD-API ohne task_completed');
+assert.deepStrictEqual(
+    viewModel.botDispatchFeedback({status: 'success', task_completed: true, completion_error: null}),
+    {category: 'success', message: 'Integration erfolgreich, Aufgabe abgeschlossen.'},
+);
+assert.deepStrictEqual(
+    viewModel.botDispatchFeedback({status: 'success', task_completed: false, completion_error: 'Integration erfolgreich, Task nicht abgeschlossen: Kennung vergeben'}),
+    {category: 'failure', message: 'Integration erfolgreich, Task nicht abgeschlossen: Kennung vergeben. Bitte von Hand abschließen.'},
+);
+assert.strictEqual(viewModel.botDispatchFeedback({status: 'error', task_completed: false, completion_error: null}).category, 'failure');
+
 console.log('task_view_model checks passed');

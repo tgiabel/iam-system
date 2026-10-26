@@ -400,10 +400,26 @@
         return { tab: requestedTab === "mine" ? "open" : "mine", close: false };
     }
 
+    // Seit dem SD-API-Release mit task_completed schliesst eine erfolgreiche Integration den Task
+    // selbst ab. Fehlt das Feld, laeuft noch die alte SD-API und das Ergebnis kommt spaeter.
+    function botDispatchFeedback(result) {
+        if (!result || !("task_completed" in result)) {
+            return { category: "success", message: "Bot erfolgreich dispatcht. Das Ergebnis erscheint später im Verlauf. Bitte Historie prüfen oder aktualisieren." };
+        }
+        if (result.task_completed) {
+            return { category: "success", message: "Integration erfolgreich, Aufgabe abgeschlossen." };
+        }
+        if (result.completion_error) {
+            return { category: "failure", message: `${result.completion_error}. Bitte von Hand abschließen.` };
+        }
+        return { category: "failure", message: "Integration ohne Erfolg. Details im Verlauf." };
+    }
+
     return {
         UNGROUPED_KEY,
         TASK_FACET_KEYS,
         GROUP_DIMENSIONS,
+        botDispatchFeedback,
         buildGroups,
         compareTasks,
         createDefaultViewState,
