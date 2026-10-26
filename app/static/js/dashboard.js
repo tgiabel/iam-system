@@ -363,8 +363,9 @@
             loading = true;
             try {
                 const { ok, status, data } = await fetchJson(url);
-                // Nicht angemeldet oder nicht eingerichtet: der Bereich entfällt ohne Meldung.
-                if (status === 401 || status === 503) return remove();
+                // Report-Cookie abgelaufen: der Bereich entfällt ohne Meldung. Ein 503 der SD-API heißt nur,
+                // dass Genesys gerade nicht antwortet; dann bleibt der letzte Stand als "veraltet" stehen.
+                if (status === 401) return remove();
                 if (!ok || !data?.total) throw new Error("live");
                 live = data;
             } catch (_) {
