@@ -47,6 +47,14 @@ assert.deepEqual(ids(shared.parentOptions(accounts, accounts[1], null, 9)), [10]
 assert.deepEqual(ids(shared.parentOptions(accounts, null, null, 15)), [10, 11]);
 assert.equal(accounts.length, 2);
 
+// Backlog: aktueller Wert bleibt wählbar, auch wenn er nicht unter den zugänglichen ist
+const backlogs = { "SOFA-BKLG-IT": "IT-Backlog" };
+assert.deepEqual(shared.backlogOptions(backlogs, null), [["SOFA-BKLG-IT", "IT-Backlog"]]);
+assert.deepEqual(shared.backlogOptions(backlogs, "SOFA-BKLG-IT"), [["SOFA-BKLG-IT", "IT-Backlog"]]);
+assert.deepEqual(shared.backlogOptions(backlogs, "SOFA-BKLG-HR"), [["SOFA-BKLG-IT", "IT-Backlog"], ["SOFA-BKLG-HR", "SOFA-BKLG-HR"]]);
+assert.deepEqual(shared.backlogOptions({}, "constructor"), [["constructor", "constructor"]]);
+assert.deepEqual(Object.keys(backlogs), ["SOFA-BKLG-IT"]);
+
 // Bearbeitung: EVENT wird nicht angeboten, bleibt aber wählbar, wo es gesetzt ist
 assert.deepEqual(shared.handlingChoices(null), ["INTERNAL", "BOT", "EXTERNAL"]);
 assert.deepEqual(shared.handlingChoices("BOT"), ["INTERNAL", "BOT", "EXTERNAL"]);

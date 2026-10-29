@@ -329,7 +329,7 @@
         ];
         const sysBacklog = state.system.default_backlog_identifier;
         const backlogOptions = [["", sysBacklog ? `Systemstandard (${backlogName(sysBacklog)})` : "Systemstandard"],
-            ...Object.entries(state.backlogs)];
+            ...D.backlogOptions(state.backlogs, r?.backlog_identifier)];
         const currentParent = r?.parent_resource_id != null ? lookupResource(r.parent_resource_id) : null;
         const candidates = D.parentOptions(state.parentCandidates, r, currentParent, state.system.system_id);
         const parentId = String(r ? (r.parent_resource_id ?? "") : (isAccountType(typeId) ? "" : ownAccountId()));
@@ -619,7 +619,7 @@
         $("sys-short").value = s.short_name || "";
         // Das Kürzel steckt in den Identifiern; änderbar nur, solange es keine Ressourcen gibt.
         $("sys-short").disabled = resources().length > 0;
-        $("sys-backlog").innerHTML = `<option value="">keins</option>` + Object.entries(state.backlogs)
+        $("sys-backlog").innerHTML = `<option value="">keins</option>` + D.backlogOptions(state.backlogs, s.default_backlog_identifier)
             .map(([v, l]) => `<option value="${esc(v)}" ${v === s.default_backlog_identifier ? "selected" : ""}>${esc(l)}</option>`).join("");
         $("sys-handling").innerHTML = D.handlingChoices(systemHandling())
             .map(v => `<option value="${v}" ${v === systemHandling() ? "selected" : ""}>${esc(D.HANDLING[v] || v)}</option>`).join("");

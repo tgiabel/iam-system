@@ -164,6 +164,14 @@
         return options.sort((a, b) => own(b) - own(a) || compareText(a.display_name, b.display_name));
     }
 
+    // Backlog-Auswahl aus { identifier: name }. Der aktuelle Wert steht immer darin (ohne Namen als Identifier);
+    // fehlt er, wäre „Systemstandard“ bzw. „keins“ vorgewählt und Speichern löschte ihn.
+    function backlogOptions(backlogs, current) {
+        const options = Object.entries(backlogs);
+        if (current && !Object.prototype.hasOwnProperty.call(backlogs, current)) options.push([current, current]);
+        return options;
+    }
+
     // Bot-Parameter im Editor: Altbestand liegt unter data (Objekt oder JSON-Text).
     function botEditorValue(meta) {
         if (!meta || typeof meta !== "object") return "";
@@ -341,7 +349,7 @@
         esc, HANDLING, AUTOMATED, STATUS, REQUIREMENTS, PROTECTION, TASK_TYPES,
         getJson, send, chip, statusChip, typeSummary, requirementChip, protectionChip, handlingChip, handlingChoices,
         compareText, byIdentifier, matches, bindPanel, bindDialog,
-        resourceTree, groupByType, ancestorChain, parentOptions, botEditorValue, parseBotParams,
+        resourceTree, groupByType, ancestorChain, parentOptions, backlogOptions, botEditorValue, parseBotParams,
         metaEntry, renderAutomation, renderResourceView
     };
 }));

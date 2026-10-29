@@ -1001,7 +1001,7 @@ async def api_events(
 
 
 @router.get("/backlogs")
-async def api_task_backlogs(current_user=Depends(require_any_permission("SOFA-PAGE-TODO", "SOFA-PAGE-ROLE"))):
+async def api_task_backlogs(current_user=Depends(require_any_permission("SOFA-PAGE-TODO", "SOFA-PAGE-ROLE", "SOFA-PAGE-SYS"))):
     try:
         backlogs = await api_client.get_backlogs()
         if not current_user.has_all_backlog_access:

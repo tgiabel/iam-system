@@ -72,6 +72,23 @@ class ResourceTypeProxyTests(unittest.TestCase):
         self.assertEqual(self.calls, [("delete", 9, 6)])
 
 
+class BacklogProxyTests(unittest.TestCase):
+    def test_backlogs_for_system_page_keep_access_filter(self):
+        async def backlogs():
+            return [{"technical_identifier": "SOFA-BKLG-IT", "name": "IT"}, {"technical_identifier": "SOFA-BKLG-HR", "name": "HR"}]
+
+        client = TestClient(app)
+        cookie = json.loads(user_cookie("SOFA-PAGE-SYS"))
+        cookie["sofa_permissions"]["accessible_backlogs"] = [{"identifier": "SOFA-BKLG-IT"}]
+        client.cookies.set("sofa_user", json.dumps(cookie))
+        with patch("app.routes.api.api_client.get_backlogs", backlogs):
+            response = client.get("/api/backlogs")
+            client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-USER"))
+            denied = client.get("/api/backlogs")
+        self.assertEqual([b["technical_identifier"] for b in response.json()], ["SOFA-BKLG-IT"])
+        self.assertEqual(denied.status_code, 403)
+
+
 class ResourceRolesProxyTests(unittest.TestCase):
     def test_roles_for_system_or_role_page(self):
         async def roles(resource_id):
