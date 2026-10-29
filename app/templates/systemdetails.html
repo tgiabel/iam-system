@@ -2,351 +2,141 @@
 {% set sub_page = true %}
 {% set sub_page_back_url = "/systems" %}
 {% set sub_page_back_label = "Zurück zur System-Übersicht" %}
+{% set page_title = "Systemdetails" %}
+{% block body_class %}app-fixed app-fixed-until-1100{% endblock %}
+
 {% block css %}
-<link rel="stylesheet" href="/static/css/page_w_table.css">
-<link rel="stylesheet" href="/static/css/systemdetails.css">
+<link rel="stylesheet" href="/static/css/detail.css?v={{ static_v }}">
+<link rel="stylesheet" href="/static/css/systemdetails.css?v={{ static_v }}">
 {% endblock %}
 
 {% block scripts %}
 <script src="/static/js/resource_identifier.js?v={{ static_v }}"></script>
+<script src="/static/js/detail_shared.js?v={{ static_v }}"></script>
 <script src="/static/js/systemdetails.js?v={{ static_v }}"></script>
 {% endblock %}
 
-{% set page_title = "Systemdetails" %}
-
 {% block content %}
-<div class="page-container system-detail">
+<div class="page-container dp-page" id="system-page" data-system-id="{{ system_id }}">
 
-    <!-- ========================= -->
-    <!-- SYSTEM INFOS -->
-    <!-- ========================= -->
-    <section class="info-section system-info">
-
-        <div class="section-header">
-            <h2>Systeminformationen</h2>
-
-            <div class="section-actions">
-                <button class="btn btn-secondary" id="edit-system-btn">
-                    Bearbeiten
-                </button>
-                <button class="btn btn-secondary" id="edit-resources-btn">
-                    Ressourcen bearbeiten
-                </button>
-                <button class="btn btn-secondary" id="resource-types-btn">
-                    Ressourcentypen
-                </button>
-                <button class="btn btn-primary" id="add-resource-btn">
-                    Ressource hinzufügen
-                </button>
+    <header class="ui-card dp-head">
+        <div class="dp-head-main">
+            <span class="ui-section-kicker">System</span>
+            <div class="dp-title-row">
+                <h1 class="dp-title" id="sys-title">…</h1>
+                <span class="dp-title-row" id="sys-chips"></span>
             </div>
+            <dl class="dp-meta" id="sys-meta"></dl>
         </div>
+        <div class="dp-head-actions">
+            <button type="button" class="btn btn-secondary" id="sys-edit-btn">Bearbeiten</button>
+        </div>
+    </header>
 
-        <div class="info-grid">
-
-            {% set fields = [
-                {"label": "ID", "id": "system-id", "type": "text", "readonly": true, "editable": false},
-                {"label": "Name", "id": "system-name", "type": "text", "editable": true},
-                {"label": "Kürzel", "id": "system-short", "type": "text", "editable": true},
-                {"label": "Standard-Backlog", "id": "system-backlog", "type": "select", "editable": true},
-                {"label": "Typ", "id": "system-type", "type": "text", "editable": false},
-                {"label": "Status", "id": "system-status", "type": "text", "editable": false},
-                {"label": "Verantwortlich", "id": "system-owner", "type": "text", "editable": false}
-            ] %}
-
-            {% for field in fields %}
-            <div class="info-field">
-                <label><strong>{{ field.label }}</strong></label>
-
-                <!-- TEXT VIEW -->
-                <span class="field-text" id="{{ field.id }}-text">-</span>
-
-                <!-- INPUT -->
-                {% if field.type == "text" and field.editable %}
-                    <input
-                        class="field-input input-txt"
-                        id="{{ field.id }}-input"
-                        type="text"
-                        {% if field.readonly %}readonly{% endif %}
-                        style="display:none;"
-                    >
-                {% elif field.type == "select" and field.editable %}
-                    <select
-                        class="field-input"
-                        id="{{ field.id }}-input"
-                        style="display:none;"
-                    ></select>
-                {% endif %}
-
+    <section class="ui-card dp-card dp-fill" aria-labelledby="res-title">
+        <header class="dp-card-head">
+            <h2 class="dp-card-title" id="res-title">Ressourcen <span class="dp-count" id="res-count">0</span></h2>
+            <div class="ui-segmented" id="type-filter" role="group" aria-label="Typ" hidden></div>
+            <div class="dp-card-tools">
+                <input type="search" class="ui-input dp-search" id="res-search" placeholder="Suchen" aria-label="Ressourcen durchsuchen" autocomplete="off">
+                <button type="button" class="ui-flat-button" id="types-btn">Typen</button>
+                <button type="button" class="btn btn-primary btn-sm" id="res-add-btn">+ Ressource</button>
             </div>
-            {% endfor %}
-
-        </div>
-
-        <!-- SAVE / CANCEL -->
-        <div class="edit-actions" id="edit-actions" style="display:none; margin-top:16px; gap:16px;">
-            <button class="btn btn-secondary" id="cancel-edit-btn">
-                Abbrechen
-            </button>
-
-            <button class="btn btn-primary" id="save-edit-btn">
-                Speichern
-            </button>
-        </div>
-
-    </section>
-
-    <!-- ========================= -->
-    <!-- RESSOURCEN -->
-    <!-- ========================= -->
-    <section class="info-section resources-section">
-
-        <div class="section-header"><h2>Ressourcen</h2></div>
-
-        <!-- Alle Ressourcen -->
-        <div
-            class="resource-card resource-card-wide disabled"
-            data-type="all"
-        >
-            <div class="resource-card-content">
-                <h3>Alle Ressourcen</h3>
-                <span class="resource-count" id="count-all">-</span>
-            </div>
-        </div>
-
-        <!-- Eine Karte je Typ mit Ressourcen, per JS gefuellt -->
-        <div class="resource-card-grid" id="resource-type-cards"></div>
-        <div class="table-wrapper" style="margin-top:16px;">
-            <table id="resources-table">
-                <thead>
-                    <tr>
-                        <th>Kürzel</th>
-                        <th>Name</th>
-                        <th>Typ</th>
-                        <th>Übergeordnete Ressource</th>
-                        <th>Backlog</th>
-                        <th>Zuweisung</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Wird dynamisch per JS gefüllt -->
-                </tbody>
-            </table>
+        </header>
+        <div class="dp-scroll">
+        <table class="dp-table">
+            <thead>
+                <tr>
+                    <th>Ressource</th>
+                    <th>Typ</th>
+                    <th>Bearbeitung</th>
+                    <th>Backlog</th>
+                </tr>
+            </thead>
+            <tbody id="res-body"></tbody>
+        </table>
         </div>
     </section>
 
-    <!-- ========================= -->
-    <!-- RESOURCE OVERLAY -->
-    <!-- ========================= -->
-    <div id="resource-overlay" class="resource-overlay ui-modal-overlay">
-        <div class="resource-modal ui-modal">
-            <div class="resource-header ui-modal-header">
-                <div class="resource-header-copy">
-                    <span class="ui-section-kicker">Ressourcenverwaltung</span>
-                    <h3 id="resource-modal-title" class="ui-section-title">Ressource bearbeiten</h3>
-                    <p id="resource-modal-subtitle" class="resource-modal-subtitle">
-                        Stammdaten, übergeordnete Ressource und Bearbeitungslogik an einer Stelle pflegen.
-                    </p>
-                </div>
-                <button class="ui-icon-button" id="resource-close-btn" type="button" aria-label="Modal schließen">&times;</button>
-            </div>
-
-            <div class="resource-body ui-modal-body">
-                <div id="resource-select-container" class="resource-panel resource-select-panel">
-                    <div class="resource-panel-heading">
-                        <span class="ui-section-kicker">Auswahl</span>
-                        <h4 class="resource-panel-title">Vorhandene Ressource bearbeiten</h4>
-                        <p class="resource-panel-copy">Wähle zuerst die Ressource aus, deren Stammdaten oder Handling du anpassen möchtest.</p>
-                    </div>
-                    <div class="form-field">
-                        <label for="resource-select">Ressource auswählen</label>
-                        <select id="resource-select" class="form-input">
-                            <option value="">-- Bitte wählen --</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div id="resource-form-container" class="resource-form-layout" style="display:none;">
-                    <section class="resource-panel">
-                        <div class="resource-panel-heading">
-                            <span class="ui-section-kicker">Stammdaten</span>
-                            <h4 class="resource-panel-title">Grundinformationen</h4>
-                        </div>
-                        <div class="resource-form-grid">
-                            <div class="form-field">
-                                <label for="res-display-name">Name</label>
-                                <input type="text" id="res-display-name" class="form-input">
-                            </div>
-                            <div class="form-field">
-                                <label for="res-technical-id">Technischer Identifier</label>
-                                <div class="res-identifier-input">
-                                    <span id="res-technical-prefix" class="res-identifier-prefix" hidden></span>
-                                    <input type="text" id="res-technical-id" class="form-input" autocomplete="off">
-                                </div>
-                            </div>
-                            <div class="form-field">
-                                <label for="res-type">Typ</label>
-                                <select id="res-type" class="form-input"></select>
-                            </div>
-                            <div class="form-field">
-                                <label for="res-handling">Bearbeitungstyp</label>
-                                <select id="res-handling" class="form-input">
-                                    <option value="INTERNAL">Internal</option>
-                                    <option value="BOT">Bot</option>
-                                    <option value="EXTERNAL">External</option>
-                                </select>
-                            </div>
-                            <div class="form-field">
-                                <label for="res-backlog-id">Backlog</label>
-                                <select id="res-backlog-id" class="form-input">
-                                    <option value="">System-Standard verwenden</option>
-                                </select>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section class="resource-panel" id="resource-parent-field">
-                        <div class="resource-panel-heading">
-                            <span class="ui-section-kicker">Beziehung</span>
-                            <h4 class="resource-panel-title">Übergeordnete Ressource</h4>
-                            <p class="resource-panel-copy">Verknüpfe diese Ressource mit einer übergeordneten Konto-Ressource.</p>
-                        </div>
-                        <div class="form-field">
-                            <label for="res-parent-search">Suchen</label>
-                            <input type="text" id="res-parent-search" class="form-input" placeholder="Nach Name, Identifier oder System suchen">
-                        </div>
-                        <div class="resource-parent-select-wrap">
-                            <select id="res-parent-id" class="form-input" size="6">
-                                <option value="">Keine übergeordnete Ressource</option>
-                            </select>
-                        </div>
-                        <div id="res-parent-selection-label" class="form-help resource-inline-status">Keine übergeordnete Ressource ausgewählt.</div>
-                    </section>
-
-                    <section class="resource-panel resource-meta-panel" id="resource-meta-container" style="display:none;">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Automatisierung</span>
-                                <h4 class="resource-panel-title">Zusatzinfos</h4>
-                            </div>
-                            <div id="resource-handling-badge" class="ui-chip ui-chip-primary">Internal</div>
-                        </div>
-                        <p class="resource-panel-copy">Handling-spezifische Felder werden nach Bearbeitungsart gruppiert und pro Vorgang getrennt gepflegt.</p>
-
-                        <div class="resource-meta-tabs" role="tablist" aria-label="Handling-Vorgänge">
-                            <button type="button" class="resource-meta-tab active" data-task-type="ASSIGNMENT" aria-selected="true">Zuweisung</button>
-                            <button type="button" class="resource-meta-tab" data-task-type="REVOCATION" aria-selected="false">Löschung</button>
-                        </div>
-
-                        <div id="resource-meta-sections">
-                            <div class="resource-meta-group active" data-task-type="ASSIGNMENT">
-                                <div class="resource-meta-fields" data-handling-type="EXTERNAL">
-                                    <div class="resource-form-grid">
-                                        <div class="form-field">
-                                            <label for="res-external-recipient-assignment">Empfänger</label>
-                                            <select id="res-external-recipient-assignment" class="form-input"></select>
-                                        </div>
-                                        <div class="form-field">
-                                            <label for="res-external-subject-assignment">Betreff</label>
-                                            <input type="text" id="res-external-subject-assignment" class="form-input">
-                                        </div>
-                                    </div>
-                                    <div class="form-field">
-                                        <label for="res-external-body-assignment">Mailvorlage</label>
-                                        <textarea id="res-external-body-assignment" class="form-input resource-textarea" rows="5"></textarea>
-                                    </div>
-                                </div>
-                                <div class="resource-meta-fields" data-handling-type="BOT">
-                                    <div class="form-field">
-                                        <label for="res-bot-meta-assignment">Meta (JSON)</label>
-                                        <textarea id="res-bot-meta-assignment" class="form-input resource-textarea resource-textarea-compact" rows="5" placeholder='{"group_id":"..."}'></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="resource-meta-group" data-task-type="REVOCATION">
-                                <div class="resource-meta-fields" data-handling-type="EXTERNAL">
-                                    <div class="resource-form-grid">
-                                        <div class="form-field">
-                                            <label for="res-external-recipient-revocation">Empfänger</label>
-                                            <select id="res-external-recipient-revocation" class="form-input"></select>
-                                        </div>
-                                        <div class="form-field">
-                                            <label for="res-external-subject-revocation">Betreff</label>
-                                            <input type="text" id="res-external-subject-revocation" class="form-input">
-                                        </div>
-                                    </div>
-                                    <div class="form-field">
-                                        <label for="res-external-body-revocation">Mailvorlage</label>
-                                        <textarea id="res-external-body-revocation" class="form-input resource-textarea" rows="5"></textarea>
-                                    </div>
-                                </div>
-                                <div class="resource-meta-fields" data-handling-type="BOT">
-                                    <div class="form-field">
-                                        <label for="res-bot-meta-revocation">Meta (JSON)</label>
-                                        <textarea id="res-bot-meta-revocation" class="form-input resource-textarea resource-textarea-compact" rows="5" placeholder='{"group_id":"..."}'></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-            </div>
-
-            <div class="resource-actions ui-modal-footer">
-                <button class="btn btn-secondary" id="resource-cancel-btn" type="button">Abbrechen</button>
-                <button class="btn btn-primary" id="resource-save-btn" type="button">Speichern</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ========================= -->
-    <!-- RESOURCE TYPE OVERLAY -->
-    <!-- ========================= -->
-    <div id="resource-type-overlay" class="resource-overlay ui-modal-overlay">
-        <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="resource-type-title">
+    <!-- Ressource: Ansicht und Bearbeiten im selben Panel -->
+    <div class="ui-modal-overlay ui-sidepanel-overlay" id="res-panel-overlay">
+        <div class="ui-modal ui-sidepanel dp-panel" role="dialog" aria-modal="true" aria-labelledby="res-panel-title">
             <div class="ui-modal-header">
-                <div class="resource-header-copy">
-                    <span class="ui-section-kicker">Ressourcenverwaltung</span>
-                    <h3 id="resource-type-title" class="ui-section-title">Ressourcentypen</h3>
+                <div class="dp-panel-title">
+                    <span class="ui-section-kicker" id="res-panel-kicker"></span>
+                    <h2 id="res-panel-title"></h2>
+                    <span class="dp-ident" id="res-panel-ident"></span>
+                    <div class="dp-panel-chips" id="res-panel-chips"></div>
                 </div>
-                <button class="ui-icon-button" id="resource-type-close-btn" type="button" aria-label="Modal schließen">&times;</button>
+                <button type="button" class="ui-icon-button" data-panel-close aria-label="Schließen">&times;</button>
             </div>
-
-            <div class="ui-modal-body resource-body">
-                <section class="resource-panel">
-                    <div class="table-wrapper">
-                        <table id="resource-type-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Kürzel</th>
-                                    <th>Ressourcen</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <form id="resource-type-form" class="resource-panel">
-                    <div class="resource-form-grid">
-                        <div class="form-field">
-                            <label for="resource-type-name">Name</label>
-                            <input type="text" id="resource-type-name" class="form-input" maxlength="100" required>
-                        </div>
-                        <div class="form-field">
-                            <label for="resource-type-slug">Kürzel</label>
-                            <input type="text" id="resource-type-slug" class="form-input" maxlength="10" autocomplete="off" required>
-                        </div>
-                    </div>
-                    <div class="resource-type-form-actions">
-                        <button class="btn btn-primary" id="resource-type-create-btn" type="submit">Typ anlegen</button>
-                    </div>
-                </form>
-            </div>
+            <div class="ui-modal-body" id="res-panel-body"></div>
+            <div class="ui-sidepanel-actions" id="res-panel-actions"></div>
         </div>
     </div>
 
-</div>
+    <!-- System bearbeiten -->
+    <dialog class="ui-dialog dp-dialog" id="sys-edit-dialog" aria-labelledby="sys-edit-title">
+        <form class="dp-form" id="sys-edit-form">
+            <div class="ui-modal-header">
+                <h2 id="sys-edit-title">System bearbeiten</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body">
+                <div class="dp-form-grid">
+                    <div class="dp-field">
+                        <label for="sys-name">Name</label>
+                        <input class="ui-input" id="sys-name" required>
+                    </div>
+                    <div class="dp-field">
+                        <label for="sys-short">Kürzel</label>
+                        <input class="ui-input" id="sys-short" required>
+                        <span class="ui-field-hint">Präfix neuer Identifier</span>
+                    </div>
+                    <div class="dp-field">
+                        <label for="sys-backlog">Standard-Backlog</label>
+                        <select class="ui-input" id="sys-backlog"></select>
+                    </div>
+                    <div class="dp-field">
+                        <label for="sys-handling">Standard-Bearbeitung</label>
+                        <select class="ui-input" id="sys-handling" disabled></select>
+                    </div>
+                </div>
+                <div class="dp-section">
+                    <div class="dp-section-head"><h3>Schutzbedarf</h3><span id="sys-protection-overall"></span></div>
+                    <div class="dp-form-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+                        <div class="dp-field"><label for="sys-pn-c">Vertraulichkeit</label><select class="ui-input" id="sys-pn-c" data-pn="confidentiality" disabled></select></div>
+                        <div class="dp-field"><label for="sys-pn-i">Integrität</label><select class="ui-input" id="sys-pn-i" data-pn="integrity" disabled></select></div>
+                        <div class="dp-field"><label for="sys-pn-a">Verfügbarkeit</label><select class="ui-input" id="sys-pn-a" data-pn="availability" disabled></select></div>
+                    </div>
+                </div>
+            </div>
+            <div class="ui-modal-footer">
+                <div class="dp-footer-end">
+                    <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                    <button type="submit" class="btn btn-primary" id="sys-save-btn">Speichern</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
 
+    <!-- Ressourcentypen -->
+    <dialog class="ui-dialog dp-dialog" id="types-dialog" aria-labelledby="types-title">
+        <div class="ui-modal-header">
+            <h2 id="types-title">Ressourcentypen</h2>
+            <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body">
+            <table class="dp-table dp-type-table">
+                <thead><tr><th>Name</th><th>Kürzel</th><th>Ressourcen</th><th></th></tr></thead>
+                <tbody id="types-body"></tbody>
+            </table>
+            <form class="dp-type-add" id="types-form">
+                <div class="dp-field"><label for="type-name">Neuer Typ</label><input class="ui-input" id="type-name" maxlength="100" required></div>
+                <div class="dp-field"><label for="type-slug">Kürzel</label><input class="ui-input" id="type-slug" maxlength="10" pattern="[A-Za-z0-9]{2,10}" title="2–10 Zeichen, A–Z und 0–9" required autocomplete="off"></div>
+                <button type="submit" class="btn btn-primary" id="type-create-btn">Anlegen</button>
+            </form>
+        </div>
+    </dialog>
+</div>
 {% endblock %}

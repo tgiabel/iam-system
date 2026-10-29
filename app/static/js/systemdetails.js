@@ -1,1555 +1,729 @@
-//------------------------------------------------
-// STATE
-//------------------------------------------------
+// Systemdetails: Ressourcen als Baum nach Voraussetzung, Ressource im Seitenpanel, Kopfdaten und Typen im Dialog.
+(function () {
+    "use strict";
 
-let system = null;
+    const D = window.DetailShared;
+    const esc = D.esc;
+    const $ = id => document.getElementById(id);
 
-const DOM = {};
-const STATE = {
-    overlayMode: "view",
-    currentResource: null,
-    parentResourceCandidates: [],
-    parentResourceQuery: "",
-    selectedParentResourceId: null,
-    activeMetaTaskType: "ASSIGNMENT",
-    taskBacklogs: [],
-    backlogLookup: {},
-    users: [],
-    resourceTypes: [],
-    identifierMode: "free",
-    isEditing: false
-};
+    const ACCOUNT_TYPE_ID = 1; // Konto
+    const EXTERNAL_PROVIDER_ROLE_ID = 9;
+    const SUBGROUP_MIN = 5;   // ab so vielen Kindern gleichen Typs eine eigene, zuklappbare Zeile
+    const COLLAPSE_MIN = 10;  // ab so vielen startet die Gruppe zugeklappt
 
-const TASK_TYPES = ["ASSIGNMENT", "REVOCATION"];
-const PARENT_RESOURCE_TYPE_ID = 1;
-const EXTERNAL_PROVIDER_PRIMARY_ROLE_ID = 9;
-
-const api = {
-    async createResource(sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, backlogId = null, meta = null) {
-        try {
-            const body = {
-                system_id: sysId,
-                type_id: typeId,
-                display_name: displayName,
-                technical_identifier: technicalIdentifier,
-                override_handling_type: handlingType,
-                parent_resource_id: parentResourceId,
-                backlog_identifier: backlogId
-            };
-            if (Array.isArray(meta) && meta.length > 0) {
-                body.meta = meta;
-            }
-            const res = await fetch(`/api/resources`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-
-            if (!res.ok) {
-                showFlash(SofaUtils.apiErrorMessage(data), "failure");
-                return false;
-            }
-            showFlash(`Resource hinzugefügt.`, "success");
-            return true;
-        } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            console.error(err);
-            return false;
-        }
-    },
-    async updateResource(resId, sysId, typeId, displayName, technicalIdentifier, handlingType, parentResourceId = null, backlogId = null, meta = null) {
-        try {
-            const body = {
-                resource_id: resId,
-                system_id: sysId,
-                type_id: typeId,
-                display_name: displayName,
-                technical_identifier: technicalIdentifier,
-                override_handling_type: handlingType,
-                parent_resource_id: parentResourceId,
-                backlog_identifier: backlogId
-            };
-            if (Array.isArray(meta) && meta.length > 0) {
-                body.meta = meta;
-            }
-            const res = await fetch(`/api/resources/${resId}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body)
-            });
-            const data = await res.json();
-            if (!res.ok) {
-                showFlash(SofaUtils.apiErrorMessage(data), "failure");
-                return false;
-            }
-            showFlash(`Resource aktualisiert.`, "success");
-            return true;
-        } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            console.error(err);
-            return false;
-        }
-    },
-    async updateSystem(systemId, payload) {
-        try {
-            const res = await fetch(`/api/systems/${systemId}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json().catch(() => ({}));
-
-            if (!res.ok) {
-                showFlash(data.detail || data.error || "System konnte nicht gespeichert werden", "failure");
-                return false;
-            }
-
-            return data;
-        } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            console.error(err);
-            return false;
-        }
-    },
-    async getResourceTypes(systemId) {
-        const res = await fetch(`/api/systems/${systemId}/resource-types`);
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-            throw new Error(SofaUtils.apiErrorMessage(data, "Ressourcentypen konnten nicht geladen werden"));
-        }
-        return Array.isArray(data) ? data : [];
-    },
-    async createResourceType(systemId, payload) {
-        try {
-            const res = await fetch(`/api/systems/${systemId}/resource-types`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json().catch(() => null);
-            if (!res.ok) {
-                showFlash(SofaUtils.apiErrorMessage(data, "Typ konnte nicht angelegt werden"), "failure");
-                return false;
-            }
-            return data;
-        } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            console.error(err);
-            return false;
-        }
-    },
-    async deleteResourceType(systemId, typeId) {
-        try {
-            const res = await fetch(`/api/systems/${systemId}/resource-types/${typeId}`, { method: "DELETE" });
-            if (!res.ok) {
-                const data = await res.json().catch(() => null);
-                showFlash(SofaUtils.apiErrorMessage(data, "Typ konnte nicht gelöscht werden"), "failure");
-                return false;
-            }
-            return true;
-        } catch (err) {
-            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
-            console.error(err);
-            return false;
-        }
-    },
-    async getTaskBacklogs() {
-        try {
-            const res = await fetch("/api/backlogs");
-            const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.detail || data.error || "Backlogs konnten nicht geladen werden");
-            }
-            return Array.isArray(data) ? data : [];
-        } catch (err) {
-            console.error(err);
-            return [];
-        }
-    }
-}
-
-//------------------------------------------------
-// INIT
-//------------------------------------------------
-
-document.addEventListener("DOMContentLoaded", init);
-
-async function init(){
-    const msg = sessionStorage.getItem("flash_msg");
-    const type = sessionStorage.getItem("flash_type");
-
-    if (msg) {
-        showFlash(msg, type);
-        sessionStorage.removeItem("flash_msg");
-        sessionStorage.removeItem("flash_type");
-    }
-    cacheDOM();
-    bindBaseEvents();
-    await loadUsers();
-    await loadTaskBacklogs();
-    await loadParentResourceCandidates();
-    await loadSystemDetail();
-}
-
-//------------------------------------------------
-// DOM CACHE
-//------------------------------------------------
-
-function cacheDOM(){
-    
-    DOM.infoFields = document.querySelectorAll(".info-field");
-    DOM.sectionButtons = document.querySelectorAll(".section-actions button");
-    
-    DOM.overlay = document.getElementById("resource-overlay");
-    DOM.closeBtn = document.getElementById("resource-close-btn");
-    DOM.cancelBtn = document.getElementById("resource-cancel-btn");
-
-    DOM.form = document.getElementById("resource-form-container");
-    DOM.selectContainer = document.getElementById("resource-select-container");
-    DOM.selectRes = document.getElementById("resource-select");
-
-    DOM.title = document.getElementById("resource-modal-title");
-    DOM.subtitle = document.getElementById("resource-modal-subtitle");
-    DOM.saveResBtn = document.getElementById("resource-save-btn");
-    DOM.handlingBadge = document.getElementById("resource-handling-badge");
-
-    DOM.tableBody = document.querySelector("#resources-table tbody");
-
-    DOM.addResBtn = document.getElementById("add-resource-btn");
-    DOM.editResBtn = document.getElementById("edit-resources-btn");
-    DOM.typeCards = document.getElementById("resource-type-cards");
-
-    DOM.typesBtn = document.getElementById("resource-types-btn");
-    DOM.typeOverlay = document.getElementById("resource-type-overlay");
-    DOM.typeCloseBtn = document.getElementById("resource-type-close-btn");
-    DOM.typeTableBody = document.querySelector("#resource-type-table tbody");
-    DOM.typeForm = document.getElementById("resource-type-form");
-    DOM.typeName = document.getElementById("resource-type-name");
-    DOM.typeSlug = document.getElementById("resource-type-slug");
-    DOM.typeCreateBtn = document.getElementById("resource-type-create-btn");
-
-    DOM.editBtn = document.querySelector("#edit-system-btn");
-    DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
-    DOM.saveEdit = document.querySelector("#save-edit-btn");
-    DOM.editActions = document.querySelector("#edit-actions");
-
-    // form fields
-    DOM.displayName = document.getElementById("res-display-name");
-    DOM.techId = document.getElementById("res-technical-id");
-    DOM.techPrefix = document.getElementById("res-technical-prefix");
-    DOM.type = document.getElementById("res-type");
-    DOM.handling = document.getElementById("res-handling");
-    DOM.resourceBacklogSelect = document.getElementById("res-backlog-id");
-    DOM.parentSearch = document.getElementById("res-parent-search");
-    DOM.parentSelect = document.getElementById("res-parent-id");
-    DOM.parentSelectionLabel = document.getElementById("res-parent-selection-label");
-    DOM.handlingMetaContainer = document.getElementById("resource-meta-container");
-    DOM.metaTabs = document.querySelectorAll(".resource-meta-tab");
-    DOM.metaGroups = document.querySelectorAll(".resource-meta-group");
-    DOM.metaFields = {
-        EXTERNAL: {
-            ASSIGNMENT: {
-                recipient: document.getElementById("res-external-recipient-assignment"),
-                subject: document.getElementById("res-external-subject-assignment"),
-                body: document.getElementById("res-external-body-assignment")
-            },
-            REVOCATION: {
-                recipient: document.getElementById("res-external-recipient-revocation"),
-                subject: document.getElementById("res-external-subject-revocation"),
-                body: document.getElementById("res-external-body-revocation")
-            }
-        },
-        BOT: {
-            ASSIGNMENT: {
-                meta: document.getElementById("res-bot-meta-assignment")
-            },
-            REVOCATION: {
-                meta: document.getElementById("res-bot-meta-revocation")
-            }
-        }
+    const state = {
+        systemId: null,
+        system: null,
+        types: [],
+        backlogs: {},
+        users: [],
+        roles: [],
+        parentCandidates: [],
+        filterType: "",
+        query: "",
+        collapsed: null,
+        panel: null
     };
-    DOM.metaSections = DOM.handlingMetaContainer.querySelectorAll(".resource-meta-fields");
 
-    DOM.systemNameInput = document.getElementById("system-name-input");
-    DOM.systemShortInput = document.getElementById("system-short-input");
-    DOM.systemBacklogInput = document.getElementById("system-backlog-input");
-}
+    document.addEventListener("DOMContentLoaded", init);
 
-//------------------------------------------------
-// LOAD SYSTEM
-//------------------------------------------------
+    async function init() {
+        bindEvents();
+        state.systemId = $("system-page").dataset.systemId;
+        try {
+            const [backlogs, users, roles] = await Promise.all([
+                D.getJson("/api/backlogs").catch(() => []),
+                D.getJson("/api/users").catch(() => []),
+                D.getJson("/api/roles").catch(() => [])
+            ]);
+            (Array.isArray(backlogs) ? backlogs : []).forEach(b => { state.backlogs[b.technical_identifier] = b.name; });
+            state.users = Array.isArray(users) ? users : [];
+            state.roles = Array.isArray(roles) ? roles : [];
+            await reload();
+            const openId = new URLSearchParams(location.search).get("res");
+            if (openId) openPanel("view", findResource(openId));
+        } catch (error) {
+            showFlash(error.message, "failure");
+        }
+    }
 
-async function loadSystemDetail(){
-
-    const systemId = window.location.pathname.split("/").pop();
-
-    try{
-
-        const [resp] = await Promise.all([
-            fetch(`/api/systems/${systemId}`),
-            loadResourceTypes(systemId)
+    // System, Typen und Kandidaten für „Übergeordnet“ ändern sich beim Speichern; der Rest bleibt.
+    async function reload() {
+        const [system, types, parents] = await Promise.all([
+            D.getJson(`/api/systems/${state.systemId}`),
+            D.getJson(`/api/systems/${state.systemId}/resource-types`).catch(() => []),
+            D.getJson(`/api/resources?type_id=${ACCOUNT_TYPE_ID}`).catch(() => [])
         ]);
-        system = await resp.json();
-
-        fillSystemInfo();
-        renderResourceTable();
-        setupCards();
-        renderResourceTypeTable();
-
-    }catch(e){
-        console.error("Fehler beim Laden:", e);
-    }
-}
-
-async function loadResourceTypes(systemId) {
-    try {
-        STATE.resourceTypes = await api.getResourceTypes(systemId);
-    } catch (e) {
-        console.error("Fehler beim Laden der Ressourcentypen:", e);
-        STATE.resourceTypes = [];
-        showFlash("Ressourcentypen konnten nicht geladen werden", "failure");
-    }
-}
-
-async function loadUsers() {
-    try {
-        const res = await fetch("/api/users");
-        const data = await res.json();
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "Benutzer konnten nicht geladen werden");
-        }
-        STATE.users = Array.isArray(data) ? data : [];
-    } catch (e) {
-        console.error("Fehler beim Laden der Benutzer:", e);
-        STATE.users = [];
-    }
-    fillRecipientOptions();
-}
-
-async function loadTaskBacklogs() {
-    STATE.taskBacklogs = await api.getTaskBacklogs();
-    STATE.backlogLookup = {};
-
-    STATE.taskBacklogs.forEach(backlog => {
-        const identifier = String(backlog?.technical_identifier || "").trim();
-        if (!identifier) {
-            return;
-        }
-
-        STATE.backlogLookup[identifier] = {
-            backlog_identifier: identifier,
-            name: String(backlog.display_name || identifier).trim()
-        };
-    });
-
-    fillSystemBacklogOptions();
-    fillResourceBacklogOptions();
-}
-
-async function loadParentResourceCandidates() {
-    try {
-        const res = await fetch(`/api/resources?type_id=${PARENT_RESOURCE_TYPE_ID}`);
-        const data = await res.json();
-
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "Parent-Ressourcen konnten nicht geladen werden");
-        }
-
-        STATE.parentResourceCandidates = Array.isArray(data) ? data : [];
-    } catch (e) {
-        console.error("Fehler beim Laden der Parent-Ressourcen:", e);
-        STATE.parentResourceCandidates = [];
-        showFlash("Parent-Ressourcen konnten nicht geladen werden", "failure");
-    }
-}
-
-//------------------------------------------------
-// SYSTEM INFO
-//------------------------------------------------
-
-function fillSystemInfo(){
-
-    document.querySelector("#system-id-text").textContent = system.system_id;
-    document.querySelector("#system-name-text").textContent = system.name;
-    document.querySelector("#system-short-text").textContent = system.short_name;
-    document.querySelector("#system-backlog-text").textContent = formatSystemBacklogLabel(system.default_backlog_identifier);
-    document.querySelector("#system-type-text").textContent = system.type || "-";
-    document.querySelector("#system-status-text").textContent = system.status || "-";
-    document.querySelector("#system-owner-text").textContent = system.owner || "-";
-}
-
-function sortResourcesByShortCode(resources) {
-    return [...resources].sort((left, right) => {
-        const leftKey = String(left.technical_identifier || "").trim();
-        const rightKey = String(right.technical_identifier || "").trim();
-
-        if (!leftKey && !rightKey) {
-            return String(left.display_name || "").localeCompare(String(right.display_name || ""), "de", { sensitivity: "base" });
-        }
-        if (!leftKey) return 1;
-        if (!rightKey) return -1;
-
-        return leftKey.localeCompare(rightKey, "de", { sensitivity: "base", numeric: true });
-    });
-}
-
-//------------------------------------------------
-// RESOURCE TABLE
-//------------------------------------------------
-
-function renderResourceTable(){
-
-    DOM.tableBody.innerHTML = "";
-
-    sortResourcesByShortCode(system.resources || []).forEach(res=>{
-
-        const tr = document.createElement("tr");
-        const parentLabel = getResourceParentDisplayLabel(res);
-        const backlogLabel = getResourceBacklogDisplayLabel(res);
-
-        tr.dataset.typeId = res.type_id;
-        tr.dataset.res_id = res.resource_id;
-
-        tr.innerHTML = `
-            <td>${escapeHtml(res.technical_identifier || "")}</td>
-            <td>${escapeHtml(res.display_name || "-")}</td>
-            <td>${escapeHtml(res.type_name || "-")}</td>
-            <td class="resource-parent-cell ${parentLabel === "-" ? "is-empty" : ""}">${escapeHtml(parentLabel)}</td>
-            <td class="resource-backlog-cell ${backlogLabel === "-" ? "is-empty" : ""}">${escapeHtml(backlogLabel)}</td>
-            <td>${escapeHtml(res.override_handling_type || "")}</td>
-        `;
-
-        DOM.tableBody.appendChild(tr);
-    });
-}
-
-//------------------------------------------------
-// RESOURCE CARDS
-//------------------------------------------------
-
-function setupCards(){
-
-    const resources = system.resources || [];
-    const counts = new Map();
-    resources.forEach(r=>{
-        const key = String(r.type_id);
-        counts.set(key, (counts.get(key) || 0) + 1);
-    });
-
-    // Karten nur fuer Typen mit Ressourcen, in der Reihenfolge der API (global vor systemeigen)
-    const cardTypes = STATE.resourceTypes
-        .filter(type=> counts.has(String(type.type_id)))
-        .map(type=> ({ key: String(type.type_id), name: type.name }));
-    resources.forEach(r=>{
-        const key = String(r.type_id);
-        if(!cardTypes.some(type=> type.key === key)){
-            cardTypes.push({ key, name: r.type_name || "-" });
-        }
-    });
-
-    DOM.typeCards.innerHTML = cardTypes.map(type=> `
-        <div class="resource-card" data-type="${escapeHtml(type.key)}">
-            <div class="resource-card-content">
-                <h4>${escapeHtml(type.name)}</h4>
-                <span class="resource-count">${counts.get(type.key)}</span>
-            </div>
-        </div>
-    `).join("");
-
-    const allCount = document.querySelector("#count-all");
-    allCount.textContent = resources.length;
-    allCount.closest(".resource-card").classList.toggle("disabled", resources.length === 0);
-
-    document.querySelectorAll(".resource-card[data-type]").forEach(card=>{
-        card.onclick = ()=>{
-            if(card.classList.contains("disabled")) return;
-
-            const key = card.dataset.type;
-            document.querySelectorAll("#resources-table tbody tr")
-                .forEach(tr=>{
-                    tr.style.display =
-                        key==="all" || tr.dataset.typeId===key
-                        ? ""
-                        : "none";
-                });
-        };
-    });
-}
-
-//------------------------------------------------
-// EVENTS
-//------------------------------------------------
-
-function bindBaseEvents(){
-
-    // Table click (event delegation)
-    DOM.tableBody.addEventListener("click", e=>{
-
-        const tr = e.target.closest("tr");
-        if(!tr) return;
-
-        const res = system.resources.find(
-            r=>r.resource_id == tr.dataset.res_id
-        );
-
-        openOverlay("view", res);
-    });
-
-    DOM.editBtn.addEventListener("click", editSystem);
-    DOM.cancelEdit.addEventListener("click", cancelEdit);
-    DOM.saveEdit.addEventListener("click", saveSystemEdit);
-
-    DOM.addResBtn.addEventListener("click", ()=> openOverlay("add"));
-    DOM.editResBtn.addEventListener("click", ()=> openOverlay("edit"));
-    DOM.selectRes.addEventListener("change", onSelectResource);
-    DOM.handling.addEventListener("change", toggleHandlingMetaField);
-    DOM.type.addEventListener("change", onResourceTypeChange);
-    DOM.parentSearch.addEventListener("input", onParentSearchInput);
-    DOM.parentSelect.addEventListener("change", onParentSelectionChange);
-    DOM.metaTabs.forEach(tab => tab.addEventListener("click", onMetaTabClick));
-
-    [DOM.closeBtn, DOM.cancelBtn].forEach(btn=>{
-        btn.addEventListener("click", closeOverlay);
-    });
-
-    DOM.saveResBtn.addEventListener("click", saveResource);
-
-    DOM.typesBtn.addEventListener("click", openResourceTypeOverlay);
-    DOM.typeCloseBtn.addEventListener("click", closeResourceTypeOverlay);
-    DOM.typeForm.addEventListener("submit", createResourceType);
-    DOM.typeTableBody.addEventListener("click", deleteResourceType);
-}
-
-function toggleHandlingMetaField(){
-    const selectedHandlingType = DOM.handling.value;
-    const showMeta = ["EXTERNAL","BOT"].includes(selectedHandlingType);
-    DOM.handlingMetaContainer.style.display = showMeta ? "block" : "none";
-    updateHandlingBadge(selectedHandlingType);
-    updateMetaTabState();
-    syncMetaSectionVisibility();
-
-    if (showMeta) {
-        fillMetaFieldsForHandling(selectedHandlingType, STATE.currentResource);
-    }
-}
-
-
-function editSystem(){
-    DOM.infoFields.forEach(field=>{
-        const text = field.querySelector(".field-text");
-        const input = field.querySelector(".field-input");
-
-        if(!input) return;
-
-        text.style.display = "none";
-        input.style.display = "block";
-    });
-
-    DOM.systemNameInput.value = system.name || "";
-    DOM.systemShortInput.value = system.short_name || "";
-    fillSystemBacklogOptions();
-    DOM.systemBacklogInput.value = getSystemDefaultBacklogValue();
-
-    DOM.sectionButtons.forEach(btn=> btn.disabled = true);
-    DOM.editBtn.disabled = true;
-
-    DOM.editActions.style.display = "flex";
-    STATE.isEditing = true;
-}
-
-
-function cancelEdit(){
-
-    DOM.infoFields.forEach(field=>{
-
-        const text = field.querySelector(".field-text");
-        const input = field.querySelector(".field-input");
-
-        if(!input) return;
-
-        input.style.display = "none";
-        text.style.display = "block";
-    });
-
-    DOM.sectionButtons.forEach(btn=> btn.disabled = false);
-    DOM.editBtn.disabled = false;
-
-    DOM.editActions.style.display = "none";
-    STATE.isEditing = false;
-}
-
-async function saveSystemEdit() {
-    const payload = {
-        name: String(DOM.systemNameInput.value || "").trim(),
-        short_name: String(DOM.systemShortInput.value || "").trim(),
-        default_backlog_identifier: getSelectedSystemBacklogValue()
-    };
-
-    if (!payload.name || !payload.short_name) {
-        showFlash("Bitte Name und Kürzel ausfüllen", "failure");
-        return;
+        state.system = system;
+        state.types = Array.isArray(types) ? types : [];
+        state.parentCandidates = Array.isArray(parents) ? parents : [];
+        if (!state.collapsed) initCollapsed();
+        render();
     }
 
-    DOM.saveEdit.disabled = true;
+    // ---------- Daten ----------
 
-    try {
-        const updatedSystem = await api.updateSystem(system.system_id, payload);
-        if (!updatedSystem) {
-            return;
-        }
-
-        system = { ...system, ...updatedSystem, ...payload };
-        fillSystemInfo();
-        cancelEdit();
-        showFlash("Systemdetails gespeichert", "success");
-    } finally {
-        DOM.saveEdit.disabled = false;
-    }
-}
-
-//------------------------------------------------
-// OVERLAY
-//------------------------------------------------
-
-function openOverlay(mode, resource=null){
-
-    STATE.overlayMode = mode;
-    STATE.currentResource = resource;
-    STATE.activeMetaTaskType = "ASSIGNMENT";
-
-    DOM.overlay.classList.add("active");
-
-    DOM.selectContainer.style.display = "none";
-    DOM.form.style.display = "block";
-    DOM.selectRes.disabled = false;
-
-    DOM.form.querySelectorAll("input,select,textarea")
-        .forEach(el=> el.disabled=false);
-
-    DOM.saveResBtn.style.display = "inline-block";
-
-    //--------------------------------
-    // VIEW
-    //--------------------------------
-
-    if(mode==="view"){
-
-        DOM.title.textContent = "Ressource Details";
-        DOM.subtitle.textContent = "Alle Stammdaten und Bearbeitungsinfos im Read-only-Modus.";
-
-        DOM.form.querySelectorAll("input,select,textarea")
-            .forEach(el=> el.disabled=true);
-
-        DOM.saveResBtn.style.display = "none";
-
-        fillResourceForm(resource);
+    function resources() {
+        return Array.isArray(state.system?.resources) ? state.system.resources : [];
     }
 
-    //--------------------------------
-    // EDIT
-    //--------------------------------
+    function findResource(id) {
+        return resources().find(r => String(r.resource_id) === String(id)) || null;
+    }
 
-    if(mode==="edit"){
+    // Voraussetzung außerhalb des Systems: bekannt sind nur Konten, sonst ein Platzhalter.
+    function foreignParent(r) {
+        if (r.parent_resource_id == null || findResource(r.parent_resource_id)) return null;
+        return state.parentCandidates.find(c => String(c.resource_id) === String(r.parent_resource_id))
+            || { resource_id: r.parent_resource_id, display_name: `#${r.parent_resource_id}` };
+    }
 
-        DOM.title.textContent = "Ressource bearbeiten";
-        DOM.subtitle.textContent = "Vorhandene Ressource auswählen und Details gezielt anpassen.";
+    function lookupResource(id) {
+        const own = findResource(id);
+        return own ? { ...own, system_id: state.system.system_id } : foreignParent({ parent_resource_id: id });
+    }
 
-        DOM.form.style.display = "none";
-        DOM.selectContainer.style.display = "block";
+    function systemHandling() {
+        return state.system.default_handling_type || "INTERNAL";
+    }
 
-        DOM.selectRes.innerHTML =
-            "<option value=''>-- Bitte wählen --</option>";
+    function backlogName(identifier) {
+        return state.backlogs[identifier] || identifier;
+    }
 
-        system.resources.forEach(r=>{
-            DOM.selectRes.innerHTML +=
-                `<option value="${r.resource_id}">
-                    ${r.display_name}
-                 </option>`;
+    function rolesWith(r) {
+        // Die Rollenliste liefert nur Ressourcennamen.
+        return state.roles.filter(role => (role.resources || []).includes(r.display_name));
+    }
+
+    function userLabel(id) {
+        const user = state.users.find(u => String(u.user_id) === String(id));
+        return user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() : (id ?? "-");
+    }
+
+    function recipients() {
+        return state.users.filter(u => Number(u.primary_role?.role_id) === EXTERNAL_PROVIDER_ROLE_ID);
+    }
+
+    function initCollapsed() {
+        state.collapsed = new Set();
+        const tree = D.resourceTree(resources());
+        resources().forEach(r => {
+            D.groupByType(tree.childrenOf(r.resource_id)).forEach(group => {
+                if (group.rows.length >= COLLAPSE_MIN) state.collapsed.add(`g:${r.resource_id}:${group.typeId}`);
+            });
         });
     }
 
-    //--------------------------------
-    // ADD
-    //--------------------------------
+    // ---------- Render ----------
 
-    if(mode==="add"){
-
-        DOM.title.textContent = "Neue Ressource";
-        DOM.subtitle.textContent = "Neue Ressource anlegen und optional mit einer Parent-Ressource verknüpfen.";
-
-        fillResourceForm({
-            display_name:"",
-            technical_identifier:"",
-            type_id:1,
-            parent_resource_id:null,
-            override_handling_type:"INTERNAL"
-        });
-
-        STATE.currentResource = null;
-    }
-}
-
-function closeOverlay(){
-    DOM.overlay.classList.remove("active");
-    DOM.selectRes.value = "";
-    DOM.form.style.display = "none";
-    DOM.selectContainer.style.display = "none";
-    DOM.parentSearch.value = "";
-    STATE.parentResourceQuery = "";
-    STATE.selectedParentResourceId = null;
-    STATE.currentResource = null;
-    STATE.activeMetaTaskType = "ASSIGNMENT";
-}
-
-//------------------------------------------------
-// FORM
-//------------------------------------------------
-
-function fillResourceForm(res){
-    const parentResourceId = getResourceParentId(res);
-    const fallbackParentLabel = getResourceParentFallbackLabel(res);
-
-    DOM.displayName.value = res.display_name || "";
-    fillResourceTypeOptions(res);
-    applyIdentifierForType(DOM.type.value);
-    DOM.handling.value = res.override_handling_type || "INTERNAL";
-    fillResourceBacklogOptions();
-    DOM.resourceBacklogSelect.value = getResourceBacklogValue(res);
-    STATE.selectedParentResourceId = parentResourceId;
-    DOM.parentSearch.value = "";
-    STATE.parentResourceQuery = "";
-    updateMetaTabState();
-    renderParentResourceOptions();
-    updateParentSelectionLabel();
-
-    if (parentResourceId == null && fallbackParentLabel) {
-        console.warn("Parent-Ressource ist im Payload benannt, aber parent_resource_id fehlt. Vorauswahl im Modal ist dadurch nicht möglich.", res);
+    function render() {
+        renderHead();
+        renderFilter();
+        renderTable();
     }
 
-    resetMetaFields();
-    toggleHandlingMetaField();
-}
-
-function fillResourceTypeOptions(res){
-    const types = [...STATE.resourceTypes];
-    if(res.type_id != null && !types.some(type=> String(type.type_id) === String(res.type_id))){
-        types.push({ type_id: res.type_id, name: res.type_name || `Typ ${res.type_id}` });
+    function renderHead() {
+        const s = state.system;
+        document.title = `${s.name} | SOFA`;
+        $("sys-title").textContent = s.name;
+        $("sys-chips").innerHTML = D.chip(s.short_name || "-", "ui-chip-primary")
+            + D.statusChip(s.status)
+            + D.protectionChip(s.protection_need?.overall);
+        const backlog = s.default_backlog_identifier ? esc(backlogName(s.default_backlog_identifier)) : `<span class="dp-muted">keins</span>`;
+        $("sys-meta").innerHTML = [
+            ["Standard-Backlog", backlog],
+            ["Standard-Bearbeitung", esc(D.HANDLING[systemHandling()] || systemHandling())],
+            ["ID", esc(s.system_id)]
+        ].map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
     }
 
-    DOM.type.innerHTML = types
-        .map(type=> `<option value="${escapeHtml(type.type_id)}">${escapeHtml(type.name)}</option>`)
-        .join("");
-    DOM.type.value = String(res.type_id ?? "");
-}
-
-function getIdentifierPrefix(typeId){
-    const type = STATE.resourceTypes.find(t=> String(t.type_id) === String(typeId));
-    const resource = STATE.currentResource;
-    const slug = type?.slug || (String(resource?.type_id) === String(typeId) ? resource?.type_slug : null);
-    return slug ? ResourceIdentifier.prefix(system.short_name, slug) : null;
-}
-
-// Bestand behaelt seinen Identifier, solange der Typ bleibt. Ein anderer Typ braucht ein
-// Kuerzel hinter dem neuen Praefix; ein schon eingegebenes Kuerzel wird mitgenommen.
-function applyIdentifierForType(typeId, code = ""){
-    const resource = STATE.currentResource;
-    const prefix = getIdentifierPrefix(typeId);
-    let parts;
-
-    if(resource && String(resource.type_id) === String(typeId)){
-        parts = prefix
-            ? ResourceIdentifier.split(resource.technical_identifier, prefix)
-            : { mode: "free", value: resource.technical_identifier || "" };
-    }else{
-        parts = prefix ? { mode: "code", code } : { mode: "free", value: "" };
+    function renderFilter() {
+        const list = resources();
+        $("res-count").textContent = list.length;
+        const groups = D.groupByType(list);
+        if (state.filterType && !groups.some(g => g.typeId === state.filterType)) state.filterType = "";
+        const options = [{ typeId: "", name: "Alle", count: list.length }, ...groups.map(g => ({ ...g, count: g.rows.length }))];
+        $("type-filter").hidden = groups.length < 2;
+        $("type-filter").innerHTML = options.map(o =>
+            `<button type="button" data-type="${esc(o.typeId)}" aria-pressed="${o.typeId === state.filterType}">${esc(o.name)} <span class="dp-muted">${o.count}</span></button>`).join("");
     }
 
-    STATE.identifierMode = parts.mode;
-    DOM.techPrefix.hidden = parts.mode !== "code";
-    DOM.techPrefix.textContent = parts.mode === "code" ? prefix : "";
-    DOM.techId.value = parts.mode === "code" ? parts.code : parts.value;
-}
-
-function onResourceTypeChange(){
-    const code = STATE.identifierMode === "code" ? DOM.techId.value : "";
-    applyIdentifierForType(DOM.type.value, code);
-}
-
-// Liefert den vollen Identifier oder null, wenn das Kuerzel nicht ins Muster passt.
-function getTechnicalIdentifierInput(){
-    if(STATE.identifierMode !== "code"){
-        return DOM.techId.value;
-    }
-
-    const code = String(DOM.techId.value || "").trim().toUpperCase();
-    if(!ResourceIdentifier.isValidCode(code)){
-        showFlash("Kürzel: nur A–Z, 0–9 und einzelne Unterstriche", "failure");
-        return null;
-    }
-    return DOM.techPrefix.textContent + code;
-}
-
-function onSelectResource(){
-
-    const res = system.resources.find(
-        r=> r.resource_id == DOM.selectRes.value
-    );
-
-    if(!res) return;
-
-    STATE.currentResource = res;
-
-    DOM.selectContainer.style.display = "none";
-    DOM.form.style.display = "block";
-
-    fillResourceForm(res);
-}
-
-function onMetaTabClick(event) {
-    const tab = event.currentTarget;
-    if (!tab?.dataset?.taskType) {
-        return;
-    }
-
-    STATE.activeMetaTaskType = tab.dataset.taskType;
-    updateMetaTabState();
-    syncMetaSectionVisibility();
-}
-
-//------------------------------------------------
-// SAVE
-//------------------------------------------------
-
-async function saveResource(){
-    const handlingType = DOM.handling.value;
-    const typeId = parseInt(DOM.type.value, 10);
-    const parentResourceId = getSelectedParentResourceId();
-    const backlogId = getSelectedResourceBacklogValue();
-    const meta = buildMetaPayload(handlingType);
-    let success = false;
-
-    if (meta === null) {
-        return;
-    }
-
-    const technicalIdentifier = getTechnicalIdentifierInput();
-    if (technicalIdentifier === null) {
-        return;
-    }
-
-    if(STATE.currentResource){
-        success = await api.updateResource(
-            STATE.currentResource.resource_id,
-            system.system_id,
-            typeId,
-            DOM.displayName.value,
-            technicalIdentifier,
-            handlingType,
-            parentResourceId,
-            backlogId,
-            meta
-        );
-    }else{
-        success = await api.createResource(
-            system.system_id,
-            typeId,
-            DOM.displayName.value,
-            technicalIdentifier,
-            handlingType,
-            parentResourceId,
-            backlogId,
-            meta
-        );
-    }
-
-    if (!success) {
-        return;
-    }
-
-    await loadSystemDetail();
-    closeOverlay();
-
-}
-
-//------------------------------------------------
-// RESOURCE TYPES
-//------------------------------------------------
-
-function openResourceTypeOverlay(){
-    renderResourceTypeTable();
-    DOM.typeForm.reset();
-    DOM.typeOverlay.classList.add("active");
-}
-
-function closeResourceTypeOverlay(){
-    DOM.typeOverlay.classList.remove("active");
-}
-
-// Nur systemeigene Typen sind hier pflegbar; loeschen laesst die API nur unbenutzte.
-function renderResourceTypeTable(){
-    const ownTypes = STATE.resourceTypes.filter(type=> type.system_id != null);
-
-    DOM.typeTableBody.innerHTML = ownTypes.length
-        ? ownTypes.map(type=> `
-            <tr>
-                <td>${escapeHtml(type.name)}</td>
-                <td>${escapeHtml(type.slug)}</td>
-                <td>${escapeHtml(type.resource_count)}</td>
-                <td>${type.resource_count === 0
-                    ? `<button type="button" class="btn btn-secondary btn-sm" data-type-id="${escapeHtml(type.type_id)}">Löschen</button>`
-                    : ""}</td>
-            </tr>
-        `).join("")
-        : `<tr><td colspan="4">Keine eigenen Typen</td></tr>`;
-}
-
-async function createResourceType(event){
-    event.preventDefault();
-
-    const payload = {
-        name: String(DOM.typeName.value || "").trim(),
-        slug: String(DOM.typeSlug.value || "").trim().toUpperCase()
-    };
-
-    if(!payload.name){
-        showFlash("Bitte einen Namen angeben", "failure");
-        return;
-    }
-    if(!/^[A-Z0-9]{2,10}$/.test(payload.slug)){
-        showFlash("Kürzel: 2–10 Zeichen aus A–Z und 0–9", "failure");
-        return;
-    }
-
-    DOM.typeCreateBtn.disabled = true;
-
-    try {
-        const created = await api.createResourceType(system.system_id, payload);
-        if(!created) return;
-
-        DOM.typeForm.reset();
-        await loadResourceTypes(system.system_id);
-        renderResourceTypeTable();
-        showFlash(`Typ ${created.name} angelegt`, "success");
-    } finally {
-        DOM.typeCreateBtn.disabled = false;
-    }
-}
-
-async function deleteResourceType(event){
-    const button = event.target.closest("button[data-type-id]");
-    if(!button) return;
-
-    const type = STATE.resourceTypes.find(t=> String(t.type_id) === button.dataset.typeId);
-    button.disabled = true;
-
-    const deleted = await api.deleteResourceType(system.system_id, button.dataset.typeId);
-    if(!deleted){
-        button.disabled = false;
-        return;
-    }
-
-    await loadResourceTypes(system.system_id);
-    renderResourceTypeTable();
-    showFlash(`Typ ${type?.name || button.dataset.typeId} gelöscht`, "success");
-}
-
-function fillRecipientOptions() {
-    const recipients = getRecipientOptions();
-    const recipientSelects = [
-        DOM.metaFields.EXTERNAL.ASSIGNMENT.recipient,
-        DOM.metaFields.EXTERNAL.REVOCATION.recipient
-    ];
-
-    recipientSelects.forEach(select => {
-        const currentValue = select.value;
-        select.innerHTML = "<option value=''>-- Bitte wählen --</option>";
-
-        recipients.forEach(recipient => {
-            const option = document.createElement("option");
-            option.value = recipient.value;
-            option.textContent = recipient.label;
-            select.appendChild(option);
-        });
-
-        if (recipients.some(recipient => recipient.value === currentValue)) {
-            select.value = currentValue;
-        }
-    });
-}
-
-function getRecipientOptions() {
-    const options = [];
-    const seen = new Set();
-
-    STATE.users.forEach(user => {
-        if (getUserPrimaryRoleId(user) !== EXTERNAL_PROVIDER_PRIMARY_ROLE_ID) {
+    function renderTable() {
+        const list = resources();
+        if (!list.length) {
+            $("res-body").innerHTML = `<tr><td colspan="4" class="dp-empty">Noch keine Ressourcen</td></tr>`;
             return;
         }
-
-        if (!user.user_id) {
+        if (state.filterType || state.query) {
+            const hits = list
+                .filter(r => !state.filterType || String(r.type_id) === state.filterType)
+                .filter(r => D.matches(r, state.query))
+                .sort(D.byIdentifier);
+            $("res-body").innerHTML = hits.length
+                ? hits.map(r => renderRow(r, 0, { showParent: true })).join("")
+                : `<tr><td colspan="4" class="dp-empty">Keine Treffer</td></tr>`;
             return;
         }
-
-        const label = `${user.first_name || ""} ${user.last_name || ""}`.trim();
-        const optionValue = String(user.user_id);
-        const optionLabel = label
-            ? `${label}${user.email ? ` (${user.email})` : ""}`
-            : (user.email || optionValue);
-
-        if (!seen.has(optionValue)) {
-            seen.add(optionValue);
-            options.push({ value: optionValue, label: optionLabel });
-        }
-    });
-
-    const currentMeta = Array.isArray(STATE.currentResource?.meta) ? STATE.currentResource.meta : [];
-    currentMeta.forEach(entry => {
-        const value = getExternalRecipientValue(entry?.meta);
-        if (value && !seen.has(value)) {
-            seen.add(value);
-            options.push({ value, label: getRecipientFallbackLabel(value) });
-        }
-    });
-
-    return options;
-}
-
-function getRecipientFallbackLabel(value) {
-    if (String(value) === "1") {
-        return "TEST";
+        const tree = D.resourceTree(list);
+        $("res-body").innerHTML = tree.roots.map(r => renderNode(tree, r, 0)).join("");
     }
 
-    return String(value);
-}
+    function renderNode(tree, r, depth) {
+        const kids = tree.childrenOf(r.resource_id);
+        const nodeKey = `n:${r.resource_id}`;
+        const open = !state.collapsed.has(nodeKey);
+        let html = renderRow(r, depth, { toggle: kids.length ? { key: nodeKey, open } : null });
+        if (!kids.length || !open) return html;
 
-function getUserPrimaryRoleId(user) {
-    return parseInteger(
-        user?.primary_role?.role_id
-        ?? user?.primary_role_id
-        ?? user?.primaryRoleId
-        ?? user?.hauptrolle_id
-    );
-}
-
-function parseInteger(value) {
-    const normalized = String(value ?? "").trim();
-    if (!/^\d+$/.test(normalized)) {
-        return null;
-    }
-
-    return parseInt(normalized, 10);
-}
-
-function getBacklogByIdentifier(identifier) {
-    return STATE.backlogLookup[String(identifier)] || null;
-}
-
-function formatSystemBacklogLabel(identifier) {
-    const normalized = String(identifier || "").trim();
-    if (!normalized) {
-        return "-";
-    }
-
-    return getBacklogByIdentifier(normalized)?.name || normalized;
-}
-
-function getSystemDefaultBacklogIdentifier() {
-    const value = String(system?.default_backlog_identifier || "").trim();
-    return value || null;
-}
-
-function getSystemDefaultBacklogValue() {
-    return getSystemDefaultBacklogIdentifier() || "";
-}
-
-function getSelectedSystemBacklogValue() {
-    return String(DOM.systemBacklogInput?.value || "").trim() || null;
-}
-
-function getResourceBacklogIdentifier(resource) {
-    const value = String(resource?.backlog_identifier || "").trim();
-    return value || null;
-}
-
-function getResourceBacklogValue(resource) {
-    return getResourceBacklogIdentifier(resource) || "";
-}
-
-function getSelectedResourceBacklogValue() {
-    return String(DOM.resourceBacklogSelect?.value || "").trim() || null;
-}
-
-function getEffectiveResourceBacklogIdentifier(resource) {
-    const resourceIdentifier = getResourceBacklogIdentifier(resource);
-    if (resourceIdentifier !== null) {
-        return resourceIdentifier;
-    }
-
-    return getSystemDefaultBacklogIdentifier();
-}
-
-function getResourceBacklogDisplayLabel(resource) {
-    const resourceIdentifier = getResourceBacklogIdentifier(resource);
-    if (resourceIdentifier !== null) {
-        return formatSystemBacklogLabel(resourceIdentifier);
-    }
-
-    const effectiveIdentifier = getEffectiveResourceBacklogIdentifier(resource);
-    if (effectiveIdentifier === null) {
-        return "-";
-    }
-
-    return `${formatSystemBacklogLabel(effectiveIdentifier)} (Standard)`;
-}
-
-function fillSystemBacklogOptions() {
-    if (!DOM.systemBacklogInput) {
-        return;
-    }
-
-    const selectedValue = DOM.systemBacklogInput.value;
-    DOM.systemBacklogInput.innerHTML = "<option value=''>Kein Standard-Backlog</option>";
-
-    STATE.taskBacklogs
-        .slice()
-        .sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || ""), "de"))
-        .forEach(backlog => {
-            const identifier = String(backlog?.technical_identifier || "").trim();
-            if (!identifier) {
+        D.groupByType(kids).forEach(group => {
+            if (group.rows.length < SUBGROUP_MIN) {
+                group.rows.forEach(child => { html += renderNode(tree, child, depth + 1); });
                 return;
             }
-
-            const option = document.createElement("option");
-            option.value = identifier;
-            option.textContent = formatSystemBacklogLabel(identifier);
-            DOM.systemBacklogInput.appendChild(option);
+            const key = `g:${r.resource_id}:${group.typeId}`;
+            const groupOpen = !state.collapsed.has(key);
+            html += `
+                <tr class="dp-tree-sub ${groupOpen ? "" : "is-collapsed"}" data-toggle="${esc(key)}">
+                    <td class="dp-tree-cell" style="--depth:${depth + 1}" colspan="4">
+                        <span class="dp-tree-inner">
+                            <span class="dp-tree-toggle" aria-hidden="true"><span class="dp-caret">▾</span></span>
+                            ${esc(group.name)} <span class="dp-count">${group.rows.length}</span>
+                        </span>
+                    </td>
+                </tr>`;
+            if (groupOpen) group.rows.forEach(child => { html += renderNode(tree, child, depth + 2); });
         });
-
-    DOM.systemBacklogInput.value = selectedValue || getSystemDefaultBacklogValue();
-}
-
-function fillResourceBacklogOptions() {
-    if (!DOM.resourceBacklogSelect) {
-        return;
+        return html;
     }
 
-    const selectedValue = DOM.resourceBacklogSelect.value;
-    DOM.resourceBacklogSelect.innerHTML = "<option value=''>System-Standard verwenden</option>";
-
-    STATE.taskBacklogs
-        .slice()
-        .sort((left, right) => String(left.display_name || "").localeCompare(String(right.display_name || ""), "de"))
-        .forEach(backlog => {
-            const identifier = String(backlog?.technical_identifier || "").trim();
-            if (!identifier) {
-                return;
-            }
-
-            const option = document.createElement("option");
-            option.value = identifier;
-            option.textContent = formatSystemBacklogLabel(identifier);
-            DOM.resourceBacklogSelect.appendChild(option);
-        });
-
-    DOM.resourceBacklogSelect.value = selectedValue || "";
-}
-
-function resetMetaFields() {
-    Object.values(DOM.metaFields.EXTERNAL).forEach(fields => {
-        fields.recipient.value = "";
-        fields.subject.value = "";
-        fields.body.value = "";
-    });
-
-    Object.values(DOM.metaFields.BOT).forEach(fields => {
-        fields.meta.value = "";
-    });
-
-    fillRecipientOptions();
-}
-
-function fillMetaFieldsForHandling(handlingType, resource) {
-    resetFieldsForHandling(handlingType);
-
-    if (!resource || !Array.isArray(resource.meta)) {
-        return;
+    function renderRow(r, depth, { toggle = null, showParent = false } = {}) {
+        const foreign = foreignParent(r);
+        const parent = showParent ? findResource(r.parent_resource_id) || foreign : foreign;
+        const sub = parent ? ` · unter ${esc(parent.display_name)}` : "";
+        const handling = r.override_handling_type
+            ? D.chip(D.HANDLING[r.override_handling_type] || r.override_handling_type, r.override_handling_type === "BOT" ? "ui-chip-primary" : "ui-chip-neutral")
+            : `<span class="dp-muted">${esc(D.HANDLING[systemHandling()] || "")}</span>`;
+        const backlog = r.backlog_identifier
+            ? esc(backlogName(r.backlog_identifier))
+            : `<span class="dp-muted">${state.system.default_backlog_identifier ? esc(backlogName(state.system.default_backlog_identifier)) : "–"}</span>`;
+        return `
+            <tr class="dp-row ${toggle && !toggle.open ? "is-collapsed" : ""}" data-res="${esc(r.resource_id)}">
+                <td class="dp-tree-cell" style="--depth:${depth}">
+                    <span class="dp-tree-inner">
+                        ${toggle ? `<button type="button" class="dp-tree-toggle" data-toggle="${esc(toggle.key)}" aria-expanded="${toggle.open}" aria-label="${toggle.open ? "Zuklappen" : "Aufklappen"}"><span class="dp-caret">▾</span></button>` : ""}
+                        <span class="dp-name"><strong>${esc(r.display_name || "-")}</strong><span class="dp-ident">${esc(r.technical_identifier || "")}${sub}</span></span>
+                    </span>
+                </td>
+                <td>${esc(r.type_name || "-")}</td>
+                <td>${handling}</td>
+                <td>${backlog}</td>
+            </tr>`;
     }
 
-    TASK_TYPES.forEach(taskType => {
-        const metaEntry = findMetaEntry(resource.meta, handlingType, taskType);
+    // ---------- Panel ----------
 
-        if (!metaEntry || !metaEntry.meta) {
+    function openPanel(mode, resource = null) {
+        if (mode !== "new" && !resource) return;
+        state.panel = { mode, resource, activeTask: "ASSIGNMENT", snapshot: null };
+        renderPanel();
+        $("res-panel-overlay").classList.add("active");
+    }
+
+    function closePanel() {
+        $("res-panel-overlay").classList.remove("active");
+        state.panel = null;
+    }
+
+    // Klick daneben, Escape und X: ungespeicherte Eingaben nicht stillschweigend verwerfen.
+    function requestClosePanel() {
+        if (!state.panel) return;
+        if (isDirty() && !window.confirm("Ungespeicherte Änderungen verwerfen?")) return;
+        closePanel();
+    }
+
+    function formState() {
+        return JSON.stringify([...$("res-panel-body").querySelectorAll("input, select, textarea")]
+            .filter(el => el.id !== "f-parent-search")
+            .map(el => (el.type === "radio" ? el.checked : el.value)));
+    }
+
+    function isDirty() {
+        return state.panel?.snapshot != null && formState() !== state.panel.snapshot;
+    }
+
+    function renderPanel() {
+        const { mode, resource: r } = state.panel;
+        const isNew = mode === "new";
+        $("res-panel-kicker").textContent = isNew ? state.system.name : (r.type_name || "Ressource");
+        $("res-panel-title").textContent = isNew ? "Neue Ressource" : (r.display_name || "-");
+        $("res-panel-ident").textContent = isNew ? "" : (r.technical_identifier || "");
+        $("res-panel-chips").innerHTML = "";
+        $("res-panel-body").classList.toggle("is-view", mode === "view");
+
+        if (mode === "view") {
+            state.panel.snapshot = null;
+            const backlog = r.backlog_identifier || state.system.default_backlog_identifier;
+            $("res-panel-body").innerHTML = D.renderResourceView(r, {
+                handling: r.override_handling_type || systemHandling(),
+                handlingIsDefault: !r.override_handling_type,
+                backlogLabel: backlog ? esc(backlogName(backlog)) : `<span class="dp-muted">keins</span>`,
+                backlogIsDefault: Boolean(backlog) && !r.backlog_identifier,
+                classification: {
+                    systemId: state.system.system_id,
+                    ancestors: D.ancestorChain(r, lookupResource),
+                    // Abhängige in anderen Systemen sind hier nicht bekannt (/api/resources liefert keine Voraussetzung).
+                    dependents: D.resourceTree(resources()).childrenOf(r.resource_id)
+                        .map(c => ({ ...c, system_id: state.system.system_id, system_name: state.system.name }))
+                },
+                roles: rolesWith(r),
+                recipientLabel: userLabel,
+                activeTask: state.panel.activeTask
+            });
+            $("res-panel-actions").innerHTML = `<button type="button" class="btn btn-primary" data-panel-edit>Bearbeiten</button>`;
             return;
         }
 
-        const formFields = DOM.metaFields[handlingType]?.[taskType];
-        if (!formFields) {
-            return;
-        }
-
-        if (handlingType === "EXTERNAL") {
-            formFields.recipient.value = getExternalRecipientValue(metaEntry.meta);
-            formFields.subject.value = metaEntry.meta.subject || "";
-            formFields.body.value = metaEntry.meta.body || metaEntry.meta.mail_template || "";
-        }
-
-        if (handlingType === "BOT") {
-            formFields.meta.value = extractBotMetaEditorValue(metaEntry.meta);
-        }
-    });
-}
-
-function findMetaEntry(metaEntries, handlingType, taskType) {
-    return metaEntries.find(entry =>
-        entry.handling_type === handlingType && entry.task_type === taskType
-    ) || metaEntries.find(entry =>
-        entry.handling_type === handlingType && !entry.task_type
-    );
-}
-
-function resetFieldsForHandling(handlingType) {
-    const fieldsByTaskType = DOM.metaFields[handlingType];
-    if (!fieldsByTaskType) {
-        return;
+        $("res-panel-body").innerHTML = renderForm(isNew ? null : r);
+        $("res-panel-actions").innerHTML = `
+            <button type="button" class="btn btn-secondary" data-panel-cancel>Abbrechen</button>
+            <button type="button" class="btn btn-primary" data-panel-save>${isNew ? "Anlegen" : "Speichern"}</button>`;
+        syncForm();
+        state.panel.snapshot = formState();
     }
 
-    Object.values(fieldsByTaskType).forEach(fields => {
-        Object.values(fields).forEach(field => {
-            field.value = "";
-        });
-    });
-}
-
-function buildMetaPayload(handlingType) {
-    const existingMeta = Array.isArray(STATE.currentResource?.meta)
-        ? STATE.currentResource.meta.filter(entry => entry.handling_type !== handlingType)
-        : [];
-
-    if (!["EXTERNAL", "BOT"].includes(handlingType)) {
-        return existingMeta;
+    function identifierPrefix(typeId) {
+        const type = state.types.find(t => String(t.type_id) === String(typeId));
+        return type?.slug ? window.ResourceIdentifier.prefix(state.system.short_name, type.slug) : "";
     }
 
-    const newMeta = TASK_TYPES.map(taskType => {
-        const meta = buildMetaForTaskType(handlingType, taskType);
-        if (meta === null) {
+    // Konto ist eine Sonderressource: höchstens eins je System, Identifier fest <Kürzel>-<Slug>,
+    // und es ist die Standard-Voraussetzung der übrigen Ressourcen des Systems.
+    function isAccountType(typeId) {
+        return String(typeId) === String(ACCOUNT_TYPE_ID);
+    }
+
+    function ownAccountId() {
+        const account = resources().find(r => isAccountType(r.type_id));
+        return account ? String(account.resource_id) : "";
+    }
+
+    function accountIdentifier(typeId) {
+        return identifierPrefix(typeId).replace(/-$/, "");
+    }
+
+    // Typ und Identifier stehen nach dem Anlegen fest: Integrationen und Backlogs verweisen auf den Identifier.
+    function renderForm(r) {
+        const accountTaken = Boolean(ownAccountId());
+        const typeId = r?.type_id
+            ?? state.types.find(t => !(isAccountType(t.type_id) && accountTaken))?.type_id
+            ?? state.types[0]?.type_id;
+        const prefix = identifierPrefix(typeId);
+        const handlingOptions = [
+            ["", `Systemstandard (${D.HANDLING[systemHandling()]})`],
+            ...Object.entries(D.HANDLING)
+        ];
+        const sysBacklog = state.system.default_backlog_identifier;
+        const backlogOptions = [["", sysBacklog ? `Systemstandard (${backlogName(sysBacklog)})` : "Systemstandard"],
+            ...Object.entries(state.backlogs)];
+        const currentParent = r?.parent_resource_id != null ? lookupResource(r.parent_resource_id) : null;
+        const candidates = D.parentOptions(state.parentCandidates, r, currentParent, state.system.system_id);
+        const parentId = String(r ? (r.parent_resource_id ?? "") : (isAccountType(typeId) ? "" : ownAccountId()));
+
+        return `
+            <section class="dp-section dp-form" data-form>
+                <div class="dp-form-grid">
+                    <div class="dp-field dp-span-2">
+                        <label for="f-name">Name</label>
+                        <input class="ui-input" id="f-name" value="${esc(r?.display_name || "")}">
+                    </div>
+                    <div class="dp-field">
+                        <label for="f-type">Typ</label>
+                        ${r
+                            ? `<span class="dp-ident-fixed" id="f-type">${esc(r.type_name || "-")}</span>`
+                            : `<select class="ui-input" id="f-type">${state.types.map(t => {
+                                const blocked = isAccountType(t.type_id) && accountTaken;
+                                return `<option value="${esc(t.type_id)}" ${String(t.type_id) === String(typeId) ? "selected" : ""} ${blocked ? "disabled" : ""}>${esc(t.name)}${blocked ? " (vorhanden)" : ""}</option>`;
+                            }).join("")}</select>`}
+                    </div>
+                    <div class="dp-field">
+                        <label for="f-ident">Identifier</label>
+                        ${r
+                            ? `<span class="dp-ident-fixed" id="f-ident">${esc(r.technical_identifier || "-")}</span>`
+                            : `<span class="dp-ident-fixed" id="f-ident-account" ${isAccountType(typeId) ? "" : "hidden"}>${esc(accountIdentifier(typeId))}</span>
+                            <div class="dp-prefixed" id="f-ident-wrap" ${isAccountType(typeId) ? "hidden" : ""}>
+                                <span id="f-prefix" ${prefix ? "" : "hidden"}>${esc(prefix)}</span>
+                                <input class="ui-input" id="f-ident" autocomplete="off">
+                            </div>`}
+                    </div>
+                    <div class="dp-field">
+                        <label for="f-handling">Bearbeitung</label>
+                        <select class="ui-input" id="f-handling">${handlingOptions.map(([v, l]) =>
+                            `<option value="${v}" ${v === (r?.override_handling_type || "") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
+                    </div>
+                    <div class="dp-field">
+                        <label for="f-backlog">Backlog</label>
+                        <select class="ui-input" id="f-backlog">${backlogOptions.map(([v, l]) =>
+                            `<option value="${esc(v)}" ${v === (r?.backlog_identifier || "") ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
+                    </div>
+                    <div class="dp-field dp-span-2 dp-pick">
+                        <label for="f-parent-search">Übergeordnet</label>
+                        <input type="search" class="ui-input" id="f-parent-search" placeholder="Konto suchen" autocomplete="off">
+                        <div class="dp-pick-list" id="f-parent-list">
+                            <label><input type="radio" name="f-parent" value="" ${parentId === "" ? "checked" : ""}> Keine</label>
+                            ${candidates.map(c => `
+                                <label data-search="${esc(`${c.display_name} ${c.technical_identifier || ""} ${c.system_name || ""}`.toLowerCase())}">
+                                    <input type="radio" name="f-parent" value="${esc(c.resource_id)}" ${String(c.resource_id) === parentId ? "checked" : ""}>
+                                    ${esc(c.display_name)} <span class="dp-ident">${esc(c.technical_identifier || "")}${String(c.system_id) === String(state.system.system_id) ? "" : ` · ${esc(c.system_name || "")}`}</span>
+                                </label>`).join("")}
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="dp-section" data-automation>
+                <div class="dp-section-head">
+                    <h3>Automatisierung</h3>
+                    <div class="ui-segmented" role="group" aria-label="Vorgang">
+                        ${D.TASK_TYPES.map(t => `<button type="button" data-form-task="${t.value}" aria-pressed="${t.value === state.panel.activeTask}">${t.label}</button>`).join("")}
+                    </div>
+                </div>
+                ${D.TASK_TYPES.map(t => renderAutomationFields(r, t.value)).join("")}
+            </section>`;
+    }
+
+    function renderAutomationFields(r, taskType) {
+        const ext = r ? D.metaEntry(r, "EXTERNAL", taskType)?.meta || {} : {};
+        const bot = r ? D.metaEntry(r, "BOT", taskType)?.meta : null;
+        const contact = String(ext.external_contact ?? ext.recipient ?? "");
+        const options = recipients().map(u => [String(u.user_id), `${u.first_name || ""} ${u.last_name || ""}`.trim()]);
+        if (contact && !options.some(([v]) => v === contact)) options.push([contact, userLabel(contact)]);
+        return `
+            <div data-task-fields="${taskType}">
+                <div class="dp-form" data-handling-fields="EXTERNAL">
+                    <div class="dp-form-grid">
+                        <div class="dp-field">
+                            <label>Empfänger</label>
+                            <select class="ui-input" data-meta="recipient"><option value="">Bitte wählen</option>${options.map(([v, l]) =>
+                                `<option value="${esc(v)}" ${v === contact ? "selected" : ""}>${esc(l)}</option>`).join("")}</select>
+                        </div>
+                        <div class="dp-field">
+                            <label>Betreff</label>
+                            <input class="ui-input" data-meta="subject" value="${esc(ext.subject || "")}">
+                        </div>
+                        <div class="dp-field dp-span-2">
+                            <label>Mailvorlage</label>
+                            <textarea class="ui-textarea" data-meta="body" rows="6">${esc(ext.body || ext.mail_template || "")}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="dp-field" data-handling-fields="BOT">
+                    <label>Parameter (JSON)</label>
+                    <textarea class="ui-textarea dp-code" data-meta="bot" rows="5" placeholder='{"queue_id": "…"}'>${esc(D.botEditorValue(bot))}</textarea>
+                </div>
+                <p class="dp-note" data-handling-fields="INTERNAL">Manuell über das Backlog.</p>
+            </div>`;
+    }
+
+    function selectedHandling() {
+        return $("res-panel-body").querySelector("#f-handling")?.value || systemHandling();
+    }
+
+    // Sichtbarkeit der Formularteile nach Bearbeitung und Vorgang.
+    function syncForm() {
+        const body = $("res-panel-body");
+        const handling = selectedHandling();
+        body.querySelectorAll("[data-task-fields]").forEach(el => { el.hidden = el.dataset.taskFields !== state.panel.activeTask; });
+        body.querySelectorAll("[data-handling-fields]").forEach(el => { el.hidden = el.dataset.handlingFields !== handling; });
+        const segmented = body.querySelector("[data-automation] .ui-segmented");
+        if (segmented) segmented.hidden = handling === "INTERNAL";
+    }
+
+    function showFormTask(taskType) {
+        state.panel.activeTask = taskType;
+        $("res-panel-body").querySelectorAll("[data-form-task]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.formTask === taskType)));
+        syncForm();
+    }
+
+    // Nur beim Anlegen: Präfix und Voraussetzung folgen dem Typ, ein eingegebenes Kürzel bleibt.
+    function onTypeChange() {
+        const body = $("res-panel-body");
+        const typeId = body.querySelector("#f-type").value;
+        const prefix = identifierPrefix(typeId);
+        const account = isAccountType(typeId);
+        body.querySelector("#f-ident-wrap").hidden = account;
+        body.querySelector("#f-ident-account").hidden = !account;
+        body.querySelector("#f-ident-account").textContent = accountIdentifier(typeId);
+        const prefixEl = body.querySelector("#f-prefix");
+        prefixEl.hidden = !prefix;
+        prefixEl.textContent = prefix;
+        // Konto hängt an nichts; alles andere bekommt das Konto des Systems als Voraussetzung.
+        const parentRadio = body.querySelector(`input[name="f-parent"][value="${account ? "" : ownAccountId()}"]`);
+        if (parentRadio) parentRadio.checked = true;
+    }
+
+    // ---------- Speichern ----------
+
+    // Liefert den Identifier einer neuen Ressource oder null mit Hinweis.
+    function newIdentifier(typeId) {
+        if (isAccountType(typeId)) return accountIdentifier(typeId);
+        const input = $("res-panel-body").querySelector("#f-ident");
+        const prefix = identifierPrefix(typeId);
+        const code = input.value.trim().toUpperCase();
+        if (!prefix) {
+            if (input.value.trim()) return input.value.trim();
+            showFlash("Bitte einen Identifier angeben", "failure");
             return null;
         }
-        return {
-            handling_type: handlingType,
-            task_type: taskType,
-            meta
+        if (!window.ResourceIdentifier.isValidCode(code)) {
+            showFlash("Kürzel: nur A–Z, 0–9 und einzelne Unterstriche", "failure");
+            return null;
+        }
+        return prefix + code;
+    }
+
+    // Einträge der gewählten Bearbeitung je Vorgang; die API ersetzt nur diese, andere bleiben erhalten.
+    function buildMeta(handling) {
+        if (!["EXTERNAL", "BOT"].includes(handling)) return [];
+        const meta = [];
+        for (const { value: taskType, label } of D.TASK_TYPES) {
+            const fields = $("res-panel-body").querySelector(`[data-task-fields="${taskType}"] [data-handling-fields="${handling}"]`);
+            const field = name => fields.querySelector(`[data-meta="${name}"]`).value.trim();
+            let entry;
+            if (handling === "EXTERNAL") {
+                const recipient = field("recipient");
+                entry = { external_contact: /^\d+$/.test(recipient) ? Number(recipient) : recipient, subject: field("subject"), body: field("body") };
+            } else {
+                entry = D.parseBotParams(field("bot"));
+                if (!entry) {
+                    showFormTask(taskType);
+                    showFlash(`Parameter für ${label} sind kein gültiges JSON-Objekt`, "failure");
+                    return null;
+                }
+            }
+            meta.push({ handling_type: handling, task_type: taskType, meta: entry });
+        }
+        return meta;
+    }
+
+    async function saveResource(button) {
+        const body = $("res-panel-body");
+        const r = state.panel.resource;
+        const name = body.querySelector("#f-name").value.trim();
+        if (!name) {
+            showFlash("Bitte einen Namen angeben", "failure");
+            return;
+        }
+        const typeId = r ? r.type_id : Number(body.querySelector("#f-type").value);
+        const technicalIdentifier = r ? r.technical_identifier : newIdentifier(typeId);
+        if (technicalIdentifier === null) return;
+        const meta = buildMeta(selectedHandling());
+        if (meta === null) return;
+        const parent = body.querySelector('input[name="f-parent"]:checked')?.value || "";
+
+        const payload = {
+            system_id: state.system.system_id,
+            type_id: typeId,
+            display_name: name,
+            technical_identifier: technicalIdentifier,
+            override_handling_type: body.querySelector("#f-handling").value || null,
+            parent_resource_id: parent ? Number(parent) : null,
+            backlog_identifier: body.querySelector("#f-backlog").value || null
         };
-    });
+        if (meta.length) payload.meta = meta;
+        if (r) payload.resource_id = r.resource_id;
 
-    if (newMeta.some(entry => entry === null)) {
-        return null;
-    }
-
-    return [...existingMeta, ...newMeta];
-}
-
-function buildMetaForTaskType(handlingType, taskType) {
-    const fields = DOM.metaFields[handlingType]?.[taskType];
-    if (!fields) {
-        return {};
-    }
-
-    if (handlingType === "EXTERNAL") {
-        return {
-            external_contact: normalizeRecipientValue(fields.recipient.value),
-            subject: fields.subject.value.trim(),
-            body: fields.body.value.trim()
-        };
-    }
-
-    if (handlingType === "BOT") {
-        return parseBotMetaEditorValue(fields.meta.value, taskType);
-    }
-
-    return {};
-}
-
-function extractBotMetaEditorValue(meta) {
-    if (!meta || typeof meta !== "object") {
-        return "";
-    }
-
-    const legacyMeta = meta.data;
-    if (Object.prototype.hasOwnProperty.call(meta, "data")) {
-        if (typeof legacyMeta === "string") {
-            return legacyMeta;
+        button.disabled = true;
+        try {
+            const saved = await D.send(r ? `/api/resources/${r.resource_id}` : "/api/resources", "POST", payload);
+            showFlash(r ? "Ressource gespeichert" : "Ressource angelegt", "success");
+            closePanel();
+            await reload();
+            const fresh = findResource(r ? r.resource_id : saved?.resource_id);
+            if (fresh) openPanel("view", fresh);
+        } catch (error) {
+            showFlash(error.message, "failure");
+            button.disabled = false;
         }
+    }
 
-        if (legacyMeta && typeof legacyMeta === "object") {
-            return JSON.stringify(legacyMeta, null, 2);
+    // ---------- Typen ----------
+
+    function openTypes() {
+        renderTypes();
+        $("types-form").reset();
+        $("types-dialog").showModal();
+    }
+
+    // Nur systemeigene Typen sind löschbar, und nur unbenutzte.
+    function renderTypes() {
+        $("types-body").innerHTML = state.types.map(t => {
+            const own = t.system_id != null;
+            return `
+                <tr>
+                    <td>${esc(t.name)}</td>
+                    <td class="dp-ident">${esc(t.slug)}</td>
+                    <td>${esc(t.resource_count ?? 0)}</td>
+                    <td>${own
+                        ? `<button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm" data-type-delete="${esc(t.type_id)}" ${t.resource_count ? "disabled title=\"Wird noch verwendet\"" : ""} aria-label="${esc(t.name)} löschen">✕</button>`
+                        : `<span class="dp-muted">global</span>`}</td>
+                </tr>`;
+        }).join("");
+    }
+
+    async function createType(event) {
+        event.preventDefault();
+        const payload = { name: $("type-name").value.trim(), slug: $("type-slug").value.trim().toUpperCase() };
+        $("type-create-btn").disabled = true;
+        try {
+            const created = await D.send(`/api/systems/${state.systemId}/resource-types`, "POST", payload);
+            showFlash(`Typ ${created?.name || payload.name} angelegt`, "success");
+            $("types-form").reset();
+        } catch (error) {
+            showFlash(error.message, "failure");
+        } finally {
+            $("type-create-btn").disabled = false;
         }
-
-        return "";
+        await reloadTypes();
     }
 
-    return Object.keys(meta).length > 0 ? JSON.stringify(meta, null, 2) : "";
-}
-
-function parseBotMetaEditorValue(value, taskType) {
-    const normalized = String(value || "").trim();
-    if (!normalized) {
-        return {};
-    }
-
-    try {
-        const parsed = JSON.parse(normalized);
-        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-            throw new Error("BOT-Meta muss ein JSON-Objekt sein.");
+    async function deleteType(button) {
+        const type = state.types.find(t => String(t.type_id) === button.dataset.typeDelete);
+        button.disabled = true;
+        try {
+            await D.send(`/api/systems/${state.systemId}/resource-types/${button.dataset.typeDelete}`, "DELETE");
+            showFlash(`Typ ${type?.name || ""} gelöscht`, "success");
+        } catch (error) {
+            showFlash(error.message, "failure");
         }
-        return parsed;
-    } catch (error) {
-        showFlash(`BOT-Meta für ${formatTaskTypeLabel(taskType)} ist kein gültiges JSON-Objekt.`, "failure");
-        return null;
-    }
-}
-
-function formatTaskTypeLabel(taskType) {
-    if (taskType === "ASSIGNMENT") {
-        return "Zuweisung";
+        await reloadTypes();
     }
 
-    if (taskType === "REVOCATION") {
-        return "Löschung";
-    }
-
-    return taskType || "den Vorgang";
-}
-
-function getExternalRecipientValue(meta) {
-    if (!meta) {
-        return "";
-    }
-
-    return String(meta.external_contact || meta.recipient || "");
-}
-
-function normalizeRecipientValue(value) {
-    if (!value) {
-        return "";
-    }
-
-    const normalized = value.trim();
-    return /^\d+$/.test(normalized) ? parseInt(normalized, 10) : normalized;
-}
-
-function onParentSearchInput() {
-    STATE.parentResourceQuery = DOM.parentSearch.value.trim();
-    renderParentResourceOptions();
-}
-
-function onParentSelectionChange() {
-    STATE.selectedParentResourceId = normalizeParentResourceId(DOM.parentSelect.value);
-    updateParentSelectionLabel();
-}
-
-function renderParentResourceOptions() {
-    const currentResourceId = normalizeParentResourceId(STATE.currentResource?.resource_id);
-    const query = STATE.parentResourceQuery.toLowerCase();
-    const candidates = STATE.parentResourceCandidates.filter(candidate => {
-        const candidateId = normalizeParentResourceId(candidate.resource_id);
-
-        if (currentResourceId != null && candidateId === currentResourceId) {
-            return false;
+    async function reloadTypes() {
+        try {
+            await reload();
+        } catch (error) {
+            showFlash(error.message, "failure");
         }
-
-        if (STATE.selectedParentResourceId != null && candidateId === STATE.selectedParentResourceId) {
-            return true;
-        }
-
-        if (!query) {
-            return true;
-        }
-
-        const haystack = [
-            candidate.display_name,
-            candidate.technical_identifier,
-            candidate.system_name
-        ]
-            .map(value => String(value || "").toLowerCase())
-            .join(" ");
-
-        return haystack.includes(query);
-    });
-
-    DOM.parentSelect.innerHTML = "";
-
-    const emptyOption = document.createElement("option");
-    emptyOption.value = "";
-    emptyOption.textContent = "Keine übergeordnete Ressource";
-    DOM.parentSelect.appendChild(emptyOption);
-
-    candidates.forEach(candidate => {
-        const option = document.createElement("option");
-        option.value = String(candidate.resource_id);
-        option.textContent = formatParentCandidateLabel(candidate);
-        DOM.parentSelect.appendChild(option);
-    });
-
-    DOM.parentSelect.value = STATE.selectedParentResourceId == null
-        ? ""
-        : String(STATE.selectedParentResourceId);
-
-    if (DOM.parentSelect.value !== "" && DOM.parentSelect.value !== String(STATE.selectedParentResourceId)) {
-        DOM.parentSelect.value = "";
-    }
-}
-
-function formatParentCandidateLabel(candidate) {
-    const parts = [candidate.display_name || `Ressource ${candidate.resource_id}`];
-
-    if (candidate.technical_identifier) {
-        parts.push(candidate.technical_identifier);
+        renderTypes();
     }
 
-    if (candidate.system_name) {
-        parts.push(candidate.system_name);
-    }
+    // ---------- System bearbeiten ----------
 
-    return parts.join(" | ");
-}
-
-function normalizeParentResourceId(value) {
-    if (value === null || value === undefined || value === "") {
-        return null;
-    }
-
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? numericValue : null;
-}
-
-function getSelectedParentResourceId() {
-    return normalizeParentResourceId(DOM.parentSelect.value);
-}
-
-function updateParentSelectionLabel() {
-    const selectedResource = getParentCandidateById(STATE.selectedParentResourceId);
-
-    if (!selectedResource) {
-        const fallbackLabel = getResourceParentFallbackLabel(STATE.currentResource);
-        DOM.parentSelectionLabel.textContent = fallbackLabel
-            ? `Aktuell gesetzt: ${fallbackLabel}`
-            : "Keine übergeordnete Ressource ausgewählt.";
-        return;
-    }
-
-    DOM.parentSelectionLabel.textContent = `Ausgewählt: ${formatParentCandidateLabel(selectedResource)}`;
-}
-
-function updateMetaTabState() {
-    DOM.metaTabs.forEach(tab => {
-        const isActive = tab.dataset.taskType === STATE.activeMetaTaskType;
-        tab.classList.toggle("active", isActive);
-        tab.setAttribute("aria-selected", isActive ? "true" : "false");
-    });
-
-    DOM.metaGroups.forEach(group => {
-        group.classList.toggle("active", group.dataset.taskType === STATE.activeMetaTaskType);
-    });
-}
-
-function syncMetaSectionVisibility() {
-    const selectedHandlingType = DOM.handling.value;
-    const showMeta = ["EXTERNAL", "BOT"].includes(selectedHandlingType);
-    const readOnly = !showMeta || STATE.overlayMode === "view";
-
-    DOM.metaSections.forEach(section => {
-        const parentGroup = section.closest(".resource-meta-group");
-        const isActive = showMeta
-            && section.dataset.handlingType === selectedHandlingType
-            && parentGroup?.dataset?.taskType === STATE.activeMetaTaskType;
-
-        section.classList.toggle("active", isActive);
-
-        section.querySelectorAll("input, select, textarea").forEach(field => {
-            field.disabled = !isActive || readOnly;
+    function openSystemEdit() {
+        const s = state.system;
+        $("sys-name").value = s.name || "";
+        $("sys-short").value = s.short_name || "";
+        // Das Kürzel steckt in den Identifiern; änderbar nur, solange es keine Ressourcen gibt.
+        $("sys-short").disabled = resources().length > 0;
+        $("sys-backlog").innerHTML = `<option value="">keins</option>` + Object.entries(state.backlogs)
+            .map(([v, l]) => `<option value="${esc(v)}" ${v === s.default_backlog_identifier ? "selected" : ""}>${esc(l)}</option>`).join("");
+        $("sys-handling").innerHTML = Object.entries(D.HANDLING)
+            .map(([v, l]) => `<option value="${v}" ${v === systemHandling() ? "selected" : ""}>${l}</option>`).join("");
+        document.querySelectorAll("[data-pn]").forEach(select => {
+            const current = s.protection_need?.[select.dataset.pn] || "";
+            select.innerHTML = `<option value="">nicht gepflegt</option>` + Object.entries(D.PROTECTION)
+                .map(([v, p]) => `<option value="${v}" ${v === current ? "selected" : ""}>${p.label}</option>`).join("");
         });
-    });
-}
-
-function updateHandlingBadge(handlingType) {
-    if (!DOM.handlingBadge) {
-        return;
+        syncOverall();
+        $("sys-edit-dialog").showModal();
     }
 
-    DOM.handlingBadge.textContent = formatHandlingType(handlingType);
-}
-
-function formatHandlingType(value) {
-    if (value === "EXTERNAL") return "External";
-    if (value === "BOT") return "Bot";
-    if (value === "INTERNAL") return "Internal";
-    return value || "-";
-}
-
-function getResourceParentId(resource) {
-    if (!resource) {
-        return null;
+    // Gesamt = höchste Einzelstufe (Maximumprinzip).
+    function syncOverall() {
+        const order = Object.keys(D.PROTECTION);
+        const values = [...document.querySelectorAll("[data-pn]")].map(s => s.value).filter(Boolean);
+        const overall = values.sort((a, b) => order.indexOf(b) - order.indexOf(a))[0];
+        $("sys-protection-overall").innerHTML = D.protectionChip(overall);
     }
 
-    return normalizeParentResourceId(
-        resource.parent_resource_id
-        ?? resource.parentResourceId
-        ?? resource.parent_resource?.resource_id
-        ?? resource.parent_resource?.id
-    );
-}
-
-function getParentCandidateById(parentResourceId) {
-    return STATE.parentResourceCandidates.find(candidate =>
-        normalizeParentResourceId(candidate.resource_id) === parentResourceId
-    ) || null;
-}
-
-function getResourceParentDisplayLabel(resource) {
-    const parentId = getResourceParentId(resource);
-    if (parentId != null) {
-        const candidate = getParentCandidateById(parentId);
-        if (candidate) {
-            return formatParentCandidateLabel(candidate);
+    async function saveSystem(event) {
+        event.preventDefault();
+        const payload = {
+            name: $("sys-name").value.trim(),
+            short_name: $("sys-short").disabled ? state.system.short_name : $("sys-short").value.trim(),
+            default_backlog_identifier: $("sys-backlog").value || null
+        };
+        $("sys-save-btn").disabled = true;
+        try {
+            await D.send(`/api/systems/${state.systemId}`, "POST", payload);
+            showFlash("System gespeichert", "success");
+            $("sys-edit-dialog").close();
+            await reload();
+        } catch (error) {
+            showFlash(error.message, "failure");
+        } finally {
+            $("sys-save-btn").disabled = false;
         }
     }
 
-    return getResourceParentFallbackLabel(resource) || "-";
-}
+    // ---------- Events ----------
 
-function getResourceParentFallbackLabel(resource) {
-    if (!resource) {
-        return "";
+    function bindEvents() {
+        $("res-search").addEventListener("input", event => { state.query = event.target.value.trim(); renderTable(); });
+        $("type-filter").addEventListener("click", event => {
+            const option = event.target.closest("[data-type]");
+            if (!option) return;
+            state.filterType = option.dataset.type;
+            renderFilter();
+            renderTable();
+        });
+        $("res-body").addEventListener("click", event => {
+            const toggle = event.target.closest("[data-toggle]");
+            if (toggle) {
+                const key = toggle.dataset.toggle;
+                state.collapsed.has(key) ? state.collapsed.delete(key) : state.collapsed.add(key);
+                renderTable();
+                return;
+            }
+            const row = event.target.closest("[data-res]");
+            if (row) openPanel("view", findResource(row.dataset.res));
+        });
+        $("res-add-btn").addEventListener("click", () => openPanel("new"));
+        $("types-btn").addEventListener("click", openTypes);
+        $("sys-edit-btn").addEventListener("click", openSystemEdit);
+
+        D.bindPanel($("res-panel-overlay"), requestClosePanel);
+        ["sys-edit-dialog", "types-dialog"].forEach(id => D.bindDialog($(id)));
+
+        $("res-panel-overlay").addEventListener("click", event => {
+            if (!state.panel) return;
+            const open = event.target.closest("[data-open-resource]");
+            if (open && !open.disabled) {
+                const target = findResource(open.dataset.openResource);
+                if (target) openPanel("view", target);
+                else if (open.dataset.system) location.href = `/systems/${open.dataset.system}?res=${open.dataset.openResource}`;
+                return;
+            }
+            const viewTask = event.target.closest("[data-view-task]");
+            if (viewTask) { state.panel.activeTask = viewTask.dataset.viewTask; renderPanel(); return; }
+            const formTask = event.target.closest("[data-form-task]");
+            if (formTask) { showFormTask(formTask.dataset.formTask); return; }
+            if (event.target.closest("[data-panel-edit]")) { state.panel.mode = "edit"; renderPanel(); return; }
+            if (event.target.closest("[data-panel-cancel]")) {
+                state.panel.mode === "new" ? closePanel() : (state.panel.mode = "view", renderPanel());
+                return;
+            }
+            const save = event.target.closest("[data-panel-save]");
+            if (save) saveResource(save);
+        });
+        $("res-panel-body").addEventListener("change", event => {
+            if (event.target.id === "f-handling") syncForm();
+            if (event.target.id === "f-type") onTypeChange();
+        });
+        $("res-panel-body").addEventListener("input", event => {
+            if (event.target.id !== "f-parent-search") return;
+            const q = event.target.value.trim().toLowerCase();
+            $("f-parent-list").querySelectorAll("label[data-search]").forEach(label => {
+                label.hidden = Boolean(q) && !label.dataset.search.includes(q) && !label.querySelector("input").checked;
+            });
+        });
+
+        document.querySelectorAll("[data-pn]").forEach(select => select.addEventListener("change", syncOverall));
+        $("sys-edit-form").addEventListener("submit", saveSystem);
+        $("types-form").addEventListener("submit", createType);
+        $("types-body").addEventListener("click", event => {
+            const button = event.target.closest("[data-type-delete]");
+            if (button && !button.disabled) deleteType(button);
+        });
     }
-
-    if (typeof resource.parent_resource_name === "string" && resource.parent_resource_name.trim()) {
-        return resource.parent_resource_name.trim();
-    }
-
-    const parentResource = resource.parent_resource;
-    if (parentResource && typeof parentResource === "object") {
-        const parts = [];
-        if (parentResource.display_name) {
-            parts.push(parentResource.display_name);
-        }
-        if (parentResource.technical_identifier) {
-            parts.push(parentResource.technical_identifier);
-        }
-
-        if (parts.length > 0) {
-            return parts.join(" | ");
-        }
-    }
-
-    return "";
-}
-
-function escapeHtml(value) {
-    return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
+}());

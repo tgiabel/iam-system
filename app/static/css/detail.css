@@ -1,0 +1,580 @@
+/* Rollen- und Systemdetails: gemeinsamer Rahmen auf Basis von ui.css. */
+
+.dp-page {
+    width: min(1440px, 100%);
+    margin: 1.1rem auto 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.dp-page [hidden] {
+    display: none !important;
+}
+
+/* Feste Seite (body.app-fixed, wie Workspace/Dashboard): Kopf steht, nur Tabelle und Seitenleiste scrollen.
+   Karten sind so hoch wie ihr Inhalt und höchstens so hoch wie der freie Platz.
+   Unter 1100px scrollt die Seite wieder normal (app-fixed-until-1100). */
+body.app-fixed .dp-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 1rem;
+}
+
+body.app-fixed .dp-fill {
+    flex: 0 1 auto;
+    min-height: 0;
+}
+
+.dp-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.dp-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+@media (max-width: 1100px) {
+    .dp-scroll {
+        overflow: visible;
+    }
+}
+
+.dp-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1.5rem;
+    padding: 1.2rem 1.5rem 1.25rem;
+}
+
+.dp-head-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.dp-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.dp-title {
+    margin: 0;
+    font-size: 1.65rem;
+    line-height: 1.2;
+    color: var(--ui-text-strong);
+}
+
+.dp-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1.4rem;
+    margin: 0.25rem 0 0;
+    padding: 0;
+    font-size: 0.9rem;
+    color: var(--ui-text-muted);
+}
+
+.dp-meta > div {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.dp-meta dt {
+    margin: 0;
+}
+
+.dp-meta dd {
+    margin: 0;
+    color: var(--ui-text-strong);
+}
+
+.dp-head-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.dp-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.dp-card-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.8rem 1rem 0.8rem 1.25rem;
+    border-bottom: 1px solid var(--ui-border);
+}
+
+.dp-card-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--ui-text-strong);
+}
+
+.dp-card-tools {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.dp-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    background: var(--ui-surface-soft);
+    color: var(--color-primary);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.dp-card-head > .dp-search {
+    margin-left: 0.5rem;
+}
+
+.dp-search {
+    width: 14rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.92rem;
+}
+
+.dp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.dp-table th {
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.dp-table td {
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--ui-border) 70%, var(--ui-surface-card));
+    vertical-align: middle;
+    color: var(--ui-text);
+}
+
+.dp-table tbody tr.dp-row {
+    cursor: pointer;
+}
+
+.dp-table tbody tr.dp-row:hover td {
+    background: color-mix(in srgb, var(--ui-surface-soft) 55%, var(--ui-surface-card));
+}
+
+.dp-name {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 0;
+}
+
+.dp-name strong {
+    font-weight: 600;
+    color: var(--ui-text-strong);
+}
+
+.dp-ident {
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--ui-text-muted);
+}
+
+.dp-muted {
+    color: var(--ui-text-muted);
+}
+
+.dp-caret {
+    display: inline-block;
+    width: 1rem;
+    color: var(--ui-text-muted);
+    transition: transform 0.15s ease;
+}
+
+.is-collapsed .dp-caret {
+    transform: rotate(-90deg);
+}
+
+.dp-empty {
+    padding: 1.5rem 1rem;
+    color: var(--ui-text-muted);
+    text-align: center;
+}
+
+.dp-dep {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.dp-dep-row {
+    display: grid;
+    grid-template-columns: 9rem minmax(0, 1fr);
+    gap: 0.6rem;
+    align-items: start;
+}
+
+.dp-dep-row > span:first-child {
+    padding-top: 0.1rem;
+    color: var(--ui-text-muted);
+    font-size: 0.88rem;
+}
+
+.dp-dep-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+}
+
+.dp-dep-item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.5rem;
+}
+
+.dp-dep-item strong {
+    color: var(--ui-text-strong);
+    font-weight: 600;
+}
+
+.dp-dep-item .dp-muted {
+    font-size: 0.88rem;
+}
+
+.dp-panel {
+    width: min(620px, calc(100vw - 2rem));
+}
+
+.dp-panel .ui-modal-body {
+    flex: 1 1 auto;
+}
+
+.dp-panel-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.dp-panel-title h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    color: var(--ui-text-strong);
+}
+
+.dp-panel-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.2rem;
+}
+
+.dp-link {
+    border: 0;
+    padding: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.dp-link:hover {
+    text-decoration: underline;
+}
+
+.dp-mail {
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-muted);
+    color: var(--ui-text);
+    font: inherit;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    max-height: 14rem;
+    overflow-y: auto;
+}
+
+.dp-note {
+    margin: 0;
+    color: var(--ui-text-muted);
+    font-size: 0.9rem;
+}
+
+.dp-panel .ui-sidepanel-actions {
+    justify-content: flex-end;
+}
+
+/* Ansicht im Panel: graue Fläche, darauf deckende Blöcke */
+.dp-panel .ui-modal-body.is-view {
+    gap: 0.85rem;
+    background: var(--ui-surface-muted);
+}
+
+.dp-facts {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.6rem;
+}
+
+.dp-fact {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    min-width: 0;
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-card);
+}
+
+.dp-fact > span:first-child {
+    color: var(--ui-text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.dp-fact strong {
+    color: var(--ui-text-strong);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.dp-fact small {
+    color: var(--ui-text-muted);
+    font-size: 0.8rem;
+}
+
+.dp-pblock {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.9rem 1rem 1rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-card);
+}
+
+.dp-pblock.is-accent {
+    border-left: 3px solid var(--color-primary);
+}
+
+.dp-pblock-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 1.9rem;
+}
+
+.dp-pblock-head h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0;
+    color: var(--ui-text-strong);
+    font-size: 0.95rem;
+}
+
+/* Automatisierung: Mail als Karte, Bot-Parameter als Tabelle */
+.dp-mailcard {
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    overflow: hidden;
+}
+
+.dp-mailcard-row {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 0.5rem 0.85rem;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface-muted);
+    font-size: 0.9rem;
+}
+
+.dp-mailcard-row span:first-child {
+    color: var(--ui-text-muted);
+}
+
+.dp-mailcard-row strong {
+    color: var(--ui-text-strong);
+    font-weight: 600;
+}
+
+.dp-mailcard .dp-mail {
+    border: 0;
+    border-radius: 0;
+    background: var(--ui-surface-card);
+}
+
+.dp-params {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.84rem;
+}
+
+.dp-params td {
+    padding: 0.4rem 0.75rem;
+    border-bottom: 1px solid var(--ui-border);
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.dp-params tr:last-child td {
+    border-bottom: 0;
+}
+
+.dp-params td:first-child {
+    width: 38%;
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+}
+
+.dp-params td:last-child {
+    color: var(--ui-text-strong);
+}
+
+.dp-chip-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.dp-chip-list a.ui-chip {
+    text-decoration: none;
+}
+
+.dp-chip-list a.ui-chip:hover {
+    border-color: rgba(var(--color-primary-rgb), 0.45);
+}
+
+@media (max-width: 700px) {
+    .dp-facts {
+        grid-auto-flow: row;
+    }
+}
+
+.dp-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.dp-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem 1rem;
+}
+
+.dp-form-grid .dp-span-2 {
+    grid-column: 1 / -1;
+}
+
+.dp-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.dp-field > label,
+.dp-field > .dp-field-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--ui-text-strong);
+}
+
+.dp-field .ui-input,
+.dp-field .ui-textarea,
+.dp-field select.ui-input {
+    padding: 0.55rem 0.8rem;
+    border-radius: var(--ui-radius-sm);
+    font-size: 0.95rem;
+}
+
+.dp-field .ui-textarea {
+    min-height: 5.5rem;
+}
+
+.dp-dialog {
+    width: min(720px, calc(100vw - 2rem));
+}
+
+.dp-dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.dp-dialog .ui-modal-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: var(--ui-text-strong);
+}
+
+.dp-dialog .ui-modal-footer {
+    justify-content: space-between;
+}
+
+.dp-dialog .ui-modal-footer .dp-footer-end {
+    display: flex;
+    gap: 0.6rem;
+    margin-left: auto;
+}
+
+@media (max-width: 700px) {
+    .dp-head {
+        flex-direction: column;
+    }
+
+    .dp-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dp-search {
+        width: 100%;
+    }
+}
