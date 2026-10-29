@@ -135,10 +135,10 @@
         $("res-count").textContent = list.length;
         const groups = D.groupByType(list);
         if (state.filterType && !groups.some(g => g.typeId === state.filterType)) state.filterType = "";
-        const options = [{ typeId: "", name: "Alle", count: list.length }, ...groups.map(g => ({ ...g, count: g.rows.length }))];
+        const options = [{ typeId: "", name: "Alle Typen", count: list.length }, ...groups.map(g => ({ ...g, count: g.rows.length }))];
         $("type-filter").hidden = groups.length < 2;
         $("type-filter").innerHTML = options.map(o =>
-            `<button type="button" data-type="${esc(o.typeId)}" aria-pressed="${o.typeId === state.filterType}">${esc(o.name)} <span class="dp-muted">${o.count}</span></button>`).join("");
+            `<option value="${esc(o.typeId)}" ${o.typeId === state.filterType ? "selected" : ""}>${esc(o.name)} (${o.count})</option>`).join("");
     }
 
     function renderTable() {
@@ -193,9 +193,7 @@
         const foreign = foreignParent(r);
         const parent = showParent ? findResource(r.parent_resource_id) || foreign : foreign;
         const sub = parent ? ` · unter ${esc(parent.display_name)}` : "";
-        const handling = r.override_handling_type
-            ? D.chip(D.HANDLING[r.override_handling_type] || r.override_handling_type, r.override_handling_type === "BOT" ? "ui-chip-primary" : "ui-chip-neutral")
-            : `<span class="dp-muted">${esc(D.HANDLING[systemHandling()] || "")}</span>`;
+        const handling = D.handlingChip(r.override_handling_type || systemHandling(), r.override_handling_type ? "" : "Systemstandard");
         const backlog = r.backlog_identifier
             ? esc(backlogName(r.backlog_identifier))
             : `<span class="dp-muted">${state.system.default_backlog_identifier ? esc(backlogName(state.system.default_backlog_identifier)) : "–"}</span>`;
@@ -673,11 +671,8 @@
 
     function bindEvents() {
         $("res-search").addEventListener("input", event => { state.query = event.target.value.trim(); renderTable(); });
-        $("type-filter").addEventListener("click", event => {
-            const option = event.target.closest("[data-type]");
-            if (!option) return;
-            state.filterType = option.dataset.type;
-            renderFilter();
+        $("type-filter").addEventListener("change", event => {
+            state.filterType = event.target.value;
             renderTable();
         });
         $("res-body").addEventListener("click", event => {

@@ -1,5 +1,41 @@
 /* Systemdetails: Ressourcenbaum, Formular im Panel, Ressourcentypen. Baut auf detail.css auf. */
 
+/* Kopfzeile der Ressourcentabelle bleibt einzeilig; die Suche gibt Platz ab. */
+.dp-card-head,
+.dp-card-tools {
+    flex-wrap: nowrap;
+}
+
+.dp-card-title {
+    white-space: nowrap;
+}
+
+.dp-card-tools {
+    min-width: 0;
+}
+
+.dp-card-tools > * {
+    flex-shrink: 0;
+}
+
+.dp-card-tools > .dp-search {
+    flex: 0 1 14rem;
+    min-width: 7rem;
+}
+
+.dp-card-tools > .dp-type-select {
+    flex: 0 0 auto;
+    width: auto;
+    padding-right: 2rem;
+}
+
+@media (max-width: 700px) {
+    .dp-card-head,
+    .dp-card-tools {
+        flex-wrap: wrap;
+    }
+}
+
 /* Baumansicht: Einrückung über --depth */
 .dp-tree-cell {
     padding-left: calc(2.4rem + var(--depth, 0) * 1.6rem) !important;

@@ -223,9 +223,8 @@
             || null;
     }
 
-    function handlingChip(handling) {
-        if (handling === "BOT") return chip("Bot", "ui-chip-primary");
-        return chip(HANDLING[handling] || handling || "-", "ui-chip-neutral");
+    function handlingChip(handling, title = "") {
+        return chip(HANDLING[handling] || handling || "-", handling === "BOT" ? "ui-chip-primary" : "ui-chip-neutral", title);
     }
 
     function renderAutomation(resource, handling, taskType, recipientLabel) {
