@@ -16,6 +16,7 @@ const STATE = {
 const ROLE_TYPE_OPTIONS = [
     { value: "PRIMARY", label: "Hauptrolle" },
     { value: "SECONDARY", label: "Nebenrolle" },
+    { value: "SKILL", label: "Skill" },
     { value: "TEMPLATE", label: "Template" }
 ];
 
@@ -776,7 +777,8 @@ function closeOverlay() {
 function fillResourceForm(res) {
     DOM.displayName.value = res.display_name || "";
     DOM.techId.value = res.technical_identifier || "";
-    DOM.type.value = res.type_id || 1;
+    // Formular ist nur Ansicht: der Typ der Ressource genuegt als einzige Option.
+    DOM.type.innerHTML = `<option value="${escapeHtml(res.type_id ?? "")}">${escapeHtml(res.type_name || "-")}</option>`;
     DOM.handling.value = res.override_handling_type || "INTERNAL";
 }
 

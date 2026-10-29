@@ -8,5 +8,10 @@ assert.equal(utils.escapeHtml(0), "0");
 assert.equal(utils.withParams("/api/events", { from_date: "2026-10-19" }), "/api/events?from_date=2026-10-19");
 assert.equal(utils.withParams("/api/mock?scenario=busy", { date: "2026-10-19" }), "/api/mock?scenario=busy&date=2026-10-19");
 assert.equal(utils.withParams("/api/x", {}), "/api/x");
+assert.equal(utils.apiErrorMessage({ detail: "Typ ist noch in Verwendung" }), "Typ ist noch in Verwendung");
+assert.equal(utils.apiErrorMessage({ detail: [{ loc: ["body", "slug"], msg: "String should match pattern '^[A-Z0-9]{2,10}$'" }] }), "String should match pattern '^[A-Z0-9]{2,10}$'");
+assert.equal(utils.apiErrorMessage({ error: "Request Error" }), "Request Error");
+assert.equal(utils.apiErrorMessage(null, "Fallback"), "Fallback");
+assert.equal(utils.apiErrorMessage({ detail: [] }, "Fallback"), "Fallback");
 
 console.log("sofa_utils_checks: ok");

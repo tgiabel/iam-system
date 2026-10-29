@@ -346,6 +346,15 @@ class APIClient:
     async def get_system_resources(self, system_id: int) -> dict:
         return await self._get(ACCESS_BASE_URL, f"/systems/{system_id}/resources")
 
+    async def get_system_resource_types(self, system_id: int) -> list[dict]:
+        return await self._get(ACCESS_BASE_URL, f"/systems/{system_id}/resource-types")
+
+    async def create_system_resource_type(self, system_id: int, payload: dict) -> dict:
+        return await self._post(ACCESS_BASE_URL, f"/systems/{system_id}/resource-types", payload=payload)
+
+    async def delete_system_resource_type(self, system_id: int, type_id: int) -> Any:
+        return await self._delete(ACCESS_BASE_URL, f"/systems/{system_id}/resource-types/{type_id}")
+
     async def list_resources(self, params: dict | None = None) -> list[dict]:
         return await self._get(ACCESS_BASE_URL, "/resources/", params=params)
 

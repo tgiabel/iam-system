@@ -654,9 +654,12 @@ function formatPlainValue(value) {
     return String(value);
 }
 
-function getRoleOptionsByType(type) {
+// Zusatzrollen: Nebenrollen und Skills laufen ueber dieselben Prozesse.
+const ADDITIONAL_ROLE_TYPES = ["SECONDARY", "SKILL"];
+
+function getRoleOptionsByType(...types) {
     return Object.entries(state.roleMap || {})
-        .filter(([, role]) => role.type === type)
+        .filter(([, role]) => types.includes(role.type))
         .sort(([, left], [, right]) => left.name.localeCompare(right.name, "de"));
 }
 
@@ -965,14 +968,15 @@ function getSecondaryRoles(user, options = {}) {
         : secondaryRoles;
 }
 
-function getBlockedRoleIdsForSelection(user, roleType = null) {
+function getBlockedRoleIdsForSelection(user, roleTypes = null) {
+    const allowedTypes = roleTypes ? [roleTypes].flat().map(normalizeValue) : null;
     const sourceUser = state.currentUserDetail?.user_id === user?.user_id
         ? state.currentUserDetail
         : user;
 
     return new Set(
         getRoleAssignments(sourceUser)
-            .filter(role => !roleType || normalizeValue(role.role_type) === normalizeValue(roleType))
+            .filter(role => !allowedTypes || allowedTypes.includes(normalizeValue(role.role_type)))
             .filter(isSelectionBlockingRoleAssignment)
             .map(role => String(role?.role_id || "").trim())
             .filter(Boolean)
@@ -1483,8 +1487,7 @@ const filterController = {
             const { include, exclude } = state.filters[filterKey];
             const includeSet = new Set(include.map(String));
             const excludeSet = new Set(exclude.map(String));
-            const options = getRoleOptionsByType("SECONDARY")
-                .filter(([, role]) => normalizeValue(role.name).startsWith("skill") === (category === "skill"));
+            const options = getRoleOptionsByType(category === "skill" ? "SKILL" : "SECONDARY");
 
             DOM.subfilterDropdown.innerHTML = options.length
                 ? this.renderSelectAllRow(filterKey, options.map(([roleId]) => roleId), includeSet, excludeSet) +
@@ -3575,7 +3578,7 @@ const trainingModalController = {
 
     getRoleOptions() {
         return Object.entries(state.roleMap || {})
-            .filter(([, role]) => role.type === "SECONDARY" && normalizeValue(role.name).startsWith("skill"))
+            .filter(([, role]) => role.type === "SKILL")
             .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .map(([id, role]) => ({
                 role_id: String(id),
@@ -3897,9 +3900,9 @@ const tmpRightsModalController = {
         `;
 
         const select = document.getElementById("tmp-role-select");
-        const blockedRoleIds = getBlockedRoleIdsForSelection(user, "secondary");
+        const blockedRoleIds = getBlockedRoleIdsForSelection(user, ADDITIONAL_ROLE_TYPES);
         Object.entries(await api.getRoleMap())
-            .filter(([, role]) => role.type === "SECONDARY")
+            .filter(([, role]) => ADDITIONAL_ROLE_TYPES.includes(role.type))
             .filter(([roleId]) => !blockedRoleIds.has(String(roleId)))
             .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .forEach(([id, role]) => {
@@ -3990,9 +3993,9 @@ const newSkillModalController = {
         `;
 
         const select = document.getElementById("new-skill-select");
-        const blockedRoleIds = getBlockedRoleIdsForSelection(user, "secondary");
+        const blockedRoleIds = getBlockedRoleIdsForSelection(user, ADDITIONAL_ROLE_TYPES);
         Object.entries(await api.getRoleMap())
-            .filter(([, role]) => role.type === "SECONDARY")
+            .filter(([, role]) => ADDITIONAL_ROLE_TYPES.includes(role.type))
             .filter(([roleId]) => !blockedRoleIds.has(String(roleId)))
             .sort(([, left], [, right]) => String(left.name || "").localeCompare(String(right.name || ""), "de"))
             .forEach(([id, role]) => {

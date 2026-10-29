@@ -29,6 +29,8 @@ function typeMap(roleType) {
             return "Hauptrolle";
         case "SECONDARY":
             return "Nebenrolle";
+        case "SKILL":
+            return "Skill";
         case "TEMPLATE":
             return "Template";
         default:
@@ -41,6 +43,7 @@ function getTypeClass(roleType) {
         case "PRIMARY":
             return "ui-chip-primary";
         case "SECONDARY":
+        case "SKILL":
             return "ui-chip-accent";
         case "TEMPLATE":
             return "ui-chip-neutral";
@@ -108,17 +111,9 @@ function matchesSearch(role, searchTerm) {
     return haystack.includes(searchTerm);
 }
 
-function isSkillRole(role) {
-    return normalizeValue(role.name).startsWith("skill");
-}
-
 function matchesTypeFilter(role, typeFilter) {
     if (!typeFilter) {
         return true;
-    }
-
-    if (typeFilter === "SKILLS") {
-        return isSkillRole(role);
     }
 
     return String(role.role_type || "").toUpperCase() === typeFilter;

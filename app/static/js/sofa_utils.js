@@ -29,5 +29,15 @@
         return { ok: response.ok, status: response.status, data };
     }
 
-    return { escapeHtml, fetchJson, withParams };
+    // Fehlertext aus einer API-Antwort: detail ist ein String oder bei Validierungsfehlern eine Liste.
+    function apiErrorMessage(data, fallback = "Unbekannter Fehler") {
+        const detail = data?.detail;
+        if (Array.isArray(detail)) {
+            const messages = detail.map(item => item?.msg || "").filter(Boolean);
+            return messages.length ? messages.join(", ") : fallback;
+        }
+        return (typeof detail === "string" && detail) || data?.error || fallback;
+    }
+
+    return { apiErrorMessage, escapeHtml, fetchJson, withParams };
 }));

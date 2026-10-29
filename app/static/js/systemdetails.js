@@ -15,6 +15,8 @@ const STATE = {
     taskBacklogs: [],
     backlogLookup: {},
     users: [],
+    resourceTypes: [],
+    identifierMode: "free",
     isEditing: false
 };
 
@@ -45,7 +47,7 @@ const api = {
             const data = await res.json();
 
             if (!res.ok) {
-                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                showFlash(SofaUtils.apiErrorMessage(data), "failure");
                 return false;
             }
             showFlash(`Resource hinzugefügt.`, "success");
@@ -78,7 +80,7 @@ const api = {
             });
             const data = await res.json();
             if (!res.ok) {
-                showFlash(data.detail || "Unbekannter Fehler", "failure");
+                showFlash(SofaUtils.apiErrorMessage(data), "failure");
                 return false;
             }
             showFlash(`Resource aktualisiert.`, "success");
@@ -104,6 +106,48 @@ const api = {
             }
 
             return data;
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+            return false;
+        }
+    },
+    async getResourceTypes(systemId) {
+        const res = await fetch(`/api/systems/${systemId}/resource-types`);
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+            throw new Error(SofaUtils.apiErrorMessage(data, "Ressourcentypen konnten nicht geladen werden"));
+        }
+        return Array.isArray(data) ? data : [];
+    },
+    async createResourceType(systemId, payload) {
+        try {
+            const res = await fetch(`/api/systems/${systemId}/resource-types`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json().catch(() => null);
+            if (!res.ok) {
+                showFlash(SofaUtils.apiErrorMessage(data, "Typ konnte nicht angelegt werden"), "failure");
+                return false;
+            }
+            return data;
+        } catch (err) {
+            showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
+            console.error(err);
+            return false;
+        }
+    },
+    async deleteResourceType(systemId, typeId) {
+        try {
+            const res = await fetch(`/api/systems/${systemId}/resource-types/${typeId}`, { method: "DELETE" });
+            if (!res.ok) {
+                const data = await res.json().catch(() => null);
+                showFlash(SofaUtils.apiErrorMessage(data, "Typ konnte nicht gelöscht werden"), "failure");
+                return false;
+            }
+            return true;
         } catch (err) {
             showFlash("Netzwerkfehler oder Server nicht erreichbar", "failure");
             console.error(err);
@@ -174,6 +218,16 @@ function cacheDOM(){
 
     DOM.addResBtn = document.getElementById("add-resource-btn");
     DOM.editResBtn = document.getElementById("edit-resources-btn");
+    DOM.typeCards = document.getElementById("resource-type-cards");
+
+    DOM.typesBtn = document.getElementById("resource-types-btn");
+    DOM.typeOverlay = document.getElementById("resource-type-overlay");
+    DOM.typeCloseBtn = document.getElementById("resource-type-close-btn");
+    DOM.typeTableBody = document.querySelector("#resource-type-table tbody");
+    DOM.typeForm = document.getElementById("resource-type-form");
+    DOM.typeName = document.getElementById("resource-type-name");
+    DOM.typeSlug = document.getElementById("resource-type-slug");
+    DOM.typeCreateBtn = document.getElementById("resource-type-create-btn");
 
     DOM.editBtn = document.querySelector("#edit-system-btn");
     DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
@@ -183,6 +237,7 @@ function cacheDOM(){
     // form fields
     DOM.displayName = document.getElementById("res-display-name");
     DOM.techId = document.getElementById("res-technical-id");
+    DOM.techPrefix = document.getElementById("res-technical-prefix");
     DOM.type = document.getElementById("res-type");
     DOM.handling = document.getElementById("res-handling");
     DOM.resourceBacklogSelect = document.getElementById("res-backlog-id");
@@ -231,15 +286,29 @@ async function loadSystemDetail(){
 
     try{
 
-        const resp = await fetch(`/api/systems/${systemId}`);
+        const [resp] = await Promise.all([
+            fetch(`/api/systems/${systemId}`),
+            loadResourceTypes(systemId)
+        ]);
         system = await resp.json();
 
         fillSystemInfo();
         renderResourceTable();
         setupCards();
+        renderResourceTypeTable();
 
     }catch(e){
         console.error("Fehler beim Laden:", e);
+    }
+}
+
+async function loadResourceTypes(systemId) {
+    try {
+        STATE.resourceTypes = await api.getResourceTypes(systemId);
+    } catch (e) {
+        console.error("Fehler beim Laden der Ressourcentypen:", e);
+        STATE.resourceTypes = [];
+        showFlash("Ressourcentypen konnten nicht geladen werden", "failure");
     }
 }
 
@@ -331,8 +400,6 @@ function sortResourcesByShortCode(resources) {
 
 function renderResourceTable(){
 
-    const resourceTypes = {1:"konto",2:"gruppe",3:"lizenz",4:"sonstige"};
-
     DOM.tableBody.innerHTML = "";
 
     sortResourcesByShortCode(system.resources || []).forEach(res=>{
@@ -341,7 +408,7 @@ function renderResourceTable(){
         const parentLabel = getResourceParentDisplayLabel(res);
         const backlogLabel = getResourceBacklogDisplayLabel(res);
 
-        tr.dataset.type = resourceTypes[res.type_id] || "other";
+        tr.dataset.typeId = res.type_id;
         tr.dataset.res_id = res.resource_id;
 
         tr.innerHTML = `
@@ -363,44 +430,46 @@ function renderResourceTable(){
 
 function setupCards(){
 
-    const cards = {
-        all: document.querySelector("#count-all"),
-        konto: document.querySelector("#count-konto"),
-        gruppe: document.querySelector("#count-gruppe"),
-        lizenz: document.querySelector("#count-lizenz"),
-        sonstige: document.querySelector("#count-sonstige")
-    };
-
-    const resourceTypes = {1:"konto",2:"gruppe",3:"lizenz",4:"sonstige"};
-
-    const counts = {
-        all: system.resources.length,
-        konto:0, gruppe:0, lizenz:0, sonstige:0
-    };
-
-    system.resources.forEach(r=>{
-        const key = resourceTypes[r.type_id];
-        if(key) counts[key]++;
+    const resources = system.resources || [];
+    const counts = new Map();
+    resources.forEach(r=>{
+        const key = String(r.type_id);
+        counts.set(key, (counts.get(key) || 0) + 1);
     });
 
-    Object.entries(counts).forEach(([key,val])=>{
+    // Karten nur fuer Typen mit Ressourcen, in der Reihenfolge der API (global vor systemeigen)
+    const cardTypes = STATE.resourceTypes
+        .filter(type=> counts.has(String(type.type_id)))
+        .map(type=> ({ key: String(type.type_id), name: type.name }));
+    resources.forEach(r=>{
+        const key = String(r.type_id);
+        if(!cardTypes.some(type=> type.key === key)){
+            cardTypes.push({ key, name: r.type_name || "-" });
+        }
+    });
 
-        const el = cards[key];
-        if(!el) return;
+    DOM.typeCards.innerHTML = cardTypes.map(type=> `
+        <div class="resource-card" data-type="${escapeHtml(type.key)}">
+            <div class="resource-card-content">
+                <h4>${escapeHtml(type.name)}</h4>
+                <span class="resource-count">${counts.get(type.key)}</span>
+            </div>
+        </div>
+    `).join("");
 
-        el.textContent = val;
+    const allCount = document.querySelector("#count-all");
+    allCount.textContent = resources.length;
+    allCount.closest(".resource-card").classList.toggle("disabled", resources.length === 0);
 
-        const card = el.closest(".resource-card");
-
-        card.classList.toggle("disabled", val === 0);
-
+    document.querySelectorAll(".resource-card[data-type]").forEach(card=>{
         card.onclick = ()=>{
-            if(val === 0) return;
+            if(card.classList.contains("disabled")) return;
 
+            const key = card.dataset.type;
             document.querySelectorAll("#resources-table tbody tr")
                 .forEach(tr=>{
                     tr.style.display =
-                        key==="all" || tr.dataset.type===key
+                        key==="all" || tr.dataset.typeId===key
                         ? ""
                         : "none";
                 });
@@ -435,6 +504,7 @@ function bindBaseEvents(){
     DOM.editResBtn.addEventListener("click", ()=> openOverlay("edit"));
     DOM.selectRes.addEventListener("change", onSelectResource);
     DOM.handling.addEventListener("change", toggleHandlingMetaField);
+    DOM.type.addEventListener("change", onResourceTypeChange);
     DOM.parentSearch.addEventListener("input", onParentSearchInput);
     DOM.parentSelect.addEventListener("change", onParentSelectionChange);
     DOM.metaTabs.forEach(tab => tab.addEventListener("click", onMetaTabClick));
@@ -444,6 +514,11 @@ function bindBaseEvents(){
     });
 
     DOM.saveResBtn.addEventListener("click", saveResource);
+
+    DOM.typesBtn.addEventListener("click", openResourceTypeOverlay);
+    DOM.typeCloseBtn.addEventListener("click", closeResourceTypeOverlay);
+    DOM.typeForm.addEventListener("submit", createResourceType);
+    DOM.typeTableBody.addEventListener("click", deleteResourceType);
 }
 
 function toggleHandlingMetaField(){
@@ -636,8 +711,8 @@ function fillResourceForm(res){
     const fallbackParentLabel = getResourceParentFallbackLabel(res);
 
     DOM.displayName.value = res.display_name || "";
-    DOM.techId.value = res.technical_identifier || "";
-    DOM.type.value = res.type_id || 1;
+    fillResourceTypeOptions(res);
+    applyIdentifierForType(DOM.type.value);
     DOM.handling.value = res.override_handling_type || "INTERNAL";
     fillResourceBacklogOptions();
     DOM.resourceBacklogSelect.value = getResourceBacklogValue(res);
@@ -654,6 +729,65 @@ function fillResourceForm(res){
 
     resetMetaFields();
     toggleHandlingMetaField();
+}
+
+function fillResourceTypeOptions(res){
+    const types = [...STATE.resourceTypes];
+    if(res.type_id != null && !types.some(type=> String(type.type_id) === String(res.type_id))){
+        types.push({ type_id: res.type_id, name: res.type_name || `Typ ${res.type_id}` });
+    }
+
+    DOM.type.innerHTML = types
+        .map(type=> `<option value="${escapeHtml(type.type_id)}">${escapeHtml(type.name)}</option>`)
+        .join("");
+    DOM.type.value = String(res.type_id ?? "");
+}
+
+function getIdentifierPrefix(typeId){
+    const type = STATE.resourceTypes.find(t=> String(t.type_id) === String(typeId));
+    const resource = STATE.currentResource;
+    const slug = type?.slug || (String(resource?.type_id) === String(typeId) ? resource?.type_slug : null);
+    return slug ? ResourceIdentifier.prefix(system.short_name, slug) : null;
+}
+
+// Bestand behaelt seinen Identifier, solange der Typ bleibt. Ein anderer Typ braucht ein
+// Kuerzel hinter dem neuen Praefix; ein schon eingegebenes Kuerzel wird mitgenommen.
+function applyIdentifierForType(typeId, code = ""){
+    const resource = STATE.currentResource;
+    const prefix = getIdentifierPrefix(typeId);
+    let parts;
+
+    if(resource && String(resource.type_id) === String(typeId)){
+        parts = prefix
+            ? ResourceIdentifier.split(resource.technical_identifier, prefix)
+            : { mode: "free", value: resource.technical_identifier || "" };
+    }else{
+        parts = prefix ? { mode: "code", code } : { mode: "free", value: "" };
+    }
+
+    STATE.identifierMode = parts.mode;
+    DOM.techPrefix.hidden = parts.mode !== "code";
+    DOM.techPrefix.textContent = parts.mode === "code" ? prefix : "";
+    DOM.techId.value = parts.mode === "code" ? parts.code : parts.value;
+}
+
+function onResourceTypeChange(){
+    const code = STATE.identifierMode === "code" ? DOM.techId.value : "";
+    applyIdentifierForType(DOM.type.value, code);
+}
+
+// Liefert den vollen Identifier oder null, wenn das Kuerzel nicht ins Muster passt.
+function getTechnicalIdentifierInput(){
+    if(STATE.identifierMode !== "code"){
+        return DOM.techId.value;
+    }
+
+    const code = String(DOM.techId.value || "").trim().toUpperCase();
+    if(!ResourceIdentifier.isValidCode(code)){
+        showFlash("Kürzel: nur A–Z, 0–9 und einzelne Unterstriche", "failure");
+        return null;
+    }
+    return DOM.techPrefix.textContent + code;
 }
 
 function onSelectResource(){
@@ -699,13 +833,18 @@ async function saveResource(){
         return;
     }
 
+    const technicalIdentifier = getTechnicalIdentifierInput();
+    if (technicalIdentifier === null) {
+        return;
+    }
+
     if(STATE.currentResource){
         success = await api.updateResource(
             STATE.currentResource.resource_id,
             system.system_id,
             typeId,
             DOM.displayName.value,
-            DOM.techId.value,
+            technicalIdentifier,
             handlingType,
             parentResourceId,
             backlogId,
@@ -716,7 +855,7 @@ async function saveResource(){
             system.system_id,
             typeId,
             DOM.displayName.value,
-            DOM.techId.value,
+            technicalIdentifier,
             handlingType,
             parentResourceId,
             backlogId,
@@ -731,6 +870,88 @@ async function saveResource(){
     await loadSystemDetail();
     closeOverlay();
 
+}
+
+//------------------------------------------------
+// RESOURCE TYPES
+//------------------------------------------------
+
+function openResourceTypeOverlay(){
+    renderResourceTypeTable();
+    DOM.typeForm.reset();
+    DOM.typeOverlay.classList.add("active");
+}
+
+function closeResourceTypeOverlay(){
+    DOM.typeOverlay.classList.remove("active");
+}
+
+// Nur systemeigene Typen sind hier pflegbar; loeschen laesst die API nur unbenutzte.
+function renderResourceTypeTable(){
+    const ownTypes = STATE.resourceTypes.filter(type=> type.system_id != null);
+
+    DOM.typeTableBody.innerHTML = ownTypes.length
+        ? ownTypes.map(type=> `
+            <tr>
+                <td>${escapeHtml(type.name)}</td>
+                <td>${escapeHtml(type.slug)}</td>
+                <td>${escapeHtml(type.resource_count)}</td>
+                <td>${type.resource_count === 0
+                    ? `<button type="button" class="btn btn-secondary btn-sm" data-type-id="${escapeHtml(type.type_id)}">Löschen</button>`
+                    : ""}</td>
+            </tr>
+        `).join("")
+        : `<tr><td colspan="4">Keine eigenen Typen</td></tr>`;
+}
+
+async function createResourceType(event){
+    event.preventDefault();
+
+    const payload = {
+        name: String(DOM.typeName.value || "").trim(),
+        slug: String(DOM.typeSlug.value || "").trim().toUpperCase()
+    };
+
+    if(!payload.name){
+        showFlash("Bitte einen Namen angeben", "failure");
+        return;
+    }
+    if(!/^[A-Z0-9]{2,10}$/.test(payload.slug)){
+        showFlash("Kürzel: 2–10 Zeichen aus A–Z und 0–9", "failure");
+        return;
+    }
+
+    DOM.typeCreateBtn.disabled = true;
+
+    try {
+        const created = await api.createResourceType(system.system_id, payload);
+        if(!created) return;
+
+        DOM.typeForm.reset();
+        await loadResourceTypes(system.system_id);
+        renderResourceTypeTable();
+        showFlash(`Typ ${created.name} angelegt`, "success");
+    } finally {
+        DOM.typeCreateBtn.disabled = false;
+    }
+}
+
+async function deleteResourceType(event){
+    const button = event.target.closest("button[data-type-id]");
+    if(!button) return;
+
+    const type = STATE.resourceTypes.find(t=> String(t.type_id) === button.dataset.typeId);
+    button.disabled = true;
+
+    const deleted = await api.deleteResourceType(system.system_id, button.dataset.typeId);
+    if(!deleted){
+        button.disabled = false;
+        return;
+    }
+
+    await loadResourceTypes(system.system_id);
+    renderResourceTypeTable();
+    showFlash(`Typ ${type?.name || button.dataset.typeId} gelöscht`, "success");
 }
 
 function fillRecipientOptions() {

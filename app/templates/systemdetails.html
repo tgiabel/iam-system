@@ -8,6 +8,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/static/js/resource_identifier.js?v={{ static_v }}"></script>
 <script src="/static/js/systemdetails.js?v={{ static_v }}"></script>
 {% endblock %}
 
@@ -30,6 +31,9 @@
                 </button>
                 <button class="btn btn-secondary" id="edit-resources-btn">
                     Ressourcen bearbeiten
+                </button>
+                <button class="btn btn-secondary" id="resource-types-btn">
+                    Ressourcentypen
                 </button>
                 <button class="btn btn-primary" id="add-resource-btn">
                     Ressource hinzufügen
@@ -109,50 +113,8 @@
             </div>
         </div>
 
-        <!-- 2x2 Grid -->
-        <div class="resource-card-grid">
-
-            <div
-                class="resource-card disabled"
-                data-type="konto"
-            >
-                <div class="resource-card-content">
-                    <h4>Konto</h4>
-                    <span class="resource-count" id="count-konto">-</span>
-                </div>
-            </div>
-
-            <div
-                class="resource-card disabled"
-                data-type="gruppe"
-            >
-                <div class="resource-card-content">
-                    <h4>Gruppe</h4>
-                    <span class="resource-count" id="count-gruppe">-</span>
-                </div>
-            </div>
-
-            <div
-                class="resource-card disabled"
-                data-type="lizenz"
-            >
-                <div class="resource-card-content">
-                    <h4>Lizenz</h4>
-                    <span class="resource-count" id="count-lizenz">-</span>
-                </div>
-            </div>
-
-            <div
-                class="resource-card disabled"
-                data-type="sonstige"
-            >
-                <div class="resource-card-content">
-                    <h4>Sonstige</h4>
-                    <span class="resource-count" id="count-sonstige">-</span>
-                </div>
-            </div>
-
-        </div>
+        <!-- Eine Karte je Typ mit Ressourcen, per JS gefuellt -->
+        <div class="resource-card-grid" id="resource-type-cards"></div>
         <div class="table-wrapper" style="margin-top:16px;">
             <table id="resources-table">
                 <thead>
@@ -216,16 +178,14 @@
                             </div>
                             <div class="form-field">
                                 <label for="res-technical-id">Technischer Identifier</label>
-                                <input type="text" id="res-technical-id" class="form-input">
+                                <div class="res-identifier-input">
+                                    <span id="res-technical-prefix" class="res-identifier-prefix" hidden></span>
+                                    <input type="text" id="res-technical-id" class="form-input" autocomplete="off">
+                                </div>
                             </div>
                             <div class="form-field">
                                 <label for="res-type">Typ</label>
-                                <select id="res-type" class="form-input">
-                                    <option value="1">Konto</option>
-                                    <option value="2">Gruppe</option>
-                                    <option value="3">Lizenz</option>
-                                    <option value="4">Sonstige</option>
-                                </select>
+                                <select id="res-type" class="form-input"></select>
                             </div>
                             <div class="form-field">
                                 <label for="res-handling">Bearbeitungstyp</label>
@@ -338,6 +298,54 @@
         </div>
     </div>
 
+    <!-- ========================= -->
+    <!-- RESOURCE TYPE OVERLAY -->
+    <!-- ========================= -->
+    <div id="resource-type-overlay" class="resource-overlay ui-modal-overlay">
+        <div class="ui-modal ui-modal-compact" role="dialog" aria-modal="true" aria-labelledby="resource-type-title">
+            <div class="ui-modal-header">
+                <div class="resource-header-copy">
+                    <span class="ui-section-kicker">Ressourcenverwaltung</span>
+                    <h3 id="resource-type-title" class="ui-section-title">Ressourcentypen</h3>
+                </div>
+                <button class="ui-icon-button" id="resource-type-close-btn" type="button" aria-label="Modal schließen">&times;</button>
+            </div>
+
+            <div class="ui-modal-body resource-body">
+                <section class="resource-panel">
+                    <div class="table-wrapper">
+                        <table id="resource-type-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Kürzel</th>
+                                    <th>Ressourcen</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <form id="resource-type-form" class="resource-panel">
+                    <div class="resource-form-grid">
+                        <div class="form-field">
+                            <label for="resource-type-name">Name</label>
+                            <input type="text" id="resource-type-name" class="form-input" maxlength="100" required>
+                        </div>
+                        <div class="form-field">
+                            <label for="resource-type-slug">Kürzel</label>
+                            <input type="text" id="resource-type-slug" class="form-input" maxlength="10" autocomplete="off" required>
+                        </div>
+                    </div>
+                    <div class="resource-type-form-actions">
+                        <button class="btn btn-primary" id="resource-type-create-btn" type="submit">Typ anlegen</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
 </div>
 

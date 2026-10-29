@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 import httpx  # type: ignore
 from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile  # type: ignore
-from fastapi.responses import JSONResponse, StreamingResponse  # type: ignore
+from fastapi.responses import JSONResponse, Response, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
 from app.report_proxy import renew_report_cookie
@@ -1558,6 +1558,42 @@ async def api_get_system_resources(system_id: int, current_user=Depends(require_
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/systems/{system_id}/resource-types")
+async def api_get_system_resource_types(system_id: int, current_user=Depends(require_permission("SOFA-PAGE-SYS"))):
+    try:
+        resource_types = await api_client.get_system_resource_types(system_id)
+        return JSONResponse(content=resource_types)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.post("/systems/{system_id}/resource-types")
+async def api_create_system_resource_type(system_id: int, payload: dict, current_user=Depends(require_permission("SOFA-PAGE-SYS"))):
+    try:
+        resource_type = await api_client.create_system_resource_type(
+            system_id,
+            {"name": payload.get("name"), "slug": payload.get("slug")},
+        )
+        return JSONResponse(content=resource_type, status_code=201)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
+@router.delete("/systems/{system_id}/resource-types/{type_id}")
+async def api_delete_system_resource_type(system_id: int, type_id: int, current_user=Depends(require_permission("SOFA-PAGE-SYS"))):
+    try:
+        await api_client.delete_system_resource_type(system_id, type_id)
+        return Response(status_code=204)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/resources/map")
 async def api_resource_map(current_user=Depends(require_any_permission("SOFA-PAGE-SYS", "SOFA-PAGE-USER", "SOFA-PAGE-ROLE"))):
     try:
@@ -1768,7 +1804,7 @@ async def api_start_training_schedule_process(payload: dict, current_user=Depend
         return JSONResponse(content={"detail": "Mindestens ein User muss ausgewählt werden."}, status_code=400)
 
     if not isinstance(role_ids, list) or not role_ids:
-        return JSONResponse(content={"detail": "Mindestens eine Nebenrolle muss ausgewählt werden."}, status_code=400)
+        return JSONResponse(content={"detail": "Mindestens ein Skill muss ausgewählt werden."}, status_code=400)
 
     normalized_user_ids = [_coerce_int(value) for value in user_ids]
     normalized_role_ids = [_coerce_int(value) for value in role_ids]

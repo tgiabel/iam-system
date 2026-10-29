@@ -161,6 +161,34 @@
     cursor: not-allowed;
 }
 
+/* Technischer Identifier: festes Praefix aus System und Typ, davor dem Kuerzel-Feld */
+.res-identifier-input {
+    display: flex;
+    align-items: stretch;
+}
+
+.res-identifier-prefix {
+    display: flex;
+    align-items: center;
+    padding: 0 0.7rem;
+    border: 1px solid var(--ui-border);
+    border-right: 0;
+    border-radius: 12px 0 0 12px;
+    background: var(--surface-muted);
+    color: var(--ui-text-muted);
+    white-space: nowrap;
+}
+
+.res-identifier-prefix:not([hidden]) + .form-input {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+.resource-type-form-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .resource-textarea {
     min-height: 8.75rem;
     resize: vertical;
