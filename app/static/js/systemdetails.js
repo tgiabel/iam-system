@@ -135,10 +135,33 @@
         $("res-count").textContent = list.length;
         const groups = D.groupByType(list);
         if (state.filterType && !groups.some(g => g.typeId === state.filterType)) state.filterType = "";
-        const options = [{ typeId: "", name: "Alle Typen", count: list.length }, ...groups.map(g => ({ ...g, count: g.rows.length }))];
-        $("type-filter").hidden = groups.length < 2;
+        const options = [{ typeId: "", name: "Alle", count: list.length }, ...groups.map(g => ({ ...g, count: g.rows.length }))];
+        $("type-chips").innerHTML = options.map(o => {
+            const active = o.typeId === state.filterType;
+            return `<button type="button" class="ui-chip ui-chip-sm ${active ? "ui-chip-primary" : "ui-chip-neutral"}" data-type="${esc(o.typeId)}" aria-pressed="${active}">${esc(o.name)} <span class="dp-type-count">${o.count}</span></button>`;
+        }).join("");
         $("type-filter").innerHTML = options.map(o =>
-            `<option value="${esc(o.typeId)}" ${o.typeId === state.filterType ? "selected" : ""}>${esc(o.name)} (${o.count})</option>`).join("");
+            `<option value="${esc(o.typeId)}" ${o.typeId === state.filterType ? "selected" : ""}>${esc(o.typeId ? o.name : "Alle Typen")} (${o.count})</option>`).join("");
+        fitTypeFilter();
+    }
+
+    // Typfilter als Badges; passen sie nicht in die Kopfzeile, übernimmt das Dropdown.
+    function fitTypeFilter() {
+        const chips = $("type-chips");
+        const select = $("type-filter");
+        const show = D.groupByType(resources()).length > 1;
+        chips.hidden = !show;
+        select.hidden = true;
+        if (show && chips.scrollWidth > chips.clientWidth) {
+            chips.hidden = true;
+            select.hidden = false;
+        }
+    }
+
+    function setFilterType(typeId) {
+        state.filterType = typeId;
+        renderFilter();
+        renderTable();
     }
 
     function renderTable() {
@@ -671,10 +694,12 @@
 
     function bindEvents() {
         $("res-search").addEventListener("input", event => { state.query = event.target.value.trim(); renderTable(); });
-        $("type-filter").addEventListener("change", event => {
-            state.filterType = event.target.value;
-            renderTable();
+        $("type-filter").addEventListener("change", event => setFilterType(event.target.value));
+        $("type-chips").addEventListener("click", event => {
+            const chip = event.target.closest("[data-type]");
+            if (chip) setFilterType(chip.dataset.type);
         });
+        new ResizeObserver(fitTypeFilter).observe($("type-chips").parentElement);
         $("res-body").addEventListener("click", event => {
             const toggle = event.target.closest("[data-toggle]");
             if (toggle) {

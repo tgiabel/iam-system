@@ -1,37 +1,57 @@
 /* Systemdetails: Ressourcenbaum, Formular im Panel, Ressourcentypen. Baut auf detail.css auf. */
 
-/* Kopfzeile der Ressourcentabelle bleibt einzeilig; die Suche gibt Platz ab. */
-.dp-card-head,
-.dp-card-tools {
+/* Kopfzeile der Ressourcentabelle bleibt einzeilig: Titel, Suche, Typ-Badges, Anlegen rechts.
+   Passen die Badges nicht, zeigt systemdetails.js stattdessen das Dropdown. */
+.dp-card-head {
     flex-wrap: nowrap;
+}
+
+.dp-card-head > * {
+    flex-shrink: 0;
 }
 
 .dp-card-title {
     white-space: nowrap;
 }
 
-.dp-card-tools {
+.dp-type-chips {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 0.35rem;
     min-width: 0;
+    overflow: hidden;
 }
 
-.dp-card-tools > * {
-    flex-shrink: 0;
+.dp-type-chips .ui-chip {
+    gap: 0.3rem;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
 }
 
-.dp-card-tools > .dp-search {
-    flex: 0 1 14rem;
-    min-width: 7rem;
+.dp-type-chips .ui-chip:hover {
+    border-color: rgba(var(--color-primary-rgb), 0.45);
 }
 
-.dp-card-tools > .dp-type-select {
-    flex: 0 0 auto;
+/* _.css setzt span global auf 1rem und Standardfarbe */
+.dp-type-count {
+    color: inherit;
+    font-size: inherit;
+    font-weight: 500;
+}
+
+.dp-card-head > .dp-type-select {
     width: auto;
     padding-right: 2rem;
 }
 
+.dp-card-head > .btn {
+    margin-left: auto;
+}
+
 @media (max-width: 700px) {
-    .dp-card-head,
-    .dp-card-tools {
+    .dp-card-head {
         flex-wrap: wrap;
     }
 }
