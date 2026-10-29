@@ -271,6 +271,11 @@ body.app-fixed .dp-fill {
     font-weight: 600;
 }
 
+.dp-dep-item.is-inactive,
+.dp-dep-item.is-inactive .dp-link {
+    color: var(--ui-text-muted);
+}
+
 .dp-dep-item .dp-muted {
     font-size: 0.88rem;
 }
@@ -476,20 +481,6 @@ body.app-fixed .dp-fill {
 
 .dp-params td:last-child {
     color: var(--ui-text-strong);
-}
-
-.dp-chip-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-}
-
-.dp-chip-list a.ui-chip {
-    text-decoration: none;
-}
-
-.dp-chip-list a.ui-chip:hover {
-    border-color: rgba(var(--color-primary-rgb), 0.45);
 }
 
 @media (max-width: 700px) {

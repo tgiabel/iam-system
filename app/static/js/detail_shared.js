@@ -13,10 +13,18 @@
 
     const esc = utils.escapeHtml;
 
-    const HANDLING = { INTERNAL: "Intern", BOT: "Bot", EXTERNAL: "Extern" };
+    const HANDLING = { INTERNAL: "Intern", BOT: "Bot", EXTERNAL: "Extern", EVENT: "Ereignis" };
+    // Zur Auswahl; EVENT steuern Prozessereignisse, es bleibt nur stehen, wo es schon gesetzt ist.
+    const HANDLING_CHOICES = ["INTERNAL", "BOT", "EXTERNAL"];
+    const AUTOMATED = ["BOT", "EXTERNAL"];
     const STATUS = {
         ACTIVE: { label: "Aktiv", chip: "ui-chip-success" },
         INACTIVE: { label: "Inaktiv", chip: "ui-chip-neutral" }
+    };
+    // Lila = nachgelagert (zentrale Regel); Nachlieferung blockiert nur den Prozessabschluss.
+    const REQUIREMENTS = {
+        REQUIRED: { label: "Erforderlich", chip: "ui-chip-primary", hint: "Blockiert Rollenaktivierung und Prozessabschluss" },
+        DEFERRED: { label: "Nachlieferung", chip: "ui-chip-purple", hint: "Blockiert nur den Prozessabschluss" }
     };
     const PROTECTION = {
         LOW: { label: "Gering", chip: "ui-chip-success" },
@@ -59,6 +67,16 @@
     function statusChip(value) {
         const status = STATUS[value] || { label: value || "-", chip: "ui-chip-neutral" };
         return chip(status.label, status.chip);
+    }
+
+    function requirementChip(value) {
+        const req = REQUIREMENTS[String(value || "").toUpperCase()];
+        return req ? chip(req.label, req.chip, req.hint) : `<span class="dp-muted">-</span>`;
+    }
+
+    // Auswahl der Bearbeitung; ein schon gesetzter Wert außerhalb der Auswahl bleibt wählbar.
+    function handlingChoices(current) {
+        return current && !HANDLING_CHOICES.includes(current) ? [...HANDLING_CHOICES, current] : HANDLING_CHOICES;
     }
 
     function protectionChip(level) {
@@ -206,6 +224,9 @@
         if (handling === "INTERNAL") {
             return `<p class="dp-note">Manuell über das Backlog.</p>`;
         }
+        if (!AUTOMATED.includes(handling)) {
+            return `<p class="dp-note">Über ein Prozessereignis.</p>`;
+        }
         const entry = metaEntry(resource, handling, taskType);
         const meta = entry?.meta && typeof entry.meta === "object" ? entry.meta : null;
         if (!meta || !Object.keys(meta).length) {
@@ -285,22 +306,28 @@
         facts.push(["Bearbeitung", `${handlingChip(handling)}${ctx.handlingIsDefault ? " <small>Systemstandard</small>" : ""}`]);
         facts.push(["Backlog", `${ctx.backlogLabel}${ctx.backlogIsDefault ? " <small>Systemstandard</small>" : ""}`]);
 
+        // Rollen aus GET /resources/{id}/roles: direkte zuerst, geerbte mit Quelle, inaktive gedämpft.
         const rolesBlock = Array.isArray(roles) ? `
             <section class="dp-pblock">
                 <div class="dp-pblock-head"><h3>In Rollen <span class="dp-count">${roles.length}</span></h3></div>
                 ${roles.length
-                    ? `<div class="dp-chip-list">${roles.map(r =>
-                        `<a class="ui-chip ui-chip-sm ui-chip-neutral" href="/roles/${esc(r.role_id)}">${esc(r.name)}</a>`).join("")}</div>`
+                    ? `<div class="dp-dep-list">${roles.map(r => `
+                        <div class="dp-dep-item ${r.role_status && r.role_status !== "ACTIVE" ? "is-inactive" : ""}">
+                            <a class="dp-link" href="/roles/${esc(r.role_id)}">${esc(r.name)}</a>
+                            ${r.provisioning_requirement ? requirementChip(r.provisioning_requirement) : ""}
+                            ${r.inherited ? chip("geerbt", "ui-chip-neutral", r.source_role_name ? `von ${r.source_role_name}` : "") : ""}
+                            ${r.role_status && r.role_status !== "ACTIVE" ? statusChip(r.role_status) : ""}
+                        </div>`).join("")}</div>`
                     : `<p class="dp-note">In keiner Rolle.</p>`}
             </section>` : "";
 
         return `
             <div class="dp-facts">${facts.map(([k, v]) => `<div class="dp-fact"><span>${k}</span><strong>${v}</strong></div>`).join("")}</div>
             ${renderClassification(ctx.classification || {})}
-            <section class="dp-pblock ${handling === "INTERNAL" ? "" : "is-accent"}">
+            <section class="dp-pblock ${AUTOMATED.includes(handling) ? "is-accent" : ""}">
                 <div class="dp-pblock-head">
                     <h3>Automatisierung</h3>
-                    ${handling === "INTERNAL" ? "" : `
+                    ${!AUTOMATED.includes(handling) ? "" : `
                     <div class="ui-segmented" role="group" aria-label="Vorgang">
                         ${TASK_TYPES.map(t => `<button type="button" data-view-task="${t.value}" aria-pressed="${t.value === activeTask}">${t.label}</button>`).join("")}
                     </div>`}
@@ -311,8 +338,8 @@
     }
 
     return {
-        esc, HANDLING, STATUS, PROTECTION, TASK_TYPES,
-        getJson, send, chip, statusChip, typeSummary, protectionChip, handlingChip,
+        esc, HANDLING, AUTOMATED, STATUS, REQUIREMENTS, PROTECTION, TASK_TYPES,
+        getJson, send, chip, statusChip, typeSummary, requirementChip, protectionChip, handlingChip, handlingChoices,
         compareText, byIdentifier, matches, bindPanel, bindDialog,
         resourceTree, groupByType, ancestorChain, parentOptions, botEditorValue, parseBotParams,
         metaEntry, renderAutomation, renderResourceView

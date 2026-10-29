@@ -17,7 +17,6 @@
         types: [],
         backlogs: {},
         users: [],
-        roles: [],
         parentCandidates: [],
         filterType: "",
         query: "",
@@ -31,14 +30,12 @@
         bindEvents();
         state.systemId = $("system-page").dataset.systemId;
         try {
-            const [backlogs, users, roles] = await Promise.all([
+            const [backlogs, users] = await Promise.all([
                 D.getJson("/api/backlogs").catch(() => []),
-                D.getJson("/api/users").catch(() => []),
-                D.getJson("/api/roles").catch(() => [])
+                D.getJson("/api/users").catch(() => [])
             ]);
             (Array.isArray(backlogs) ? backlogs : []).forEach(b => { state.backlogs[b.technical_identifier] = b.name; });
             state.users = Array.isArray(users) ? users : [];
-            state.roles = Array.isArray(roles) ? roles : [];
             await reload();
             const openId = new URLSearchParams(location.search).get("res");
             if (openId) openPanel("view", findResource(openId));
@@ -89,11 +86,6 @@
 
     function backlogName(identifier) {
         return state.backlogs[identifier] || identifier;
-    }
-
-    function rolesWith(r) {
-        // Die Rollenliste liefert nur Ressourcennamen.
-        return state.roles.filter(role => (role.resources || []).includes(r.display_name));
     }
 
     function userLabel(id) {
@@ -225,9 +217,21 @@
 
     function openPanel(mode, resource = null) {
         if (mode !== "new" && !resource) return;
-        state.panel = { mode, resource, activeTask: "ASSIGNMENT", snapshot: null };
+        state.panel = { mode, resource, activeTask: "ASSIGNMENT", snapshot: null, roles: null };
         renderPanel();
         $("res-panel-overlay").classList.add("active");
+        if (resource) loadRoles(state.panel);
+    }
+
+    // Rollen der Ressource kommen nach; gezeigt nur, solange dasselbe Panel in der Ansicht offen ist.
+    async function loadRoles(panel) {
+        try {
+            panel.roles = await D.getJson(`/api/resources/${panel.resource.resource_id}/roles`);
+        } catch (error) {
+            panel.roles = [];
+            showFlash(error.message, "failure");
+        }
+        if (state.panel === panel && panel.mode === "view") renderPanel();
     }
 
     function closePanel() {
@@ -276,7 +280,7 @@
                     dependents: D.resourceTree(resources()).childrenOf(r.resource_id)
                         .map(c => ({ ...c, system_id: state.system.system_id, system_name: state.system.name }))
                 },
-                roles: rolesWith(r),
+                roles: state.panel.roles || undefined,
                 recipientLabel: userLabel,
                 activeTask: state.panel.activeTask
             });
@@ -320,8 +324,8 @@
             ?? state.types[0]?.type_id;
         const prefix = identifierPrefix(typeId);
         const handlingOptions = [
-            ["", `Systemstandard (${D.HANDLING[systemHandling()]})`],
-            ...Object.entries(D.HANDLING)
+            ["", `Systemstandard (${D.HANDLING[systemHandling()] || systemHandling()})`],
+            ...D.handlingChoices(r?.override_handling_type).map(v => [v, D.HANDLING[v] || v])
         ];
         const sysBacklog = state.system.default_backlog_identifier;
         const backlogOptions = [["", sysBacklog ? `Systemstandard (${backlogName(sysBacklog)})` : "Systemstandard"],
@@ -435,7 +439,7 @@
         body.querySelectorAll("[data-task-fields]").forEach(el => { el.hidden = el.dataset.taskFields !== state.panel.activeTask; });
         body.querySelectorAll("[data-handling-fields]").forEach(el => { el.hidden = el.dataset.handlingFields !== handling; });
         const segmented = body.querySelector("[data-automation] .ui-segmented");
-        if (segmented) segmented.hidden = handling === "INTERNAL";
+        if (segmented) segmented.hidden = !D.AUTOMATED.includes(handling);
     }
 
     function showFormTask(taskType) {
@@ -483,7 +487,7 @@
 
     // Einträge der gewählten Bearbeitung je Vorgang; die API ersetzt nur diese, andere bleiben erhalten.
     function buildMeta(handling) {
-        if (!["EXTERNAL", "BOT"].includes(handling)) return [];
+        if (!D.AUTOMATED.includes(handling)) return [];
         const meta = [];
         for (const { value: taskType, label } of D.TASK_TYPES) {
             const fields = $("res-panel-body").querySelector(`[data-task-fields="${taskType}"] [data-handling-fields="${handling}"]`);
@@ -617,8 +621,8 @@
         $("sys-short").disabled = resources().length > 0;
         $("sys-backlog").innerHTML = `<option value="">keins</option>` + Object.entries(state.backlogs)
             .map(([v, l]) => `<option value="${esc(v)}" ${v === s.default_backlog_identifier ? "selected" : ""}>${esc(l)}</option>`).join("");
-        $("sys-handling").innerHTML = Object.entries(D.HANDLING)
-            .map(([v, l]) => `<option value="${v}" ${v === systemHandling() ? "selected" : ""}>${l}</option>`).join("");
+        $("sys-handling").innerHTML = D.handlingChoices(systemHandling())
+            .map(v => `<option value="${v}" ${v === systemHandling() ? "selected" : ""}>${esc(D.HANDLING[v] || v)}</option>`).join("");
         document.querySelectorAll("[data-pn]").forEach(select => {
             const current = s.protection_need?.[select.dataset.pn] || "";
             select.innerHTML = `<option value="">nicht gepflegt</option>` + Object.entries(D.PROTECTION)
@@ -636,13 +640,22 @@
         $("sys-protection-overall").innerHTML = D.protectionChip(overall);
     }
 
+    // Standard-Bearbeitung und Schutzziele nur, wenn geändert; overall leitet das API selbst ab.
     async function saveSystem(event) {
         event.preventDefault();
+        const s = state.system;
         const payload = {
             name: $("sys-name").value.trim(),
-            short_name: $("sys-short").disabled ? state.system.short_name : $("sys-short").value.trim(),
+            short_name: $("sys-short").disabled ? s.short_name : $("sys-short").value.trim(),
             default_backlog_identifier: $("sys-backlog").value || null
         };
+        if ($("sys-handling").value !== systemHandling()) payload.default_handling_type = $("sys-handling").value;
+        const protection = {};
+        document.querySelectorAll("[data-pn]").forEach(select => {
+            const value = select.value || null;
+            if (value !== (s.protection_need?.[select.dataset.pn] || null)) protection[select.dataset.pn] = value;
+        });
+        if (Object.keys(protection).length) payload.protection_need = protection;
         $("sys-save-btn").disabled = true;
         try {
             await D.send(`/api/systems/${state.systemId}`, "POST", payload);

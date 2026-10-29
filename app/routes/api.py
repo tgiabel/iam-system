@@ -1594,6 +1594,17 @@ async def api_delete_system_resource_type(system_id: int, type_id: int, current_
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+@router.get("/resources/{resource_id}/roles")
+async def api_get_resource_roles(resource_id: int, current_user=Depends(require_any_permission("SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"))):
+    try:
+        roles = await api_client.get_resource_roles(resource_id)
+        return JSONResponse(content=roles)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
+    except Exception as exc:
+        return JSONResponse(content={"error": str(exc)}, status_code=500)
+
+
 @router.get("/resources/map")
 async def api_resource_map(current_user=Depends(require_any_permission("SOFA-PAGE-SYS", "SOFA-PAGE-USER", "SOFA-PAGE-ROLE"))):
     try:

@@ -355,6 +355,9 @@ class APIClient:
     async def delete_system_resource_type(self, system_id: int, type_id: int) -> Any:
         return await self._delete(ACCESS_BASE_URL, f"/systems/{system_id}/resource-types/{type_id}")
 
+    async def get_resource_roles(self, resource_id: int) -> list[dict]:
+        return await self._get(ACCESS_BASE_URL, f"/resources/{resource_id}/roles")
+
     async def list_resources(self, params: dict | None = None) -> list[dict]:
         return await self._get(ACCESS_BASE_URL, "/resources/", params=params)
 

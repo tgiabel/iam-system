@@ -47,6 +47,12 @@ assert.deepEqual(ids(shared.parentOptions(accounts, accounts[1], null, 9)), [10]
 assert.deepEqual(ids(shared.parentOptions(accounts, null, null, 15)), [10, 11]);
 assert.equal(accounts.length, 2);
 
+// Bearbeitung: EVENT wird nicht angeboten, bleibt aber wählbar, wo es gesetzt ist
+assert.deepEqual(shared.handlingChoices(null), ["INTERNAL", "BOT", "EXTERNAL"]);
+assert.deepEqual(shared.handlingChoices("BOT"), ["INTERNAL", "BOT", "EXTERNAL"]);
+assert.deepEqual(shared.handlingChoices("EVENT"), ["INTERNAL", "BOT", "EXTERNAL", "EVENT"]);
+assert.equal(shared.HANDLING.EVENT, "Ereignis");
+
 // Bot-Parameter
 assert.equal(shared.botEditorValue(null), "");
 assert.equal(shared.botEditorValue({}), "");

@@ -72,5 +72,22 @@ class ResourceTypeProxyTests(unittest.TestCase):
         self.assertEqual(self.calls, [("delete", 9, 6)])
 
 
+class ResourceRolesProxyTests(unittest.TestCase):
+    def test_roles_for_system_or_role_page(self):
+        async def roles(resource_id):
+            if resource_id == 404:
+                raise api_error(404, "Ressource nicht gefunden")
+            return [{"role_id": 7, "name": "Agent", "inherited": False}]
+
+        client = TestClient(app)
+        with patch("app.routes.api.api_client.get_resource_roles", roles):
+            for page in ("SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"):
+                client.cookies.set("sofa_user", user_cookie(page))
+                self.assertEqual(client.get("/api/resources/9003/roles").json()[0]["role_id"], 7)
+            self.assertEqual(client.get("/api/resources/404/roles").status_code, 404)
+            client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-USER"))
+            self.assertEqual(client.get("/api/resources/9003/roles").status_code, 403)
+
+
 if __name__ == "__main__":
     unittest.main()
