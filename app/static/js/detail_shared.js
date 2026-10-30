@@ -69,9 +69,11 @@
         return chip(status.label, status.chip);
     }
 
+    // Unbekannte Einstufungen (später z. B. OPTIONAL) neutral mit ihrem Wert.
     function requirementChip(value) {
-        const req = REQUIREMENTS[String(value || "").toUpperCase()];
-        return req ? chip(req.label, req.chip, req.hint) : `<span class="dp-muted">-</span>`;
+        if (!value) return `<span class="dp-muted">-</span>`;
+        const req = REQUIREMENTS[String(value).toUpperCase()];
+        return req ? chip(req.label, req.chip, req.hint) : chip(value, "ui-chip-neutral");
     }
 
     // Auswahl der Bearbeitung; ein schon gesetzter Wert außerhalb der Auswahl bleibt wählbar.
@@ -300,7 +302,7 @@
     }
 
     // ctx: handling, handlingIsDefault, backlogLabel, backlogIsDefault, classification (siehe oben), roles,
-    //      system (Rollenseite: Systemlink), recipientLabel, activeTask
+    //      system (Rollenseite: { system_id, name, linked }), recipientLabel, activeTask
     function renderResourceView(resource, ctx) {
         const handling = ctx.handling;
         const activeTask = ctx.activeTask || "ASSIGNMENT";
@@ -308,7 +310,9 @@
 
         const facts = [];
         if (ctx.system) {
-            facts.push(["System", `<a class="dp-link" href="/systems/${esc(ctx.system.system_id)}">${esc(ctx.system.name)}</a>`]);
+            facts.push(["System", ctx.system.linked
+                ? `<a class="dp-link" href="/systems/${esc(ctx.system.system_id)}">${esc(ctx.system.name)}</a>`
+                : esc(ctx.system.name)]);
         }
         facts.push(["Bearbeitung", `${handlingChip(handling)}${ctx.handlingIsDefault ? " <small>Systemstandard</small>" : ""}`]);
         facts.push(["Backlog", `${ctx.backlogLabel}${ctx.backlogIsDefault ? " <small>Systemstandard</small>" : ""}`]);

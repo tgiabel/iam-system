@@ -61,6 +61,14 @@ assert.deepEqual(shared.handlingChoices("BOT"), ["INTERNAL", "BOT", "EXTERNAL"])
 assert.deepEqual(shared.handlingChoices("EVENT"), ["INTERNAL", "BOT", "EXTERNAL", "EVENT"]);
 assert.equal(shared.HANDLING.EVENT, "Ereignis");
 
+// Bereitstellung: Nachlieferung lila, Schreibweise egal, unbekannte Werte neutral mit ihrem Wert
+assert.ok(shared.requirementChip("DEFERRED").includes("ui-chip-purple"));
+assert.ok(shared.requirementChip("required").includes("Erforderlich"));
+assert.ok(shared.requirementChip("OPTIONAL").includes("ui-chip-neutral"));
+assert.ok(shared.requirementChip("OPTIONAL").includes(">OPTIONAL<"));
+assert.ok(shared.requirementChip("<x>").includes("&lt;x&gt;"));
+assert.ok(shared.requirementChip(null).includes("dp-muted"));
+
 // Bot-Parameter
 assert.equal(shared.botEditorValue(null), "");
 assert.equal(shared.botEditorValue({}), "");

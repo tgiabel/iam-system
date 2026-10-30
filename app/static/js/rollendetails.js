@@ -1,865 +1,710 @@
-//------------------------------------------------
-// STATE
-//------------------------------------------------
+// Rollendetails: Paket nach System gruppiert, Ressource im Seitenpanel, Bearbeiten in Dialogen.
+(function () {
+    "use strict";
 
-let role = null;
+    const D = window.DetailShared;
+    const esc = D.esc;
+    const $ = id => document.getElementById(id);
 
-const DOM = {};
-const STATE = {
-    overlayMode: "view",
-    currentResource: null,
-    systemMap: null,
-    roleMap: null,
-    isEditing: false
-};
+    const ROLE_TYPES = { PRIMARY: "Hauptrolle", SECONDARY: "Nebenrolle", SKILL: "Skill", TEMPLATE: "Template" };
 
-const ROLE_TYPE_OPTIONS = [
-    { value: "PRIMARY", label: "Hauptrolle" },
-    { value: "SECONDARY", label: "Nebenrolle" },
-    { value: "SKILL", label: "Skill" },
-    { value: "TEMPLATE", label: "Template" }
-];
-
-const ROLE_STATUS_OPTIONS = [
-    { value: "ACTIVE", label: "Aktiv" },
-    { value: "INACTIVE", label: "Inaktiv" }
-];
-
-// Klassifikation je Zuordnung Rolle <-> Ressource. DEFERRED heisst nicht optional:
-// Der Task entsteht sofort, blockiert aber nur den Prozessabschluss.
-const PROVISIONING_REQUIREMENTS = [
-    {
-        value: "REQUIRED",
-        label: "Erforderlich",
-        chipClass: "ui-chip-primary",
-        description: "Blockiert Rollenaktivierung und Prozessabschluss."
-    },
-    {
-        value: "DEFERRED",
-        label: "Nachlieferung",
-        chipClass: "ui-chip-accent",
-        description: "Wird sofort beantragt, blockiert die Rollenaktivierung nicht, aber den Prozessabschluss."
-    }
-];
-
-const DEFAULT_PROVISIONING_REQUIREMENT = "REQUIRED";
-
-async function readErrorMessage(res, fallback) {
-    const data = await res.json().catch(() => ({}));
-    return window.SofaContract.extractDetailMessage(data.detail)
-        || window.SofaContract.extractDetailMessage(data.error)
-        || fallback;
-}
-
-const api = {
-    async getSystemMap() {
-        if (STATE.systemMap) return STATE.systemMap;
-        const res = await fetch("/api/systems/map");
-        if (!res.ok) throw new Error("System Map konnte nicht geladen werden");
-
-        STATE.systemMap = await res.json();
-        return STATE.systemMap;
-    },
-
-    async getRoleMap() {
-        if (STATE.roleMap) return STATE.roleMap;
-        const res = await fetch("/api/roles/map");
-        if (!res.ok) throw new Error("Role Map konnte nicht geladen werden");
-
-        STATE.roleMap = await res.json();
-        return STATE.roleMap;
-    },
-
-    async getSystemResources(sysId) {
-        const res = await fetch(`/api/systems/${sysId}/resources`);
-        if (!res.ok) throw new Error(res.status);
-        return res.json();
-    },
-
-    async updateRole(roleId, payload) {
-        const res = await fetch(`/api/roles/${roleId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            throw new Error(data.detail || data.error || "Rolle konnte nicht gespeichert werden");
-        }
-        return data;
-    },
-
-    async addResourcesToRole(roleId, resourceIds, provisioningRequirement) {
-        const res = await fetch(`/api/roles/${roleId}/resources`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                resource_ids: resourceIds,
-                provisioning_requirement: provisioningRequirement
-            })
-        });
-        if (!res.ok) throw new Error(await readErrorMessage(res, "Fehler beim Hinzufügen der Ressourcen"));
-        return await res.json();
-    },
-
-    async setResourceRequirement(roleId, resourceIds, requirement, reason) {
-        const res = await fetch(`/api/roles/${roleId}/resources/requirement`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ resource_ids: resourceIds, requirement, reason })
-        });
-        if (!res.ok) throw new Error(await readErrorMessage(res, "Bereitstellung konnte nicht geändert werden"));
-        return await res.json();
-    },
-
-    async removeResourcesFromRole(roleId, resourceIds) {
-        const res = await fetch(`/api/roles/${roleId}/resources`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ resource_ids: resourceIds })
-        });
-        if (!res.ok) throw new Error(await readErrorMessage(res, "Fehler beim Entfernen der Ressourcen"));
-        return await res.json();
-    }
-};
-
-//------------------------------------------------
-// INIT
-//------------------------------------------------
-
-document.addEventListener("DOMContentLoaded", init);
-
-async function init() {
-    cacheDOM();
-    bindBaseEvents();
-    await loadRoleDetail();
-}
-
-//------------------------------------------------
-// DOM CACHE
-//------------------------------------------------
-
-function cacheDOM() {
-    DOM.infoFields = document.querySelectorAll(".info-field");
-    DOM.sectionButtons = document.querySelectorAll(".section-actions button");
-
-    DOM.overlay = document.getElementById("resource-overlay");
-    DOM.closeBtn = document.getElementById("resource-close-btn");
-    DOM.cancelBtn = document.getElementById("resource-cancel-btn");
-
-    DOM.form = document.getElementById("resource-form-container");
-    DOM.selectContainer = document.getElementById("resource-select-container");
-    DOM.selectSys = document.getElementById("sys-select");
-    DOM.tableContainer = document.getElementById("resource-table-container");
-    DOM.availableResContainer = document.getElementById("available-res-container");
-    DOM.addRequirementChoice = document.getElementById("add-requirement-choice");
-    DOM.requirementContainer = document.getElementById("resource-requirement-container");
-    DOM.targetRequirementChoice = document.getElementById("target-requirement-choice");
-    DOM.requirementList = document.getElementById("res-list-requirement");
-    DOM.requirementReason = document.getElementById("requirement-reason");
-
-    DOM.title = document.getElementById("resource-modal-title");
-    DOM.subtitle = document.getElementById("resource-modal-subtitle");
-    DOM.saveResBtn = document.getElementById("resource-save-btn");
-
-    DOM.tableBody = document.querySelector("#resources-table tbody");
-
-    DOM.addResBtn = document.getElementById("add-resource-btn");
-    DOM.rmResBtn = document.getElementById("rm-resources-btn");
-    DOM.reqResBtn = document.getElementById("req-resources-btn");
-
-    DOM.editBtn = document.querySelector("#edit-role-btn");
-    DOM.cancelEdit = document.querySelector("#cancel-edit-btn");
-    DOM.saveEdit = document.querySelector("#save-edit-btn");
-    DOM.editActions = document.querySelector("#edit-actions");
-
-    // form fields
-    DOM.displayName = document.getElementById("res-display-name");
-    DOM.techId = document.getElementById("res-technical-id");
-    DOM.type = document.getElementById("res-type");
-    DOM.handling = document.getElementById("res-handling");
-
-    // info inputs
-    DOM.roleNameInput = document.getElementById("role-name-input");
-    DOM.roleTypeInput = document.getElementById("role-type-input");
-    DOM.roleStatusInput = document.getElementById("role-status-input");
-    DOM.roleParentInput = document.getElementById("role-parent-input");
-    DOM.roleDescriptionInput = document.getElementById("role-description-input");
-}
-
-//------------------------------------------------
-// LOAD ROLE
-//------------------------------------------------
-
-async function loadRoleDetail() {
-    const roleId = window.location.pathname.split("/").pop();
-
-    try {
-        const resp = await fetch(`/api/roles/${roleId}`);
-        if (!resp.ok) throw new Error("Rollendetails konnten nicht geladen werden");
-
-        role = await resp.json();
-        fillRoleInfo();
-        renderResourceTable();
-        setupCards();
-    } catch (e) {
-        console.error("Fehler beim Laden:", e);
-        showFlash("Fehler beim Laden der Rollendetails", "failure");
-    }
-}
-
-//------------------------------------------------
-// ROLE INFO
-//------------------------------------------------
-
-function fillRoleInfo() {
-    setText("role-id-text", role.role_id);
-    setText("role-name-text", role.name);
-    setText("role-type-text", formatRoleType(role.role_type));
-    setText("role-status-text", formatRoleStatus(getRoleStatusValue()));
-    setText("role-parent-text", role.parent_role_name || "-");
-    setText("role-description-text", role.description || "-");
-}
-
-function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value || "-";
-}
-
-function getRoleStatusValue() {
-    return role.status || role.role_status || "ACTIVE";
-}
-
-function formatRoleType(value) {
-    return ROLE_TYPE_OPTIONS.find(option => option.value === value)?.label || value || "-";
-}
-
-function formatRoleStatus(value) {
-    return ROLE_STATUS_OPTIONS.find(option => option.value === value)?.label || value || "-";
-}
-
-function getOwnResources() {
-    return Array.isArray(role?.resources) ? role.resources : [];
-}
-
-function getInheritedResources() {
-    return Array.isArray(role?.inherited_resources) ? role.inherited_resources : [];
-}
-
-function getAllRoleResources() {
-    return [
-        ...getOwnResources().map(resource => ({ ...resource, isInherited: false })),
-        ...getInheritedResources().map(resource => ({ ...resource, isInherited: true }))
-    ];
-}
-
-function renderRequirementChoice(container, name, selectedValue, disabledValues = []) {
-    if (!container) return;
-
-    container.innerHTML = PROVISIONING_REQUIREMENTS.map(option => `
-        <label class="requirement-option">
-            <input type="radio" name="${escapeHtml(name)}" value="${escapeHtml(option.value)}"
-                ${option.value === selectedValue ? "checked" : ""}
-                ${disabledValues.includes(option.value) ? "disabled" : ""}>
-            <span class="requirement-option-copy">
-                <strong>${escapeHtml(option.label)}</strong>
-                <small>${escapeHtml(option.description)}</small>
-            </span>
-        </label>
-    `).join("");
-}
-
-// Direkte Ressourcen tragen ihre eigene Klassifikation, geerbte die wirksame Klassifikation
-// und die Rolle, der sie direkt gehoeren (source_role_*). Fehlt das Feld, bleibt der Wert unbekannt.
-function getResourceRequirement(resource) {
-    const value = String(resource?.provisioning_requirement || "").toUpperCase();
-    return PROVISIONING_REQUIREMENTS.find(option => option.value === value) || null;
-}
-
-function getRequirementSourceRoleName(resource) {
-    return String(resource?.source_role_name || "").trim();
-}
-
-function renderRequirementChip(resource) {
-    const requirement = getResourceRequirement(resource);
-    if (!requirement) {
-        return "-";
-    }
-
-    const sourceRoleName = resource.isInherited ? getRequirementSourceRoleName(resource) : "";
-    const title = sourceRoleName
-        ? `${requirement.description} Änderbar an der Rolle ${sourceRoleName}.`
-        : requirement.description;
-
-    return `<span class="ui-chip ${requirement.chipClass}" title="${escapeHtml(title)}">${escapeHtml(requirement.label)}</span>`;
-}
-
-function formatInheritance(resource) {
-    if (!resource.isInherited) {
-        return "Nein";
-    }
-    const sourceRoleName = getRequirementSourceRoleName(resource);
-    return sourceRoleName ? `Ja (${escapeHtml(sourceRoleName)})` : "Ja";
-}
-
-function getSelectedRequirement(container) {
-    return container?.querySelector("input[type='radio']:checked")?.value || "";
-}
-
-function sortResourcesByShortCode(resources) {
-    return [...resources].sort((left, right) => {
-        const leftKey = String(left.technical_identifier || "").trim();
-        const rightKey = String(right.technical_identifier || "").trim();
-
-        if (!leftKey && !rightKey) {
-            return String(left.display_name || "").localeCompare(String(right.display_name || ""), "de", { sensitivity: "base" });
-        }
-        if (!leftKey) return 1;
-        if (!rightKey) return -1;
-
-        return leftKey.localeCompare(rightKey, "de", { sensitivity: "base", numeric: true });
-    });
-}
-
-//------------------------------------------------
-// RESOURCE TABLE
-//------------------------------------------------
-
-function renderResourceTable() {
-    DOM.tableBody.innerHTML = "";
-
-    sortResourcesByShortCode(getAllRoleResources()).forEach(res => {
-        const tr = document.createElement("tr");
-
-        tr.dataset.type = res.isInherited ? "inherited" : "own";
-        tr.dataset.res_id = res.resource_id;
-        tr.dataset.system_id = res.system_id || "";
-
-        tr.innerHTML = `
-            <td>${escapeHtml(res.technical_identifier || "")}</td>
-            <td>${escapeHtml(res.display_name || "-")}</td>
-            <td>${escapeHtml(res.type_name || "-")}</td>
-            <td>${escapeHtml(res.override_handling_type || "")}</td>
-            <td>${renderRequirementChip(res)}</td>
-            <td>${formatInheritance(res)}</td>
-        `;
-
-        DOM.tableBody.appendChild(tr);
-    });
-}
-
-//------------------------------------------------
-// RESOURCE CARDS
-//------------------------------------------------
-
-function setupCards() {
-    const cards = {
-        all: document.querySelector("#count-all"),
-        own: document.querySelector("#count-own"),
-        inherited: document.querySelector("#count-inherited")
+    const state = {
+        roleId: null,
+        role: null,
+        roles: [],
+        // Alle Ressourcen aus /api/resources/map: Namen für Voraussetzungen und Auswahl beim Hinzufügen
+        resources: [],
+        backlogs: {},
+        origin: "all",
+        query: "",
+        collapsed: new Set(),
+        collapseReady: false,
+        selected: new Set(),
+        // system_id → SystemContext, erst beim Öffnen einer Ressource geladen
+        systemCtx: {},
+        // user_id → Person aus der Reevaluierung (Dry Run): weicht vom Rollenpaket ab
+        drift: new Map(),
+        // resource_id → Bereitstellung je Zeile (Standard Erforderlich)
+        addSelected: new Map(),
+        reqTarget: "",
+        panel: null,
+        canOpenSystems: false,
+        canOpenUsers: false
     };
 
-    const counts = {
-        all: getAllRoleResources().length,
-        own: getOwnResources().length,
-        inherited: getInheritedResources().length
-    };
+    document.addEventListener("DOMContentLoaded", init);
 
-    Object.entries(counts).forEach(([key, val]) => {
-        const el = cards[key];
-        if (!el) return;
-
-        el.textContent = val;
-
-        const card = el.closest(".resource-card");
-        card.classList.toggle("disabled", val === 0);
-
-        card.onclick = () => {
-            if (val === 0) return;
-
-            document.querySelectorAll("#resources-table tbody tr")
-                .forEach(tr => {
-                    tr.style.display = key === "all" || tr.dataset.type === key ? "" : "none";
-                });
-        };
-    });
-}
-
-//------------------------------------------------
-// EVENTS
-//------------------------------------------------
-
-function bindBaseEvents() {
-    DOM.tableBody.addEventListener("click", e => {
-        const tr = e.target.closest("tr");
-        if (!tr) return;
-
-        const res = getAllRoleResources().find(r =>
-            String(r.resource_id) === String(tr.dataset.res_id) &&
-            String(r.system_id || "") === String(tr.dataset.system_id || "")
-        );
-        if (!res) return;
-
-        openOverlay("view", res);
-    });
-
-    DOM.editBtn.addEventListener("click", editRole);
-    DOM.cancelEdit.addEventListener("click", cancelEdit);
-    DOM.saveEdit.addEventListener("click", saveRoleEdit);
-    DOM.addResBtn.addEventListener("click", () => openOverlay("add"));
-    DOM.rmResBtn.addEventListener("click", () => openOverlay("rm"));
-    DOM.reqResBtn.addEventListener("click", () => openOverlay("req"));
-
-    [DOM.closeBtn, DOM.cancelBtn].forEach(btn => {
-        btn.addEventListener("click", closeOverlay);
-    });
-
-    DOM.saveResBtn.addEventListener("click", saveResourceOverlay);
-}
-
-async function editRole() {
-    try {
-        await populateRoleEditFields();
-
-        DOM.infoFields.forEach(field => {
-            const text = field.querySelector(".field-text");
-            const input = field.querySelector(".field-input");
-
-            if (!input) return;
-
-            text.style.display = "none";
-            input.style.display = input.tagName === "TEXTAREA" ? "block" : "block";
-        });
-
-        DOM.sectionButtons.forEach(btn => btn.disabled = true);
-        DOM.editBtn.disabled = true;
-        DOM.editActions.style.display = "flex";
-        STATE.isEditing = true;
-    } catch (err) {
-        console.error(err);
-        showFlash("Bearbeitungsdaten konnten nicht geladen werden", "failure");
-    }
-}
-
-function cancelEdit() {
-    DOM.infoFields.forEach(field => {
-        const text = field.querySelector(".field-text");
-        const input = field.querySelector(".field-input");
-
-        if (!input) return;
-
-        input.style.display = "none";
-        text.style.display = "block";
-    });
-
-    DOM.sectionButtons.forEach(btn => btn.disabled = false);
-    DOM.editBtn.disabled = false;
-    DOM.editActions.style.display = "none";
-    STATE.isEditing = false;
-}
-
-async function populateRoleEditFields() {
-    const roleMap = await api.getRoleMap();
-
-    fillSelect(DOM.roleTypeInput, ROLE_TYPE_OPTIONS, role.role_type);
-    fillSelect(DOM.roleStatusInput, ROLE_STATUS_OPTIONS, getRoleStatusValue());
-    fillParentRoleSelect(roleMap, role.parent_role_id);
-
-    DOM.roleNameInput.value = role.name || "";
-    DOM.roleDescriptionInput.value = role.description || "";
-}
-
-function fillSelect(select, options, selectedValue = "") {
-    if (!select) return;
-
-    select.innerHTML = "";
-
-    options.forEach(optionData => {
-        const opt = document.createElement("option");
-        opt.value = optionData.value;
-        opt.textContent = optionData.label;
-        opt.selected = String(optionData.value) === String(selectedValue);
-        select.appendChild(opt);
-    });
-}
-
-function fillParentRoleSelect(roleMap, selectedValue = null) {
-    if (!DOM.roleParentInput) return;
-
-    DOM.roleParentInput.innerHTML = '<option value="">Keine</option>';
-
-    Object.entries(roleMap)
-        .filter(([roleId]) => Number(roleId) !== Number(role.role_id))
-        .sort(([, a], [, b]) => a.name.localeCompare(b.name, "de"))
-        .forEach(([roleId, roleData]) => {
-            const opt = document.createElement("option");
-            opt.value = roleId;
-            opt.textContent = `${roleData.name} (${formatRoleType(roleData.type)})`;
-            opt.selected = String(roleId) === String(selectedValue ?? "");
-            DOM.roleParentInput.appendChild(opt);
-        });
-}
-
-async function saveRoleEdit() {
-    const payload = {
-        name: String(DOM.roleNameInput.value || "").trim(),
-        description: String(DOM.roleDescriptionInput.value || "").trim(),
-        role_type: DOM.roleTypeInput.value,
-        status: DOM.roleStatusInput.value,
-        parent_role_id: DOM.roleParentInput.value ? Number(DOM.roleParentInput.value) : null
-    };
-
-    if (!payload.name || !payload.description || !payload.role_type) {
-        showFlash("Bitte alle Pflichtfelder ausfüllen", "failure");
-        return;
-    }
-
-    DOM.saveEdit.disabled = true;
-
-    try {
-        const updatedRole = await api.updateRole(role.role_id, payload);
-        role = { ...role, ...updatedRole, ...payload };
-
-        if (payload.parent_role_id === null) {
-            role.parent_role_name = null;
-        } else {
-            const roleMap = await api.getRoleMap();
-            role.parent_role_name = roleMap[payload.parent_role_id]?.name || role.parent_role_name;
-        }
-
-        STATE.roleMap = null;
-        fillRoleInfo();
-        cancelEdit();
-        showFlash("Rollendetails gespeichert", "success");
-    } catch (err) {
-        console.error("Speichern fehlgeschlagen:", err);
-        showFlash(err.message || "Rollendetails konnten nicht gespeichert werden", "failure");
-    } finally {
-        DOM.saveEdit.disabled = false;
-    }
-}
-
-//------------------------------------------------
-// OVERLAY
-//------------------------------------------------
-
-async function openOverlay(mode, resource = null) {
-    STATE.overlayMode = mode;
-    STATE.currentResource = resource;
-
-    DOM.overlay.classList.add("active");
-
-    DOM.requirementContainer.style.display = "none";
-    DOM.selectContainer.style.display = "none";
-    DOM.tableContainer.style.display = "none";
-    DOM.form.style.display = "block";
-
-    DOM.form.querySelectorAll("input,select")
-        .forEach(el => el.disabled = false);
-
-    DOM.saveResBtn.style.display = "inline-block";
-
-    if (mode === "view") {
-        DOM.title.textContent = "Ressourcen Details";
-        DOM.subtitle.textContent = "Ressourcen, die über diese Rolle verfügbar sind, im kompakten Read-only-Modus.";
-        DOM.form.style.display = "block";
-        DOM.selectContainer.style.display = "none";
-        DOM.tableContainer.style.display = "none";
-
-        DOM.form.querySelectorAll("input,select")
-            .forEach(el => el.disabled = true);
-
-        DOM.saveResBtn.style.display = "none";
-
-        fillResourceForm(resource);
-    }
-
-    if (mode === "rm") {
-        DOM.title.textContent = "Ressourcen entfernen";
-        DOM.subtitle.textContent = "Eigene Ressourcen aus dem Rollenpaket entfernen und die Auswahl vor dem Speichern prüfen.";
-        DOM.form.style.display = "none";
-        DOM.selectContainer.style.display = "none";
-        DOM.tableContainer.style.display = "block";
-
-        const currentList = document.getElementById("res-list-current");
-        const removeList = document.getElementById("res-list-to-remove");
-
-        currentList.innerHTML = "";
-        removeList.innerHTML = "";
-
-        const createRow = (res, isRemoving) => {
-            const tr = document.createElement("tr");
-            tr.dataset.id = res.resource_id;
-            tr.innerHTML = `
-                <td>${escapeHtml(res.display_name || "-")}</td>
-                <td>
-                    <button type="button" class="action-btn ${isRemoving ? "btn-transparent" : "btn-red btn-transparent"}">
-                        ${isRemoving ? "↑" : "✖"}
-                    </button>
-                </td>
-            `;
-
-            tr.querySelector(".action-btn").onclick = () => {
-                if (!isRemoving) {
-                    clearEmptyState(removeList);
-                    removeList.appendChild(createRow(res, true));
-                } else {
-                    clearEmptyState(currentList);
-                    currentList.appendChild(createRow(res, false));
-                }
-                tr.remove();
-                ensureEmptyState(currentList, "Keine eigenen Ressourcen vorhanden.");
-                ensureEmptyState(removeList, "Noch keine Ressourcen zum Entfernen markiert.");
-            };
-
-            return tr;
-        };
-
-        getOwnResources().forEach(r => {
-            currentList.appendChild(createRow(r, false));
-        });
-
-        if (currentList.innerHTML === "") {
-            currentList.innerHTML = "<tr class='empty-row'><td colspan='2'>Keine eigenen Ressourcen vorhanden.</td></tr>";
-        }
-
-        if (removeList.innerHTML === "") {
-            removeList.innerHTML = "<tr class='empty-row'><td colspan='2'>Noch keine Ressourcen zum Entfernen markiert.</td></tr>";
+    async function init() {
+        state.roleId = $("role-page").dataset.roleId;
+        state.canOpenSystems = hasPerm("SOFA-PAGE-SYS");
+        state.canOpenUsers = hasPerm("SOFA-PAGE-USER");
+        bindEvents();
+        try {
+            const [backlogs, resourceMap] = await Promise.all([
+                D.getJson("/api/backlogs").catch(() => []),
+                D.getJson("/api/resources/map").catch(() => ({}))
+            ]);
+            (Array.isArray(backlogs) ? backlogs : []).forEach(b => { state.backlogs[b.technical_identifier] = b.name; });
+            state.resources = Object.entries(resourceMap || {}).map(([id, r]) => ({ ...r, resource_id: Number(id) }));
+            await reload();
+        } catch (error) {
+            showFlash(error.message, "failure");
         }
     }
 
-    if (mode === "req") {
-        DOM.title.textContent = "Bereitstellung ändern";
-        DOM.subtitle.textContent = "Eigene Ressourcen als erforderlich oder als Nachlieferung klassifizieren. Die Änderung wird mit Begründung im Rollen-Log protokolliert.";
-        DOM.form.style.display = "none";
-        DOM.requirementContainer.style.display = "block";
-        DOM.requirementReason.value = "";
-
-        renderRequirementChoice(DOM.targetRequirementChoice, "target-requirement", "");
-        renderRequirementSelection();
-        DOM.targetRequirementChoice.onchange = renderRequirementSelection;
+    async function reload() {
+        const [role, roles] = await Promise.all([
+            D.getJson(`/api/roles/${state.roleId}`),
+            D.getJson("/api/roles").catch(() => [])
+        ]);
+        state.role = role;
+        state.roles = Array.isArray(roles) ? roles : [];
+        render();
+        loadDrift();
     }
 
-    if (mode === "add") {
-        DOM.title.textContent = "Ressourcen hinzufügen";
-        DOM.subtitle.textContent = "System auswählen, passende Ressourcen markieren und gesammelt zur Rolle hinzufügen.";
-        const systems = await api.getSystemMap();
-
-        DOM.form.style.display = "none";
-        DOM.tableContainer.style.display = "none";
-        DOM.selectContainer.style.display = "block";
-
-        const availContainer = DOM.availableResContainer;
-        const availList = document.getElementById("res-list-available");
-        const addList = document.getElementById("res-list-to-add");
-
-        DOM.selectSys.innerHTML = "<option value=''>-- Bitte wählen --</option>";
-        Object.entries(systems)
-            .sort(([, a], [, b]) => a.name.localeCompare(b.name, "de"))
-            .forEach(([id, systemData]) => {
-                const optionLabel = systemData.type
-                    ? `${systemData.name} (${systemData.type})`
-                    : systemData.name;
-                DOM.selectSys.innerHTML += `<option value="${id}">${optionLabel}</option>`;
-            });
-
-        const createAddRow = (res, isStaged) => {
-            const tr = document.createElement("tr");
-            tr.dataset.id = res.resource_id;
-            tr.innerHTML = `
-                <td>${escapeHtml(res.display_name || "-")}</td>
-                <td>
-                    <button type="button" class="action-btn ${isStaged ? "btn-red btn-transparent" : "btn-green btn-transparent"}">
-                        ${isStaged ? "✖" : "✚"}
-                    </button>
-                </td>
-            `;
-
-            tr.querySelector(".action-btn").onclick = () => {
-                if (!isStaged) {
-                    clearEmptyState(addList);
-                    addList.appendChild(createAddRow(res, true));
-                } else {
-                    clearEmptyState(availList);
-                    availList.appendChild(createAddRow(res, false));
-                }
-                tr.remove();
-                ensureEmptyState(addList, "Noch keine Ressourcen zum Hinzufügen ausgewählt.");
-            };
-            return tr;
-        };
-
-        addList.innerHTML = "<tr class='empty-row'><td colspan='2'>Noch keine Ressourcen zum Hinzufügen ausgewählt.</td></tr>";
-        renderRequirementChoice(DOM.addRequirementChoice, "add-requirement", DEFAULT_PROVISIONING_REQUIREMENT);
-
-        DOM.selectSys.onchange = async e => {
-            const sysId = e.target.value;
-            if (!sysId) {
-                availContainer.style.display = "none";
-                return;
-            }
-
-            const resources = await api.getSystemResources(sysId);
-            availList.innerHTML = "";
-            availContainer.style.display = "block";
-
-            if (Array.isArray(resources) && resources.length > 0) {
-                resources.forEach(r => {
-                    const alreadyHas = getAllRoleResources().some(existing =>
-                        String(existing.resource_id) === String(r.resource_id) &&
-                        String(existing.system_id || "") === String(r.system_id || "")
-                    );
-
-                    if (!alreadyHas) {
-                        availList.appendChild(createAddRow(r, false));
-                    }
-                });
-
-                if (availList.innerHTML === "") {
-                    availList.innerHTML = "<tr class='empty-row'><td colspan='2'>Alle Ressourcen dieses Systems sind bereits zugewiesen.</td></tr>";
-                }
-            } else {
-                availList.innerHTML = "<tr class='empty-row'><td colspan='2'>Keine Ressourcen für dieses System gefunden.</td></tr>";
-            }
-        };
-    }
-}
-
-function renderRequirementSelection() {
-    const target = getSelectedRequirement(DOM.targetRequirementChoice);
-    const selectedIds = new Set(
-        Array.from(DOM.requirementList.querySelectorAll("input[type='checkbox']:checked")).map(input => input.value)
-    );
-    const ownResources = sortResourcesByShortCode(getOwnResources());
-
-    if (!ownResources.length) {
-        DOM.requirementList.innerHTML = "<tr class='empty-row'><td colspan='2'>Keine eigenen Ressourcen vorhanden.</td></tr>";
-        return;
+    // Dry Run der Reevaluierung (liest nur): Wer weicht heute vom Paket ab?
+    async function loadDrift() {
+        try {
+            const data = await D.send(`/api/roles/${state.role.role_id}/resources/reevaluate`, "POST", { dry_run: true });
+            state.drift = new Map((data?.users || []).map(u => [String(u.user_id), u]));
+        } catch (error) {
+            state.drift = new Map();
+            showFlash(error.message, "failure");
+        }
+        renderPeople();
     }
 
-    DOM.requirementList.innerHTML = ownResources.map(res => {
-        const current = getResourceRequirement(res);
-        const alreadyTarget = Boolean(target && current?.value === target);
-        const checked = !alreadyTarget && selectedIds.has(String(res.resource_id));
-        return `
-            <tr>
-                <td>
-                    <label class="requirement-resource-row">
-                        <input type="checkbox" value="${escapeHtml(res.resource_id)}"
-                            ${checked ? "checked" : ""} ${target && !alreadyTarget ? "" : "disabled"}>
-                        <span>${escapeHtml(res.display_name || "-")}</span>
-                    </label>
-                </td>
-                <td>${current
-                    ? `<span class="ui-chip ${current.chipClass}">${escapeHtml(current.label)}</span>`
-                    : "-"}</td>
-            </tr>
-        `;
-    }).join("");
-}
+    // ---------- Daten ----------
 
-function closeOverlay() {
-    DOM.overlay.classList.remove("active");
-    DOM.form.style.display = "none";
-    DOM.selectContainer.style.display = "none";
-    DOM.tableContainer.style.display = "none";
-    DOM.requirementContainer.style.display = "none";
-    if (DOM.availableResContainer) {
-        DOM.availableResContainer.style.display = "none";
-    }
-    STATE.overlayMode = "";
-}
-
-//------------------------------------------------
-// FORM
-//------------------------------------------------
-
-function fillResourceForm(res) {
-    DOM.displayName.value = res.display_name || "";
-    DOM.techId.value = res.technical_identifier || "";
-    // Formular ist nur Ansicht: der Typ der Ressource genuegt als einzige Option.
-    DOM.type.innerHTML = `<option value="${escapeHtml(res.type_id ?? "")}">${escapeHtml(res.type_name || "-")}</option>`;
-    DOM.handling.value = res.override_handling_type || "INTERNAL";
-}
-
-function clearEmptyState(container) {
-    container.querySelectorAll(".empty-row").forEach(row => row.remove());
-}
-
-function ensureEmptyState(container, message) {
-    if (container.children.length > 0) {
-        return;
+    function packageRows() {
+        const own = (state.role.resources || []).map(r => ({ ...r, inherited: false }));
+        const inherited = (state.role.inherited_resources || []).map(r => ({ ...r, inherited: true }));
+        return [...own, ...inherited];
     }
 
-    container.innerHTML = `<tr class="empty-row"><td colspan="2">${escapeHtml(message)}</td></tr>`;
-}
+    function rowKey(r) {
+        return `${r.inherited ? "i" : "o"}:${r.resource_id}`;
+    }
 
-function escapeHtml(value) {
-    return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
+    function listedResource(id) {
+        return state.resources.find(x => String(x.resource_id) === String(id)) || null;
+    }
 
-//------------------------------------------------
-// SAVE
-//------------------------------------------------
+    function assignedPeople() {
+        return [...(state.role.assigned_to || [])]
+            .sort((a, b) => D.compareText(`${a.last_name} ${a.first_name}`, `${b.last_name} ${b.first_name}`));
+    }
 
-async function saveResourceOverlay() {
-    const mode = STATE.overlayMode;
-    const roleIdToUpdate = role.role_id;
-    let resourceIds = [];
+    function childRoles() {
+        return state.roles
+            .filter(r => r.parent_role_name && r.parent_role_name === state.role.name)
+            .sort((a, b) => D.compareText(a.name, b.name));
+    }
 
-    try {
-        if (mode === "add") {
-            const rows = document.querySelectorAll("#res-list-to-add tr");
-            resourceIds = Array.from(rows).map(tr => tr.dataset.id);
-            if (resourceIds.length > 0) {
-                const requirement = getSelectedRequirement(DOM.addRequirementChoice) || DEFAULT_PROVISIONING_REQUIREMENT;
-                await api.addResourcesToRole(roleIdToUpdate, resourceIds, requirement);
-            } else {
-                showFlash("Keine Ressourcen zum Hinzufügen ausgewählt", "failure");
-                return;
-            }
-        } else if (mode === "req") {
-            const requirement = getSelectedRequirement(DOM.targetRequirementChoice);
-            const reason = String(DOM.requirementReason.value || "").trim();
-            resourceIds = Array.from(DOM.requirementList.querySelectorAll("input[type='checkbox']:checked"))
-                .map(input => Number(input.value));
+    function initials(first, last) {
+        return `${String(first || "").charAt(0)}${String(last || "").charAt(0)}`.toUpperCase() || "?";
+    }
 
-            if (!requirement) {
-                showFlash("Bitte die neue Bereitstellung auswählen", "failure");
-                return;
-            }
-            if (!resourceIds.length) {
-                showFlash("Keine Ressourcen zum Ändern ausgewählt", "failure");
-                return;
-            }
-            if (!reason) {
-                showFlash("Bitte eine Begründung angeben", "failure");
-                return;
-            }
-            await api.setResourceRequirement(roleIdToUpdate, resourceIds, requirement, reason);
-        } else if (mode === "rm") {
-            const rows = document.querySelectorAll("#res-list-to-remove tr");
-            resourceIds = Array.from(rows).map(tr => tr.dataset.id);
-            if (resourceIds.length > 0) {
-                await api.removeResourcesFromRole(roleIdToUpdate, resourceIds);
-            } else {
-                showFlash("Keine Ressourcen zum Entfernen ausgewählt", "failure");
-                return;
-            }
-        } else {
-            showFlash("Fehler beim Speichern. [ovMode nicht gesetzt oder unbekannt]", "failure");
+    function formatDate(value) {
+        if (!value) return "-";
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("de-DE");
+    }
+
+    // ---------- Render ----------
+
+    function render() {
+        renderHead();
+        renderPackage();
+        renderPeople();
+    }
+
+    function renderHead() {
+        const role = state.role;
+        document.title = `${role.name} | SOFA`;
+        $("role-title").textContent = role.name;
+        $("role-chips").innerHTML = D.chip(ROLE_TYPES[role.role_type] || role.role_type, "ui-chip-primary")
+            + D.statusChip(role.status);
+        $("role-desc").textContent = role.description || "";
+        $("role-desc").hidden = !role.description;
+
+        const meta = [];
+        if (role.parent_role_id) {
+            meta.push(["Erbt von", `<a href="/roles/${esc(role.parent_role_id)}">${esc(role.parent_role_name || role.parent_role_id)}</a>`]);
+        }
+        meta.push(["Angelegt", esc(formatDate(role.created_at))]);
+        meta.push(["ID", esc(role.role_id)]);
+        $("role-meta").innerHTML = meta.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("");
+    }
+
+    function renderPackage() {
+        const rows = packageRows();
+        const hasInherited = rows.some(r => r.inherited);
+        $("pkg-count").textContent = rows.length;
+        $("pkg-origin").hidden = !hasInherited;
+        document.querySelector('[data-col="origin"]').hidden = !hasInherited;
+        if (!hasInherited) state.origin = "all";
+        document.querySelectorAll("#pkg-origin button").forEach(btn => {
+            btn.setAttribute("aria-pressed", String(btn.dataset.origin === state.origin));
+        });
+
+        const visible = rows
+            .filter(r => state.origin === "all" || (state.origin === "inherited") === r.inherited)
+            .filter(r => D.matches(r, state.query));
+
+        const colspan = hasInherited ? 5 : 4;
+        if (!visible.length) {
+            $("pkg-body").innerHTML = `<tr><td colspan="${colspan}" class="dp-empty">${rows.length ? "Keine Treffer" : "Noch keine Ressourcen"}</td></tr>`;
+            updateBulk();
             return;
         }
-        sessionStorage.setItem("flash_msg", "Änderungen gespeichert!");
-        sessionStorage.setItem("flash_type", "success");
-        location.reload();
-    } catch (err) {
-        console.error("Speichern fehlgeschlagen:", err);
-        showFlash(err.message, "failure");
+
+        const groups = packageGroups(visible);
+        // Beim Öffnen ist nur der oberste Block aufgeklappt.
+        if (!state.collapseReady) {
+            groups.slice(1).forEach(g => state.collapsed.add(String(g.id)));
+            state.collapseReady = true;
+        }
+        const allOpen = groups.every(g => !state.collapsed.has(String(g.id)));
+        $("pkg-toggle-all").hidden = groups.length < 2 || Boolean(state.query);
+        const toggle = $("pkg-toggle-all");
+        toggle.innerHTML = allOpen ? ICON_COLLAPSE : ICON_EXPAND;
+        toggle.title = allOpen ? "Alle zuklappen" : "Alle aufklappen";
+        toggle.setAttribute("aria-label", toggle.title);
+
+        $("pkg-body").innerHTML = groups.map(group => {
+            const collapsed = state.collapsed.has(String(group.id)) && !state.query;
+            const head = `
+                <tr class="dp-group-row dp-block-head ${collapsed ? "is-collapsed" : ""}" data-group="${esc(group.id)}" aria-expanded="${!collapsed}">
+                    <td colspan="${colspan}">
+                        <span class="dp-block-head-inner">
+                            <span class="dp-caret" aria-hidden="true">▾</span>
+                            <span>${esc(group.name)}</span>
+                            <span class="dp-count">${group.rows.length}</span>
+                            <span class="dp-block-types">${esc(D.typeSummary(group.rows))}</span>
+                            <span class="dp-block-summary">${requirementSummary(group.rows)}</span>
+                            ${state.canOpenSystems ? `<a class="dp-row-icon" href="/systems/${esc(group.id)}" title="System öffnen" aria-label="${esc(group.name)} öffnen">${ICON_OPEN}</a>` : ""}
+                        </span>
+                    </td>
+                </tr>`;
+            if (collapsed) return head;
+            return head + group.rows.sort(D.byIdentifier).map(r => renderRow(r, hasInherited)).join("");
+        }).join("");
+        updateBulk();
     }
-}
+
+    const ICON_EXPAND = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>`;
+    const ICON_COLLAPSE = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20l5-5 5 5"/><path d="M7 4l5 5 5-5"/></svg>`;
+
+    const ICON_OPEN = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>`;
+
+    function packageGroups(rows) {
+        const groups = new Map();
+        rows.forEach(r => {
+            const key = String(r.system_id ?? "");
+            if (!groups.has(key)) groups.set(key, { id: r.system_id, name: r.system_name || "Ohne System", rows: [] });
+            groups.get(key).rows.push(r);
+        });
+        return [...groups.values()].sort((a, b) => D.compareText(a.name, b.name));
+    }
+
+    function requirementSummary(rows) {
+        const deferred = rows.filter(r => String(r.provisioning_requirement).toUpperCase() === "DEFERRED").length;
+        const inherited = rows.filter(r => r.inherited).length;
+        return (deferred ? D.chip(`${deferred} Nachlieferung`, "ui-chip-purple") : "")
+            + (inherited ? D.chip(`${inherited} geerbt`, "ui-chip-neutral") : "");
+    }
+
+    // Übergeordnete Ressource = Voraussetzung: Die Aufgabe bleibt blockiert, bis die Person sie aktiv hat.
+    function missingPrerequisite(r) {
+        if (r.parent_resource_id == null) return null;
+        const ids = new Set(packageRows().map(x => String(x.resource_id)));
+        if (ids.has(String(r.parent_resource_id))) return null;
+        return listedResource(r.parent_resource_id) || { resource_id: r.parent_resource_id, display_name: `#${r.parent_resource_id}` };
+    }
+
+    function renderRow(r, hasInherited) {
+        const key = rowKey(r);
+        const missing = missingPrerequisite(r);
+        const checked = state.selected.has(key);
+        const origin = r.inherited
+            ? `<a class="dp-link" href="/roles/${esc(r.source_role_id || "")}" title="Änderbar an dieser Rolle">${esc(r.source_role_name || "geerbt")}</a>`
+            : `<span class="dp-muted">eigene</span>`;
+        return `
+            <tr class="dp-row dp-in-block ${checked ? "is-selected" : ""}" data-key="${esc(key)}">
+                <td class="dp-col-check">
+                    ${r.inherited
+                        ? ""
+                        : `<input type="checkbox" data-check="${esc(key)}" ${checked ? "checked" : ""} aria-label="${esc(r.display_name)} auswählen">`}
+                </td>
+                <td><div class="dp-name"><strong>${esc(r.display_name || "-")}</strong><span class="dp-ident">${esc(r.technical_identifier || "")}</span>
+                    ${missing ? D.chip("Voraussetzung nicht im Paket", "ui-chip-warning", `Setzt ${missing.display_name} voraus`) : ""}</div></td>
+                <td>${esc(r.type_name || "-")}</td>
+                <td>${D.requirementChip(r.provisioning_requirement)}</td>
+                ${hasInherited ? `<td>${origin}</td>` : ""}
+            </tr>`;
+    }
+
+    function renderPeople() {
+        const people = assignedPeople();
+        $("assigned-count").textContent = people.length;
+        const driftCount = state.drift.size;
+        $("sync-note").hidden = driftCount === 0;
+        $("sync-note-text").textContent = `${driftCount} nicht aktuell`;
+        $("assigned-list").innerHTML = people.length
+            ? people.map(p => {
+                const name = `${p.first_name || ""} ${p.last_name || ""}`.trim() || p.pnr;
+                const drift = state.drift.has(String(p.user_id));
+                const inner = `
+                    <span class="dp-avatar" aria-hidden="true">${esc(initials(p.first_name, p.last_name))}</span>
+                    <span class="dp-people-name">${esc(name)}<small>${esc(p.pnr || "")}</small></span>
+                    ${drift ? `<span class="dp-dot" title="Rollenpaket nicht aktuell"></span>` : ""}`;
+                // Deep-Link in die Userverwaltung gibt es noch nicht (vorgemerkt).
+                return `<li>${state.canOpenUsers ? `<a href="/users?user_id=${esc(p.user_id)}">${inner}</a>` : `<span>${inner}</span>`}</li>`;
+            }).join("")
+            : `<li class="dp-empty">Niemand</li>`;
+
+        const children = childRoles();
+        $("children-card").hidden = !children.length;
+        $("children-count").textContent = children.length;
+        $("children-list").innerHTML = children.map(r => `
+            <li><a href="/roles/${esc(r.role_id)}">
+                <span class="dp-people-name">${esc(r.name)}<small>${esc(ROLE_TYPES[r.role_type] || r.role_type)}</small></span>
+            </a></li>`).join("");
+    }
+
+    // ---------- Auswahl / Bulk-Leiste ----------
+
+    function selectedRows() {
+        return packageRows().filter(r => state.selected.has(rowKey(r)));
+    }
+
+    function updateBulk() {
+        const count = state.selected.size;
+        $("pkg-bulk").hidden = count === 0;
+        $("pkg-bulk-count").textContent = `${count} ausgewählt`;
+        const ownVisible = [...document.querySelectorAll("#pkg-body [data-check]")];
+        const all = $("pkg-check-all");
+        all.checked = ownVisible.length > 0 && ownVisible.every(cb => cb.checked);
+        all.indeterminate = !all.checked && ownVisible.some(cb => cb.checked);
+        all.disabled = ownVisible.length === 0;
+    }
+
+    // ---------- Ressource ansehen ----------
+
+    // Einmal je System, erst beim Öffnen einer Ressource.
+    function systemContext(systemId) {
+        if (!(systemId in state.systemCtx)) {
+            state.systemCtx[systemId] = D.getJson(`/api/systems/${systemId}`).catch(error => {
+                showFlash(error.message, "failure");
+                return null;
+            });
+        }
+        return state.systemCtx[systemId];
+    }
+
+    // Paketzeilen kennen ihre Voraussetzung; sonst liefert sie das System der Ressource.
+    async function resourceWithParent(id) {
+        const row = packageRows().find(x => String(x.resource_id) === String(id));
+        if (row) return row;
+        const listed = listedResource(id);
+        if (!listed) return null;
+        const sys = await systemContext(listed.system_id);
+        const full = (sys?.resources || []).find(x => String(x.resource_id) === String(id));
+        return { ...listed, parent_resource_id: full?.parent_resource_id ?? null };
+    }
+
+    // Voraussetzungskette, auch systemübergreifend, nächste zuerst; endet bei Zyklen.
+    async function ancestorsOf(r) {
+        const chain = [];
+        const seen = new Set([String(r.resource_id)]);
+        let parentId = r.parent_resource_id;
+        while (parentId != null && !seen.has(String(parentId))) {
+            seen.add(String(parentId));
+            const parent = await resourceWithParent(parentId);
+            if (!parent) break;
+            chain.push(parent);
+            parentId = parent.parent_resource_id;
+        }
+        return chain;
+    }
+
+    async function openResource(key) {
+        const r = packageRows().find(row => rowKey(row) === key);
+        if (!r) return;
+        const panel = { key, resource: r, sys: null, ancestors: [], roles: undefined, activeTask: "ASSIGNMENT" };
+        state.panel = panel;
+        const [sys, ancestors] = await Promise.all([systemContext(r.system_id), ancestorsOf(r)]);
+        if (state.panel !== panel) return;
+        panel.sys = sys;
+        const inPackage = new Set(packageRows().map(x => String(x.resource_id)));
+        panel.ancestors = ancestors.map(a => ({ ...a, inPackage: inPackage.has(String(a.resource_id)) }));
+
+        $("res-panel-kicker").textContent = r.type_name || "Ressource";
+        $("res-panel-title").textContent = r.display_name || "-";
+        $("res-panel-ident").textContent = r.technical_identifier || "";
+        $("res-panel-chips").innerHTML = D.requirementChip(r.provisioning_requirement)
+            + (r.inherited ? D.chip(`geerbt von ${r.source_role_name || "?"}`, "ui-chip-neutral") : "");
+        // Geerbte Ressourcen ändert man an der Rolle, von der sie kommen.
+        $("res-panel-own-actions").hidden = r.inherited;
+        $("res-panel-source-link").hidden = !r.inherited;
+        $("res-panel-source-link").href = `/roles/${r.source_role_id || ""}`;
+        $("res-panel-source-link").textContent = `An ${r.source_role_name || "Ursprungsrolle"} ändern`;
+        $("res-panel-system-link").hidden = !state.canOpenSystems;
+        $("res-panel-system-link").href = `/systems/${r.system_id}?res=${r.resource_id}`;
+        renderPanel();
+        $("res-panel-overlay").classList.add("active");
+        loadRoles(panel);
+    }
+
+    async function loadRoles(panel) {
+        try {
+            panel.roles = await D.getJson(`/api/resources/${panel.resource.resource_id}/roles`);
+        } catch (error) {
+            panel.roles = [];
+            showFlash(error.message, "failure");
+        }
+        if (state.panel === panel) renderPanel();
+    }
+
+    function renderPanel() {
+        const { resource: r, sys } = state.panel;
+        // RoleContext liefert keine Automatisierung (meta); sie steht an der Ressource im System.
+        const full = (sys?.resources || []).find(x => String(x.resource_id) === String(r.resource_id));
+        const backlogId = r.backlog_identifier || sys?.default_backlog_identifier;
+        const body = $("res-panel-body");
+        body.classList.add("is-view");
+        body.innerHTML = D.renderResourceView({ ...r, meta: full?.meta ?? r.meta }, {
+            handling: r.override_handling_type || sys?.default_handling_type || "INTERNAL",
+            handlingIsDefault: !r.override_handling_type,
+            backlogLabel: backlogId ? esc(state.backlogs[backlogId] || backlogId) : `<span class="dp-muted">keins</span>`,
+            backlogIsDefault: Boolean(backlogId) && !r.backlog_identifier,
+            classification: {
+                ancestors: state.panel.ancestors,
+                dependents: packageRows().filter(x => String(x.parent_resource_id ?? "") === String(r.resource_id)),
+                systemId: r.system_id,
+                scope: "im Paket"
+            },
+            roles: state.panel.roles,
+            system: { system_id: r.system_id, name: r.system_name || "-", linked: state.canOpenSystems },
+            activeTask: state.panel.activeTask
+        });
+    }
+
+    function closeResource() {
+        $("res-panel-overlay").classList.remove("active");
+        state.panel = null;
+    }
+
+    // ---------- Rolle bearbeiten ----------
+
+    function openEdit() {
+        const role = state.role;
+        $("edit-name").value = role.name || "";
+        $("edit-desc").value = role.description || "";
+        $("edit-type").innerHTML = Object.entries(ROLE_TYPES)
+            .map(([v, l]) => `<option value="${v}" ${v === role.role_type ? "selected" : ""}>${l}</option>`).join("");
+        setEditStatus(role.status || "ACTIVE");
+        $("edit-parent").innerHTML = `<option value="">Keine</option>` + state.roles
+            .filter(r => r.role_id !== role.role_id)
+            .sort((a, b) => D.compareText(a.name, b.name))
+            .map(r => `<option value="${esc(r.role_id)}" ${String(r.role_id) === String(role.parent_role_id ?? "") ? "selected" : ""}>${esc(r.name)} · ${esc(ROLE_TYPES[r.role_type] || r.role_type)}</option>`)
+            .join("");
+        $("role-edit-dialog").showModal();
+    }
+
+    function setEditStatus(value) {
+        $("edit-status").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.value === value)));
+    }
+
+    async function saveRole(event) {
+        event.preventDefault();
+        const parent = $("edit-parent").value;
+        const payload = {
+            name: $("edit-name").value.trim(),
+            description: $("edit-desc").value.trim() || null,
+            role_type: $("edit-type").value,
+            status: $("edit-status").querySelector('[aria-pressed="true"]')?.dataset.value || "ACTIVE",
+            parent_role_id: parent ? Number(parent) : null
+        };
+        if (!payload.name) {
+            showFlash("Bitte einen Namen angeben", "failure");
+            return;
+        }
+        $("edit-save-btn").disabled = true;
+        try {
+            await D.send(`/api/roles/${state.role.role_id}`, "POST", payload);
+            showFlash("Rolle gespeichert", "success");
+            $("role-edit-dialog").close();
+            await reload();
+        } catch (error) {
+            showFlash(error.message, "failure");
+        } finally {
+            $("edit-save-btn").disabled = false;
+        }
+    }
+
+    // ---------- Paket ändern ----------
+
+    // Ergebnis als Flash, danach in jedem Fall neu laden (auch nach Teilerfolg).
+    async function changePackage(action, success) {
+        try {
+            await action();
+            showFlash(success, "success");
+        } catch (error) {
+            showFlash(error.message, "failure");
+        }
+        state.selected.clear();
+        try {
+            await reload();
+        } catch (error) {
+            showFlash(error.message, "failure");
+        }
+    }
+
+    function openAdd() {
+        state.addSelected.clear();
+        $("add-search").value = "";
+        const systems = new Map(state.resources.map(r => [String(r.system_id), r.system_name || String(r.system_id)]));
+        $("add-system").innerHTML = `<option value="">Alle Systeme</option>` + [...systems]
+            .sort((a, b) => D.compareText(a[1], b[1]))
+            .map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("");
+        renderAdd();
+        $("add-dialog").showModal();
+        $("add-search").focus();
+    }
+
+    function renderAdd() {
+        const query = $("add-search").value.trim();
+        const system = $("add-system").value;
+        const inPackage = new Set(packageRows().map(r => String(r.resource_id)));
+        const list = state.resources
+            .filter(r => !system || String(r.system_id) === system)
+            .filter(r => D.matches(r, query));
+
+        const groups = new Map();
+        list.forEach(r => {
+            const key = String(r.system_id);
+            if (!groups.has(key)) groups.set(key, { name: r.system_name || key, rows: [] });
+            groups.get(key).rows.push(r);
+        });
+
+        $("add-body").innerHTML = list.length
+            ? [...groups.values()].sort((a, b) => D.compareText(a.name, b.name)).map(group => `
+                <tr class="dp-group-row"><td colspan="4">${esc(group.name)} <span class="dp-count">${group.rows.length}</span></td></tr>
+                ${group.rows.sort(D.byIdentifier).map(r => {
+                    const id = String(r.resource_id);
+                    const has = inPackage.has(id);
+                    const req = state.addSelected.get(id);
+                    return `
+                        <tr class="${has ? "is-disabled" : "dp-row"} ${req ? "is-selected" : ""}" data-add="${esc(id)}">
+                            <td class="dp-col-check"><input type="checkbox" ${has || req ? "checked" : ""} ${has ? "disabled" : ""} aria-label="${esc(r.display_name)}"></td>
+                            <td><div class="dp-name"><strong>${esc(r.display_name)}</strong><span class="dp-ident">${esc(r.technical_identifier || "")}</span></div></td>
+                            <td>${esc(r.type_name || "")}</td>
+                            <td class="dp-row-req">${has
+                                ? `<span class="dp-muted">im Paket</span>`
+                                : req ? `
+                                    <div class="ui-segmented" role="group" aria-label="Bereitstellung">
+                                        ${Object.entries(D.REQUIREMENTS).map(([value, def]) =>
+                                            `<button type="button" data-req="${value}" aria-pressed="${value === req}" title="${esc(def.hint)}">${def.label}</button>`).join("")}
+                                    </div>` : ""}</td>
+                        </tr>`;
+                }).join("")}`).join("")
+            : `<tr><td colspan="4" class="dp-empty">Keine Treffer</td></tr>`;
+
+        const count = state.addSelected.size;
+        const deferred = [...state.addSelected.values()].filter(v => v === "DEFERRED").length;
+        $("add-summary").innerHTML = count
+            ? `${count} ausgewählt${deferred ? ` ${D.chip(`${deferred} Nachlieferung`, "ui-chip-purple")}` : ""}`
+            : "";
+        $("add-submit").disabled = count === 0;
+        $("add-submit").textContent = count ? `${count} hinzufügen` : "Hinzufügen";
+    }
+
+    // Die API nimmt je Aufruf eine Bereitstellung: ein Aufruf je gewähltem Wert.
+    function addResources() {
+        const byRequirement = new Map();
+        state.addSelected.forEach((requirement, id) => {
+            if (!byRequirement.has(requirement)) byRequirement.set(requirement, []);
+            byRequirement.get(requirement).push(Number(id));
+        });
+        const count = state.addSelected.size;
+        $("add-dialog").close();
+        return changePackage(async () => {
+            for (const [requirement, ids] of byRequirement) {
+                await D.send(`/api/roles/${state.role.role_id}/resources`, "POST", {
+                    resource_ids: ids,
+                    provisioning_requirement: requirement
+                });
+            }
+        }, `${count} ${count === 1 ? "Ressource" : "Ressourcen"} hinzugefügt`);
+    }
+
+    function openRequirement() {
+        const rows = selectedRows();
+        $("req-list").innerHTML = rows.map(r => `<li>${esc(r.display_name)} ${D.requirementChip(r.provisioning_requirement)}</li>`).join("");
+        $("req-reason").value = "";
+        setReqTarget("");
+        $("req-dialog").showModal();
+    }
+
+    // Ressourcen, die schon den Zielwert haben, werden übersprungen.
+    function requirementChanges() {
+        return selectedRows().filter(r => String(r.provisioning_requirement || "").toUpperCase() !== state.reqTarget);
+    }
+
+    function setReqTarget(value) {
+        state.reqTarget = value;
+        $("req-target").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.value === value)));
+        $("req-hint").textContent = D.REQUIREMENTS[value]?.hint || "";
+        $("req-submit").disabled = !value || requirementChanges().length === 0;
+    }
+
+    function saveRequirement(event) {
+        event.preventDefault();
+        const rows = requirementChanges();
+        if (!state.reqTarget || !rows.length) return;
+        const reason = $("req-reason").value.trim();
+        const label = D.REQUIREMENTS[state.reqTarget].label;
+        $("req-dialog").close();
+        return changePackage(() => D.send(`/api/roles/${state.role.role_id}/resources/requirement`, "POST", {
+            resource_ids: rows.map(r => r.resource_id),
+            requirement: state.reqTarget,
+            reason
+        }), `${rows.length} auf ${label} geändert`);
+    }
+
+    function openRemove() {
+        const rows = selectedRows();
+        const removing = new Set(rows.map(r => String(r.resource_id)));
+        $("rm-list").innerHTML = rows.map(r => `<li>${esc(r.display_name)} <span class="dp-ident">${esc(r.technical_identifier || "")}</span></li>`).join("");
+        // Bleibende Ressourcen, die eine der entfernten voraussetzen, wären danach dauerhaft blockiert.
+        const orphans = packageRows().filter(r => !removing.has(String(r.resource_id))
+            && removing.has(String(r.parent_resource_id ?? "")));
+        $("rm-warning").hidden = !orphans.length;
+        $("rm-warning").innerHTML = orphans.length
+            ? `${D.chip("Voraussetzung", "ui-chip-warning")} <span>für ${orphans.map(o => `<strong>${esc(o.display_name)}</strong>`).join(", ")}, die im Paket bleiben</span>`
+            : "";
+        $("rm-dialog").showModal();
+    }
+
+    function removeResources(event) {
+        event.preventDefault();
+        const ids = selectedRows().map(r => r.resource_id);
+        $("rm-dialog").close();
+        return changePackage(() => D.send(`/api/roles/${state.role.role_id}/resources`, "DELETE", { resource_ids: ids }),
+            `${ids.length} ${ids.length === 1 ? "Ressource" : "Ressourcen"} entfernt`);
+    }
+
+    // ---------- Events ----------
+
+    function bindEvents() {
+        $("pkg-search").addEventListener("input", event => { state.query = event.target.value.trim(); renderPackage(); });
+        $("pkg-origin").addEventListener("click", event => {
+            const btn = event.target.closest("[data-origin]");
+            if (!btn) return;
+            state.origin = btn.dataset.origin;
+            renderPackage();
+        });
+
+        $("pkg-body").addEventListener("click", event => {
+            const group = event.target.closest("[data-group]");
+            if (group && !event.target.closest("a")) {
+                const id = group.dataset.group;
+                state.collapsed.has(id) ? state.collapsed.delete(id) : state.collapsed.add(id);
+                renderPackage();
+                return;
+            }
+            const check = event.target.closest("[data-check]");
+            if (check) {
+                check.checked ? state.selected.add(check.dataset.check) : state.selected.delete(check.dataset.check);
+                check.closest("tr").classList.toggle("is-selected", check.checked);
+                updateBulk();
+                return;
+            }
+            const row = event.target.closest(".dp-row");
+            if (row && !event.target.closest("a, .dp-col-check")) openResource(row.dataset.key);
+        });
+
+        $("pkg-check-all").addEventListener("change", event => {
+            document.querySelectorAll("#pkg-body [data-check]").forEach(cb => {
+                event.target.checked ? state.selected.add(cb.dataset.check) : state.selected.delete(cb.dataset.check);
+            });
+            renderPackage();
+        });
+
+        $("pkg-toggle-all").addEventListener("click", () => {
+            const ids = packageGroups(packageRows()).map(g => String(g.id));
+            const allOpen = ids.every(id => !state.collapsed.has(id));
+            ids.forEach(id => allOpen ? state.collapsed.add(id) : state.collapsed.delete(id));
+            renderPackage();
+        });
+
+        $("bulk-clear-btn").addEventListener("click", () => { state.selected.clear(); renderPackage(); });
+        $("bulk-req-btn").addEventListener("click", openRequirement);
+        $("bulk-rm-btn").addEventListener("click", openRemove);
+        // Einzelaktionen aus dem Panel laufen über dieselben Dialoge wie die Auswahl.
+        const fromPanel = open => () => {
+            state.selected = new Set([state.panel.key]);
+            closeResource();
+            renderPackage();
+            open();
+        };
+        $("res-panel-remove").addEventListener("click", fromPanel(openRemove));
+        $("res-panel-req").addEventListener("click", fromPanel(openRequirement));
+        $("pkg-add-btn").addEventListener("click", openAdd);
+        $("role-edit-btn").addEventListener("click", openEdit);
+
+        D.bindPanel($("res-panel-overlay"), closeResource);
+        $("res-panel-body").addEventListener("click", event => {
+            if (!state.panel) return;
+            const open = event.target.closest("[data-open-resource]");
+            if (open) {
+                // Ohne Systemseite bleibt man im Panel, sofern die Voraussetzung im Paket liegt.
+                const target = packageRows().find(x => String(x.resource_id) === open.dataset.openResource);
+                if (state.canOpenSystems) {
+                    location.href = `/systems/${open.dataset.system || state.panel.resource.system_id}?res=${open.dataset.openResource}`;
+                } else if (target) {
+                    openResource(rowKey(target));
+                }
+                return;
+            }
+            const tab = event.target.closest("[data-view-task]");
+            if (!tab) return;
+            state.panel.activeTask = tab.dataset.viewTask;
+            renderPanel();
+        });
+
+        ["role-edit-dialog", "add-dialog", "req-dialog", "rm-dialog"].forEach(id => D.bindDialog($(id)));
+
+        $("edit-status").addEventListener("click", event => {
+            const btn = event.target.closest("[data-value]");
+            if (btn) setEditStatus(btn.dataset.value);
+        });
+        $("role-edit-form").addEventListener("submit", saveRole);
+
+        $("add-search").addEventListener("input", renderAdd);
+        $("add-system").addEventListener("change", renderAdd);
+        $("add-body").addEventListener("click", event => {
+            const row = event.target.closest(".dp-row[data-add]");
+            if (!row) return;
+            const id = row.dataset.add;
+            const req = event.target.closest("[data-req]");
+            if (req) {
+                state.addSelected.set(id, req.dataset.req);
+            } else if (!event.target.closest(".dp-row-req")) {
+                state.addSelected.has(id) ? state.addSelected.delete(id) : state.addSelected.set(id, "REQUIRED");
+            }
+            renderAdd();
+        });
+        $("add-submit").addEventListener("click", addResources);
+
+        $("req-target").addEventListener("click", event => {
+            const btn = event.target.closest("[data-value]");
+            if (btn) setReqTarget(btn.dataset.value);
+        });
+        $("req-form").addEventListener("submit", saveRequirement);
+        $("rm-form").addEventListener("submit", removeResources);
+    }
+}());

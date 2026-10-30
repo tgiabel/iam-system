@@ -89,6 +89,20 @@ class BacklogProxyTests(unittest.TestCase):
         self.assertEqual(denied.status_code, 403)
 
 
+class SystemDetailProxyTests(unittest.TestCase):
+    def test_detail_for_system_or_role_page(self):
+        async def detail(system_id):
+            return {"system_id": system_id, "default_handling_type": "BOT", "resources": []}
+
+        client = TestClient(app)
+        with patch("app.routes.api.api_client.get_system_detail", detail):
+            for page in ("SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"):
+                client.cookies.set("sofa_user", user_cookie(page))
+                self.assertEqual(client.get("/api/systems/9").json()["default_handling_type"], "BOT")
+            client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-USER"))
+            self.assertEqual(client.get("/api/systems/9").status_code, 403)
+
+
 class ResourceRolesProxyTests(unittest.TestCase):
     def test_roles_for_system_or_role_page(self):
         async def roles(resource_id):

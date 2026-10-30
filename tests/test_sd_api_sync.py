@@ -228,17 +228,26 @@ class RoleResourceRequirementTests(unittest.TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertEqual(json_body(response), {"detail": "Paketkonflikt: Ressource 27 schliesst 115 aus."})
 
-    def test_role_detail_page_sends_requirement_and_shows_backend_messages(self):
+    def test_role_detail_page_sends_requirement_per_call(self):
         template = read("app/templates/rollendetails.html")
         script = read("app/static/js/rollendetails.js")
 
         self.assertLess(
-            template.index("/static/js/sofa_contract.js"),
+            template.index("/static/js/detail_shared.js"),
             template.index("/static/js/rollendetails.js"),
         )
-        self.assertIn('id="add-requirement-choice"', template)
-        self.assertIn("provisioning_requirement: provisioningRequirement", script)
-        self.assertIn('await readErrorMessage(res, "Fehler beim Hinzufügen der Ressourcen")', script)
+        # Eine Bereitstellung je Aufruf; Fehlermeldungen der API kommen über DetailShared.send.
+        self.assertIn("provisioning_requirement: requirement", script)
+        self.assertIn('D.send(`/api/roles/${state.role.role_id}/resources`, "POST"', script)
+
+    def test_role_detail_page_reads_only_role_page_routes(self):
+        script = read("app/static/js/rollendetails.js")
+
+        for route in ('"/api/users"', '"/api/systems/map"', '"/api/resources"'):
+            with self.subTest(route=route):
+                self.assertNotIn(route, script)
+        self.assertIn('"/api/resources/map"', script)
+        self.assertNotIn("mock", script.lower())
 
 
 class RoleResourceReclassificationTests(unittest.TestCase):
@@ -312,69 +321,13 @@ class RoleResourceReclassificationTests(unittest.TestCase):
 
         post_mock.assert_awaited_once_with(ACCESS_BASE_URL, "/roles/17/resources/requirement", payload=payload)
 
-    def test_role_detail_requirement_helpers(self):
-        script = r"""
-const assert = require('assert');
-const fs = require('fs');
-const vm = require('vm');
-
-const context = {
-  window: {SofaContract: require('./app/static/js/sofa_contract.js')},
-  document: {addEventListener() {}},
-  console,
-};
-vm.createContext(context);
-vm.runInContext(fs.readFileSync('./app/static/js/rollendetails.js', 'utf8'), context);
-const run = code => vm.runInContext(code, context);
-
-context.probe = {provisioning_requirement: 'DEFERRED', isInherited: false};
-assert.strictEqual(run('getResourceRequirement(probe).label'), 'Nachlieferung');
-assert.ok(run('renderRequirementChip(probe)').includes('ui-chip-accent'));
-assert.strictEqual(run('formatInheritance(probe)'), 'Nein');
-
-context.probe = {provisioning_requirement: 'required', isInherited: true, source_role_name: 'Agent <Basis>'};
-assert.strictEqual(run('getResourceRequirement(probe).value'), 'REQUIRED');
-assert.ok(run('renderRequirementChip(probe)').includes('Änderbar an der Rolle Agent &lt;Basis&gt;.'));
-assert.strictEqual(run('formatInheritance(probe)'), 'Ja (Agent &lt;Basis&gt;)');
-
-context.probe = {isInherited: true};
-assert.strictEqual(run('getResourceRequirement(probe)'), null);
-assert.strictEqual(run('renderRequirementChip(probe)'), '-');
-assert.strictEqual(run('formatInheritance(probe)'), 'Ja');
-
-context.probe = {provisioning_requirement: 'OPTIONAL'};
-assert.strictEqual(run('renderRequirementChip(probe)'), '-');
-
-(async () => {
-  const response = body => ({json: async () => body});
-  context.res = response({detail: {code: 'x', message: 'Paketfehler'}});
-  assert.strictEqual(await run('readErrorMessage(res, "Fallback")'), 'Paketfehler');
-  context.res = response({detail: 'Rolle nicht gefunden.'});
-  assert.strictEqual(await run('readErrorMessage(res, "Fallback")'), 'Rolle nicht gefunden.');
-  context.res = {json: async () => { throw new Error('kein JSON'); }};
-  assert.strictEqual(await run('readErrorMessage(res, "Fallback")'), 'Fallback');
-})().catch(error => { console.error(error); process.exit(1); });
-"""
-        try:
-            completed = subprocess.run(
-                [os.environ.get("SOFA_NODE_BINARY", "node"), "-e", script],
-                cwd=str(ROOT),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-            )
-        except FileNotFoundError as exc:
-            self.fail("Node.js ist Pflicht für die JavaScript-Logiktests: {}".format(exc))
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-
     def test_role_detail_page_exposes_reclassification_controls(self):
         template = read("app/templates/rollendetails.html")
         script = read("app/static/js/rollendetails.js")
 
-        self.assertIn('id="req-resources-btn"', template)
-        self.assertIn("<th>Bereitstellung</th>", template)
-        self.assertIn('id="requirement-reason"', template)
-        self.assertIn("Laufende Prozesse und offene Tasks behalten ihre bisherige Klassifikation.", template)
+        self.assertIn('id="bulk-req-btn"', template)
+        self.assertIn(">Bereitstellung</th>", template)
+        self.assertIn('id="req-reason"', template)
         self.assertIn("/resources/requirement", script)
 
 

@@ -1524,8 +1524,9 @@ async def api_system_map(current_user=Depends(require_any_permission("SOFA-PAGE-
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+# Die Rollenseite liest hier Systemstandard und Automatisierung für das Ressourcen-Panel.
 @router.get("/systems/{system_id}")
-async def api_get_system_detail(system_id: int, current_user=Depends(require_permission("SOFA-PAGE-SYS"))):
+async def api_get_system_detail(system_id: int, current_user=Depends(require_any_permission("SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"))):
     try:
         system_detail = await api_client.get_system_detail(system_id)
         return JSONResponse(content=system_detail)

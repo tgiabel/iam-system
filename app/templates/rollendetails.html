@@ -2,336 +2,268 @@
 {% set sub_page = true %}
 {% set sub_page_back_url = "/roles" %}
 {% set sub_page_back_label = "Zurück zur Rollen-Übersicht" %}
+{% set page_title = "Rollendetails" %}
+{% block body_class %}app-fixed app-fixed-until-1100{% endblock %}
+
 {% block css %}
-<link rel="stylesheet" href="/static/css/page_w_table.css">
-<link rel="stylesheet" href="/static/css/rollendetails.css">
+<link rel="stylesheet" href="/static/css/detail.css?v={{ static_v }}">
+<link rel="stylesheet" href="/static/css/rollendetails.css?v={{ static_v }}">
 {% endblock %}
 
 {% block scripts %}
-<script src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
+<script src="/static/js/detail_shared.js?v={{ static_v }}"></script>
 <script src="/static/js/rollendetails.js?v={{ static_v }}"></script>
 {% endblock %}
 
-{% set page_title = "Rollendetails" %}
-
 {% block content %}
-<div class="page-container role-detail">
+<div class="page-container dp-page" id="role-page" data-role-id="{{ role_id }}">
 
-    <!-- ========================= -->
-    <!-- ROLLEN INFOS -->
-    <!-- ========================= -->
-    <section class="info-section role-info">
-
-        <div class="section-header">
-            <h2>Rolleninformationen</h2>
-
-            <div class="section-actions">
-                <button class="btn btn-secondary" id="edit-role-btn">
-                    Bearbeiten
-                </button>
-                <button class="btn btn-red" id="rm-resources-btn">
-                    Ressourcen entfernen
-                </button>
-                <button class="btn btn-secondary" id="req-resources-btn">
-                    Bereitstellung ändern
-                </button>
-                <button class="btn btn-primary" id="add-resource-btn">
-                    Ressource hinzufügen
-                </button>
+    <header class="ui-card dp-head">
+        <div class="dp-head-main">
+            <span class="ui-section-kicker">Rolle</span>
+            <div class="dp-title-row">
+                <h1 class="dp-title" id="role-title">…</h1>
+                <span class="dp-title-row" id="role-chips"></span>
             </div>
+            <p class="dp-desc" id="role-desc"></p>
+            <dl class="dp-meta" id="role-meta"></dl>
         </div>
-
-        <div class="info-grid">
-
-            {% set fields = [
-                {"label": "ID", "id": "role-id", "type": "text", "readonly": true},
-                {"label": "Name", "id": "role-name", "type": "text"},
-                {"label": "Typ", "id": "role-type", "type": "select"},
-                {"label": "Status", "id": "role-status", "type": "select"},
-                {"label": "Erbt von", "id": "role-parent", "type": "select"},
-                {"label": "Beschreibung", "id": "role-description", "type": "textarea"}
-            ] %}
-
-            {% for field in fields %}
-            <div class="info-field">
-                <label><strong>{{ field.label }}</strong></label>
-
-                <!-- TEXT VIEW -->
-                <span class="field-text" id="{{ field.id }}-text">-</span>
-
-                <!-- INPUT -->
-                {% if field.type == "text" %}
-                    <input
-                        class="field-input input-txt"
-                        id="{{ field.id }}-input"
-                        type="text"
-                        {% if field.readonly %}readonly{% endif %}
-                        style="display:none;"
-                    >
-                {% elif field.type == "select" %}
-                    <select
-                        class="field-input"
-                        id="{{ field.id }}-input"
-                        style="display:none;"
-                    ></select>
-                {% elif field.type == "textarea" %}
-                    <textarea
-                        class="field-input input-txt"
-                        id="{{ field.id }}-input"
-                        style="display:none;"
-                    ></textarea>
-                {% endif %}
-            </div>
-            {% endfor %}
-
+        <div class="dp-head-actions">
+            <button type="button" class="btn btn-secondary" id="role-edit-btn">Bearbeiten</button>
         </div>
+    </header>
 
-        <!-- SAVE / CANCEL -->
-        <div class="edit-actions" id="edit-actions" style="display:none; margin-top:16px; gap:16px;">
-            <button class="btn btn-secondary" id="cancel-edit-btn">
-                Abbrechen
-            </button>
-            <button class="btn btn-primary" id="save-edit-btn">
-                Speichern
-            </button>
-        </div>
-
-    </section>
-
-    <!-- ========================= -->
-    <!-- RESSOURCEN -->
-    <!-- ========================= -->
-    <section class="info-section resources-section">
-
-        <div class="section-header"><h2>Rollenpaket</h2></div>
-
-        <!-- Alle Ressourcen -->
-        <div class="resource-card resource-card-wide disabled" data-type="all">
-            <div class="resource-card-content">
-                <h3>Alle Ressourcen</h3>
-                <span class="resource-count" id="count-all">-</span>
-            </div>
-        </div>
-
-        <!-- 2x2 Grid -->
-        <div class="resource-card-grid">
-
-            <div class="resource-card disabled" data-type="own">
-                <div class="resource-card-content">
-                    <h4>Eigene Ressourcen</h4>
-                    <span class="resource-count" id="count-own">-</span>
+    <div class="dp-layout dp-fill">
+        <section class="ui-card dp-card" aria-labelledby="pkg-title">
+            <header class="dp-card-head">
+                <h2 class="dp-card-title" id="pkg-title">Rollenpaket <span class="dp-count" id="pkg-count">0</span></h2>
+                <input type="search" class="ui-input dp-search" id="pkg-search" placeholder="Suchen" aria-label="Rollenpaket durchsuchen" autocomplete="off">
+                <div class="dp-card-tools">
+                    <div class="ui-segmented" id="pkg-origin" role="group" aria-label="Herkunft" hidden>
+                        <button type="button" data-origin="all" aria-pressed="true">Alle</button>
+                        <button type="button" data-origin="own" aria-pressed="false">Eigene</button>
+                        <button type="button" data-origin="inherited" aria-pressed="false">Geerbt</button>
+                    </div>
+                    <button type="button" class="ui-icon-button dp-icon-button" id="pkg-toggle-all" aria-label="Alle aufklappen" title="Alle aufklappen"></button>
+                    <button type="button" class="btn btn-primary btn-sm" id="pkg-add-btn">+ Ressourcen</button>
                 </div>
-            </div>
-
-            <div class="resource-card disabled" data-type="inherited">
-                <div class="resource-card-content">
-                    <h4>Geerbte Ressourcen</h4>
-                    <span class="resource-count" id="count-inherited">-</span>
-                </div>
-            </div>
-
-        </div>
-
-        <div class="table-wrapper" style="margin-top:16px;">
-            <table id="resources-table">
+            </header>
+            <div class="dp-scroll">
+            <table class="dp-table dp-table-fixed">
                 <thead>
                     <tr>
-                        <th>Kürzel</th>
-                        <th>Name</th>
-                        <th>Ressourcen-Typ</th>
-                        <th>Zuweisung</th>
-                        <th>Bereitstellung</th>
-                        <th>Geerbt</th>
+                        <th class="dp-col-check"><input type="checkbox" id="pkg-check-all" aria-label="Alle eigenen auswählen"></th>
+                        <th>Ressource</th>
+                        <th class="dp-col-type">Typ</th>
+                        <th class="dp-col-req">Bereitstellung</th>
+                        <th class="dp-col-origin" data-col="origin" hidden>Herkunft</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <!-- Wird dynamisch per JS gefüllt -->
-                </tbody>
+                <tbody id="pkg-body"></tbody>
             </table>
-        </div>
-    </section>
-
-    <!-- ========================= -->
-    <!-- RESOURCE OVERLAY (gleich wie bei Systemen) -->
-    <!-- ========================= -->
-    <div id="resource-overlay" class="resource-overlay ui-modal-overlay">
-        <div class="resource-modal ui-modal ui-modal-compact">
-            <div class="resource-header ui-modal-header">
-                <div class="resource-header-copy">
-                    <span class="ui-section-kicker">Rollenpaket</span>
-                    <h3 id="resource-modal-title" class="ui-section-title">Ressource bearbeiten</h3>
-                    <p id="resource-modal-subtitle" class="resource-modal-subtitle">
-                        Ressourcen einer Rolle ansehen, hinzufügen oder gezielt entfernen.
-                    </p>
-                </div>
-                <button class="ui-icon-button" id="resource-close-btn" type="button" aria-label="Modal schließen">&times;</button>
             </div>
-
-            <div class="resource-body ui-modal-body">
-                <div id="resource-table-container" class="resource-stack-panel" style="display: block;">
-                    <section class="resource-panel">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Entfernen</span>
-                                <h4 class="resource-panel-title">Aktuelle Ressourcen</h4>
-                            </div>
-                        </div>
-                        <div class="resource-list-table-wrap">
-                            <table id="table-current" class="resource-list-table">
-                                <tbody id="res-list-current"></tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <section class="resource-panel resource-panel-danger">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Vormerkung</span>
-                                <h4 class="resource-panel-title">Zum Entfernen markiert</h4>
-                            </div>
-                        </div>
-                        <div class="resource-list-table-wrap">
-                            <table id="table-remove" class="resource-list-table">
-                                <tbody id="res-list-to-remove"></tbody>
-                            </table>
-                        </div>
-                    </section>
-                </div>
-
-                <div id="resource-select-container" class="resource-stack-panel">
-                    <section class="resource-panel">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Hinzufügen</span>
-                                <h4 class="resource-panel-title">System auswählen</h4>
-                                <p class="resource-panel-copy">Wähle ein System und markiere die Ressourcen, die dem Rollenpaket hinzugefügt werden sollen.</p>
-                            </div>
-                        </div>
-                        <div class="form-field">
-                            <label for="sys-select">System</label>
-                            <select id="sys-select" class="form-input">
-                                <option value="">-- Bitte wählen --</option>
-                            </select>
-                        </div>
-                    </section>
-
-                    <section id="available-res-container" class="resource-panel" style="display: none;">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Auswahl</span>
-                                <h4 class="resource-panel-title">Verfügbare Ressourcen</h4>
-                            </div>
-                        </div>
-                        <div class="resource-list-table-wrap resource-list-table-scroll">
-                            <table id="table-available" class="resource-list-table">
-                                <tbody id="res-list-available"></tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <section class="resource-panel resource-panel-accent">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Vormerkung</span>
-                                <h4 class="resource-panel-title">Zum Hinzufügen ausgewählt</h4>
-                            </div>
-                        </div>
-                        <div class="resource-list-table-wrap">
-                            <table id="table-add" class="resource-list-table">
-                                <tbody id="res-list-to-add"></tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <section class="resource-panel">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Bereitstellung</span>
-                                <h4 class="resource-panel-title">Klassifikation der Auswahl</h4>
-                                <p class="resource-panel-copy">Gilt für alle ausgewählten Ressourcen. Ressourcen mit unterschiedlicher Klassifikation in getrennten Schritten hinzufügen.</p>
-                            </div>
-                        </div>
-                        <div class="requirement-choice" id="add-requirement-choice" role="radiogroup" aria-label="Bereitstellung der Auswahl"></div>
-                    </section>
-                </div>
-
-                <div id="resource-requirement-container" class="resource-stack-panel" style="display:none;">
-                    <section class="resource-panel">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Ziel</span>
-                                <h4 class="resource-panel-title">Neue Bereitstellung</h4>
-                                <p class="resource-panel-copy">Gilt nur für künftige Tasks. Laufende Prozesse und offene Tasks behalten ihre bisherige Klassifikation.</p>
-                            </div>
-                        </div>
-                        <div class="requirement-choice" id="target-requirement-choice" role="radiogroup" aria-label="Neue Bereitstellung"></div>
-                    </section>
-
-                    <section class="resource-panel">
-                        <div class="resource-panel-heading">
-                            <div>
-                                <span class="ui-section-kicker">Auswahl</span>
-                                <h4 class="resource-panel-title">Eigene Ressourcen</h4>
-                                <p class="resource-panel-copy">Geerbte Ressourcen werden an der Rolle umklassifiziert, der sie direkt gehören.</p>
-                            </div>
-                        </div>
-                        <div class="resource-list-table-wrap resource-list-table-scroll">
-                            <table class="resource-list-table">
-                                <tbody id="res-list-requirement"></tbody>
-                            </table>
-                        </div>
-                    </section>
-
-                    <section class="resource-panel resource-panel-accent">
-                        <div class="form-field">
-                            <label for="requirement-reason">Begründung</label>
-                            <textarea id="requirement-reason" class="form-input requirement-reason" rows="3" required
-                                placeholder="z. B. Kundensystem, Bereitstellung dauert Wochen"></textarea>
-                        </div>
-                    </section>
-                </div>
-
-                <div id="resource-form-container" class="resource-form-layout" style="display:none;">
-                    <section class="resource-panel">
-                        <div class="resource-panel-heading">
-                            <span class="ui-section-kicker">Ressource</span>
-                            <h4 class="resource-panel-title">Stammdaten</h4>
-                        </div>
-                        <div class="resource-form-grid">
-                            <div class="form-field">
-                                <label for="res-display-name">Name</label>
-                                <input type="text" id="res-display-name" class="form-input">
-                            </div>
-                            <div class="form-field">
-                                <label for="res-technical-id">Technischer Identifier</label>
-                                <input type="text" id="res-technical-id" class="form-input">
-                            </div>
-                            <div class="form-field">
-                                <label for="res-type">Typ</label>
-                                <select id="res-type" class="form-input"></select>
-                            </div>
-                            <div class="form-field">
-                                <label for="res-handling">Bearbeitungstyp</label>
-                                <select id="res-handling" class="form-input">
-                                    <option value="INTERNAL">Internal</option>
-                                    <option value="BOT">Bot</option>
-                                    <option value="EXTERNAL">External</option>
-                                </select>
-                            </div>
-                        </div>
-                    </section>
+            <div class="ui-bulk-bar dp-bulk" id="pkg-bulk" hidden>
+                <span class="dp-bulk-count" id="pkg-bulk-count"></span>
+                <div class="ui-bulk-bar-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="bulk-req-btn">Bereitstellung ändern</button>
+                    <button type="button" class="btn btn-red btn-sm" id="bulk-rm-btn">Entfernen</button>
+                    <button type="button" class="ui-flat-button" id="bulk-clear-btn">Auswahl aufheben</button>
                 </div>
             </div>
+        </section>
 
-            <div class="resource-actions ui-modal-footer">
-                <button class="btn btn-secondary" id="resource-cancel-btn" type="button">Abbrechen</button>
-                <button class="btn btn-primary" id="resource-save-btn" type="button">Speichern</button>
+        <aside class="dp-side">
+            <section class="ui-card dp-card" aria-labelledby="assigned-title">
+                <header class="dp-card-head">
+                    <h2 class="dp-card-title" id="assigned-title">Zugewiesen an <span class="dp-count" id="assigned-count">0</span></h2>
+                </header>
+                <div class="dp-sync-note" id="sync-note" hidden>
+                    <span class="dp-dot" aria-hidden="true"></span>
+                    <span id="sync-note-text"></span>
+                    <button type="button" class="ui-flat-button" id="sync-note-btn" hidden>Abgleichen</button>
+                </div>
+                <ul class="dp-people" id="assigned-list"></ul>
+            </section>
+            <section class="ui-card dp-card" id="children-card" aria-labelledby="children-title" hidden>
+                <header class="dp-card-head">
+                    <h2 class="dp-card-title" id="children-title">Erben von dieser Rolle <span class="dp-count" id="children-count">0</span></h2>
+                </header>
+                <ul class="dp-people" id="children-list"></ul>
+            </section>
+        </aside>
+    </div>
+
+    <!-- Ressource ansehen (lesend, Bearbeiten im System) -->
+    <div class="ui-modal-overlay ui-sidepanel-overlay" id="res-panel-overlay">
+        <div class="ui-modal ui-sidepanel dp-panel" role="dialog" aria-modal="true" aria-labelledby="res-panel-title">
+            <div class="ui-modal-header">
+                <div class="dp-panel-title">
+                    <span class="ui-section-kicker" id="res-panel-kicker"></span>
+                    <h2 id="res-panel-title"></h2>
+                    <span class="dp-ident" id="res-panel-ident"></span>
+                    <div class="dp-panel-chips" id="res-panel-chips"></div>
+                </div>
+                <button type="button" class="ui-icon-button" data-panel-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body" id="res-panel-body"></div>
+            <div class="ui-sidepanel-actions">
+                <div class="dp-actions-start" id="res-panel-own-actions">
+                    <button type="button" class="btn btn-red" id="res-panel-remove">Entfernen</button>
+                    <button type="button" class="btn btn-secondary" id="res-panel-req">Bereitstellung ändern</button>
+                </div>
+                <a class="btn btn-secondary dp-actions-start" id="res-panel-source-link" href="#" hidden></a>
+                <a class="btn btn-secondary" id="res-panel-system-link" href="#">Im System bearbeiten</a>
             </div>
         </div>
     </div>
 
-</div>
+    <!-- Rolle bearbeiten -->
+    <dialog class="ui-dialog dp-dialog" id="role-edit-dialog" aria-labelledby="role-edit-title">
+        <form method="dialog" class="dp-form" id="role-edit-form">
+            <div class="ui-modal-header">
+                <h2 id="role-edit-title">Rolle bearbeiten</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body">
+                <div class="dp-form-grid">
+                    <div class="dp-field dp-span-2">
+                        <label for="edit-name">Name</label>
+                        <input class="ui-input" id="edit-name" required maxlength="100">
+                    </div>
+                    <div class="dp-field">
+                        <label for="edit-type">Typ</label>
+                        <select class="ui-input" id="edit-type"></select>
+                    </div>
+                    <div class="dp-field">
+                        <span class="dp-field-label">Status</span>
+                        <div class="ui-segmented" id="edit-status" role="group" aria-label="Status">
+                            <button type="button" data-value="ACTIVE">Aktiv</button>
+                            <button type="button" data-value="INACTIVE">Inaktiv</button>
+                        </div>
+                    </div>
+                    <div class="dp-field dp-span-2">
+                        <label for="edit-parent">Erbt von</label>
+                        <select class="ui-input" id="edit-parent"></select>
+                    </div>
+                    <div class="dp-field dp-span-2">
+                        <label for="edit-desc">Beschreibung</label>
+                        <textarea class="ui-textarea" id="edit-desc" rows="3"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="ui-modal-footer">
+                <div class="dp-footer-end">
+                    <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                    <button type="submit" class="btn btn-primary" id="edit-save-btn">Speichern</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
 
-<script>
-</script>
+    <!-- Ressourcen hinzufügen -->
+    <dialog class="ui-dialog dp-dialog dp-dialog-wide" id="add-dialog" aria-labelledby="add-title">
+        <div class="ui-modal-header">
+            <h2 id="add-title">Ressourcen hinzufügen</h2>
+            <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+        </div>
+        <div class="ui-modal-body">
+            <div class="dp-picker-tools">
+                <input type="search" class="ui-input" id="add-search" placeholder="Name oder Identifier" aria-label="Ressourcen suchen" autocomplete="off">
+                <select class="ui-input" id="add-system" aria-label="System"></select>
+            </div>
+            <div class="dp-picker">
+                <table class="dp-table dp-table-fixed">
+                    <colgroup><col class="dp-col-check"><col><col class="dp-col-type"><col class="dp-col-add-req"></colgroup>
+                    <tbody id="add-body"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="ui-modal-footer">
+            <div class="dp-footer-option" id="add-summary"></div>
+            <div class="dp-footer-end">
+                <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="add-submit" disabled>Hinzufügen</button>
+            </div>
+        </div>
+    </dialog>
+
+    <!-- Bereitstellung ändern -->
+    <dialog class="ui-dialog dp-dialog" id="req-dialog" aria-labelledby="req-title">
+        <form method="dialog" class="dp-form" id="req-form">
+            <div class="ui-modal-header">
+                <h2 id="req-title">Bereitstellung ändern</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body">
+                <ul class="dp-selected-list" id="req-list"></ul>
+                <div class="dp-field">
+                    <span class="dp-field-label">Neu</span>
+                    <div class="ui-segmented" id="req-target" role="group" aria-label="Neue Bereitstellung">
+                        <button type="button" data-value="REQUIRED" aria-pressed="false">Erforderlich</button>
+                        <button type="button" data-value="DEFERRED" aria-pressed="false">Nachlieferung</button>
+                    </div>
+                    <span class="ui-field-hint" id="req-hint"></span>
+                </div>
+                <div class="dp-field">
+                    <label for="req-reason">Begründung</label>
+                    <textarea class="ui-textarea" id="req-reason" rows="3" required placeholder="z. B. Kundensystem, Bereitstellung dauert Wochen"></textarea>
+                </div>
+            </div>
+            <div class="ui-modal-footer">
+                <div class="dp-footer-end">
+                    <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                    <button type="submit" class="btn btn-primary" id="req-submit" disabled>Ändern</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Zuweisungen an das geänderte Rollenpaket anpassen -->
+    <dialog class="ui-dialog dp-dialog" id="sync-dialog" aria-labelledby="sync-title">
+        <form method="dialog" class="dp-form" id="sync-form">
+            <div class="ui-modal-header">
+                <h2 id="sync-title">Zuweisungen anpassen</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body">
+                <div class="dp-sync-summary" id="sync-summary"></div>
+                <div class="dp-sync-people" id="sync-people"></div>
+                <div class="dp-options" role="radiogroup" aria-label="Vorgehen">
+                    <label class="dp-option"><input type="radio" name="sync-mode" value="tasks" checked><strong>Aufgaben erstellen</strong><span>Je Person und Ressource eine Aufgabe</span></label>
+                    <label class="dp-option" id="sync-direct-option"><input type="radio" name="sync-mode" value="direct"><strong>Als umgesetzt übernehmen</strong><span>Zuweisungen sofort aktiv, Entzüge bleiben Aufgaben</span></label>
+                    <label class="dp-option"><input type="radio" name="sync-mode" value="later"><strong>Später</strong><span>Personen bleiben als nicht aktuell markiert</span></label>
+                </div>
+                <div class="dp-field" id="sync-reason-field" hidden>
+                    <label for="sync-reason">Begründung</label>
+                    <textarea class="ui-textarea" id="sync-reason" rows="2" placeholder="z. B. im Zielsystem bereits für alle eingerichtet"></textarea>
+                </div>
+            </div>
+            <div class="ui-modal-footer">
+                <div class="dp-footer-end">
+                    <button type="submit" class="btn btn-primary" id="sync-submit">Aufgaben erstellen</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Entfernen bestätigen -->
+    <dialog class="ui-dialog dp-dialog" id="rm-dialog" aria-labelledby="rm-title">
+        <form method="dialog" class="dp-form" id="rm-form">
+            <div class="ui-modal-header">
+                <h2 id="rm-title">Aus dem Rollenpaket entfernen</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body">
+                <ul class="dp-selected-list" id="rm-list"></ul>
+                <p class="dp-warning" id="rm-warning" hidden></p>
+            </div>
+            <div class="ui-modal-footer">
+                <div class="dp-footer-end">
+                    <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                    <button type="submit" class="btn btn-red">Entfernen</button>
+                </div>
+            </div>
+        </form>
+    </dialog>
+</div>
 {% endblock %}
