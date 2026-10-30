@@ -8,8 +8,10 @@ from unittest.mock import patch
 from tests.test_computers import AsyncMock, json_body, make_http_error, run_async
 
 from app.api_client import api_client
+from app.authz import build_authorization_context_from_user
 from app.routes.api import (
     api_add_resources_to_role,
+    api_reevaluate_role_resources,
     api_set_role_resource_requirement,
     api_start_onboarding_process,
     router,
@@ -329,6 +331,55 @@ class RoleResourceReclassificationTests(unittest.TestCase):
         self.assertIn(">Bereitstellung</th>", template)
         self.assertIn('id="req-reason"', template)
         self.assertIn("/resources/requirement", script)
+
+
+class RoleReevaluationProxyTests(unittest.TestCase):
+    @staticmethod
+    def user(*permissions):
+        return build_authorization_context_from_user(
+            {"user_id": 7},
+            {"accessible_pages": [{"identifier": p} for p in permissions]},
+        )
+
+    @patch("app.routes.api.api_client.reevaluate_role_resources", new_callable=AsyncMock)
+    def test_dry_run_is_the_default_and_forwards_the_filter(self, reevaluate_mock):
+        reevaluate_mock.return_value = {"role_id": 17, "dry_run": True, "users": []}
+
+        response = run_async(api_reevaluate_role_resources(
+            17, {"resource_ids": [425, 427], "initiator_user_id": 999}, current_user=self.user("SOFA-PAGE-ROLE"),
+        ))
+
+        self.assertEqual(response.status_code, 200)
+        reevaluate_mock.assert_awaited_once_with(17, {"initiator_user_id": 7, "dry_run": True, "resource_ids": [425, 427]})
+
+    @patch("app.routes.api.api_client.reevaluate_role_resources", new_callable=AsyncMock)
+    def test_apply_needs_the_role_assignment_function(self, reevaluate_mock):
+        reevaluate_mock.return_value = {"role_id": 17, "dry_run": False}
+        payload = {"dry_run": False, "expected_preview_token": "t1"}
+
+        response = run_async(api_reevaluate_role_resources(17, dict(payload), current_user=self.user("SOFA-PAGE-ROLE")))
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(reevaluate_mock.await_count, 0)
+
+        for permission in ("SOFA-FN-RL", "SOFA-FN-ALL"):
+            with self.subTest(permission=permission):
+                response = run_async(api_reevaluate_role_resources(
+                    17, dict(payload), current_user=self.user("SOFA-PAGE-ROLE", permission),
+                ))
+                self.assertEqual(response.status_code, 200)
+        reevaluate_mock.assert_awaited_with(17, {"initiator_user_id": 7, "dry_run": False, "expected_preview_token": "t1"})
+
+    @patch("app.routes.api.api_client.reevaluate_role_resources", new_callable=AsyncMock)
+    def test_outdated_preview_passes_through(self, reevaluate_mock):
+        detail = {"code": "reevaluation_preview_outdated", "message": "Vorschau veraltet", "context": {"preview": {"preview_token": "t2"}}}
+        reevaluate_mock.side_effect = make_http_error(409, {"detail": detail})
+
+        response = run_async(api_reevaluate_role_resources(
+            17, {"dry_run": False, "expected_preview_token": "t1"}, current_user=self.user("SOFA-PAGE-ROLE", "SOFA-FN-RL"),
+        ))
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(json_body(response), {"detail": detail})
 
 
 class BrowserErrorMessageTests(unittest.TestCase):

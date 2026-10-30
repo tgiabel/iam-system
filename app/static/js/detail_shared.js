@@ -42,7 +42,8 @@
         return data;
     }
 
-    // Schreibt per POST/DELETE; Fehler der API kommen als Error mit deren Meldung zurück.
+    // Schreibt per POST/DELETE; Fehler der API kommen als Error mit deren Meldung zurück,
+    // dazu status und data (die Antwort, etwa detail.code und detail.context).
     async function send(url, method, payload) {
         const options = { method };
         if (payload !== undefined) {
@@ -56,7 +57,12 @@
             throw new Error("Netzwerkfehler oder Server nicht erreichbar");
         }
         const data = await response.json().catch(() => null);
-        if (!response.ok) throw new Error(utils.apiErrorMessage(data, `Speichern fehlgeschlagen (${response.status})`));
+        if (!response.ok) {
+            const error = new Error(utils.apiErrorMessage(data, `Speichern fehlgeschlagen (${response.status})`));
+            error.status = response.status;
+            error.data = data;
+            throw error;
+        }
         return data;
     }
 

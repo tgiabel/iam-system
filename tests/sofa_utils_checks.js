@@ -11,6 +11,8 @@ assert.equal(utils.withParams("/api/x", {}), "/api/x");
 assert.equal(utils.apiErrorMessage({ detail: "Typ ist noch in Verwendung" }), "Typ ist noch in Verwendung");
 assert.equal(utils.apiErrorMessage({ detail: [{ loc: ["body", "slug"], msg: "String should match pattern '^[A-Z0-9]{2,10}$'" }] }), "String should match pattern '^[A-Z0-9]{2,10}$'");
 assert.equal(utils.apiErrorMessage({ error: "Request Error" }), "Request Error");
+assert.equal(utils.apiErrorMessage({ detail: { code: "reevaluation_conflict", message: "Erneut ausführen", context: {} } }), "Erneut ausführen");
+assert.equal(utils.apiErrorMessage({ detail: { code: "x" } }, "Fallback"), "Fallback");
 assert.equal(utils.apiErrorMessage(null, "Fallback"), "Fallback");
 assert.equal(utils.apiErrorMessage({ detail: [] }, "Fallback"), "Fallback");
 

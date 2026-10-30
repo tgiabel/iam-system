@@ -3,6 +3,7 @@
     "use strict";
 
     const D = window.DetailShared;
+    const R = window.RoleReevaluation;
     const esc = D.esc;
     const $ = id => document.getElementById(id);
 
@@ -28,8 +29,12 @@
         addSelected: new Map(),
         reqTarget: "",
         panel: null,
+        // Dialog „Zuweisungen anpassen“: { dryRun (Request der Vorschau), result, notice }
+        sync: null,
         canOpenSystems: false,
-        canOpenUsers: false
+        canOpenUsers: false,
+        // Anwenden legt Aufgaben an (Proxy verlangt SOFA-FN-RL)
+        canApply: false
     };
 
     document.addEventListener("DOMContentLoaded", init);
@@ -38,6 +43,7 @@
         state.roleId = $("role-page").dataset.roleId;
         state.canOpenSystems = hasPerm("SOFA-PAGE-SYS");
         state.canOpenUsers = hasPerm("SOFA-PAGE-USER");
+        state.canApply = hasPerm("SOFA-FN-RL");
         bindEvents();
         try {
             const [backlogs, resourceMap] = await Promise.all([
@@ -63,10 +69,14 @@
         loadDrift();
     }
 
-    // Dry Run der Reevaluierung (liest nur): Wer weicht heute vom Paket ab?
+    function reevaluate(request) {
+        return D.send(`/api/roles/${state.role.role_id}/resources/reevaluate`, "POST", request);
+    }
+
+    // Dry Run ohne Filter (liest nur): Wer weicht heute vom Paket ab?
     async function loadDrift() {
         try {
-            const data = await D.send(`/api/roles/${state.role.role_id}/resources/reevaluate`, "POST", { dry_run: true });
+            const data = await reevaluate(R.dryRunAfter("drift"));
             state.drift = new Map((data?.users || []).map(u => [String(u.user_id), u]));
         } catch (error) {
             state.drift = new Map();
@@ -432,27 +442,36 @@
             showFlash("Bitte einen Namen angeben", "failure");
             return;
         }
+        const change = R.roleChange(state.role, payload);
         $("edit-save-btn").disabled = true;
         try {
             await D.send(`/api/roles/${state.role.role_id}`, "POST", payload);
-            showFlash("Rolle gespeichert", "success");
-            $("role-edit-dialog").close();
-            await reload();
         } catch (error) {
             showFlash(error.message, "failure");
+            return;
         } finally {
             $("edit-save-btn").disabled = false;
         }
+        $("role-edit-dialog").close();
+        try {
+            await reload();
+        } catch (error) {
+            showFlash(error.message, "failure");
+        }
+        await reconcile(R.dryRunAfter(change), "Rolle gespeichert");
     }
 
     // ---------- Paket ändern ----------
 
-    // Ergebnis als Flash, danach in jedem Fall neu laden (auch nach Teilerfolg).
-    async function changePackage(action, success) {
+    // Fehler als Flash, danach in jedem Fall neu laden (auch nach Teilerfolg). action(saved) trägt die
+    // gespeicherten Ressourcen ein; nur für diese läuft danach der Dry Run.
+    async function changePackage(kind, action, success) {
+        const saved = [];
+        let failed = false;
         try {
-            await action();
-            showFlash(success, "success");
+            await action(saved);
         } catch (error) {
+            failed = true;
             showFlash(error.message, "failure");
         }
         state.selected.clear();
@@ -461,6 +480,7 @@
         } catch (error) {
             showFlash(error.message, "failure");
         }
+        await reconcile(R.dryRunAfter(kind, saved), failed ? null : success);
     }
 
     function openAdd() {
@@ -531,12 +551,13 @@
         });
         const count = state.addSelected.size;
         $("add-dialog").close();
-        return changePackage(async () => {
+        return changePackage("add", async saved => {
             for (const [requirement, ids] of byRequirement) {
                 await D.send(`/api/roles/${state.role.role_id}/resources`, "POST", {
                     resource_ids: ids,
                     provisioning_requirement: requirement
                 });
+                saved.push(...ids);
             }
         }, `${count} ${count === 1 ? "Ressource" : "Ressourcen"} hinzugefügt`);
     }
@@ -568,7 +589,7 @@
         const reason = $("req-reason").value.trim();
         const label = D.REQUIREMENTS[state.reqTarget].label;
         $("req-dialog").close();
-        return changePackage(() => D.send(`/api/roles/${state.role.role_id}/resources/requirement`, "POST", {
+        return changePackage("requirement", () => D.send(`/api/roles/${state.role.role_id}/resources/requirement`, "POST", {
             resource_ids: rows.map(r => r.resource_id),
             requirement: state.reqTarget,
             reason
@@ -593,8 +614,114 @@
         event.preventDefault();
         const ids = selectedRows().map(r => r.resource_id);
         $("rm-dialog").close();
-        return changePackage(() => D.send(`/api/roles/${state.role.role_id}/resources`, "DELETE", { resource_ids: ids }),
-            `${ids.length} ${ids.length === 1 ? "Ressource" : "Ressourcen"} entfernt`);
+        return changePackage("remove", async saved => {
+            await D.send(`/api/roles/${state.role.role_id}/resources`, "DELETE", { resource_ids: ids });
+            saved.push(...ids);
+        }, `${ids.length} ${ids.length === 1 ? "Ressource" : "Ressourcen"} entfernt`);
+    }
+
+    // ---------- Zuweisungen anpassen ----------
+
+    // Nach einer Änderung bzw. „Abgleichen“: Dry Run; mit Betroffenen der Dialog, sonst nur die Meldung
+    // samt knapper Hinweise. dryRun null = keine Änderung am wirksamen Paket. upToDate: Meldung nur, wenn
+    // niemand betroffen ist (Abgleichen).
+    async function reconcile(dryRun, success, upToDate = "") {
+        let result = null;
+        if (dryRun) {
+            try {
+                result = await reevaluate(dryRun);
+            } catch (error) {
+                if (success) showFlash(success, "success");
+                showFlash(error.message, "failure");
+                return;
+            }
+        }
+        if (R.needsDialog(result)) {
+            if (success) showFlash(success, "success");
+            openSync(dryRun, result);
+            return;
+        }
+        const message = [success || upToDate, ...R.hintLines(result)].filter(Boolean).join(" · ");
+        if (message) showFlash(message, "success");
+    }
+
+    function openSync(dryRun, result) {
+        state.sync = { dryRun, result, notice: "" };
+        renderSync();
+        const mode = state.canApply ? "tasks" : "later";
+        document.querySelector(`input[name="sync-mode"][value="${mode}"]`).checked = true;
+        syncMode();
+        $("sync-dialog").showModal();
+    }
+
+    function renderSync() {
+        const { result, notice } = state.sync;
+        const s = R.summary(result);
+        $("sync-summary").innerHTML = `${s.people} ${s.people === 1 ? "Person" : "Personen"}`
+            + (s.grants ? D.chip(`${s.grants} ${s.grants === 1 ? "Zuweisung" : "Zuweisungen"}`, "ui-chip-success") : "")
+            + (s.revokes ? D.chip(`${s.revokes} ${s.revokes === 1 ? "Entzug" : "Entzüge"}`, "ui-chip-error") : "");
+
+        $("sync-people").innerHTML = R.people(result, state.role.role_id).map(p => `
+            <div class="dp-sync-person">
+                <span class="dp-avatar" aria-hidden="true">${esc(initials(p.first_name, p.last_name))}</span>
+                <span class="dp-people-name">${esc(`${p.first_name} ${p.last_name}`.trim() || p.pnr)}
+                    <small>${esc(p.pnr)}${p.via.length ? ` · über ${esc(p.via.join(", "))}` : ""}</small></span>
+                <div class="dp-chip-list">${p.changes.map(c => `
+                    <span class="ui-chip ui-chip-sm ${c.blocked ? "ui-status-blocked" : "ui-chip-neutral"}"${c.blocked ? ` title="Voraussetzung fehlt, Aufgabe blockiert"` : ""}><span class="${c.grant ? "dp-op-assign" : "dp-op-revoke"}">${c.grant ? "+" : "−"}</span> ${esc(c.name)}</span>`).join("")}</div>
+            </div>`).join("");
+
+        const hints = R.hintLines(result);
+        $("sync-hints").hidden = !hints.length;
+        $("sync-hints").innerHTML = hints.map(h => `<li>${esc(h)}</li>`).join("");
+        $("sync-warning").hidden = !notice;
+        $("sync-warning").textContent = notice;
+
+        const tasks = $("sync-tasks-option");
+        const canRun = state.canApply && R.needsDialog(result);
+        tasks.querySelector("input").disabled = !canRun;
+        tasks.title = state.canApply ? "" : "Recht SOFA-FN-RL fehlt";
+        if (!canRun) document.querySelector('input[name="sync-mode"][value="later"]').checked = true;
+        syncMode();
+    }
+
+    function syncMode() {
+        const mode = document.querySelector('input[name="sync-mode"]:checked')?.value || "later";
+        const tasks = R.summary(state.sync?.result).tasks;
+        $("sync-submit").textContent = mode === "tasks"
+            ? (tasks ? `${tasks} ${tasks === 1 ? "Aufgabe" : "Aufgaben"} erstellen` : "Anwenden")
+            : "Später";
+    }
+
+    // (a) mit dem Token der Vorschau; (b) und Schließen ohne Entscheidung rufen nichts auf.
+    async function submitSync(event) {
+        event.preventDefault();
+        const mode = document.querySelector('input[name="sync-mode"]:checked')?.value;
+        if (mode !== "tasks") {
+            $("sync-dialog").close();
+            return;
+        }
+        const sync = state.sync;
+        $("sync-submit").disabled = true;
+        try {
+            const result = await reevaluate(R.applyRequest(sync.dryRun, sync.result));
+            showFlash(R.appliedMessage(result), "success");
+            $("sync-dialog").close();
+        } catch (error) {
+            const failure = R.applyFailure(error);
+            if (state.sync !== sync) return;
+            if (failure.kind === "outdated") {
+                sync.result = failure.preview;
+                sync.notice = "Vorschau hat sich geändert";
+                renderSync();
+            } else if (failure.kind === "conflict") {
+                sync.notice = "Zuweisungen haben sich gerade geändert. Bitte erneut ausführen.";
+                renderSync();
+            } else {
+                showFlash(error.message, "failure");
+            }
+        } finally {
+            $("sync-submit").disabled = false;
+        }
     }
 
     // ---------- Events ----------
@@ -676,7 +803,16 @@
             renderPanel();
         });
 
-        ["role-edit-dialog", "add-dialog", "req-dialog", "rm-dialog"].forEach(id => D.bindDialog($(id)));
+        ["role-edit-dialog", "add-dialog", "req-dialog", "rm-dialog", "sync-dialog"].forEach(id => D.bindDialog($(id)));
+
+        $("sync-note-btn").addEventListener("click", () => reconcile(R.dryRunAfter("drift"), null, "Alle aktuell"));
+        $("sync-dialog").addEventListener("change", event => { if (event.target.name === "sync-mode") syncMode(); });
+        $("sync-form").addEventListener("submit", submitSync);
+        // Nach (a), (b) oder Schließen: „nicht aktuell“ neu aus dem Dry Run ohne Filter.
+        $("sync-dialog").addEventListener("close", () => {
+            state.sync = null;
+            loadDrift();
+        });
 
         $("edit-status").addEventListener("click", event => {
             const btn = event.target.closest("[data-value]");

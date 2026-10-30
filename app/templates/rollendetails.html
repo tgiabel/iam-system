@@ -12,6 +12,7 @@
 
 {% block scripts %}
 <script src="/static/js/detail_shared.js?v={{ static_v }}"></script>
+<script src="/static/js/role_reevaluation.js?v={{ static_v }}"></script>
 <script src="/static/js/rollendetails.js?v={{ static_v }}"></script>
 {% endblock %}
 
@@ -80,7 +81,7 @@
                 <div class="dp-sync-note" id="sync-note" hidden>
                     <span class="dp-dot" aria-hidden="true"></span>
                     <span id="sync-note-text"></span>
-                    <button type="button" class="ui-flat-button" id="sync-note-btn" hidden>Abgleichen</button>
+                    <button type="button" class="ui-flat-button" id="sync-note-btn">Abgleichen</button>
                 </div>
                 <ul class="dp-people" id="assigned-list"></ul>
             </section>
@@ -218,7 +219,7 @@
         </form>
     </dialog>
 
-    <!-- Zuweisungen an das geänderte Rollenpaket anpassen -->
+    <!-- Zuweisungen an das Rollenpaket anpassen (Vorschau aus dem Dry Run) -->
     <dialog class="ui-dialog dp-dialog" id="sync-dialog" aria-labelledby="sync-title">
         <form method="dialog" class="dp-form" id="sync-form">
             <div class="ui-modal-header">
@@ -228,14 +229,12 @@
             <div class="ui-modal-body">
                 <div class="dp-sync-summary" id="sync-summary"></div>
                 <div class="dp-sync-people" id="sync-people"></div>
+                <ul class="dp-hints" id="sync-hints" hidden></ul>
+                <p class="dp-warning" id="sync-warning" hidden></p>
                 <div class="dp-options" role="radiogroup" aria-label="Vorgehen">
-                    <label class="dp-option"><input type="radio" name="sync-mode" value="tasks" checked><strong>Aufgaben erstellen</strong><span>Je Person und Ressource eine Aufgabe</span></label>
-                    <label class="dp-option" id="sync-direct-option"><input type="radio" name="sync-mode" value="direct"><strong>Als umgesetzt übernehmen</strong><span>Zuweisungen sofort aktiv, Entzüge bleiben Aufgaben</span></label>
+                    <label class="dp-option" id="sync-tasks-option"><input type="radio" name="sync-mode" value="tasks"><strong>Aufgaben erstellen</strong><span>Je Person und Ressource eine Aufgabe</span></label>
+                    <label class="dp-option"><input type="radio" name="sync-mode" value="direct" disabled><strong>Als umgesetzt übernehmen</strong><span>Zuweisungen sofort aktiv, Entzüge bleiben Aufgaben</span></label>
                     <label class="dp-option"><input type="radio" name="sync-mode" value="later"><strong>Später</strong><span>Personen bleiben als nicht aktuell markiert</span></label>
-                </div>
-                <div class="dp-field" id="sync-reason-field" hidden>
-                    <label for="sync-reason">Begründung</label>
-                    <textarea class="ui-textarea" id="sync-reason" rows="2" placeholder="z. B. im Zielsystem bereits für alle eingerichtet"></textarea>
                 </div>
             </div>
             <div class="ui-modal-footer">

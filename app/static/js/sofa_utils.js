@@ -36,7 +36,9 @@
             const messages = detail.map(item => item?.msg || "").filter(Boolean);
             return messages.length ? messages.join(", ") : fallback;
         }
-        return (typeof detail === "string" && detail) || data?.error || fallback;
+        // Strukturierte Fehler der SD-API: detail: {code, message, context}
+        const message = detail && typeof detail === "object" ? detail.message : detail;
+        return (typeof message === "string" && message) || data?.error || fallback;
     }
 
     return { apiErrorMessage, escapeHtml, fetchJson, withParams };

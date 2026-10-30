@@ -1743,11 +1743,20 @@ async def api_update_role(role_id: int, payload: dict, current_user=Depends(requ
 
 @router.post("/roles/{role_id}/resources/reevaluate")
 async def api_reevaluate_role_resources(role_id: int, payload: dict, current_user=Depends(require_permission("SOFA-PAGE-ROLE"))):
+    # Ohne Angabe nur Vorschau. Anwenden legt Aufgaben an und verlangt zusätzlich das Recht der Skill-Zuweisung.
+    dry_run = _coerce_bool(payload.get("dry_run"), default=True)
+    if not dry_run and not current_user.has_permission("SOFA-FN-RL"):
+        return JSONResponse(
+            content={"detail": {"code": "page_access_denied", "message": "Kein Zugriff auf 'SOFA-FN-RL'."}},
+            status_code=403,
+        )
     try:
-        request_payload = {
-            "initiator_user_id": current_user.user_id,
-            "dry_run": _coerce_bool(payload.get("dry_run"), default=False),
-        }
+        request_payload = {"initiator_user_id": current_user.user_id, "dry_run": dry_run}
+        # Filter und Token prüft die SD-API (422 bzw. 409).
+        if payload.get("resource_ids") is not None:
+            request_payload["resource_ids"] = payload["resource_ids"]
+        if payload.get("expected_preview_token"):
+            request_payload["expected_preview_token"] = payload["expected_preview_token"]
         result = await api_client.reevaluate_role_resources(role_id, request_payload)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
