@@ -270,7 +270,6 @@
                     <span class="dp-avatar" aria-hidden="true">${esc(initials(p.first_name, p.last_name))}</span>
                     <span class="dp-people-name">${esc(name)}<small>${esc(p.pnr || "")}</small></span>
                     ${drift ? `<span class="dp-dot" title="Rollenpaket nicht aktuell"></span>` : ""}`;
-                // Deep-Link in die Userverwaltung gibt es noch nicht (vorgemerkt).
                 return `<li>${state.canOpenUsers ? `<a href="/users?user_id=${esc(p.user_id)}">${inner}</a>` : `<span>${inner}</span>`}</li>`;
             }).join("")
             : `<li class="dp-empty">Niemand</li>`;

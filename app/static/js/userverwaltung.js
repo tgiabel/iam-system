@@ -4659,6 +4659,13 @@ function cacheDOM() {
     DOM.sofaAccessCloseBtn = document.getElementById("sofa-access-close-btn");
 }
 
+// Deep-Link /users?user_id=<id> (z. B. aus den Rollendetails): positive ganze Zahl, sonst null.
+function userIdFromSearch(search) {
+    const raw = new URLSearchParams(search).get("user_id");
+    const id = Number(raw);
+    return raw && Number.isInteger(id) && id > 0 ? id : null;
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     cacheDOM();
     loadPersistedFilters();
@@ -4680,4 +4687,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     processRescheduleModalController.init();
     offboardModalController.init();
     rehireModalController.init();
+
+    // open lädt die Details selbst; die Person muss nicht in der gefilterten Liste stehen.
+    const linkedUserId = userIdFromSearch(location.search);
+    if (linkedUserId !== null) sidebarController.open(linkedUserId);
 });

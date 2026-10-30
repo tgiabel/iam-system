@@ -322,6 +322,26 @@ assert.strictEqual(c.isInactiveUser({is_active: null}), false);
 """)
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
+    def test_deep_link_opens_the_person_panel(self):
+        completed = run_node(r"""
+const assert = require('assert');
+const fs = require('fs');
+const vm = require('vm');
+
+const context = {window: {SofaContract: require('./app/static/js/sofa_contract.js')}, document: {addEventListener() {}}, URLSearchParams, console};
+vm.createContext(context);
+vm.runInContext(fs.readFileSync('./app/static/js/userverwaltung.js', 'utf8'), context);
+const id = search => context.userIdFromSearch(search);
+
+assert.strictEqual(id('?user_id=821'), 821);
+assert.strictEqual(id('?q=x&user_id=7'), 7);
+for (const search of ['', '?user_id=', '?user_id=0', '?user_id=-3', '?user_id=1.5', '?user_id=abc', '?user_id=12abc']) {
+  assert.strictEqual(id(search), null, search);
+}
+""")
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("sidebarController.open(linkedUserId)", read("app/static/js/userverwaltung.js"))
+
     def test_panel_buttons_are_toggled_and_hidden_really_hides(self):
         script = read("app/static/js/userverwaltung.js")
         styles = read("app/static/css/userverwaltung.css")
