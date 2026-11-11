@@ -195,8 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const directTargets = [
             { selector: '[data-nav-target="dashboard"]', match: pathMatches(currentPath, "/") },
             { selector: '[data-nav-target="tasks"]', match: pathMatches(currentPath, "/tasks") },
-            { selector: '[data-nav-target="tools"]', match: ["/workspace", "/tools", "/reports"].some(path => pathMatches(currentPath, path)) },
-            { selector: '[data-nav-target="login"]', match: pathMatches(currentPath, "/login") }
+            { selector: '[data-nav-target="tools"]', match: ["/workspace", "/tools", "/reports"].some(path => pathMatches(currentPath, path)) }
         ];
 
         directTargets.forEach(({ selector, match }) => {
