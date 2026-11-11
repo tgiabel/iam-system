@@ -332,7 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
             { page: "SOFA-PAGE-USER", path: "/users" },
             { page: "SOFA-PAGE-SYS", path: "/systems" },
             { page: "SOFA-PAGE-ROLE", path: "/roles" },
-            { page: "SOFA-TOOL-IKS", path: "/iks" },
+            { page: "SOFA-TOOL-IKS", path: "/reports/iks" },
         ];
         return pageTargets.find(target => pathMatches(currentPath, target.path))?.page || null;
     }
