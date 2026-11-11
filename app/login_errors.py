@@ -22,14 +22,6 @@ NOTICES = {
     "missing_fields": "Bitte Personalnummer und Passwort eingeben.",
 }
 
-# Zustaende der Designvorschau /dev/auth-preview; dieselben Texte wie im echten Login.
-PREVIEW_MESSAGES = {
-    "credentials": BAD_CREDENTIALS,
-    "not_enabled": NOT_ALLOWED,
-    "unavailable": UNAVAILABLE,
-    "limited": RATE_LIMITED,
-}
-
 
 def login_error_message(exc: BaseException) -> str:
     """Klartext fuer die Login-Seite; technische Details gehoeren ins Serverlog.

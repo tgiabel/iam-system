@@ -486,19 +486,25 @@ class WordTemplatesApiTests(unittest.TestCase):
     def test_delete_word_document_returns_500_for_unexpected_errors(self, delete_mock):
         delete_mock.side_effect = Exception("boom")
 
-        response = run_async(api_delete_word_document("doc-1", current_user=self.current_user))
+        with self.assertLogs("uvicorn.error", level="ERROR"):
+            response = run_async(api_delete_word_document("doc-1", current_user=self.current_user))
 
         self.assertEqual(response.status_code, 500)
-        self.assertEqual(json_body(response), {"error": "boom"})
+        body = json_body(response)
+        self.assertNotIn("boom", json.dumps(body))
+        self.assertIn(body["error_id"], body["error"])
 
     @patch("app.routes.api.api_client.list_word_templates", new_callable=AsyncMock)
     def test_list_templates_returns_500_for_unexpected_errors(self, list_mock):
         list_mock.side_effect = Exception("boom")
 
-        response = run_async(api_list_word_templates(current_user=self.current_user))
+        with self.assertLogs("uvicorn.error", level="ERROR"):
+            response = run_async(api_list_word_templates(current_user=self.current_user))
 
         self.assertEqual(response.status_code, 500)
-        self.assertEqual(json_body(response), {"error": "boom"})
+        body = json_body(response)
+        self.assertNotIn("boom", json.dumps(body))
+        self.assertIn(body["error_id"], body["error"])
 
 
 class UserHistoryApiTests(unittest.TestCase):

@@ -30,6 +30,7 @@ from app.routes.shared import (
     _coerce_int,
     _error_content_from_response,
     _filter_tasks_for_scope,
+    internal_error,
     _get_relevant_task_or_raise,
     _normalize_events_payload,
     _normalize_session_user,
@@ -228,7 +229,7 @@ async def api_list_word_templates(current_user=Depends(require_permission("SOFA-
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/dataprocessing/word-template-users")
@@ -266,7 +267,7 @@ async def api_list_word_template_users(current_user=Depends(require_permission("
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/dataprocessing/word-templates/{template_id}")
@@ -280,7 +281,7 @@ async def api_get_word_template(template_id: str, current_user=Depends(require_p
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/dataprocessing/word-documents")
@@ -298,7 +299,7 @@ async def api_list_word_documents(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/word-templates")
@@ -326,7 +327,7 @@ async def api_create_word_template(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
     finally:
         await template_file.close()
 
@@ -342,7 +343,7 @@ async def api_update_word_template(template_id: str, payload: dict, current_user
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/word-templates/{template_id}/render")
@@ -356,7 +357,7 @@ async def api_render_word_template(template_id: str, payload: dict, current_user
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/word-templates/{template_id}/prefill")
@@ -374,7 +375,7 @@ async def api_prefill_word_template(template_id: str, payload: dict, current_use
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/word-templates/{template_id}/render-download")
@@ -405,7 +406,7 @@ async def api_render_download_word_template(template_id: str, payload: dict, cur
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/dataprocessing/word-documents/{document_id}/download")
@@ -431,7 +432,7 @@ async def api_download_word_document(document_id: str, current_user=Depends(requ
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.delete("/dataprocessing/word-documents/{document_id}")
@@ -445,7 +446,7 @@ async def api_delete_word_document(document_id: str, current_user=Depends(requir
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 _DOC_TYPE_EXTENSIONS = {".dotx": "word", ".pdf": "pdf"}
@@ -477,7 +478,7 @@ async def api_list_doc_templates(doc_type: str | None = None, current_user=Depen
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/dataprocessing/doc-templates/{template_id}")
@@ -491,7 +492,7 @@ async def api_get_doc_template(template_id: str, doc_type: str, current_user=Dep
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/dataprocessing/doc-documents")
@@ -510,7 +511,7 @@ async def api_list_doc_documents(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/doc-templates")
@@ -546,7 +547,7 @@ async def api_create_doc_template(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
     finally:
         await template_file.close()
 
@@ -562,7 +563,7 @@ async def api_update_doc_template(template_id: str, doc_type: str, payload: dict
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/doc-templates/{template_id}/render")
@@ -576,7 +577,7 @@ async def api_render_doc_template(template_id: str, doc_type: str, payload: dict
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/doc-templates/{template_id}/prefill")
@@ -594,7 +595,7 @@ async def api_prefill_doc_template(template_id: str, doc_type: str, payload: dic
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/dataprocessing/doc-templates/{template_id}/render-download")
@@ -626,7 +627,7 @@ async def api_render_download_doc_template(template_id: str, doc_type: str, payl
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/dataprocessing/doc-documents/{document_id}/download")
@@ -653,7 +654,7 @@ async def api_download_doc_document(document_id: str, doc_type: str, current_use
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.delete("/dataprocessing/doc-documents/{document_id}")
@@ -667,7 +668,7 @@ async def api_delete_doc_document(document_id: str, doc_type: str, current_user=
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/q-manager/queues/all")
@@ -681,7 +682,7 @@ async def api_list_qmanager_queues(current_user=Depends(require_permission("SOFA
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/q-manager/queues/overview")
@@ -695,7 +696,7 @@ async def api_list_qmanager_queues_overview(current_user=Depends(require_permiss
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/q-manager/queues/{queue_id}/members")
@@ -709,7 +710,7 @@ async def api_list_qmanager_queue_members(queue_id: str, current_user=Depends(re
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.patch("/q-manager/queues/{queue_id}/members")
@@ -727,7 +728,7 @@ async def api_patch_qmanager_queue_members(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/q-manager/users/{user_id}/queues")
@@ -741,7 +742,7 @@ async def api_list_qmanager_user_queues(user_id: str, current_user=Depends(requi
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.patch("/q-manager/users/{user_id}/queues")
@@ -759,7 +760,7 @@ async def api_update_qmanager_user_queues(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 # Reporting
@@ -795,7 +796,7 @@ async def api_get_ivr_call_details(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 def _session_payload(request: Request) -> dict:
@@ -914,7 +915,7 @@ async def api_users(
         users = await api_client.list_users(is_active=is_active)
         return JSONResponse(content=users)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/users/{user_id}/details")
@@ -923,7 +924,7 @@ async def api_user_details(user_id: int, current_user=Depends(require_permission
         user_detail = await api_client.get_user_details(user_id)
         return JSONResponse(content=user_detail)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/users/{user_id}/account-history")
@@ -934,7 +935,7 @@ async def api_user_account_history(user_id: int, current_user=Depends(require_pe
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/users/{user_id}/role-history")
@@ -950,7 +951,7 @@ async def api_user_role_history(
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/users/{user_id}/account-logs")
@@ -966,7 +967,7 @@ async def api_user_account_logs(
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 def _build_account_identifier_request(payload: dict) -> dict:
@@ -1004,7 +1005,7 @@ async def api_set_user_account_identifier(
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/users/{user_id}/resource-history")
@@ -1020,7 +1021,7 @@ async def api_user_resource_history(
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/events")
@@ -1033,7 +1034,7 @@ async def api_events(
         events = await api_client.get_events(from_date, to_date)
         return JSONResponse(content=_normalize_events_payload(events))
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/backlogs")
@@ -1050,7 +1051,7 @@ async def api_task_backlogs(current_user=Depends(require_any_permission("SOFA-PA
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/users/{user_id}/sofa-access/setup")
@@ -1065,7 +1066,7 @@ async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=D
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/users/{user_id}/sofa-access/reset-password")
@@ -1080,7 +1081,7 @@ async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/users/{user_id}/sofa-access/revoke")
@@ -1092,7 +1093,7 @@ async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/roles/{role_id}/resources")
@@ -1101,7 +1102,7 @@ async def api_role_resources(role_id: int, current_user=Depends(require_any_perm
         resources = await api_client.get_role_resources(role_id)
         return JSONResponse(content=resources)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/tasks/view")
@@ -1123,7 +1124,7 @@ async def api_list_tasks(
         )
         return JSONResponse(content=_filter_tasks_for_scope(tasks, current_user))
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.patch("/tasks/{task_id}/assign")
@@ -1144,7 +1145,7 @@ async def api_assign_task(task_id: int, user_id: int, current_user=Depends(requi
     except HTTPException as exc:
         raise exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        return internal_error(exc)
 
 
 @router.delete("/tasks/{task_id}/assign")
@@ -1162,7 +1163,7 @@ async def api_unassign_task(
     except HTTPException as exc:
         raise exc
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/tasks/{task_id}/comments")
@@ -1182,7 +1183,7 @@ async def api_add_task_comment(task_id: int, payload: dict, current_user=Depends
     except HTTPException as exc:
         raise exc
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/tasks/bulk-assign")
@@ -1194,7 +1195,7 @@ async def api_bulk_assign_tasks(payload: dict, current_user=Depends(require_perm
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/tasks/bulk-release")
@@ -1206,7 +1207,7 @@ async def api_bulk_release_tasks(payload: dict, current_user=Depends(require_per
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/tasks/{task_id}/complete")
@@ -1239,7 +1240,7 @@ async def api_complete_task(task_id: int, payload: dict, current_user=Depends(re
     except HTTPException as exc:
         raise exc
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/tasks/dispatch_bot")
@@ -1254,7 +1255,7 @@ async def api_dispatch_bot(payload: dict, current_user=Depends(require_permissio
     except HTTPException as exc:
         raise exc
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/tasks/{task_id}/send_mail")
@@ -1279,7 +1280,7 @@ async def api_send_task_mail(task_id: int, payload: dict, current_user=Depends(r
     except HTTPException as exc:
         raise exc
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/account/change-password")
@@ -1321,7 +1322,7 @@ async def api_change_own_password(payload: dict, current_user=Depends(require_lo
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/onboarding")
@@ -1395,7 +1396,7 @@ async def api_start_onboarding_process(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 REHIRE_TEXT_FIELDS = ("pnr", "first_name", "last_name", "birth_date", "telephone", "entry_date")
@@ -1425,7 +1426,7 @@ async def api_preview_rehire(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/rehire")
@@ -1453,7 +1454,7 @@ async def api_start_rehire(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/onboarding-ext")
@@ -1471,7 +1472,7 @@ async def api_start_ext_onboarding_process(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 # Die SD-API filtert nur die neuen Listen selbst; SOFA wendet auf alle dieselbe Backlog-Regel an.
@@ -1495,7 +1496,7 @@ async def api_tasks_overview(
     except HTTPException as exc:
         raise exc
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/resources/mail_template")
@@ -1507,7 +1508,7 @@ async def api_get_mail_template(payload: dict, current_user=Depends(require_logi
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/tasks/{task_id}/history")
@@ -1519,7 +1520,7 @@ async def api_task_logs(task_id, current_user=Depends(require_permission("SOFA-P
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/systems")
@@ -1530,7 +1531,7 @@ async def api_system_overview(current_user=Depends(require_permission("SOFA-PAGE
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/systems")
@@ -1542,7 +1543,7 @@ async def api_create_system(payload: dict, current_user=Depends(require_permissi
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/systems/map")
@@ -1557,7 +1558,7 @@ async def api_system_map(current_user=Depends(require_any_permission("SOFA-PAGE-
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 # Die Rollenseite liest hier Systemstandard und Automatisierung für das Ressourcen-Panel.
@@ -1569,7 +1570,7 @@ async def api_get_system_detail(system_id: int, current_user=Depends(require_any
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/systems/{system_id}")
@@ -1581,7 +1582,7 @@ async def api_update_system(system_id: int, payload: dict, current_user=Depends(
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/systems/{system_id}/resource-types")
@@ -1592,7 +1593,7 @@ async def api_get_system_resource_types(system_id: int, current_user=Depends(req
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/systems/{system_id}/resource-types")
@@ -1606,7 +1607,7 @@ async def api_create_system_resource_type(system_id: int, payload: dict, current
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.delete("/systems/{system_id}/resource-types/{type_id}")
@@ -1617,7 +1618,7 @@ async def api_delete_system_resource_type(system_id: int, type_id: int, current_
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/resources/{resource_id}/roles")
@@ -1628,7 +1629,7 @@ async def api_get_resource_roles(resource_id: int, current_user=Depends(require_
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/resources/map")
@@ -1651,7 +1652,7 @@ async def api_resource_map(current_user=Depends(require_any_permission("SOFA-PAG
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/resources")
@@ -1678,7 +1679,7 @@ async def api_list_resources(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/resources")
@@ -1690,7 +1691,7 @@ async def api_create_system_resource(payload: dict, current_user=Depends(require
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/resources/{resource_id}")
@@ -1702,7 +1703,7 @@ async def api_update_system_resource(resource_id: int, payload: dict, current_us
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/roles")
@@ -1713,7 +1714,7 @@ async def api_role_overview(current_user=Depends(require_permission("SOFA-PAGE-R
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/roles")
@@ -1725,7 +1726,7 @@ async def api_create_role(payload: dict, current_user=Depends(require_permission
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/roles/map")
@@ -1740,7 +1741,7 @@ async def api_role_map(current_user=Depends(require_any_permission("SOFA-PAGE-RO
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/roles/{role_id}")
@@ -1751,7 +1752,7 @@ async def api_get_role_detail(role_id: int, current_user=Depends(require_permiss
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/roles/{role_id}")
@@ -1763,7 +1764,7 @@ async def api_update_role(role_id: int, payload: dict, current_user=Depends(requ
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/roles/{role_id}/resources/reevaluate")
@@ -1787,7 +1788,7 @@ async def api_reevaluate_role_resources(role_id: int, payload: dict, current_use
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/skill_assignment")
@@ -1799,7 +1800,7 @@ async def api_start_skill_assignment_process(payload: dict, current_user=Depends
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/change")
@@ -1813,7 +1814,7 @@ async def api_start_primary_role_change_process(payload: dict, current_user=Depe
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/tmp_role")
@@ -1825,7 +1826,7 @@ async def api_start_temporary_role_process(payload: dict, current_user=Depends(r
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/offboarding")
@@ -1837,7 +1838,7 @@ async def api_start_offboarding_process(payload: dict, current_user=Depends(requ
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/training_schedule")
@@ -1884,7 +1885,7 @@ async def api_start_training_schedule_process(payload: dict, current_user=Depend
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/skill_revocation")
@@ -1898,7 +1899,7 @@ async def api_start_skill_removal_process(payload: dict, current_user=Depends(re
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/{process_id}/cancel")
@@ -1912,7 +1913,7 @@ async def api_cancel_process(process_id: int, payload: dict, current_user=Depend
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/{process_id}/reschedule/preview")
@@ -1930,7 +1931,7 @@ async def api_preview_process_reschedule(
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.patch("/processes/{process_id}/reschedule")
@@ -1948,7 +1949,7 @@ async def api_reschedule_process(
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/iks/catalog")
@@ -1980,7 +1981,7 @@ async def api_get_iks_catalog(authz=Depends(require_permission("SOFA-TOOL-IKS"))
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 # The backend contract also exposes GET /sofa/iks/reports/{report_id}. It is
@@ -2037,7 +2038,7 @@ async def api_create_iks_report(payload: dict, authz=Depends(require_permission(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/iks/reports/{report_id}/exports/{export_format}")
@@ -2072,7 +2073,7 @@ async def api_download_iks_report_export(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/processes/iks")
@@ -2089,7 +2090,7 @@ async def api_start_iks_process_report(payload: dict, current_user=Depends(requi
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 PROVISIONING_REQUIREMENTS = frozenset({"REQUIRED", "DEFERRED"})
@@ -2121,7 +2122,7 @@ async def api_add_resources_to_role(role_id: int, resource_ids: dict, current_us
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/roles/{role_id}/resources/requirement")
@@ -2168,7 +2169,7 @@ async def api_set_role_resource_requirement(
             status_code=exc.response.status_code,
         )
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.delete("/roles/{role_id}/resources")
@@ -2184,7 +2185,7 @@ async def api_remove_resources_from_role(role_id: int, resource_ids: dict, curre
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 # Störungsprotokoll
@@ -2197,7 +2198,7 @@ async def api_list_incidents(status_filter: str | None = None, authz=Depends(req
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/stoerung/incidents/active")
@@ -2208,7 +2209,7 @@ async def api_list_active_incidents(authz=Depends(require_login)):
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/stoerung/incidents/{incident_id}")
@@ -2219,7 +2220,7 @@ async def api_get_incident(incident_id: str, authz=Depends(require_permission("S
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/stoerung/incidents")
@@ -2242,7 +2243,7 @@ async def api_create_incident(payload: dict, authz=Depends(require_permission("S
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.patch("/stoerung/incidents/{incident_id}/status")
@@ -2253,7 +2254,7 @@ async def api_update_incident_status(incident_id: str, payload: dict, authz=Depe
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/stoerung/incidents/{incident_id}/entries")
@@ -2264,7 +2265,7 @@ async def api_append_incident_entry(incident_id: str, payload: dict, authz=Depen
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.post("/stoerung/incidents/{incident_id}/close")
@@ -2275,7 +2276,7 @@ async def api_close_incident(incident_id: str, payload: dict, authz=Depends(requ
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.patch("/stoerung/incidents/{incident_id}/contributors")
@@ -2286,7 +2287,7 @@ async def api_update_incident_contributors(incident_id: str, payload: dict, auth
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 
 
 @router.get("/stoerung/roles")
@@ -2297,7 +2298,7 @@ async def api_stoerung_roles(authz=Depends(require_permission("SOFA-TOOL-SLOG"))
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
+        return internal_error(exc)
 # Rechnerverwaltung
 
 def _computer_proxy_error(exc: Exception) -> JSONResponse:
@@ -2306,7 +2307,7 @@ def _computer_proxy_error(exc: Exception) -> JSONResponse:
             content=_error_content_from_response(exc.response),
             status_code=exc.response.status_code,
         )
-    return JSONResponse(content={"error": str(exc)}, status_code=500)
+    return internal_error(exc)
 
 
 @router.get("/computers/overview")

@@ -1,5 +1,5 @@
 /* Sitzungshinweise und Wiederanmeldung im Tab (static/js/session.js). Gestaltung wie der freigegebene
-   Mock (auth_preview.css): Banner in Amber, Anmeldekarte wie auf der Loginseite. Deckende Flaechen. */
+   Mock: Banner in Amber, Anmeldekarte wie auf der Loginseite. Deckende Flaechen. */
 .session-banner {
     position: fixed;
     left: 50%;

@@ -1,6 +1,6 @@
 # Login und Sitzungsübergänge
 
-Stand: 11.11.2026. Phasen A und B der echten Umstellung auf `feat/login-redesign`
+Stand: 11.11.2026. Phasen A bis C der echten Umstellung auf `feat/login-redesign`
 umgesetzt und gegen sd-api-dev geprüft (Vertrag: SD-API `docs/sofa-session-contract.md`).
 Nicht auf `main`: Der Stand verlangt SD-API API-1 und den Dienstschlüssel in Prod.
 
@@ -39,8 +39,12 @@ rein lesend; `no-store` auf allen Antworten außer `/static`.
 - Gate löscht ein abgelaufenes Cookie nicht mehr, wenn die Route gerade ein neues
   gesetzt hat (betraf auch `POST /login` mit altem Cookie).
 
-**Phase C (offen):** keine Exception-Texte mehr nach außen (`{"error": str(exc)}`
-in `app/routes/api.py`).
+**Phase C (umgesetzt):** Unerwartete Fehler in `app/routes/api.py` antworten über
+`internal_error()` (`app/routes/shared.py`) mit neutralem Text und Fehler-ID; die
+Details stehen mit derselben ID im Log. Nicht erreichbares Backend bekommt einen
+eigenen Text. Fehlerkörper der SD-API ohne JSON werden nicht mehr roh weitergereicht.
+`str(exc)` bleibt nur für selbst geschriebene Validierungsmeldungen (`ValueError` →
+400); `tests/test_error_responses.py` prüft das.
 
 ## Abgestimmte Richtung
 
@@ -58,41 +62,8 @@ in `app/routes/api.py`).
 
 ## Dev-Vorschau
 
-`https://sofa-dev/dev/auth-preview`
-
-Zustände werden unten im gesonderten DEV-Bereich gewählt. Ein Beispiel für einen
-geschützten Direkteinstieg:
-
-`https://sofa-dev/dev/auth-preview?state=login&next=%2Ftasks%3Fbacklog%3Ddemo`
-
-Verfügbare Zustände: `login`, `credentials`, `not_enabled`, `unavailable`, `limited`,
-`expired`, `logout`, `authenticated`, `denied`, `draft`. Die Fehlertexte kommen aus
-`app/login_errors.py` (`PREVIEW_MESSAGES`) und lauten wie im echten Login.
-
-- Zum simulierten Anmelden eine beliebige Beispiel-Personalnummer und ein
-  Beispielpasswort eingeben. Keine echten Zugangsdaten verwenden.
-- In den Fehlerzuständen schlägt auch Absenden entsprechend fehl. Zum Prüfen der
-  Erholung den Zustand wieder auf „Anmeldung“ stellen; die Personalnummer bleibt.
-- Nach erfolgreicher Simulation zeigt eine eigene Beispielansicht das interne
-  Rücksprungziel. Es findet keine Weiterleitung zu einer echten geschützten Seite
-  statt. Unzulässige Ziele fallen auf `/` zurück.
-- In der Beispielansicht eine Notiz eingeben, „4 Stunden ohne Aktivität simulieren“
-  wählen und erneut anmelden. Der Entwurf bleibt im DOM dieses Tabs erhalten,
-  ohne Speicherung oder automatisches Wiederholen einer Schreibaktion.
-- „Abmelden“ leert den Entwurf. Neuladen verwirft ihn ebenfalls. Die Simulation
-  bildet bewusst keine dauerhafte Sitzung oder tabübergreifende Identität nach.
-- Theme-Wechsel gilt nur für die Vorschau und überschreibt nicht das gespeicherte
-  Theme der Anwendung. Hell, dunkel und Servodata sind verfügbar.
-
-Eigene Route, eigenes Template und eigene CSS-/JS-Dateien. Die Route wird nur bei
-`APP_ENV=development` registriert. Kein Zugriff auf API oder echte Sitzungen,
-keine Cookie-Schreibzugriffe. Formularfelder haben in dieser Simulation keine
-`name`-Attribute; Zugangsdaten werden auch bei einem versehentlichen nativen Submit
-nicht in eine URL serialisiert. Der Submit wird erst durch JS aktiviert.
-
-Die echte Loginseite, Auth-Abhängigkeiten, Rollen-/Systemdetails sowie globale
-Styles und `base.js` bleiben unverändert. Die einzige Integration ist die
-Registrierung des separaten Routers im bestehenden Dev-Block in `app/main.py`.
+Die Designvorschau `/dev/auth-preview` war die Vorlage für Loginseite, Ablaufbanner und
+Wiederanmeldung. Sie wurde nach der Umsetzung entfernt (11.11.2026).
 
 ## Zielverhalten für die echte Integration
 

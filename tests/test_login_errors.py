@@ -35,10 +35,6 @@ class LoginErrorMessageTests(unittest.TestCase):
     def test_rate_limit_has_its_own_text(self):
         self.assertEqual(login_error_message(status_error(429)), login_errors.RATE_LIMITED)
 
-    def test_preview_uses_the_real_login_texts(self):
-        texts = {login_errors.BAD_CREDENTIALS, login_errors.NOT_ALLOWED, login_errors.UNAVAILABLE, login_errors.RATE_LIMITED}
-        self.assertEqual(set(login_errors.PREVIEW_MESSAGES.values()), texts)
-
     def test_network_failures_are_wrapped_by_the_api_client(self):
         dns = wrapped(httpx.ConnectError("[Errno -3] Temporary failure in name resolution"))
         self.assertEqual(login_error_message(dns), login_errors.UNAVAILABLE)

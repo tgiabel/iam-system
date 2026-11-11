@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 import os
+import secrets
 import time
 
 import httpx  # type: ignore
 from fastapi import HTTPException, Request  # type: ignore
+from fastapi.responses import JSONResponse  # type: ignore
 from fastapi.templating import Jinja2Templates  # type: ignore
 
 from app.api_client import api_client
@@ -38,14 +41,32 @@ def _normalize_text(value) -> str:
     return str(value or "").strip().lower()
 
 
+logger = logging.getLogger("uvicorn.error")
+
+INTERNAL_ERROR = "Bei der Verarbeitung ist ein Fehler aufgetreten. Bitte versuche es erneut."
+BACKEND_UNREACHABLE = "Der Dienst ist gerade nicht erreichbar. Bitte versuche es später erneut."
+
+
+def internal_error(exc: BaseException) -> JSONResponse:
+    """500 ohne Exception-Text: Ausnahmen enthalten Backend-URLs, Hostnamen und Interna.
+    Die Details stehen mit derselben Fehler-ID im Serverlog."""
+    error_id = secrets.token_hex(4)
+    cause = exc if isinstance(exc, httpx.HTTPError) else exc.__cause__
+    message = BACKEND_UNREACHABLE if isinstance(cause, httpx.RequestError) else INTERNAL_ERROR
+    logger.error("API-Fehler %s: %r", error_id, exc, exc_info=exc)
+    return JSONResponse(content={"error": f"{message} (Fehler-ID {error_id})", "error_id": error_id}, status_code=500)
+
+
 def _error_content_from_response(response: httpx.Response) -> dict:
+    """Fehlerkoerper der SD-API weiterreichen (strukturiert, ohne Interna). Kein JSON (z. B.
+    Proxy-Fehlerseite): nur ein neutraler Text, nie der rohe Antworttext."""
     try:
         payload = response.json()
         if isinstance(payload, dict):
             return payload
         return {"detail": payload}
     except Exception:
-        return {"detail": response.text or "Unbekannter Fehler"}
+        return {"detail": "Die Anfrage ist fehlgeschlagen."}
 
 
 def _coerce_int(value):

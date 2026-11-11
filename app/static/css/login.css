@@ -1,4 +1,4 @@
-/* Loginseite. Gestaltung wie die freigegebene Vorschau (auth_preview.css). */
+/* Loginseite. Gestaltung wie die am 11.11.2026 freigegebene Vorschau. */
 body.auth-page { min-height: 100dvh; background: var(--surface-page); font-size: 1rem; }
 .auth-page *, .auth-page input, .auth-page button { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .auth-page [hidden] { display: none !important; }
