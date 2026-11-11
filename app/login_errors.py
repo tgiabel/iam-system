@@ -9,13 +9,25 @@ NOT_ALLOWED = "Für dieses Konto ist die Anmeldung an SOFA nicht freigegeben."
 UNAVAILABLE = "Der Anmeldedienst ist nicht erreichbar. Bitte versuche es später erneut."
 TIMEOUT = "Der Anmeldedienst antwortet nicht. Bitte versuche es später erneut."
 SERVER_ERROR = "Der Anmeldedienst meldet einen Fehler. Bitte versuche es später erneut."
+RATE_LIMITED = "Zu viele Anmeldeversuche. Bitte warte einen Moment und versuche es erneut."
+
+
+# Zustaende der Designvorschau /dev/auth-preview; dieselben Texte wie im echten Login.
+PREVIEW_MESSAGES = {
+    "credentials": BAD_CREDENTIALS,
+    "not_enabled": NOT_ALLOWED,
+    "unavailable": UNAVAILABLE,
+    "limited": RATE_LIMITED,
+}
 
 
 def login_error_message(exc: BaseException) -> str:
     """Klartext fuer die Login-Seite; technische Details gehoeren ins Serverlog.
 
-    Unbekannte Personalnummer (404) und falsches Passwort (401) bekommen
-    bewusst denselben Text, damit die Anmeldung keine Konten verraet.
+    Unbekannte Personalnummer und falsches Passwort bekommen bewusst denselben
+    Text, damit die Anmeldung keine Konten verraet. Die SD-API meldet beides
+    inzwischen als 401 und 403 nur nach korrektem Passwort; 404 bleibt, solange
+    eine aeltere SD-API laeuft.
     """
     # api_client wickelt Netzwerkfehler in Exception("Request Error: ...") ein.
     cause = exc if isinstance(exc, httpx.HTTPError) else exc.__cause__
@@ -27,6 +39,8 @@ def login_error_message(exc: BaseException) -> str:
             return NOT_ALLOWED
         if status == 422:
             return "Bitte Personalnummer und Passwort prüfen."
+        if status == 429:
+            return RATE_LIMITED
         if status >= 500:
             return SERVER_ERROR
     elif isinstance(cause, httpx.TimeoutException):

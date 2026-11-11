@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Anmelden | SOFA · Vorschau</title>
+    <link rel="icon" href="/static/img/handshake_hover.png">
+    <script>
+        try {
+            const theme = localStorage.getItem('sofaTheme');
+            document.documentElement.dataset.theme = ['light', 'dark', 'servodata'].includes(theme) ? theme : 'light';
+        } catch (_) { document.documentElement.dataset.theme = 'light'; }
+    </script>
+    <link rel="stylesheet" href="/static/css/_.css?v={{ static_v }}">
+    <link rel="stylesheet" href="/static/css/auth_preview.css?v={{ static_v }}">
+    <script src="/static/js/auth_preview.js?v={{ static_v }}" defer></script>
+</head>
+<body class="auth-preview" data-messages='{{ messages | tojson }}'>
+    <main class="auth-stage" id="auth-main">
+        <section class="auth-entry" id="auth-entry" aria-labelledby="auth-title">
+            <h1 id="auth-title" class="auth-visually-hidden">Bei SOFA anmelden</h1>
+            <div class="auth-brand" aria-label="SOFA – Servodata One for All">
+                <img src="/static/img/handshake_hover.png" width="42" height="42" alt="">
+                <span>SOFA</span>
+            </div>
+            <div class="auth-card">
+                <div class="auth-notice" id="auth-notice" role="status" hidden></div>
+                <form id="auth-form" action="/dev/auth-preview" method="get" aria-labelledby="auth-title">
+                    <div class="auth-error" id="auth-error" role="alert" tabindex="-1" hidden></div>
+                    <div class="auth-field">
+                        <label for="auth-pnr" class="auth-visually-hidden">Personalnummer</label>
+                        <!-- No names: even without JS, credentials cannot be serialized to a URL. -->
+                        <input id="auth-pnr" type="text" autocomplete="off" autocapitalize="none"
+                               spellcheck="false" placeholder="Personalnummer" required aria-describedby="preview-hint">
+                    </div>
+                    <div class="auth-field">
+                        <label for="auth-password" class="auth-visually-hidden">Passwort</label>
+                        <div class="auth-password-wrap">
+                            <input id="auth-password" type="password" autocomplete="off" required
+                                   placeholder="Passwort" aria-describedby="preview-hint">
+                            <button type="button" id="auth-show-password" class="auth-reveal"
+                                    aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="auth-password">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button class="auth-primary auth-submit" id="auth-submit" type="submit" disabled>
+                        <span id="auth-submit-label">Anmelden</span><span aria-hidden="true">→</span>
+                    </button>
+                    <p class="auth-submit-status" id="auth-submit-status" role="status"></p>
+                </form>
+                <noscript><p class="auth-error">Für diese interaktive Vorschau wird JavaScript benötigt.</p></noscript>
+            </div>
+            <p class="auth-signature">Servodata One for All</p>
+        </section>
+
+        <section class="auth-app" id="auth-app" aria-labelledby="auth-app-title" hidden>
+            <header class="auth-app-header">
+                <div class="auth-brand auth-brand-small"><img src="/static/img/handshake_hover.png" width="32" height="32" alt=""><span>SOFA</span></div>
+                <nav aria-label="Hauptnavigation der Vorschau" id="auth-app-nav">
+                    <button type="button" data-preview-target="/">Dashboard</button>
+                    <button type="button" data-preview-target="/tasks">Aufgaben</button>
+                    <button type="button" data-preview-target="/workspace">Workspace</button>
+                </nav>
+                <button type="button" class="auth-text-button" id="auth-logout">Abmelden</button>
+            </header>
+            <div class="auth-expired" id="auth-expired" role="alert" hidden>
+                <strong>Deine Sitzung ist abgelaufen.</strong>
+                <button type="button" class="auth-primary" id="auth-relogin">Erneut anmelden</button>
+            </div>
+            <div class="auth-app-body" id="auth-app-body">
+                <div class="auth-app-heading">
+                    <p class="auth-eyebrow">Hallo Alex</p>
+                    <h1 id="auth-app-title" tabindex="-1">Dashboard</h1>
+                    <p id="auth-return-message" role="status">Du bist angemeldet.</p>
+                </div>
+                <section class="auth-denied auth-card" id="auth-denied" aria-labelledby="auth-denied-title" hidden>
+                    <span class="auth-denied-icon" aria-hidden="true">↗</span>
+                    <h2 id="auth-denied-title">Für diese Seite fehlt dir die Berechtigung.</h2>
+                    <button type="button" class="auth-primary" data-preview-target="/">Zum Dashboard</button>
+                </section>
+                <div class="auth-app-grid" id="auth-app-grid">
+                    <section class="auth-card auth-welcome" aria-labelledby="auth-work-title">
+                        <span class="auth-section-mark" aria-hidden="true"></span>
+                        <h2 id="auth-work-title">Dein Arbeitsbereich</h2>
+                        <p>Die Anmeldung ist abgeschlossen.</p>
+                        <div class="auth-destination"><span>Geöffnetes Ziel</span><code id="auth-destination">/</code></div>
+                        <p class="auth-muted">Diese Ansicht zeigt den Übergang in die Anwendung mit Beispieldaten.</p>
+                    </section>
+                    <section class="auth-card auth-draft" aria-labelledby="auth-draft-title">
+                        <h2 id="auth-draft-title">Notiz zu einer Aufgabe</h2>
+                        <label for="auth-draft">Entwurf</label>
+                        <textarea id="auth-draft" rows="4" placeholder="Eine Beispielnotiz eingeben …"></textarea>
+                        <p class="auth-muted">Der Entwurf bleibt bei der Wiederanmeldung in diesem Tab erhalten.</p>
+                        <button type="button" class="auth-primary" id="auth-save-draft">Notiz speichern</button>
+                        <p id="auth-save-status" role="status"></p>
+                    </section>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <aside class="auth-preview-controls" aria-label="Steuerung der Designvorschau">
+        <div class="auth-preview-description"><span class="auth-dev-badge">DEV · MOCK</span><p id="preview-hint">Nur Beispieldaten verwenden. Keine echte Anmeldung.</p></div>
+        <div class="auth-preview-options">
+            <label for="auth-scenario">Zustand</label>
+            <select id="auth-scenario">
+                <option value="login">Anmeldung</option>
+                <option value="credentials">Falsche Zugangsdaten</option>
+                <option value="not_enabled">Konto nicht freigegeben</option>
+                <option value="unavailable">Anmeldedienst nicht erreichbar</option>
+                <option value="limited">Zu viele Anmeldeversuche</option>
+                <option value="expired">Sitzung abgelaufen</option>
+                <option value="logout">Abgemeldet</option>
+                <option value="authenticated">Angemeldet</option>
+                <option value="denied">Fehlende Berechtigung</option>
+                <option value="draft">Sitzungsablauf mit Entwurf</option>
+            </select>
+            <button type="button" class="auth-text-button" id="auth-expire" hidden>4 Stunden ohne Aktivität simulieren</button>
+            <button type="button" class="auth-text-button" id="auth-theme">Theme: Hell</button>
+        </div>
+    </aside>
+</body>
+</html>

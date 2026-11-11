@@ -65,6 +65,8 @@ app.include_router(token_deletions_report_router, prefix="/api")
 
 # Mock-Daten fuer das Dashboard-Design gibt es nur in der Entwicklungsinstanz.
 if os.getenv("APP_ENV") == "development":
+    from app.routes.auth_preview import router as auth_preview_router
     from app.routes.dashboard_mock import router as dashboard_mock_router
 
+    app.include_router(auth_preview_router)
     app.include_router(dashboard_mock_router, prefix="/api")
