@@ -1548,17 +1548,6 @@ async def api_update_system(system_id: int, payload: dict, current_user=Depends(
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
-@router.get("/systems/{system_id}/resources")
-async def api_get_system_resources(system_id: int, current_user=Depends(require_permission("SOFA-PAGE-SYS"))):
-    try:
-        system_detail = await api_client.get_system_resources(system_id)
-        return JSONResponse(content=system_detail)
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
-    except Exception as exc:
-        return JSONResponse(content={"error": str(exc)}, status_code=500)
-
-
 @router.get("/systems/{system_id}/resource-types")
 async def api_get_system_resource_types(system_id: int, current_user=Depends(require_permission("SOFA-PAGE-SYS"))):
     try:

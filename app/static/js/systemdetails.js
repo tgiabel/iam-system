@@ -17,6 +17,7 @@
         types: [],
         backlogs: {},
         users: [],
+        allResources: [],
         parentCandidates: [],
         filterType: "",
         query: "",
@@ -46,14 +47,19 @@
 
     // System, Typen und Kandidaten für „Übergeordnet“ ändern sich beim Speichern; der Rest bleibt.
     async function reload() {
-        const [system, types, parents] = await Promise.all([
+        const [system, types, all] = await Promise.all([
             D.getJson(`/api/systems/${state.systemId}`),
             D.getJson(`/api/systems/${state.systemId}/resource-types`).catch(() => []),
-            D.getJson(`/api/resources?type_id=${ACCOUNT_TYPE_ID}`).catch(() => [])
+            D.getJson("/api/resources").catch(() => [])
         ]);
         state.system = system;
         state.types = Array.isArray(types) ? types : [];
-        state.parentCandidates = Array.isArray(parents) ? parents : [];
+        // Alle Ressourcen: Konten als Kandidaten für „Übergeordnet“, der Rest für fremde Voraussetzungen und Abhängige.
+        state.allResources = (Array.isArray(all) ? all : []).map(r => ({
+            ...r,
+            parent_resource_id: Array.isArray(r.parent_resource_ids) ? (r.parent_resource_ids[0] ?? null) : r.parent_resource_id
+        }));
+        state.parentCandidates = state.allResources.filter(r => Number(r.type_id) === ACCOUNT_TYPE_ID);
         if (!state.collapsed) initCollapsed();
         render();
     }
@@ -68,10 +74,10 @@
         return resources().find(r => String(r.resource_id) === String(id)) || null;
     }
 
-    // Voraussetzung außerhalb des Systems: bekannt sind nur Konten, sonst ein Platzhalter.
+    // Voraussetzung außerhalb des Systems aus der Gesamtliste, sonst ein Platzhalter.
     function foreignParent(r) {
         if (r.parent_resource_id == null || findResource(r.parent_resource_id)) return null;
-        return state.parentCandidates.find(c => String(c.resource_id) === String(r.parent_resource_id))
+        return state.allResources.find(c => String(c.resource_id) === String(r.parent_resource_id))
             || { resource_id: r.parent_resource_id, display_name: `#${r.parent_resource_id}` };
     }
 
@@ -297,9 +303,10 @@
                 classification: {
                     systemId: state.system.system_id,
                     ancestors: D.ancestorChain(r, lookupResource),
-                    // Abhängige in anderen Systemen sind hier nicht bekannt (/api/resources liefert keine Voraussetzung).
-                    dependents: D.resourceTree(resources()).childrenOf(r.resource_id)
-                        .map(c => ({ ...c, system_id: state.system.system_id, system_name: state.system.name }))
+                    // Systemübergreifend, sobald /api/resources parent_resource_ids liefert; sonst nur das eigene System.
+                    dependents: D.crossDependents(r.resource_id, state.allResources)
+                        ?? D.resourceTree(resources()).childrenOf(r.resource_id)
+                            .map(c => ({ ...c, system_id: state.system.system_id, system_name: state.system.name }))
                 },
                 roles: state.panel.roles || undefined,
                 recipientLabel: userLabel,

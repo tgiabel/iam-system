@@ -31,6 +31,19 @@ assert.deepEqual(ids(shared.ancestorChain(res(4, 99), lookup)), []);
 assert.deepEqual(ids(shared.ancestorChain(byId.get(5), lookup)), [6]);
 assert.deepEqual(ids(shared.ancestorChain(res(1, null), lookup)), []);
 
+// Abhängige systemübergreifend über parent_resource_ids; ohne das Feld null (Fallback auf eigenes System)
+assert.equal(shared.crossDependents(115, [res(115, null), res(425, null)]), null);
+const all = [
+    { resource_id: 115, technical_identifier: "VRP-ACC", parent_resource_ids: [31], system_id: 25 },
+    { resource_id: 431, technical_identifier: "GANS-ACC", parent_resource_ids: [115], system_id: 62 },
+    { resource_id: 425, technical_identifier: "NETC-ACC", parent_resource_ids: [115], system_id: 59 },
+    { resource_id: 500, technical_identifier: "VRP-SYS-X", parent_resource_ids: [31, 115], system_id: 25 },
+    { resource_id: 31, technical_identifier: "MS365-ACC", parent_resource_ids: [], system_id: 1 }
+];
+assert.deepEqual(ids(shared.crossDependents(115, all)), [431, 425, 500]);
+assert.deepEqual(ids(shared.crossDependents("31", all)), [115, 500]);
+assert.deepEqual(shared.crossDependents(425, all), []);
+
 // Auswahl „Übergeordnet“: aktuelle Voraussetzung bleibt drin, auch wenn sie kein Konto ist
 const accounts = [
     { resource_id: 10, display_name: "Opcyc Konto", system_id: 15 },

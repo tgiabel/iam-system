@@ -163,6 +163,13 @@
         return chain;
     }
 
+    // Abhängige aus allen Systemen über parent_resource_ids (GET /access/resources). null, solange die
+    // SD-API das Feld nicht liefert; dann bleibt es beim Baum des eigenen Systems.
+    function crossDependents(id, list) {
+        if (!list.some(r => Array.isArray(r.parent_resource_ids))) return null;
+        return list.filter(r => (r.parent_resource_ids || []).some(p => String(p) === String(id))).sort(byIdentifier);
+    }
+
     // Auswahl „Übergeordnet“: Kandidaten (Konten), eigenes System zuerst. Die aktuelle Voraussetzung steht
     // immer darin, auch wenn sie kein Konto ist; sonst ginge sie beim Speichern verloren.
     function parentOptions(candidates, resource, currentParent, systemId) {
@@ -358,7 +365,7 @@
         esc, HANDLING, AUTOMATED, STATUS, REQUIREMENTS, PROTECTION, TASK_TYPES,
         getJson, send, chip, statusChip, typeSummary, requirementChip, protectionChip, handlingChip, handlingChoices,
         compareText, byIdentifier, matches, bindPanel, bindDialog,
-        resourceTree, groupByType, ancestorChain, parentOptions, backlogOptions, botEditorValue, parseBotParams,
+        resourceTree, groupByType, ancestorChain, crossDependents, parentOptions, backlogOptions, botEditorValue, parseBotParams,
         metaEntry, renderAutomation, renderResourceView
     };
 }));
