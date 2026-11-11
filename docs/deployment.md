@@ -53,7 +53,6 @@ Vertrag: SD-API `docs/sofa-session-contract.md`, Abschnitt 11. Reihenfolge:
 
 Rollback von SOFA hinter diesen Stand verlangt vorher SD-API API-1 oder älter.
 
-Die erste Umstellung erfolgt, sobald die Konfiguration auf `main` steht und das
-Image gebaut und geprüft ist. Die frühere `docker-compose.yml` ist entfernt,
+Die frühere `docker-compose.yml` (Prod aus dem Live-Checkout) ist entfernt,
 damit ein versehentliches `docker compose up` den alten Modus nicht wieder
 startet. Der Dev-VHost hat wie `sofa` keinen eigenen Zugriffsschutz.

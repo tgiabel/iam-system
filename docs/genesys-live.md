@@ -16,6 +16,6 @@ Aufklappzustand der inaktiven Queues und der drei Panel-Gruppen liegt im Browser
 
 ## Identität und Betrieb
 
-Die BFF-Route `/api/reporting/genesys-live` prüft das signierte HttpOnly-Cookie `sofa_agent_stats` gegen die User-ID der SOFA-Sitzung und reicht es als Bearer-Token weiter. Browser und BFF senden keine frei wählbare User-ID an die SD-API. Antworten der BFF haben `Cache-Control: no-store`. Es gilt dasselbe Secret und dieselbe erneute Anmeldung nach Einrichtung wie bei [Meine Genesys-Zahlen](agent-stats-report.md).
+Die BFF-Route `/api/reporting/genesys-live` verlangt eine angemeldete Sitzung und reicht wie jeder SD-API-Aufruf nur die Sitzung (`X-SOFA-Session`) weiter; die SD-API nimmt die Person daraus (SD-API `docs/sofa-session-contract.md`, Abschnitt 10). Browser und BFF senden keine frei wählbare User-ID an die SD-API. Antworten der BFF haben `Cache-Control: no-store`. Das frühere Report-Cookie `sofa_agent_stats` ist mit den verifizierten Sitzungen abgelöst ([login-flow-redesign.md](login-flow-redesign.md)).
 
 Der API-Vertrag steht in der SD-API unter `docs/genesys-live-api.md`. Die Produktivseite nutzt die deployte SD-API. SOFA wurde vor der Freigabe mit der synthetischen Antwort in `tests/fixtures/genesys_live.sample.json` und gemockten Backend-Antworten getestet; dabei gab es keine produktiven Genesys-Abfragen.

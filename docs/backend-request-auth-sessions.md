@@ -1,7 +1,10 @@
 # Auftrag an den SD-API-Agenten: verifizierte Sitzungen für SOFA
 
-Stand: 11.11.2026. Entwurf vom 28.10., ergänzt um Bestandsaufnahme der SD-API
-(`10e114a`) und getroffene Entscheidungen. Noch nicht umgesetzt.
+Stand: 11.11.2026. **Abgeschlossen, nur noch Verlauf.** Entwurf vom 28.10., ergänzt um
+Bestandsaufnahme der SD-API (`10e114a`) und getroffene Entscheidungen. Maßgeblich ist
+seither der freigegebene Vertrag (SD-API `docs/sofa-session-contract.md`); die SOFA-Seite
+beschreibt [login-flow-redesign.md](login-flow-redesign.md). Beschreibungen des
+Ist-Zustands unten gelten für den Stand vor der Umstellung.
 
 ## Kontext und Ziel
 

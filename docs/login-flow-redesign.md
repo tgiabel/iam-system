@@ -1,8 +1,9 @@
 # Login und Sitzungsübergänge
 
-Stand: 11.11.2026. Phasen A bis C der echten Umstellung auf `feat/login-redesign`
-umgesetzt und gegen sd-api-dev geprüft (Vertrag: SD-API `docs/sofa-session-contract.md`).
-Nicht auf `main`: Der Stand verlangt SD-API API-1 und den Dienstschlüssel in Prod.
+Stand: 11.11.2026. Phasen A bis C und das anschließende Review sind auf
+`feat/login-redesign` umgesetzt und gegen sd-api-dev geprüft (Vertrag: SD-API
+`docs/sofa-session-contract.md`). Nicht auf `main`: Der Stand verlangt SD-API API-1 und
+den Dienstschlüssel in Prod (siehe [deployment.md](deployment.md)).
 
 ## Umsetzung
 
@@ -17,7 +18,9 @@ Logout; Report-Token und `sofa_user` entfernt, alte Cookies werden gelöscht; Po
 rein lesend; `no-store` auf allen Antworten außer `/static`.
 
 **Phase B (umgesetzt):** `app/static/js/session.js` mit `session.css`, eingebunden in
-`base.html` vor allen anderen Skripten.
+`base.html` vor allen anderen Skripten. Den Poll auf `/api/session/authz` macht nur
+`session.js` (`SofaSession.check`); `base.js` wendet das Ergebnis über das Ereignis
+`sofa:session-checked` auf Navigation, Badge und Rechte an.
 
 - Aktivität: echte Bedienung (`isTrusted`) in sichtbaren Fenstern meldet höchstens alle
   60 s je Tab `POST /api/session/activity` (`keepalive`). Poll und Hintergrundabrufe
@@ -60,12 +63,7 @@ eigenen Text. Fehlerkörper der SD-API ohne JSON werden nicht mehr roh weiterger
 - Session Store in SD-API, SOFA als Backend-for-Frontend. Login prüft zuerst das
   Passwort; „nicht freigegeben“ nur nach korrektem Passwort (entschieden 11.11.2026).
 
-## Dev-Vorschau
-
-Die Designvorschau `/dev/auth-preview` war die Vorlage für Loginseite, Ablaufbanner und
-Wiederanmeldung. Sie wurde nach der Umsetzung entfernt (11.11.2026).
-
-## Zielverhalten für die echte Integration
+## Zielverhalten
 
 | Ausgangslage | Ergebnis |
 |---|---|
@@ -91,38 +89,32 @@ DELETE-Requests werden niemals automatisch wiederholt.
 Formular: verknüpfte Labels, natürlicher DOM-/Tab-Ablauf PNR → Passwort →
 Passwortanzeige → Anmelden, sichtbarer Fokus, Enter-Submit, angekündigte Fehler,
 kein zweiter Submit während des Versuchs. Für die echte Anmeldung zusätzlich
-`autocomplete="username"` und `autocomplete="current-password"`; in der
-unverbindlichen Vorschau bewusst deaktiviert. Fehlermeldungen erhalten Fokus,
+`autocomplete="username"` und `autocomplete="current-password"`. Fehlermeldungen erhalten Fokus,
 statt dass man sie außerhalb des Formulars suchen muss.
 
-## Übergabe an SD-API
+## Aufbau im Code
 
-Der ausführliche Agentenauftrag steht in
-[backend-request-auth-sessions.md](backend-request-auth-sessions.md).
-Am 11.11.2026 um eine Bestandsaufnahme der SD-API und die Entscheidungen ergänzt;
-die Umsetzung läuft in einer eigenen API-Session.
+| Teil | Ort |
+|---|---|
+| Cookie, Token-Format, Rücksprungziel, Dienstschlüssel | `app/session.py` (`request_session()` für Routen, ContextVar nur für `api_client`) |
+| Sitzungsprüfung je Request, CSRF/Origin, `no-store`, alte Cookies | `app/session_gate.py` (`SELF_CSRF_PATHS`, `session_error()` als einziges JSON-Fehlerformat) |
+| Anmeldung (`open_session`), Poll, Aktivität, Wiederanmeldung im Tab | `app/routes/session_api.py` (`/api/session/*`) |
+| Loginseite, `POST /login`, `POST /logout` | `app/routes/pages.py` |
+| Texte, Zuordnung von Login-Fehlern (`classify_login_error`) | `app/login_errors.py` |
+| 401/503 bzw. Weiterleitung ohne Sitzung | `app/main.py` (Handler für `SessionRequired`) |
+| Gestaltung | `auth.css` (gemeinsam: Card, Felder, Button, Hinweise), `login.css` (Seitenrahmen), `session.css` (Banner, Sperre, Dialograhmen) |
 
-Die serverseitige Umsetzung ist ein separater Lauf. Vier Stunden Inaktivität,
-echte Weiterleitungen und echte Sitzungsprüfung sind im Mock nicht implementiert.
+Das Ablaufbanner liegt mit z-index 9999 über allen Seiten-Overlays und unter Flash
+(10000). Der Primärbutton nutzt `--btn-primary-*` und `--text-inverse` wie alle
+Primärbuttons der App; die Systemschrift ist das Token `--font-system`.
 
-## Prüfung der Vorschau
+## Verlauf
 
-Am 28.10.2026 gegen die laufende Dev-Instanz geprüft:
-
-- Route in Dev erreichbar, im Produktionsmodus 404; POST wird abgewiesen.
-- Keine Cookie-Änderungen oder API-Requests; auch ein kaputtes echtes
-  `sofa_user`-Cookie beeinflusst die Vorschau nicht. Echte Loginseite unverändert.
-- Tastaturreihenfolge, Enter, Passwortanzeige, Ladezustand, Fehlerfokus und
-  Erhalt der Personalnummer; Rücksprungziel einschließlich Query.
-- Abgelaufene Sitzung blockiert die Beispielansicht; Wiederanmeldung erhält den
-  Entwurf ohne automatisches Speichern. Abmeldung verwirft ihn.
-- Sechs unzulässige Rücksprungziele werden in der Simulation verworfen.
-- Sechs Zustände in drei Themes und fünf Viewports (1440×900, 1366×768,
-  390×844, 320×568, 740×360): kein horizontaler Seitenüberlauf, keine JS-Fehler.
-- Desktop, Mobil und Dunkelansicht zusätzlich anhand von Screenshots geprüft.
-
-Am 11.11.2026 nach Abgleich mit der SD-API erneut geprüft: Zustand „Konto nicht
-freigegeben“ (403 nur nach korrektem Passwort), Texte aus `login_errors.py` inkl. 429,
-Servodata-Hintergrund hinter deckender Card, gesperrter Bereich bei Ablauf ohne
-`opacity`. Zehn Zustände × drei Themes × vier Viewports (1440×900, 390×844, 320×568,
-740×360): kein Überlauf, keine JS-Fehler; Fehlerfokus und Erhalt der PNR geprüft.
+- 28.10.2026: Designvorschau `/dev/auth-preview` als Vorlage für Loginseite, Banner und
+  Wiederanmeldung; in drei Themes und fünf Viewports geprüft. Auftrag an die SD-API in
+  [backend-request-auth-sessions.md](backend-request-auth-sessions.md).
+- 11.11.2026: Vertrag der SD-API freigegeben, Phasen A bis C umgesetzt, Vorschau entfernt.
+- 11.11.2026: Review auf Einheitlichkeit. Gemeinsame `auth.css` mit Theme-Tokens, ein
+  Anmeldeweg für Formular und Tab, Sitzungsrouten in eigenem Modul, Texte an einer
+  Stelle, toter Code der Cookie- und Report-Token-Zeit entfernt (`has_any_tool`,
+  `dashboard_live`, Login-Links in `base.html`), Ablaufbanner über App-Overlays.
