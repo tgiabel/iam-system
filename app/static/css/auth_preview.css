@@ -20,6 +20,13 @@ body.auth-preview {
     min-height: 0;
 }
 .auth-entry { width: 100%; max-width: 27rem; padding: 1rem 0; }
+/* Das Icon ist weiß auf transparent; als Maske nimmt es die Primärfarbe des Themes an. */
+.auth-logo {
+    display: block; width: 4.5rem; height: 4.5rem; margin: 0 auto 2rem;
+    background-color: var(--color-primary);
+    -webkit-mask: url("/static/img/handshake_hover.png") center / contain no-repeat;
+    mask: url("/static/img/handshake_hover.png") center / contain no-repeat;
+}
 .auth-brand { display: flex; align-items: center; justify-content: center; gap: .7rem; margin-bottom: 2rem; }
 .auth-brand img { object-fit: contain; padding: .45rem; background: #4169e1; border-radius: .7rem; }
 .auth-brand > span { color: var(--text-strong); font-weight: 750; font-size: 1.8rem; letter-spacing: .1em; }
@@ -106,6 +113,9 @@ html[data-theme="dark"] .auth-primary { background: #4169e1; }
 .auth-draft .auth-muted { margin: .5rem 0 1rem; }
 #auth-save-status { font-size: .8rem; margin-top: .75rem; color: var(--green-text); }
 .auth-expired { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-top: 1.5rem; padding: 1.25rem; background: var(--orange-bg); border: 1px solid var(--orange-text); border-radius: .75rem; color: var(--text-strong); }
+/* Button in der Bannerfarbe: dunkles Amber im hellen, helles Amber im dunklen Theme. */
+.auth-preview .auth-expired .auth-primary { background: var(--orange-text); color: var(--surface-card); }
+.auth-preview .auth-expired .auth-primary:hover { filter: brightness(.9); }
 /* Gesperrt ohne opacity: deckende, gedämpfte Flächen statt durchscheinendem Inhalt. */
 .auth-app-body[inert] .auth-card { background: var(--surface-soft); }
 .auth-app-body[inert], .auth-app-body[inert] *, .auth-app-header nav[inert] button { color: var(--text-muted); }
