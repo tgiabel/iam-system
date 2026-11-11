@@ -10,22 +10,14 @@ from fastapi.testclient import TestClient
 from app.api_client import api_client
 from app.main import app
 from app.routes import shared
-from tests.session_helpers import sign_in
+from tests import session_helpers
+from tests.session_helpers import sign_in, wrapped
 
 INTERNAL_URL = "http://api:8080/access/users?is_active=true"
 
 
-def wrapped(cause):
-    try:
-        raise Exception(f"Request Error: {cause}") from cause
-    except Exception as exc:
-        return exc
-
-
 def status_error(status, **kwargs):
-    request = httpx.Request("GET", INTERNAL_URL)
-    response = httpx.Response(status, request=request, **kwargs)
-    return httpx.HTTPStatusError(f"Server error '{status}' for url '{INTERNAL_URL}'", request=request, response=response)
+    return session_helpers.status_error(status, url=INTERNAL_URL, **kwargs)
 
 
 class InternalErrorTests(unittest.TestCase):

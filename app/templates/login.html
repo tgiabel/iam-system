@@ -24,7 +24,7 @@
             <span class="auth-logo" role="img" aria-label="SOFA"></span>
             <div class="auth-card">
                 {% if notice %}
-                <div class="auth-notice" role="status"{% if request.query_params.get('reason') == 'logged_out' %} data-kind="success"{% endif %}>{{ notice }}</div>
+                <div class="auth-notice" role="status"{% if notice_kind %} data-kind="{{ notice_kind }}"{% endif %}>{{ notice }}</div>
                 {% endif %}
                 <form id="auth-form" action="/login" method="post" aria-labelledby="auth-title">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

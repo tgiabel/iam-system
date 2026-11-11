@@ -30,9 +30,9 @@ from app.session import (
 logger = logging.getLogger("uvicorn.error")
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-# Diese Routen pruefen ihren CSRF-Schutz selbst: klassische Formulare tragen das Token im Feld,
+# Diese Routen pruefen ihren CSRF-Schutz selbst: /login und /logout tragen das Token im Formularfeld,
 # die Wiederanmeldung im Tab kommt ohne gueltige Sitzung (Origin-Pflicht plus JSON).
-FORM_CSRF_PATHS = frozenset({"/login", "/logout", "/api/session/login"})
+SELF_CSRF_PATHS = frozenset({"/login", "/logout", "/api/session/login"})
 NO_STORE = "no-store"
 
 
@@ -94,12 +94,17 @@ def same_origin(request) -> bool:
     return urlsplit(source).netloc.lower() == request.headers.get("host", "").lower()
 
 
+def session_error(code: str, message: str, status: int) -> JSONResponse:
+    """JSON-Fehler der Sitzungsschicht im Format der SD-API: {"detail": {"code", "message"}}.
+    503 traegt Retry-After wie im Vertrag (Abschnitt 6)."""
+    headers = {"Cache-Control": NO_STORE}
+    if status == 503:
+        headers["Retry-After"] = "30"
+    return JSONResponse({"detail": {"code": code, "message": message}}, status_code=status, headers=headers)
+
+
 def csrf_rejection() -> JSONResponse:
-    return JSONResponse(
-        {"detail": {"code": "csrf_failed", "message": "Die Anfrage wurde abgelehnt. Bitte lade die Seite neu."}},
-        status_code=403,
-        headers={"Cache-Control": NO_STORE},
-    )
+    return session_error("csrf_failed", "Die Anfrage wurde abgelehnt. Bitte lade die Seite neu.", 403)
 
 
 class SessionGateMiddleware(BaseHTTPMiddleware):
@@ -116,7 +121,7 @@ class SessionGateMiddleware(BaseHTTPMiddleware):
         if request.method not in SAFE_METHODS:
             if not same_origin(request):
                 return csrf_rejection()
-            if state is not None and path not in FORM_CSRF_PATHS:
+            if state is not None and path not in SELF_CSRF_PATHS:
                 if not tokens_match(state.csrf_token, request.headers.get("x-csrf-token")):
                     return csrf_rejection()
 

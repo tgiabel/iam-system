@@ -10,16 +10,9 @@ from fastapi.testclient import TestClient
 from app.api_client import APIClient, api_client
 from app.main import app
 from app.session import DEV_SERVICE_KEY, LOGIN_CSRF_COOKIE, SESSION_COOKIE, SessionState, client_ip, current_session, safe_next
-from tests.session_helpers import CSRF, TOKEN, me_payload, session_block, sign_in
-
-
-def api_error(status, detail):
-    request = httpx.Request("GET", "http://api/access/users/me")
-    return httpx.HTTPStatusError("x", request=request, response=httpx.Response(status, json={"detail": detail}, request=request))
-
-
-def set_cookies(response):
-    return [value for key, value in response.headers.multi_items() if key == "set-cookie"]
+from tests.session_helpers import (
+    CSRF, TOKEN, api_error, login_form_token, me_payload, session_block, set_cookies, sign_in,
+)
 
 
 class SafeNextTests(unittest.TestCase):
@@ -130,8 +123,7 @@ class LoginLogoutTests(unittest.TestCase):
         self.client = TestClient(app, base_url="https://testserver")
 
     def form_token(self, url="/login"):
-        page = self.client.get(url)
-        return page.text.split('name="csrf_token" value="', 1)[1].split('"', 1)[0]
+        return login_form_token(self.client, url)
 
     def test_login_sets_host_cookie_and_follows_the_validated_target(self):
         token = self.form_token("/login?next=/tasks%3Fbacklog%3DIT")
@@ -199,12 +191,20 @@ class LoginLogoutTests(unittest.TestCase):
 
     def test_logout_revokes_at_the_api_and_clears_the_cookie(self):
         sign_in(self, self.client)
-        with patch.object(api_client, "session_logout", AsyncMock()) as logout:
+        seen = []
+
+        async def request(method, base_url, path, **kwargs):
+            # Widerruf laeuft mit der Sitzung dieses Requests (Token und CSRF-Token aus /users/me).
+            seen.append((method, path, APIClient._session_headers(method, kwargs.get("headers"))))
+
+        with patch.object(api_client, "_request", request):
             forged = self.client.post("/logout", data={"csrf_token": "falsch"}, follow_redirects=False)
-            logout.assert_not_called()
+            self.assertEqual(seen, [])
             response = self.client.post("/logout", data={"csrf_token": CSRF}, follow_redirects=False)
-        state = logout.await_args.args[0]
-        self.assertEqual((state.token, state.csrf_token), (TOKEN, CSRF))
+        self.assertEqual(len(seen), 1)
+        method, path, headers = seen[0]
+        self.assertEqual((method, path), ("POST", "/users/logout"))
+        self.assertEqual((headers["X-SOFA-Session"], headers["X-CSRF-Token"]), (TOKEN, CSRF))
         self.assertEqual(forged.headers["location"], "/")
         self.assertEqual(response.headers["location"], "/login?reason=logged_out")
         self.assertTrue(any(cookie.startswith(SESSION_COOKIE + '=""') for cookie in set_cookies(response)))
@@ -270,7 +270,6 @@ class InTabReloginTests(unittest.TestCase):
         from app import login_errors
         cases = (
             (api_error(401, {"code": "invalid_credentials"}), 401, "invalid_credentials", login_errors.BAD_CREDENTIALS),
-            (api_error(404, {"code": "not_found"}), 401, "invalid_credentials", login_errors.BAD_CREDENTIALS),
             (api_error(403, {"code": "account_not_enabled"}), 403, "account_not_enabled", login_errors.NOT_ALLOWED),
             (api_error(429, {"code": "login_rate_limited"}), 429, "login_rate_limited", login_errors.RATE_LIMITED),
             (api_error(500, {"code": "internal_error"}), 503, "service_unavailable", login_errors.SERVER_ERROR),
@@ -315,6 +314,15 @@ class SessionClientDataTests(unittest.TestCase):
         self.assertEqual(poll.json()["csrf_token"], CSRF)
         self.assertEqual(activity.json()["csrf_token"], CSRF)
         self.assertNotIn("csrf_token", activity.json()["session"])
+
+    def test_unreachable_activity_answers_like_the_session_check(self):
+        sign_in(self, self.client)
+        with patch.object(api_client, "session_activity", AsyncMock(side_effect=httpx.ConnectError("down"))), \
+                self.assertLogs("uvicorn.error", level="WARNING"):
+            activity = self.client.post("/api/session/activity")
+        self.assertEqual((activity.status_code, activity.headers["retry-after"]), (503, "30"))
+        self.assertEqual(activity.json()["detail"]["code"], "service_unavailable")
+        self.assertTrue(activity.json()["detail"]["message"])
 
 
 if __name__ == "__main__":

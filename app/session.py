@@ -44,8 +44,14 @@ class SessionState:
     info: dict = field(default_factory=dict)
 
 
-# Request-lokal: api_client liest daraus Token und CSRF-Token fuer jeden SD-API-Aufruf.
+# Request-lokal fuer api_client: Token und CSRF-Token fuer jeden SD-API-Aufruf. Routen und Templates
+# lesen die Sitzung ueber request_session(), nicht hieraus.
 current_session: contextvars.ContextVar[SessionState | None] = contextvars.ContextVar("sofa_session", default=None)
+
+
+def request_session(request) -> SessionState | None:
+    """Von SD-API bestaetigte Sitzung dieses Requests (app.session_gate), sonst None."""
+    return getattr(request.state, "session", None)
 
 
 def is_token(value: str | None) -> bool:

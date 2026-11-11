@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse  # type: ignore
 from fastapi.templating import Jinja2Templates  # type: ignore
 
 from app.api_client import api_client
-from app.session import current_session, public_session_info
+from app.session import public_session_info, request_session
 from app.authz import (
     AuthorizationContext,
     build_authorization_context_from_user,
@@ -196,7 +196,7 @@ def _build_template_context(
     resolved_authz = authz or (
         build_authorization_context_from_user(user, user.get("sofa_permissions")) if user else None
     )
-    state = current_session.get()
+    state = request_session(request)
     context = {
         "request": request,
         "user": user,

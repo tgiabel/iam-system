@@ -10,7 +10,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 from app.api_client import api_client
 from app.authz import (
     require_admin_access,
-    require_any_permission,
     require_login,
     require_permission,
     get_current_user,
@@ -18,18 +17,18 @@ from app.authz import (
 from app import tasks_board_mock
 from app.dashboard import build_dashboard_context
 from app.helpers.time_utils import today_local
-from app.login_errors import BAD_CREDENTIALS, NOTICES, login_error_message
+from app.login_errors import FORM_EXPIRED, MISSING_FIELDS, NOTICES
 from app.session import (
     LOGIN_CSRF_COOKIE,
     LOGIN_CSRF_MAX_AGE,
-    SESSION_COOKIE,
     clear_session_cookie,
-    client_ip,
+    request_session,
     safe_next,
     set_session_cookie,
     tokens_match,
 )
 from app.session_gate import same_origin
+from app.routes.session_api import LoginRejected, open_session
 from app.workspace_catalog import visible_items
 from app.routes.shared import _build_template_context, templates
 
@@ -46,13 +45,14 @@ def index(request: Request, authz=Depends(require_login), mock: str | None = Non
 
 
 def _login_page(request: Request, *, next_path: str = "/", pnr: str = "", error: str | None = None,
-                notice: str | None = None, status_code: int = 200) -> HTMLResponse:
+                credentials_error: bool = False, notice: str | None = None, notice_kind: str | None = None,
+                status_code: int = 200) -> HTMLResponse:
     """Loginseite mit frischem Login-CSRF-Token (Cookie und Formularfeld)."""
     csrf_token = secrets.token_urlsafe(32)
     response = templates.TemplateResponse(
         "login.html",
         {"request": request, "csrf_token": csrf_token, "next_path": next_path, "pnr": pnr,
-         "error": error, "notice": notice, "credentials_error": error == BAD_CREDENTIALS},
+         "error": error, "credentials_error": credentials_error, "notice": notice, "notice_kind": notice_kind},
         status_code=status_code,
     )
     response.set_cookie(LOGIN_CSRF_COOKIE, csrf_token, max_age=LOGIN_CSRF_MAX_AGE, path="/",
@@ -68,7 +68,9 @@ def login_page(request: Request, next: str | None = None, reason: str | None = N
     problem = getattr(request.state, "session_problem", None)
     if problem == "unavailable":
         return _login_page(request, next_path=next_path, error=NOTICES["unavailable"], status_code=503)
-    return _login_page(request, next_path=next_path, notice=NOTICES.get(reason or problem or ""))
+    kind = reason or problem or ""
+    return _login_page(request, next_path=next_path, notice=NOTICES.get(kind),
+                       notice_kind="success" if kind == "logged_out" else None)
 
 
 @router.post("/login")
@@ -82,28 +84,19 @@ async def login(
     next_path = safe_next(next)
     pnr = pnr.strip()
     if not same_origin(request) or not tokens_match(request.cookies.get(LOGIN_CSRF_COOKIE), csrf_token):
-        return _login_page(request, next_path=next_path, pnr=pnr, error=NOTICES["form_expired"], status_code=403)
+        return _login_page(request, next_path=next_path, pnr=pnr, error=FORM_EXPIRED, status_code=403)
     if not pnr or not password:
-        return _login_page(request, next_path=next_path, pnr=pnr, error=NOTICES["missing_fields"], status_code=400)
+        return _login_page(request, next_path=next_path, pnr=pnr, error=MISSING_FIELDS, status_code=400)
 
     try:
-        result = await api_client.login_user(
-            pnr, password,
-            client_ip=client_ip(request.headers),
-            previous_token=request.cookies.get(SESSION_COOKIE),
-        )
-        session = result["session"]
-        if not session.get("token"):
-            raise ValueError("Login-Antwort ohne Sitzungstoken")
-    except Exception as exc:
-        status = getattr(getattr(exc, "response", None), "status_code", None)
-        if status is None or status >= 500:
-            logger.warning("Login fehlgeschlagen: %r", exc, exc_info=exc)
-        return _login_page(request, next_path=next_path, pnr=pnr, error=login_error_message(exc),
-                           status_code=status if status in (401, 403, 429) else 503)
+        result = await open_session(request, pnr, password)
+    except LoginRejected as rejected:
+        failure = rejected.failure
+        return _login_page(request, next_path=next_path, pnr=pnr, error=failure.message,
+                           credentials_error=failure.code == "invalid_credentials", status_code=failure.status)
 
     response = RedirectResponse(url=next_path, status_code=303)
-    set_session_cookie(response, session)
+    set_session_cookie(response, result["session"])
     response.delete_cookie(LOGIN_CSRF_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
     return response
 
@@ -111,12 +104,12 @@ async def login(
 @router.post("/logout")
 async def logout(request: Request, csrf_token: str = Form("")):
     """Widerruf bei SD-API, dann Cookie loeschen. Ohne gueltige Sitzung nur aufraeumen."""
-    state = getattr(request.state, "session", None)
+    state = request_session(request)
     if state is not None:
         if not tokens_match(state.csrf_token, csrf_token):
             return RedirectResponse(url="/", status_code=303)
         try:
-            await api_client.session_logout(state)
+            await api_client.session_logout()
         except Exception as exc:
             # Cookie wird trotzdem geloescht; die Sitzung laeuft dann serverseitig regulaer ab.
             logger.warning("Logout bei SD-API fehlgeschlagen: %r", exc)

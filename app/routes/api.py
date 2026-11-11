@@ -3,29 +3,22 @@ from __future__ import annotations
 from datetime import date, timedelta
 from io import BytesIO
 import json
-import logging
 import re
 from urllib.parse import quote
 
 import httpx  # type: ignore
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile  # type: ignore
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile  # type: ignore
 from fastapi.responses import JSONResponse, Response, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
 from app.authz import (
-    build_authorization_context_from_user,
-    get_authz_payload_for_template,
     require_any_permission,
     require_login,
     require_permission,
 )
 from app.helpers.datex import build_corrected_package, build_datex_preview
 from app.helpers.time_utils import today_local
-from app.login_errors import NOTICES, login_error_message
-from app.session import SESSION_COOKIE, client_ip, public_session_info, set_session_cookie
-from app.session_gate import csrf_rejection, same_origin
 from app.routes.shared import (
-    _build_template_context,
     _coerce_bool,
     _coerce_int,
     _error_content_from_response,
@@ -33,13 +26,10 @@ from app.routes.shared import (
     internal_error,
     _get_relevant_task_or_raise,
     _normalize_events_payload,
-    _normalize_session_user,
-    templates,
 )
 
 
 router = APIRouter(prefix="/api")
-logger = logging.getLogger("uvicorn.error")
 
 
 IKS_EXPORT_FORMATS = frozenset({"html", "csv", "json"})
@@ -797,113 +787,6 @@ async def api_get_ivr_call_details(
         )
     except Exception as exc:
         return internal_error(exc)
-
-
-def _session_payload(request: Request) -> dict:
-    """Fristen der Sitzung fuer Hinweise im Browser, ohne Tokens."""
-    state = getattr(request.state, "session", None)
-    return public_session_info(state.info if state is not None else None)
-
-
-def _session_csrf(request: Request) -> str:
-    """Aktuelles CSRF-Token der Sitzung. Hat ein anderer Tab neu angemeldet, ist das in der Seite
-    stehende Token veraltet; der Poll liefert das gueltige (nur same-origin lesbar, wie das Meta-Tag)."""
-    state = getattr(request.state, "session", None)
-    return state.csrf_token if state is not None else ""
-
-
-@router.get("/session/authz")
-async def api_session_authz_refresh(request: Request, authz=Depends(require_login)):
-    """Rein lesend: Rechte stehen schon frisch aus /users/me im Request (Session-Middleware).
-    Verlaengert die Sitzung nicht und setzt keine Cookies."""
-    user = dict(authz.raw_user or {})
-    permissions = dict(user.get("sofa_permissions") or {})
-    try:
-        sofa_me = await api_client.get_sofa_me(authz.user_id)
-        permissions["task_count"] = (sofa_me or {}).get("task_count") or 0
-        refreshed = True
-    except Exception:
-        refreshed = False
-    user["sofa_permissions"] = permissions
-    return JSONResponse(content={
-        "user": user,
-        "authz": get_authz_payload_for_template(build_authorization_context_from_user(user, permissions)),
-        "session": _session_payload(request),
-        "csrf_token": _session_csrf(request),
-        "refreshed": refreshed,
-    })
-
-
-@router.post("/session/activity")
-async def api_session_activity(request: Request, authz=Depends(require_login)):
-    """Echte Bedienaktivitaet aus dem Browser (gedrosselt). Belebt keine abgelaufene Sitzung."""
-    try:
-        result = await api_client.session_activity()
-    except httpx.HTTPStatusError as exc:
-        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
-    except Exception:
-        return JSONResponse(content={"detail": {"code": "service_unavailable"}}, status_code=503)
-    return JSONResponse(content={
-        "session": public_session_info((result or {}).get("session")),
-        "csrf_token": _session_csrf(request),
-    })
-
-
-def _login_failure(code: str, message: str, status: int) -> JSONResponse:
-    return JSONResponse({"detail": {"code": code, "message": message}}, status_code=status,
-                        headers={"Cache-Control": "no-store"})
-
-
-@router.post("/session/login")
-async def api_session_login(request: Request):
-    """Wiederanmeldung im selben Tab, ohne die Seite (und ungespeicherte Eingaben) zu verlassen.
-
-    Kein Formular-Token: Der Request kommt nur per fetch mit JSON und muss einen Origin des eigenen
-    Hosts tragen. Fremde Seiten koennen JSON nicht ohne CORS-Preflight senden, den SOFA nie erlaubt.
-    """
-    content_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-    if not request.headers.get("origin") or not same_origin(request) or content_type != "application/json":
-        return csrf_rejection()
-    try:
-        payload = await request.json()
-    except Exception:
-        payload = None
-    if not isinstance(payload, dict):
-        payload = {}
-    pnr = str(payload.get("pnr") or "").strip()
-    password = payload.get("password") if isinstance(payload.get("password"), str) else ""
-    if not pnr or not password:
-        return _login_failure("missing_fields", NOTICES["missing_fields"], 400)
-
-    try:
-        result = await api_client.login_user(
-            pnr, password,
-            client_ip=client_ip(request.headers),
-            previous_token=request.cookies.get(SESSION_COOKIE),
-        )
-        session = result["session"]
-        if not session.get("token") or not session.get("csrf_token"):
-            raise ValueError("Login-Antwort ohne Sitzungstoken")
-    except Exception as exc:
-        status = getattr(getattr(exc, "response", None), "status_code", None)
-        if status is None or status >= 500:
-            logger.warning("Wiederanmeldung fehlgeschlagen: %r", exc, exc_info=exc)
-        # 404: aeltere SD-API meldet unbekannte PNR so; nach aussen wie falsches Passwort.
-        known = {401: ("invalid_credentials", 401), 404: ("invalid_credentials", 401),
-                 403: ("account_not_enabled", 403), 429: ("login_rate_limited", 429)}
-        if status in known:
-            code, public_status = known[status]
-            return _login_failure(code, login_error_message(exc), public_status)
-        return _login_failure("service_unavailable", login_error_message(exc), 503)
-
-    user = _normalize_session_user(result)
-    response = JSONResponse(content={
-        "user": {"user_id": user.get("user_id"), "pnr": user.get("pnr"), "first_name": user.get("first_name")},
-        "session": public_session_info(session),
-        "csrf_token": session["csrf_token"],
-    })
-    set_session_cookie(response, session)
-    return response
 
 
 @router.get("/users")

@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 import httpx  # type: ignore
 
-from app.session import SessionState, current_session, service_key
+from app.session import current_session, service_key
 
 
 BASE_URL = os.getenv("SD_API_BASE_URL", "http://dev-api:8080").rstrip("/")
@@ -66,7 +66,7 @@ class APIClient:
             raise Exception(f"Request Error: {str(exc)}") from exc
 
     @staticmethod
-    def _session_headers(method: str, headers: dict | None, session: SessionState | None = None) -> dict:
+    def _session_headers(method: str, headers: dict | None) -> dict:
         """Dienstnachweis an jedem Aufruf; Sitzung und (bei nicht-GET) ihr CSRF-Token, sofern vorhanden.
 
         Das CSRF-Token stammt aus `/users/me` dieser Sitzung, nie aus dem Browser:
@@ -74,7 +74,7 @@ class APIClient:
         """
         key = service_key()
         merged = {"X-SOFA-Service-Key": key} if key else {}
-        state = session or current_session.get()
+        state = current_session.get()
         if state is not None:
             merged["X-SOFA-Session"] = state.token
             if method.upper() not in ("GET", "HEAD", "OPTIONS") and state.csrf_token:
@@ -240,9 +240,9 @@ class APIClient:
         """Bedienaktivitaet melden; SD-API drosselt selbst auf einmal je 60 s."""
         return await self._post(ACCESS_BASE_URL, "/users/me/activity")
 
-    async def session_logout(self, state: SessionState) -> None:
-        await self._request("POST", ACCESS_BASE_URL, "/users/logout",
-                            headers=self._session_headers("POST", None, state))
+    async def session_logout(self) -> None:
+        """Sitzung dieses Requests widerrufen (Token und CSRF-Token wie bei jedem Aufruf)."""
+        await self._request("POST", ACCESS_BASE_URL, "/users/logout")
 
     async def get_sofa_me(self, user_id: int) -> dict:
         return await self._get(SOFA_BASE_URL, "/me", headers={"X-User-Id": str(user_id)})
