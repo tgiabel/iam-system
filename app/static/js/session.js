@@ -113,12 +113,19 @@
         tick();
     }
 
-    // Rein lesend; ein 401 beendet ueber den fetch-Wrapper.
+    // Der einzige Abruf von /api/session/authz (Poll aus base.js, Hinweise, Wiederanmeldung). Rein lesend;
+    // ein 401 beendet ueber den fetch-Wrapper. Rechte und Badge wendet base.js aus "sofa:session-checked" an.
     function check() {
         if (!checking) {
             checking = fetch("/api/session/authz", { headers: { Accept: "application/json" } })
-                .then(async response => { if (response.ok) update(await response.json()); })
-                .catch(() => {})
+                .then(async response => {
+                    if (!response.ok) return null;
+                    const data = await response.json();
+                    update(data);
+                    window.dispatchEvent(new CustomEvent("sofa:session-checked", { detail: data }));
+                    return data;
+                })
+                .catch(() => null)
                 .finally(() => { checking = null; });
         }
         return checking;

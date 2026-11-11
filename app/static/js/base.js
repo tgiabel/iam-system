@@ -74,7 +74,6 @@ document.addEventListener("DOMContentLoaded", () => {
     ];
     const validThemeKeys = themes.map(theme => theme.key);
     let authzRefreshTimer = null;
-    let authzRefreshInFlight = false;
 
     try {
         const flashMessage = window.sessionStorage.getItem("flash_msg");
@@ -358,46 +357,25 @@ document.addEventListener("DOMContentLoaded", () => {
         return true;
     }
 
-    async function refreshSessionAuthz() {
-        if (authzRefreshInFlight || !window.currentAuthz) {
+    // Den Abruf von /api/session/authz macht allein session.js (SofaSession.check); hier wird das
+    // Ergebnis auf Navigation, Badge und Rechte angewendet, egal wer den Abruf ausgeloest hat.
+    function applySessionAuthz(data) {
+        if (!data || typeof data !== "object") {
             return;
         }
-
-        authzRefreshInFlight = true;
-
-        try {
-            const response = await fetch("/api/session/authz", {
-                headers: { Accept: "application/json" }
-            });
-            const data = await response.json().catch(() => ({}));
-
-            // Ohne Sitzung: session.js zeigt Banner und Wiederanmeldung, keine Weiterleitung.
-            if (response.status === 401 || response.status === 503) {
-                return;
-            }
-
-            if (!response.ok) {
-                throw new Error(data.detail || data.error || "Berechtigungen konnten nicht aktualisiert werden.");
-            }
-
-            if (data && typeof data === "object") {
-                if (data.authz) {
-                    window.currentAuthz = data.authz;
-                }
-                if (data.user) {
-                    window.currentUser = data.user;
-                }
-            }
-
-            window.SofaSession?.update(data);
-            applyAuthzDomState();
-            window.dispatchEvent(new CustomEvent("sofa:authz-updated", { detail: data || {} }));
-            handleAuthzLossAfterRefresh();
-        } catch (error) {
-            console.error("Berechtigungs-Refresh fehlgeschlagen", error);
-        } finally {
-            authzRefreshInFlight = false;
+        if (data.authz) {
+            window.currentAuthz = data.authz;
         }
+        if (data.user) {
+            window.currentUser = data.user;
+        }
+        applyAuthzDomState();
+        window.dispatchEvent(new CustomEvent("sofa:authz-updated", { detail: data }));
+        handleAuthzLossAfterRefresh();
+    }
+
+    function refreshSessionAuthz() {
+        window.SofaSession?.check();
     }
 
     function startAuthzRefresh() {
@@ -405,6 +383,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        window.addEventListener("sofa:session-checked", event => applySessionAuthz(event.detail));
         authzRefreshTimer = window.setInterval(refreshSessionAuthz, AUTHZ_REFRESH_INTERVAL_MS);
         // Nach der Wiederanmeldung koennen sich Rechte geaendert haben.
         window.addEventListener("sofa:session-resumed", refreshSessionAuthz);
