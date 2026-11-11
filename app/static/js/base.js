@@ -1,23 +1,3 @@
-// CSRF: SOFA verlangt bei jedem schreibenden Request das Token der Sitzung im Kopf X-CSRF-Token.
-// Es steht im <meta name="csrf-token"> der Seite; fremde Origins bekommen es nie.
-(() => {
-    const nativeFetch = window.fetch.bind(window);
-    const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
-    window.fetch = (input, init = {}) => {
-        const request = input instanceof Request ? input : null;
-        const method = String(init.method || request?.method || "GET").toUpperCase();
-        let sameOrigin = false;
-        try {
-            sameOrigin = new URL(request ? request.url : String(input), window.location.href).origin === window.location.origin;
-        } catch (_) { /* ungueltige URL: fetch meldet den Fehler selbst */ }
-        const token = document.querySelector('meta[name="csrf-token"]')?.content;
-        if (SAFE.has(method) || !sameOrigin || !token) return nativeFetch(input, init);
-        const headers = new Headers(init.headers || request?.headers || undefined);
-        headers.set("X-CSRF-Token", token);
-        return nativeFetch(input, { ...init, headers });
-    };
-})();
-
 function hasPerm(identifier) {
     const perms = window.currentAuthz?.permissions ?? [];
     const cat = identifier.split("-")[1];
@@ -391,10 +371,8 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             const data = await response.json().catch(() => ({}));
 
-            if (response.status === 401) {
-                const next = window.location.pathname + window.location.search;
-                const reason = data?.detail?.code === "session_expired" ? "expired" : "revoked";
-                window.location.href = `/login?reason=${reason}&next=${encodeURIComponent(next)}`;
+            // Ohne Sitzung: session.js zeigt Banner und Wiederanmeldung, keine Weiterleitung.
+            if (response.status === 401 || response.status === 503) {
                 return;
             }
 
@@ -411,6 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             }
 
+            window.SofaSession?.update(data);
             applyAuthzDomState();
             window.dispatchEvent(new CustomEvent("sofa:authz-updated", { detail: data || {} }));
             handleAuthzLossAfterRefresh();
@@ -427,6 +406,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         authzRefreshTimer = window.setInterval(refreshSessionAuthz, AUTHZ_REFRESH_INTERVAL_MS);
+        // Nach der Wiederanmeldung koennen sich Rechte geaendert haben.
+        window.addEventListener("sofa:session-resumed", refreshSessionAuthz);
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "visible") {
                 refreshSessionAuthz();

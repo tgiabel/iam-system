@@ -8,7 +8,7 @@ from fastapi import HTTPException, Request  # type: ignore
 from fastapi.templating import Jinja2Templates  # type: ignore
 
 from app.api_client import api_client
-from app.session import current_session
+from app.session import current_session, public_session_info
 from app.authz import (
     AuthorizationContext,
     build_authorization_context_from_user,
@@ -182,6 +182,12 @@ def _build_template_context(
         "authz": get_authz_payload_for_template(resolved_authz),
         # Fuer <meta name="csrf-token"> und das Logout-Formular; JS sendet es als X-CSRF-Token.
         "csrf_token": state.csrf_token if state is not None else "",
+        # Fuer Aktivitaetsmeldung, Ablaufhinweise und Wiederanmeldung im Tab (static/js/session.js).
+        "session_client": {
+            "user_id": user.get("user_id"),
+            "pnr": user.get("pnr") or "",
+            "info": public_session_info(state.info),
+        } if state is not None and user else None,
     }
     context.update(extra)
     return context

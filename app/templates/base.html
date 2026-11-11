@@ -22,6 +22,7 @@
     </script>
     <link rel="stylesheet" href="/static/css/_.css?v={{ static_v }}">
     <link rel="stylesheet" href="/static/css/ui.css?v={{ static_v }}">
+    <link rel="stylesheet" href="/static/css/session.css?v={{ static_v }}">
     {% block css %}{% endblock %}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -29,6 +30,7 @@
       href="https://fonts.googleapis.com/css2?family=Abel&display=swap"
       rel="stylesheet"
     />
+    <script src="/static/js/session.js?v={{ static_v }}"></script>
     <script src="/static/js/sofa_utils.js?v={{ static_v }}"></script>
     <script src="/static/js/base.js?v={{ static_v }}"></script>
     {% block scripts %}{% endblock %}
@@ -232,6 +234,7 @@
     {% if user %}
         <script>
             window.currentAuthz = {{ authz | tojson }};
+            window.sofaSession = {{ session_client | tojson }};
         </script>
         <div
             id="password-change-modal"

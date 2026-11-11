@@ -1,7 +1,7 @@
 # Login und Sitzungsübergänge
 
-Stand: 11.11.2026. Phase A der echten Umstellung auf `feat/login-redesign` umgesetzt
-und gegen sd-api-dev geprüft (Vertrag: SD-API `docs/sofa-session-contract.md`).
+Stand: 11.11.2026. Phasen A und B der echten Umstellung auf `feat/login-redesign`
+umgesetzt und gegen sd-api-dev geprüft (Vertrag: SD-API `docs/sofa-session-contract.md`).
 Nicht auf `main`: Der Stand verlangt SD-API API-1 und den Dienstschlüssel in Prod.
 
 ## Umsetzung
@@ -10,15 +10,34 @@ Nicht auf `main`: Der Stand verlangt SD-API API-1 und den Dienstschlüssel in Pr
 `__Host-sofa_dev_session`); je Request `GET /access/users/me` in
 `app/session_gate.py`, AuthorizationContext nur daraus; Dienstschlüssel, Sitzung
 und Sitzungs-CSRF an jedem SD-API-Aufruf (`api_client`); zentrale CSRF- und
-Origin-Prüfung, `fetch`-Wrapper in `base.js`; neue Loginseite nach der Vorschau mit
+Origin-Prüfung, `fetch`-Wrapper (heute in `session.js`); neue Loginseite nach der Vorschau mit
 Login-CSRF und geprüftem Rücksprungziel; Logout per POST mit Widerruf; HTML ohne
 Sitzung → `/login?next=…&reason=…`, `/api/` → JSON 401, SD-API-Ausfall → 503 ohne
 Logout; Report-Token und `sofa_user` entfernt, alte Cookies werden gelöscht; Poll
 rein lesend; `no-store` auf allen Antworten außer `/static`.
 
-**Phase B (offen):** Aktivitätsmeldung aus dem Browser, Hinweise vor Inaktivitäts-
-und Absolutablauf, Wiederanmeldung im selben Tab ohne Entwurfsverlust (heute leitet
-ein 401 im Poll noch auf die Loginseite), Widget-Verhalten.
+**Phase B (umgesetzt):** `app/static/js/session.js` mit `session.css`, eingebunden in
+`base.html` vor allen anderen Skripten.
+
+- Aktivität: echte Bedienung (`isTrusted`) in sichtbaren Fenstern meldet höchstens alle
+  60 s je Tab `POST /api/session/activity` (`keepalive`). Poll und Hintergrundabrufe
+  verlängern nie.
+- Hinweise: Fristen kommen mit der Seite (`window.sofaSession`, ohne Tokens) und mit
+  jeder Poll-/Aktivitätsantwort; Uhrenversatz aus `server_time`. 5 min vor
+  Inaktivitätsablauf „Weiterarbeiten“ (vorher und dann minütlich Nachfrage, weil
+  andere Tabs verlängern können); 5 min vor Absolutablauf „Bitte speichere deine
+  Arbeit“ mit „OK“.
+- Ablauf: Jeder 401 `session_*` einer `/api/`-Antwort (Poll, Widget-Abruf, Speichern)
+  sperrt die Seite (`inert`) und zeigt ein Banner, keine Weiterleitung. „Erneut
+  anmelden“ fragt erst nach (anderer Tab schon angemeldet?) und öffnet sonst einen
+  Dialog, der `POST /api/session/login` aufruft (JSON, `Origin` Pflicht). Gleiches
+  Konto: Seite bleibt, Eingaben bleiben, neues CSRF-Token wird übernommen. Anderes
+  Konto: Seite wird neu geladen. Nichts wird automatisch wiederholt.
+- Mehrere Tabs: Poll und Aktivität liefern das gültige CSRF-Token mit; ein
+  `403 csrf_failed` holt es sofort nach. Widget-Fenster verhalten sich gleich (Banner
+  oben, keine Schleife).
+- Gate löscht ein abgelaufenes Cookie nicht mehr, wenn die Route gerade ein neues
+  gesetzt hat (betraf auch `POST /login` mit altem Cookie).
 
 **Phase C (offen):** keine Exception-Texte mehr nach außen (`{"error": str(exc)}`
 in `app/routes/api.py`).

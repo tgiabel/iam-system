@@ -168,6 +168,19 @@ class LoginLogoutTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(cross.status_code, 403)
 
+    def test_login_with_a_stale_cookie_keeps_the_new_one(self):
+        token = self.form_token()
+        self.client.cookies.set(SESSION_COOKIE, "A" * 43)
+        result = {**me_payload(), "session": {**session_block(), "token": TOKEN}}
+        expired = api_error(401, {"code": "session_expired", "message": "x", "context": {"reason": "idle"}})
+        with patch.object(api_client, "session_me", AsyncMock(side_effect=expired)), \
+                patch.object(api_client, "login_user", AsyncMock(return_value=result)):
+            response = self.client.post("/login", follow_redirects=False,
+                                        data={"pnr": "42", "password": "x", "csrf_token": token})
+        cookies = [value for value in set_cookies(response) if value.startswith(SESSION_COOKIE + "=")]
+        self.assertEqual(len(cookies), 1)
+        self.assertIn(TOKEN, cookies[0])
+
     def test_rate_limit_and_not_enabled_have_own_texts(self):
         from app import login_errors
         for status, code, text in ((429, "login_rate_limited", login_errors.RATE_LIMITED),
@@ -201,6 +214,107 @@ class LoginLogoutTests(unittest.TestCase):
         page = self.client.get("/login?reason=logged_out").text
         self.assertIn('data-kind="success">Du bist abgemeldet.', page)
         self.assertIn(LOGIN_CSRF_COOKIE, "".join(set_cookies(self.client.get("/login"))))
+
+
+class InTabReloginTests(unittest.TestCase):
+    """POST /api/session/login: Wiederanmeldung ohne Seitenwechsel (Phase B)."""
+
+    def setUp(self):
+        self.client = TestClient(app, base_url="https://testserver")
+
+    def post(self, body=None, *, origin="https://testserver", **kwargs):
+        headers = {"Origin": origin} if origin else {}
+        headers.update(kwargs.pop("headers", {}))
+        return self.client.post("/api/session/login", json=body if body is not None else {"pnr": " 42 ", "password": "geheim"},
+                                headers=headers, **kwargs)
+
+    def test_success_sets_the_cookie_and_returns_the_new_csrf_token(self):
+        self.client.cookies.set(SESSION_COOKIE, "A" * 43)
+        result = {**me_payload(user_id=42), "session": {**session_block(csrf_token="N" * 43), "token": TOKEN}}
+        expired = api_error(401, {"code": "session_expired", "message": "x", "context": {"reason": "idle"}})
+        with patch.object(api_client, "session_me", AsyncMock(side_effect=expired)), \
+                patch.object(api_client, "login_user", AsyncMock(return_value=result)) as login:
+            response = self.post(headers={"X-Forwarded-For": "10.0.0.5"})
+        login.assert_awaited_once_with("42", "geheim", client_ip="10.0.0.5", previous_token="A" * 43)
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["user"], {"user_id": 42, "pnr": "42", "first_name": "Erika"})
+        self.assertEqual(body["csrf_token"], "N" * 43)
+        self.assertNotIn("token", body["session"])
+        self.assertNotIn("csrf_token", body["session"])
+        self.assertNotIn(TOKEN, response.text)
+        cookies = [value for value in set_cookies(response) if value.startswith(SESSION_COOKIE + "=")]
+        self.assertEqual(len(cookies), 1, "nur das neue Cookie, kein Loeschen durch die abgelaufene Sitzung")
+        self.assertIn(TOKEN, cookies[0])
+        for attribute in ("httponly", "secure", "samesite=lax", "path=/", "max-age=43200"):
+            self.assertIn(attribute, cookies[0].lower())
+
+    def test_only_same_origin_json_reaches_the_api(self):
+        with patch.object(api_client, "login_user", AsyncMock()) as login:
+            missing = self.post(origin=None)
+            foreign = self.post(origin="https://evil.test")
+            form = self.client.post("/api/session/login", data={"pnr": "42", "password": "x"},
+                                    headers={"Origin": "https://testserver"})
+        login.assert_not_called()
+        for response in (missing, foreign, form):
+            self.assertEqual((response.status_code, response.json()["detail"]["code"]), (403, "csrf_failed"))
+
+    def test_stale_page_token_does_not_block_the_relogin(self):
+        sign_in(self, self.client)
+        self.client.headers["X-CSRF-Token"] = "x" * 43
+        result = {**me_payload(), "session": {**session_block(), "token": TOKEN}}
+        with patch.object(api_client, "login_user", AsyncMock(return_value=result)):
+            self.assertEqual(self.post().status_code, 200)
+
+    def test_failures_carry_the_login_page_texts(self):
+        from app import login_errors
+        cases = (
+            (api_error(401, {"code": "invalid_credentials"}), 401, "invalid_credentials", login_errors.BAD_CREDENTIALS),
+            (api_error(404, {"code": "not_found"}), 401, "invalid_credentials", login_errors.BAD_CREDENTIALS),
+            (api_error(403, {"code": "account_not_enabled"}), 403, "account_not_enabled", login_errors.NOT_ALLOWED),
+            (api_error(429, {"code": "login_rate_limited"}), 429, "login_rate_limited", login_errors.RATE_LIMITED),
+            (api_error(500, {"code": "internal_error"}), 503, "service_unavailable", login_errors.SERVER_ERROR),
+        )
+        for error, status, code, text in cases:
+            with self.subTest(code=code, status=status), \
+                    patch.object(api_client, "login_user", AsyncMock(side_effect=error)):
+                response = self.post()
+                self.assertEqual((response.status_code, response.json()["detail"]), (status, {"code": code, "message": text}))
+                self.assertEqual(set_cookies(response), [])
+
+    def test_missing_fields(self):
+        with patch.object(api_client, "login_user", AsyncMock()) as login:
+            for body in ({}, {"pnr": "42"}, {"pnr": " ", "password": "x"}, {"pnr": "42", "password": ["x"]}, []):
+                with self.subTest(body=body):
+                    self.assertEqual(self.post(body).status_code, 400)
+        login.assert_not_called()
+
+
+class SessionClientDataTests(unittest.TestCase):
+    """Fristen fuer Hinweise im Browser; das jeweils gueltige CSRF-Token fuer andere Tabs."""
+
+    def setUp(self):
+        self.client = TestClient(app, base_url="https://testserver")
+
+    def test_page_carries_deadlines_but_no_tokens(self):
+        sign_in(self, self.client, user_id=7)
+        html = self.client.get("/").text
+        data = json.loads(html.split("window.sofaSession = ", 1)[1].split(";\n", 1)[0])
+        self.assertEqual((data["user_id"], data["pnr"]), (7, "7"))
+        self.assertEqual(data["info"]["idle_expires_at"], session_block()["idle_expires_at"])
+        self.assertNotIn("csrf_token", data["info"])
+        self.assertIn('src="/static/js/session.js', html)
+        self.assertLess(html.index("/static/js/session.js"), html.index("/static/js/base.js"))
+
+    def test_poll_and_activity_return_the_current_csrf_token(self):
+        sign_in(self, self.client)
+        with patch.object(api_client, "get_sofa_me", AsyncMock(return_value={"task_count": 0})):
+            poll = self.client.get("/api/session/authz")
+        with patch.object(api_client, "session_activity", AsyncMock(return_value={"session": session_block()})):
+            activity = self.client.post("/api/session/activity")
+        self.assertEqual(poll.json()["csrf_token"], CSRF)
+        self.assertEqual(activity.json()["csrf_token"], CSRF)
+        self.assertNotIn("csrf_token", activity.json()["session"])
 
 
 if __name__ == "__main__":

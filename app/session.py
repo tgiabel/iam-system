@@ -66,6 +66,25 @@ def seconds_until_absolute_expiry(info: dict) -> int | None:
     return max(0, int((end - now).total_seconds()))
 
 
+def public_session_info(info: dict | None) -> dict:
+    """Fristen der Sitzung fuer den Browser, ohne Sitzungs- und CSRF-Token."""
+    public = dict(info or {})
+    public.pop("token", None)
+    public.pop("csrf_token", None)
+    return public
+
+
+def set_session_cookie(response, session: dict) -> None:
+    response.set_cookie(
+        SESSION_COOKIE, session["token"], max_age=seconds_until_absolute_expiry(session), path="/",
+        secure=True, httponly=True, samesite="lax",
+    )
+
+
+def clear_session_cookie(response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
+
+
 def client_ip(headers) -> str | None:
     """Letzter Eintrag aus X-Forwarded-For: den haengt Apache an, die vorderen kann der Browser faelschen."""
     forwarded = headers.get("x-forwarded-for", "")

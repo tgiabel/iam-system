@@ -21,6 +21,7 @@ from app.session import (
     LEGACY_COOKIES,
     SESSION_COOKIE,
     SessionState,
+    clear_session_cookie,
     current_session,
     is_token,
     tokens_match,
@@ -29,8 +30,9 @@ from app.session import (
 logger = logging.getLogger("uvicorn.error")
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-# Klassische Formulare tragen das Token im Feld statt im Kopf; die Routen pruefen es selbst.
-FORM_CSRF_PATHS = frozenset({"/login", "/logout"})
+# Diese Routen pruefen ihren CSRF-Schutz selbst: klassische Formulare tragen das Token im Feld,
+# die Wiederanmeldung im Tab kommt ohne gueltige Sitzung (Origin-Pflicht plus JSON).
+FORM_CSRF_PATHS = frozenset({"/login", "/logout", "/api/session/login"})
 NO_STORE = "no-store"
 
 
@@ -124,8 +126,13 @@ class SessionGateMiddleware(BaseHTTPMiddleware):
         finally:
             current_session.reset(reset)
 
-        if problem in ("expired", "revoked", "logged_out", "invalid"):
-            response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
+        # Hat die Route (Login) gerade ein neues Cookie gesetzt, darf das Loeschen es nicht ueberschreiben.
+        sets_session = any(
+            key == b"set-cookie" and value.startswith(SESSION_COOKIE.encode() + b"=")
+            for key, value in response.raw_headers
+        )
+        if problem in ("expired", "revoked", "logged_out", "invalid") and not sets_session:
+            clear_session_cookie(response)
         for legacy in LEGACY_COOKIES:
             if legacy in request.cookies:
                 response.delete_cookie(legacy, path="/")

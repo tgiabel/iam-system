@@ -23,9 +23,10 @@ from app.session import (
     LOGIN_CSRF_COOKIE,
     LOGIN_CSRF_MAX_AGE,
     SESSION_COOKIE,
+    clear_session_cookie,
     client_ip,
     safe_next,
-    seconds_until_absolute_expiry,
+    set_session_cookie,
     tokens_match,
 )
 from app.session_gate import same_origin
@@ -92,7 +93,8 @@ async def login(
             previous_token=request.cookies.get(SESSION_COOKIE),
         )
         session = result["session"]
-        token = session["token"]
+        if not session.get("token"):
+            raise ValueError("Login-Antwort ohne Sitzungstoken")
     except Exception as exc:
         status = getattr(getattr(exc, "response", None), "status_code", None)
         if status is None or status >= 500:
@@ -101,10 +103,7 @@ async def login(
                            status_code=status if status in (401, 403, 429) else 503)
 
     response = RedirectResponse(url=next_path, status_code=303)
-    response.set_cookie(
-        SESSION_COOKIE, token, max_age=seconds_until_absolute_expiry(session), path="/",
-        secure=True, httponly=True, samesite="lax",
-    )
+    set_session_cookie(response, session)
     response.delete_cookie(LOGIN_CSRF_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
     return response
 
@@ -122,7 +121,7 @@ async def logout(request: Request, csrf_token: str = Form("")):
             # Cookie wird trotzdem geloescht; die Sitzung laeuft dann serverseitig regulaer ab.
             logger.warning("Logout bei SD-API fehlgeschlagen: %r", exc)
     response = RedirectResponse(url="/login?reason=logged_out", status_code=303)
-    response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
+    clear_session_cookie(response)
     return response
 
 
