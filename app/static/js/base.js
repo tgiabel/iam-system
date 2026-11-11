@@ -265,7 +265,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getCurrentAuthz() {
-        return window.currentAuthz || { permissions: [], has_admin_access: false, has_any_tool: false };
+        return window.currentAuthz || { permissions: [], has_admin_access: false };
     }
 
     function hasPageAccess(sofaIdentifier) {

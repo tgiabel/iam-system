@@ -38,6 +38,5 @@ def build_dashboard_context(authz: AuthorizationContext, mock_query: str | None)
         "dashboard_items": items,
         "dashboard_sources": sources,
         "dashboard_mock": scenario,
-        "dashboard_live": True,
         "dashboard_slog": authz.has_permission("SOFA-TOOL-SLOG"),
     }

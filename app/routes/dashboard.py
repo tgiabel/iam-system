@@ -1,7 +1,7 @@
 """Daten der Dashboard-Card "Mein Tag": erledigte Aufgaben und angenommene Anrufe eines Tages."""
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
 from app.api_client import api_client
@@ -25,7 +25,7 @@ async def _calls_answered(day: date) -> int:
 
 
 @router.get('/my-day')
-async def my_day(request: Request, day: date = Query(alias='date'), authz=Depends(require_login)):
+async def my_day(day: date = Query(alias='date'), authz=Depends(require_login)):
     """Jeder Teil nur mit eigener Berechtigung; faellt einer aus, fehlt nur sein Wert."""
     result = {'date': day.isoformat()}
     if authz.has_permission('SOFA-PAGE-TODO'):

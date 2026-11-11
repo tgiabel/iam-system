@@ -11,7 +11,7 @@ from app.api_client import APIClient, api_client
 from app.main import app
 from app.session import DEV_SERVICE_KEY, LOGIN_CSRF_COOKIE, SESSION_COOKIE, SessionState, client_ip, current_session, safe_next
 from tests.session_helpers import (
-    CSRF, TOKEN, api_error, login_form_token, me_payload, session_block, set_cookies, sign_in,
+    CSRF, TOKEN, api_error, login_form_token, me_payload, quiet_server_log, session_block, set_cookies, sign_in,
 )
 
 
@@ -221,6 +221,7 @@ class InTabReloginTests(unittest.TestCase):
 
     def setUp(self):
         self.client = TestClient(app, base_url="https://testserver")
+        quiet_server_log(self)
 
     def post(self, body=None, *, origin="https://testserver", **kwargs):
         headers = {"Origin": origin} if origin else {}

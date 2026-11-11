@@ -1,5 +1,6 @@
 """Testhelfer fuer Sitzungen: angemeldete Clients (Sitzungs-Cookie plus simulierte Antwort von
 GET /access/users/me), Login-Formular, Fehler der SD-API und Set-Cookie-Koepfe."""
+import logging
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -86,3 +87,10 @@ def wrapped(cause):
 
 def set_cookies(response):
     return [value for key, value in response.headers.multi_items() if key == "set-cookie"]
+
+
+def quiet_server_log(test):
+    """Erwartete Warnungen fehlgeschlagener Anmeldungen nicht in die Testausgabe schreiben."""
+    patcher = patch.object(logging.getLogger("uvicorn.error"), "disabled", True)
+    patcher.start()
+    test.addCleanup(patcher.stop)

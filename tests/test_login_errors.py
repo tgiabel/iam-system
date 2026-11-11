@@ -8,7 +8,7 @@ from app import login_errors
 from app.api_client import api_client
 from app.login_errors import LoginFailure, classify_login_error
 from app.main import app
-from tests.session_helpers import login_form_token, status_error, wrapped
+from tests.session_helpers import login_form_token, quiet_server_log, status_error, wrapped
 
 
 class ClassifyLoginErrorTests(unittest.TestCase):
@@ -43,6 +43,9 @@ class ClassifyLoginErrorTests(unittest.TestCase):
 
 
 class LoginPageTests(unittest.TestCase):
+    def setUp(self):
+        quiet_server_log(self)
+
     def post(self, error):
         client = TestClient(app, base_url="https://testserver")
         token = login_form_token(client)

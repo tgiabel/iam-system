@@ -72,9 +72,7 @@
                             <span class="nav-badge" data-task-count-badge{% if not authz.task_count %} hidden{% endif %}>{{ authz.task_count }}</span>
                         </a>
                     {% endif %}
-                    {% if authz.has_any_tool %}
-                        <a href="/workspace" class="nav-link" data-nav-target="tools">Workspace</a>
-                    {% endif %}
+                    <a href="/workspace" class="nav-link" data-nav-target="tools">Workspace</a>
 
                     <!-- Admin dropdown (click-to-toggle) -->
                     {% if authz.has_admin_access %}
@@ -154,14 +152,6 @@
                         </div>
                     </div>
                 </div>
-            {% else %}
-                <nav class="nav-links" role="navigation" aria-label="Login Navigation">
-                    <a href="/login" class="nav-link" data-nav-target="login">Login</a>
-                </nav>
-                <button id="theme-toggle-button" class="theme-toggle-button" type="button"
-                        aria-label="Theme wechseln" title="Theme wechseln">
-                    <img src="/static/img/sun-icon-white.png" alt="" class="theme-toggle-icon" id="theme-toggle-icon" />
-                </button>
             {% endif %}
         </div>
     </header>
@@ -175,9 +165,7 @@
                         <span class="nav-badge" data-task-count-badge{% if not authz.task_count %} hidden{% endif %}>{{ authz.task_count }}</span>
                     </a>
                 {% endif %}
-                {% if authz.has_any_tool %}
-                    <a href="/workspace" class="mobile-nav-link" data-nav-target="tools">Workspace</a>
-                {% endif %}
+                <a href="/workspace" class="mobile-nav-link" data-nav-target="tools">Workspace</a>
 
                 {% if authz.has_admin_access %}
                     <div class="mobile-nav-group">
@@ -202,10 +190,6 @@
                         {% endif %}
                     </div>
                 {% endif %}
-            </nav>
-        {% else %}
-            <nav class="mobile-nav-links" aria-label="Mobile Login Navigation">
-                <a href="/login" class="mobile-nav-link" data-nav-target="login">Login</a>
             </nav>
         {% endif %}
     </div>

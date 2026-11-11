@@ -56,18 +56,6 @@ class AuthorizationContext:
             "SOFA-PAGE-COMPUTER",
         ))
 
-    def has_any_tool(self) -> bool:
-        # Der persoenliche Genesys-Report liegt im Workspace und steht allen
-        # angemeldeten SOFA-Nutzern offen.
-        if self.user_id is not None:
-            return True
-        return any(
-            self.has_permission(p) for p in self.permissions
-            if p.startswith("SOFA-TOOL-")
-        ) or "SOFA-TOOL-ALL" in self.permissions or any(
-            permission.startswith("SOFA-RPRT-") for permission in self.permissions
-        )
-
 
 def _extract_identifiers(items: list[dict] | None) -> frozenset[str]:
     if not items:
@@ -221,7 +209,6 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
             "backlogs": [],
             "has_admin_access": False,
             "has_all_backlog_access": False,
-            "has_any_tool": False,
             "task_count": 0,
         }
 
@@ -230,6 +217,5 @@ def get_authz_payload_for_template(authz: AuthorizationContext | None) -> dict[s
         "backlogs": sorted(b for b in authz.accessible_backlogs if b != "SOFA-BKLG-ALL"),
         "has_admin_access": authz.has_admin_access(),
         "has_all_backlog_access": authz.has_all_backlog_access,
-        "has_any_tool": authz.has_any_tool(),
         "task_count": authz.task_count,
     }

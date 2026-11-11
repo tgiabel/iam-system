@@ -102,7 +102,6 @@ class DashboardContextTests(unittest.TestCase):
         self.assertEqual(context['dashboard_sources'], {
             'events': '/api/events', 'live': '/api/reporting/genesys-live',
             'service_level': '/api/reporting/service-level', 'my_day': '/api/dashboard/my-day'})
-        self.assertTrue(context['dashboard_live'])
 
 
 class RenderedDashboardTests(unittest.TestCase):

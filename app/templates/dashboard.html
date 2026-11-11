@@ -15,7 +15,7 @@
 <div class="page-container dashboard-page" id="dashboard"
      data-user-id="{{ user.user_id if user.user_id is not none else '' }}"
      data-src-events="{{ dashboard_sources.events }}"
-     data-src-live="{{ dashboard_sources.live if dashboard_live else '' }}"
+     data-src-live="{{ dashboard_sources.live }}"
      data-src-service-level="{{ dashboard_sources.service_level }}"
      data-src-my-day="{{ dashboard_sources.my_day }}"
      {% if dashboard_mock %}data-mock="{{ dashboard_mock }}"{% endif %}>
@@ -70,7 +70,6 @@
         </div>
 
         <div class="dash-right">
-            {% if dashboard_live %}
             <aside class="gl-page dash-live" id="dash-live" aria-labelledby="panelTitle">
                 <section class="side-panel">
                     <div class="panel-head">
@@ -80,7 +79,6 @@
                     <div id="panelContent"><p class="panel-empty">Lädt …</p></div>
                 </section>
             </aside>
-            {% endif %}
 
             {% if dashboard_sources.service_level %}
             <section class="ui-card dash-card dash-sl" id="dash-sl" hidden>

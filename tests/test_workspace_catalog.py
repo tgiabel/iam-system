@@ -1,19 +1,13 @@
-import base64
 import os
 import re
 import subprocess
 import unittest
 from pathlib import Path
-from unittest.mock import patch
-
 from fastapi.testclient import TestClient
 
 from app.authz import AuthorizationContext, build_authorization_context
 from app.main import app
 from app.workspace_catalog import CATALOG, visible_items
-
-SECRET = base64.b64encode(b'workspace-catalog-test-secret-is-long-enough').decode()
-
 
 def authz(*permissions, user_id=42):
     return AuthorizationContext(user_id=user_id, pnr='42', primary_role_name='Agent',
@@ -62,9 +56,6 @@ class CatalogTests(unittest.TestCase):
 
 class RenderedCardTests(unittest.TestCase):
     def setUp(self):
-        secret = patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET})
-        secret.start()
-        self.addCleanup(secret.stop)
         self.context = authz('SOFA-TOOL-ALL', 'SOFA-RPRT-ALL', 'SOFA-PAGE-USER')
         app.dependency_overrides[build_authorization_context] = lambda: self.context
         self.addCleanup(app.dependency_overrides.clear)
@@ -113,6 +104,14 @@ class RenderedCardTests(unittest.TestCase):
         html = self.client.get('/workspace').text
         for item in CATALOG:
             self.assertNotIn('>' + item.copy + '<', html)
+
+    def test_every_signed_in_user_has_the_workspace(self):
+        # Die persoenlichen Genesys-Reports liegen hier; ohne Tool- oder Reportrecht kein Rauswurf.
+        self.context = authz('SOFA-PAGE-TODO')
+        response = self.client.get('/workspace', follow_redirects=False)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('href="/workspace" class="nav-link"', response.text)
+        self.assertIn('href="/workspace" class="mobile-nav-link"', response.text)
 
     def test_pin_row_keeps_four_slots_without_one_column(self):
         self.context = authz('SOFA-RPRT-LL')

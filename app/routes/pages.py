@@ -140,8 +140,7 @@ def tasks(
 
 @router.get("/workspace", response_class=HTMLResponse)
 def workspace(request: Request, authz=Depends(require_login)):
-    if not authz.has_any_tool() and not authz.has_admin_access():
-        return RedirectResponse(url="/", status_code=303)
+    # Fuer alle Angemeldeten: der persoenliche Genesys-Report liegt hier.
     sections = visible_items(authz)
     return templates.TemplateResponse("tools.html", _build_template_context(
         request, user=authz.raw_user, authz=authz,

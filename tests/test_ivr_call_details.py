@@ -72,9 +72,6 @@ class TestIvrCallDetailsAuthorization(unittest.TestCase):
             asyncio.run(dependency(make_authz()))
         self.assertEqual(denied.exception.status_code, 403)
 
-    def test_report_permission_exposes_workspace_navigation(self):
-        self.assertTrue(make_authz(PERMISSION).has_any_tool())
-
     def test_tool_card_uses_same_permission(self):
         from app.workspace_catalog import CATALOG
         item = next(item for item in CATALOG if item.href == "/reports/ivr-call-details")

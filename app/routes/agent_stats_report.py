@@ -2,7 +2,7 @@
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 
 from app.api_client import api_client
 from app.authz import require_login
@@ -12,7 +12,7 @@ router = APIRouter(prefix='/reporting/agent-stats')
 
 
 @router.get('')
-async def report(request: Request, period: Literal['day', 'month'] = 'day', anchor: date | None = None,
+async def report(period: Literal['day', 'month'] = 'day', anchor: date | None = None,
                  authz=Depends(require_login)):
     params = [('period', period)]
     if anchor:
