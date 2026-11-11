@@ -2,6 +2,9 @@
    0. ROOT VARIABLES
 ========================= */
 :root {
+    /* Systemschrift fuer Anmeldung und Sitzungshinweise (auth.css, session.css), abgestimmt im Mock */
+    --font-system: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
     /* Brand Colors */
     --color-primary: #4169e1;
     --color-primary-rgb: 65, 105, 225;

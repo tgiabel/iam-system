@@ -13,6 +13,7 @@
         } catch (_) { document.documentElement.dataset.theme = 'light'; }
     </script>
     <link rel="stylesheet" href="/static/css/_.css?v={{ static_v }}">
+    <link rel="stylesheet" href="/static/css/auth.css?v={{ static_v }}">
     <link rel="stylesheet" href="/static/css/login.css?v={{ static_v }}">
     <script src="/static/js/login.js?v={{ static_v }}" defer></script>
 </head>
@@ -33,14 +34,14 @@
                     {% endif %}
                     <div class="auth-field">
                         <label for="auth-pnr" class="auth-visually-hidden">Personalnummer</label>
-                        <input id="auth-pnr" name="pnr" type="text" autocomplete="username" autocapitalize="none"
+                        <input id="auth-pnr" class="auth-input" name="pnr" type="text" autocomplete="username" autocapitalize="none"
                                spellcheck="false" placeholder="Personalnummer" required value="{{ pnr }}"
                                {% if credentials_error %}aria-invalid="true" aria-describedby="auth-error"{% endif %}>
                     </div>
                     <div class="auth-field">
                         <label for="auth-password" class="auth-visually-hidden">Passwort</label>
                         <div class="auth-password-wrap">
-                            <input id="auth-password" name="password" type="password" autocomplete="current-password"
+                            <input id="auth-password" class="auth-input" name="password" type="password" autocomplete="current-password"
                                    placeholder="Passwort" required
                                    {% if credentials_error %}aria-invalid="true" aria-describedby="auth-error"{% endif %}>
                             <button type="button" id="auth-show-password" class="auth-reveal" hidden

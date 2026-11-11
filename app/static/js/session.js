@@ -210,27 +210,27 @@
         banner.innerHTML = '<p class="session-banner-text"></p><button type="button" class="session-banner-action"></button>';
 
         const dialog = document.createElement("dialog");
-        dialog.className = "session-dialog";
+        dialog.className = "session-dialog auth-card";
         dialog.setAttribute("aria-labelledby", "session-dialog-title");
         dialog.innerHTML = `
             <form class="session-form" novalidate>
-                <span class="session-logo" aria-hidden="true"></span>
+                <span class="auth-logo" aria-hidden="true"></span>
                 <h2 id="session-dialog-title">Erneut anmelden</h2>
-                <p class="session-notice"></p>
-                <div class="session-error" role="alert" tabindex="-1" hidden></div>
-                <label for="session-pnr" class="session-visually-hidden">Personalnummer</label>
-                <input id="session-pnr" name="pnr" type="text" autocomplete="username" autocapitalize="none"
-                       spellcheck="false" placeholder="Personalnummer" required>
-                <label for="session-password" class="session-visually-hidden">Passwort</label>
-                <div class="session-password">
-                    <input id="session-password" name="password" type="password" autocomplete="current-password"
-                           placeholder="Passwort" required>
-                    <button type="button" class="session-reveal" aria-label="Passwort anzeigen" aria-pressed="false"
+                <p class="auth-notice" data-kind="warning"></p>
+                <div class="auth-error" role="alert" tabindex="-1" hidden></div>
+                <label for="session-pnr" class="auth-visually-hidden">Personalnummer</label>
+                <input id="session-pnr" class="auth-input" name="pnr" type="text" autocomplete="username"
+                       autocapitalize="none" spellcheck="false" placeholder="Personalnummer" required>
+                <label for="session-password" class="auth-visually-hidden">Passwort</label>
+                <div class="auth-password-wrap">
+                    <input id="session-password" class="auth-input" name="password" type="password"
+                           autocomplete="current-password" placeholder="Passwort" required>
+                    <button type="button" class="auth-reveal" aria-label="Passwort anzeigen" aria-pressed="false"
                             aria-controls="session-password">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
                 </div>
-                <button type="submit" class="session-submit"><span>Anmelden</span><span aria-hidden="true">→</span></button>
+                <button type="submit" class="auth-primary"><span>Anmelden</span><span aria-hidden="true">→</span></button>
                 <button type="button" class="session-cancel">Abbrechen</button>
             </form>`;
         document.body.append(banner, dialog);
@@ -240,12 +240,12 @@
             banner, dialog, form,
             text: banner.querySelector(".session-banner-text"),
             action: banner.querySelector(".session-banner-action"),
-            notice: dialog.querySelector(".session-notice"),
-            error: dialog.querySelector(".session-error"),
+            notice: dialog.querySelector(".auth-notice"),
+            error: dialog.querySelector(".auth-error"),
             pnr: dialog.querySelector("#session-pnr"),
             password: dialog.querySelector("#session-password"),
-            reveal: dialog.querySelector(".session-reveal"),
-            submit: dialog.querySelector(".session-submit"),
+            reveal: dialog.querySelector(".auth-reveal"),
+            submit: dialog.querySelector(".auth-primary"),
             kind: null,
             busy: false,
         };
