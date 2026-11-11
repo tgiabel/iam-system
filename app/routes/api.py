@@ -7,15 +7,13 @@ import re
 from urllib.parse import quote
 
 import httpx  # type: ignore
-from fastapi import APIRouter, Cookie, Depends, File, Form, HTTPException, Query, Request, UploadFile  # type: ignore
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile  # type: ignore
 from fastapi.responses import JSONResponse, Response, StreamingResponse  # type: ignore
 
 from app.api_client import api_client
-from app.report_proxy import renew_report_cookie
 from app.authz import (
     build_authorization_context_from_user,
     get_authz_payload_for_template,
-    get_current_user,
     require_any_permission,
     require_login,
     require_permission,
@@ -26,9 +24,7 @@ from app.routes.shared import (
     _build_template_context,
     _coerce_bool,
     _coerce_int,
-    _build_session_user_from_login,
     _error_content_from_response,
-    _normalize_session_user,
     _filter_tasks_for_scope,
     _get_relevant_task_or_raise,
     _normalize_events_payload,
@@ -155,14 +151,6 @@ def _normalize_iks_export_links(report: dict) -> dict:
             )
     normalized["exports"] = normalized_exports
     return normalized
-
-
-def _request_uses_https(request: Request) -> bool:
-    forwarded_proto = request.headers.get("x-forwarded-proto", "")
-    if forwarded_proto:
-        primary_proto = forwarded_proto.split(",")[0].strip().lower()
-        return primary_proto == "https"
-    return request.url.scheme.lower() == "https"
 
 
 @router.post("/tools/datex/preview")
@@ -804,69 +792,48 @@ async def api_get_ivr_call_details(
         return JSONResponse(content={"error": str(exc)}, status_code=500)
 
 
+def _session_payload(request: Request) -> dict:
+    """Fristen der Sitzung fuer Hinweise im Browser, ohne Tokens."""
+    state = getattr(request.state, "session", None)
+    info = dict(state.info) if state is not None else {}
+    info.pop("csrf_token", None)
+    info.pop("token", None)
+    return info
+
+
 @router.get("/session/authz")
-async def api_session_authz_refresh(request: Request, sofa_user: str | None = Cookie(default=None)):
+async def api_session_authz_refresh(request: Request, authz=Depends(require_login)):
+    """Rein lesend: Rechte stehen schon frisch aus /users/me im Request (Session-Middleware).
+    Verlaengert die Sitzung nicht und setzt keine Cookies."""
+    user = dict(authz.raw_user or {})
+    permissions = dict(user.get("sofa_permissions") or {})
     try:
-        session_user = get_current_user(sofa_user)
+        sofa_me = await api_client.get_sofa_me(authz.user_id)
+        permissions["task_count"] = (sofa_me or {}).get("task_count") or 0
+        refreshed = True
     except Exception:
-        session_user = None
+        refreshed = False
+    user["sofa_permissions"] = permissions
+    return JSONResponse(content={
+        "user": user,
+        "authz": get_authz_payload_for_template(build_authorization_context_from_user(user, permissions)),
+        "session": _session_payload(request),
+        "refreshed": refreshed,
+    })
 
-    if not isinstance(session_user, dict):
-        return JSONResponse(content={"detail": "Keine aktive Session vorhanden."}, status_code=401)
 
-    normalized_session_user = _normalize_session_user(session_user)
-    session_user_id = _coerce_int(normalized_session_user.get("user_id"))
-    if session_user_id is None:
-        return JSONResponse(content={"detail": "Session konnte nicht eindeutig aufgeloest werden."}, status_code=401)
-
-    stale_authz = get_authz_payload_for_template(
-        build_authorization_context_from_user(normalized_session_user, normalized_session_user.get("sofa_permissions"))
-    )
-
+@router.post("/session/activity")
+async def api_session_activity(request: Request, authz=Depends(require_login)):
+    """Echte Bedienaktivitaet aus dem Browser (gedrosselt). Belebt keine abgelaufene Sitzung."""
     try:
-        refreshed_user = await api_client.get_current_user(session_user_id)
-        normalized_user = await _build_session_user_from_login(refreshed_user)
-        refreshed_authz = get_authz_payload_for_template(
-            build_authorization_context_from_user(normalized_user, normalized_user.get("sofa_permissions"))
-        )
-
-        response = JSONResponse(
-            content={
-                "user": normalized_user,
-                "authz": refreshed_authz,
-                "refreshed": True,
-            }
-        )
-        response.set_cookie(
-            key="sofa_user",
-            value=json.dumps(normalized_user),
-            httponly=True,
-            max_age=3600 * 8,
-            samesite="lax",
-            secure=_request_uses_https(request),
-        )
-        renew_report_cookie(request, response, session_user_id, secure=_request_uses_https(request))
-        return response
+        result = await api_client.session_activity()
     except httpx.HTTPStatusError as exc:
-        return JSONResponse(
-            content={
-                "detail": _error_content_from_response(exc.response).get("detail", "Berechtigungen konnten nicht aktualisiert werden."),
-                "user": normalized_session_user,
-                "authz": stale_authz,
-                "refreshed": False,
-            },
-            status_code=exc.response.status_code,
-        )
-    except Exception as exc:
-        return JSONResponse(
-            content={
-                "detail": str(exc),
-                "user": normalized_session_user,
-                "authz": stale_authz,
-                "refreshed": False,
-            },
-            status_code=503,
-        )
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception:
+        return JSONResponse(content={"detail": {"code": "service_unavailable"}}, status_code=503)
+    info = dict((result or {}).get("session") or {})
+    info.pop("csrf_token", None)
+    return JSONResponse(content={"session": info})
 
 
 @router.get("/users")

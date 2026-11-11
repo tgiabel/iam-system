@@ -42,21 +42,22 @@ class CatalogTests(unittest.TestCase):
                 self.assertIn(item.href, paths)
 
     def test_visibility_follows_permissions(self):
-        self.assertEqual(ids(visible_items(authz(), False)), {'tools': [], 'reports': []})
-        self.assertEqual(ids(visible_items(authz(), True))['reports'], ['genesys-live', 'agent-stats'])
-        tool = ids(visible_items(authz('SOFA-TOOL-ZK'), False))
-        self.assertEqual(tool, {'tools': ['zeitkorrektur'], 'reports': []})
-        wildcard = ids(visible_items(authz('SOFA-TOOL-ALL'), False))
+        # Die Genesys-Reports nimmt SD-API aus der Sitzung; jede angemeldete Person sieht sie.
+        self.assertEqual(ids(visible_items(authz())), {'tools': [], 'reports': ['genesys-live', 'agent-stats']})
+        tool = ids(visible_items(authz('SOFA-TOOL-ZK')))
+        self.assertEqual(tool['tools'], ['zeitkorrektur'])
+        wildcard = ids(visible_items(authz('SOFA-TOOL-ALL')))
         self.assertIn('datex', wildcard['tools'])
         self.assertIn('iks', wildcard['reports'])
         self.assertNotIn('media-blocking', wildcard['tools'])
 
     def test_admin_sees_demo_tool(self):
-        self.assertIn('media-blocking', ids(visible_items(authz('SOFA-PAGE-USER'), False))['tools'])
+        self.assertIn('media-blocking', ids(visible_items(authz('SOFA-PAGE-USER')))['tools'])
 
     def test_presence_permission_shows_both_genesys_reports(self):
-        reports = ids(visible_items(authz('SOFA-RPRT-PRSNC'), False))['reports']
-        self.assertEqual(reports, ['presence-report', 'token-deletion-report'])
+        reports = ids(visible_items(authz('SOFA-RPRT-PRSNC')))['reports']
+        self.assertIn('presence-report', reports)
+        self.assertIn('token-deletion-report', reports)
 
 
 class RenderedCardTests(unittest.TestCase):

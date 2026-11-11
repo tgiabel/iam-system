@@ -1,4 +1,3 @@
-import json
 import unittest
 from unittest.mock import patch
 
@@ -6,12 +5,7 @@ import httpx
 from fastapi.testclient import TestClient
 
 from app.main import app
-
-
-def user_cookie(*pages):
-    permissions = {"accessible_pages": [{"identifier": item} for item in pages], "accessible_backlogs": []}
-    return json.dumps({"user_id": 42, "pnr": "42", "first_name": "Erika", "last_name": "Test",
-                       "primary_role": {"name": "Agent"}, "secondary_roles": [], "sofa_permissions": permissions})
+from tests.session_helpers import sign_in
 
 
 def api_error(status_code, detail):
@@ -23,7 +17,7 @@ def api_error(status_code, detail):
 class ResourceTypeProxyTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
-        self.client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-SYS"))
+        sign_in(self, self.client, "SOFA-PAGE-SYS")
         self.calls = []
 
     def test_list_needs_system_page(self):
@@ -33,7 +27,7 @@ class ResourceTypeProxyTests(unittest.TestCase):
 
         with patch("app.routes.api.api_client.get_system_resource_types", listing):
             self.assertEqual(self.client.get("/api/systems/9/resource-types").json()[0]["slug"], "QUEUE")
-            self.client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-ROLE"))
+            sign_in(self, self.client, "SOFA-PAGE-ROLE")
             self.assertEqual(self.client.get("/api/systems/9/resource-types").status_code, 403)
         self.assertEqual(self.calls, [("list", 9)])
 
@@ -78,12 +72,10 @@ class BacklogProxyTests(unittest.TestCase):
             return [{"technical_identifier": "SOFA-BKLG-IT", "name": "IT"}, {"technical_identifier": "SOFA-BKLG-HR", "name": "HR"}]
 
         client = TestClient(app)
-        cookie = json.loads(user_cookie("SOFA-PAGE-SYS"))
-        cookie["sofa_permissions"]["accessible_backlogs"] = [{"identifier": "SOFA-BKLG-IT"}]
-        client.cookies.set("sofa_user", json.dumps(cookie))
+        sign_in(self, client, "SOFA-PAGE-SYS", backlogs=("SOFA-BKLG-IT",))
         with patch("app.routes.api.api_client.get_backlogs", backlogs):
             response = client.get("/api/backlogs")
-            client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-USER"))
+            sign_in(self, client, "SOFA-PAGE-USER")
             denied = client.get("/api/backlogs")
         self.assertEqual([b["technical_identifier"] for b in response.json()], ["SOFA-BKLG-IT"])
         self.assertEqual(denied.status_code, 403)
@@ -97,9 +89,9 @@ class SystemDetailProxyTests(unittest.TestCase):
         client = TestClient(app)
         with patch("app.routes.api.api_client.get_system_detail", detail):
             for page in ("SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"):
-                client.cookies.set("sofa_user", user_cookie(page))
+                sign_in(self, client, page)
                 self.assertEqual(client.get("/api/systems/9").json()["default_handling_type"], "BOT")
-            client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-USER"))
+            sign_in(self, client, "SOFA-PAGE-USER")
             self.assertEqual(client.get("/api/systems/9").status_code, 403)
 
 
@@ -113,10 +105,10 @@ class ResourceRolesProxyTests(unittest.TestCase):
         client = TestClient(app)
         with patch("app.routes.api.api_client.get_resource_roles", roles):
             for page in ("SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"):
-                client.cookies.set("sofa_user", user_cookie(page))
+                sign_in(self, client, page)
                 self.assertEqual(client.get("/api/resources/9003/roles").json()[0]["role_id"], 7)
             self.assertEqual(client.get("/api/resources/404/roles").status_code, 404)
-            client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-USER"))
+            sign_in(self, client, "SOFA-PAGE-USER")
             self.assertEqual(client.get("/api/resources/9003/roles").status_code, 403)
 
 

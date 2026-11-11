@@ -1,8 +1,14 @@
 import os
+from urllib.parse import quote
 
-from fastapi import FastAPI  # type: ignore
+from fastapi import FastAPI, Request  # type: ignore
+from fastapi.responses import JSONResponse, RedirectResponse  # type: ignore
 from fastapi.staticfiles import StaticFiles  # type: ignore
 from starlette.middleware.base import BaseHTTPMiddleware  # type: ignore
+
+from app.authz import SessionRequired
+from app.session import APP_ENV, safe_next, service_key
+from app.session_gate import SessionGateMiddleware
 
 from app.routes.api import router as api_router
 from app.routes.agent_stats_report import router as agent_stats_report_router
@@ -39,6 +45,45 @@ class ForwardedHeaderMiddleware(BaseHTTPMiddleware):
 app = FastAPI(title="SOFA Frontend")
 
 
+@app.on_event("startup")
+def require_service_key():
+    # Ohne Dienstnachweis entsteht bei SD-API keine Sitzung; lieber nicht starten als niemanden anmelden.
+    if APP_ENV == "production" and not service_key():
+        raise RuntimeError("SD_API_SERVICE_KEY fehlt")
+
+
+_SESSION_MESSAGES = {
+    "unavailable": ("service_unavailable", "Der Anmeldedienst ist nicht erreichbar. Bitte versuche es später erneut."),
+    "expired": ("session_expired", "Deine Sitzung ist abgelaufen."),
+    "revoked": ("session_revoked", "Deine Sitzung wurde beendet."),
+    "logged_out": ("session_revoked", "Du bist abgemeldet."),
+}
+
+
+@app.exception_handler(SessionRequired)
+async def session_required(request: Request, exc: SessionRequired):
+    """HTML: Loginseite mit Ruecksprungziel. JSON (/api/): 401 mit Code, kein Redirect.
+    Ist SD-API nicht erreichbar: 503, das Cookie bleibt."""
+    problem = exc.problem
+    if request.url.path.startswith("/api/"):
+        code, message = _SESSION_MESSAGES.get(problem or "", ("session_missing", "Bitte melde dich an."))
+        status = 503 if problem == "unavailable" else 401
+        headers = {"Cache-Control": "no-store"}
+        if status == 503:
+            headers["Retry-After"] = "30"
+        return JSONResponse({"detail": {"code": code, "message": message}}, status_code=status, headers=headers)
+    target = safe_next(request.url.path + (f"?{request.url.query}" if request.url.query else ""))
+    location = "/login"
+    params = []
+    if target != "/":
+        params.append("next=" + quote(target, safe="/"))
+    if problem in ("expired", "revoked", "logged_out"):
+        params.append("reason=" + problem)
+    if params:
+        location += "?" + "&".join(params)
+    return RedirectResponse(location, status_code=303)
+
+
 @app.get("/health", include_in_schema=False)
 def health():
     import os
@@ -50,6 +95,9 @@ def health():
     }
 
 
+# Reihenfolge: zuletzt hinzugefuegt laeuft zuerst. ForwardedHeader setzt Host/Scheme, bevor die
+# Sitzungspruefung Origin gegen Host vergleicht.
+app.add_middleware(SessionGateMiddleware)
 app.add_middleware(ForwardedHeaderMiddleware)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 app.include_router(page_router)

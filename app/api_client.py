@@ -6,6 +6,8 @@ from urllib.parse import quote
 
 import httpx  # type: ignore
 
+from app.session import SessionState, current_session, service_key
+
 
 BASE_URL = os.getenv("SD_API_BASE_URL", "http://dev-api:8080").rstrip("/")
 ACCESS_BASE_URL = f"{BASE_URL}/access"
@@ -56,12 +58,29 @@ class APIClient:
                     json=payload,
                     data=data,
                     files=files,
-                    headers=headers,
+                    headers=self._session_headers(method, headers),
                 )
                 response.raise_for_status()
                 return response
         except httpx.RequestError as exc:
             raise Exception(f"Request Error: {str(exc)}") from exc
+
+    @staticmethod
+    def _session_headers(method: str, headers: dict | None, session: SessionState | None = None) -> dict:
+        """Dienstnachweis an jedem Aufruf; Sitzung und (bei nicht-GET) ihr CSRF-Token, sofern vorhanden.
+
+        Das CSRF-Token stammt aus `/users/me` dieser Sitzung, nie aus dem Browser:
+        den Browser-Kopf prueft die Session-Middleware vorher selbst.
+        """
+        key = service_key()
+        merged = {"X-SOFA-Service-Key": key} if key else {}
+        state = session or current_session.get()
+        if state is not None:
+            merged["X-SOFA-Session"] = state.token
+            if method.upper() not in ("GET", "HEAD", "OPTIONS") and state.csrf_token:
+                merged["X-CSRF-Token"] = state.csrf_token
+        merged.update(headers or {})
+        return merged
 
     async def _request_json(
         self,
@@ -153,32 +172,15 @@ class APIClient:
             headers={"X-User-Id": str(actor_id)},
         )
 
-    async def agent_stats_request(
-        self,
-        token: str,
-        *,
-        params: list[tuple[str, str]] | None = None,
-    ) -> httpx.Response:
-        # Identitaet steckt im signierten Token; kein X-User-Id fuer diesen Selbstreport.
-        return await self._request(
-            "GET", REPORTING_BASE_URL, "/agent-stats", params=params,
-            headers={"Authorization": "Bearer " + token},
-            timeout=30,
-        )
+    # Genesys-Reports: SD-API nimmt die Person aus der Sitzung (kein Report-Token mehr).
+    async def agent_stats_request(self, *, params: list[tuple[str, str]] | None = None) -> httpx.Response:
+        return await self._request("GET", REPORTING_BASE_URL, "/agent-stats", params=params, timeout=30)
 
-    async def service_level_request(self, token: str, params: list[tuple[str, str]] | None = None) -> httpx.Response:
-        return await self._request(
-            "GET", REPORTING_BASE_URL, "/service-level", params=params,
-            headers={"Authorization": "Bearer " + token},
-            timeout=30,
-        )
+    async def service_level_request(self, params: list[tuple[str, str]] | None = None) -> httpx.Response:
+        return await self._request("GET", REPORTING_BASE_URL, "/service-level", params=params, timeout=30)
 
-    async def genesys_live_request(self, token: str) -> httpx.Response:
-        return await self._request(
-            "GET", REPORTING_BASE_URL, "/genesys-live",
-            headers={"Authorization": "Bearer " + token},
-            timeout=12,
-        )
+    async def genesys_live_request(self) -> httpx.Response:
+        return await self._request("GET", REPORTING_BASE_URL, "/genesys-live", timeout=12)
 
     # Tokenlöschungs-Report: gleiche Reportberechtigung, keine personenbezogenen Funktionen.
     async def token_deletions_report_request(
@@ -217,11 +219,30 @@ class APIClient:
         )
 
     # Access
-    async def login_user(self, pnr: str, password: str) -> dict:
-        return await self._post(ACCESS_BASE_URL, "/users/login", payload={"pnr": pnr, "password": password})
+    async def login_user(
+        self, pnr: str, password: str, *, client_ip: str | None = None, previous_token: str | None = None,
+    ) -> dict:
+        """Neue Sitzung; eine mitgeschickte alte wird von SD-API widerrufen (REPLACED)."""
+        headers = {}
+        if client_ip:
+            headers["X-SOFA-Client-IP"] = client_ip
+        if previous_token:
+            headers["X-SOFA-Session"] = previous_token
+        return await self._post(ACCESS_BASE_URL, "/users/login", payload={"pnr": pnr, "password": password},
+                                headers=headers)
 
-    async def get_current_user(self, user_id: int) -> dict:
-        return await self._get(ACCESS_BASE_URL, "/users/me", headers={"X-User-Id": str(user_id)})
+    async def session_me(self, token: str) -> dict:
+        """Sitzung pruefen (verlaengert nicht): Benutzer, `session`, `permissions`."""
+        return await self._request_json("GET", ACCESS_BASE_URL, "/users/me",
+                                        headers={"X-SOFA-Session": token})
+
+    async def session_activity(self) -> dict:
+        """Bedienaktivitaet melden; SD-API drosselt selbst auf einmal je 60 s."""
+        return await self._post(ACCESS_BASE_URL, "/users/me/activity")
+
+    async def session_logout(self, state: SessionState) -> None:
+        await self._request("POST", ACCESS_BASE_URL, "/users/logout",
+                            headers=self._session_headers("POST", None, state))
 
     async def get_sofa_me(self, user_id: int) -> dict:
         return await self._get(SOFA_BASE_URL, "/me", headers={"X-User-Id": str(user_id)})

@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import os
 import subprocess
 import unittest
@@ -9,13 +8,11 @@ from unittest.mock import patch
 import httpx
 from fastapi.testclient import TestClient
 
-from app.agent_stats_token import issue, verify
 from app.api_client import APIClient, REPORTING_BASE_URL
 from app.authz import AuthorizationContext, build_authorization_context
 from app.main import app
 from app.routes import agent_stats_report as report_route
-
-SECRET = base64.b64encode(b'agent-stats-test-secret-is-long-enough-0001').decode()
+from app.session import SessionState, current_session
 
 
 def authz(user_id=42):
@@ -34,12 +31,7 @@ class ClientTests(unittest.TestCase):
                                         capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_malformed_token_fails_closed(self):
-        with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET}):
-            with self.assertRaises(ValueError):
-                verify('a.a')
-
-    def test_client_forwards_signed_token_without_user_header(self):
+    def test_client_sends_the_session_instead_of_a_report_token(self):
         client = APIClient()
         calls = []
 
@@ -48,21 +40,25 @@ class ClientTests(unittest.TestCase):
             return 'ok'
 
         client._request = request
-        self.assertEqual(asyncio.run(client.agent_stats_request('signed-token', params=[('period', 'day')])), 'ok')
+        self.assertEqual(asyncio.run(client.agent_stats_request(params=[('period', 'day')])), 'ok')
         self.assertEqual(calls[0][0], ('GET', REPORTING_BASE_URL, '/agent-stats'))
-        self.assertEqual(calls[0][1]['headers'], {'Authorization': 'Bearer signed-token'})
+        self.assertNotIn('headers', calls[0][1])
+        reset = current_session.set(SessionState(token='T' * 43, csrf_token='C' * 43))
+        try:
+            headers = APIClient._session_headers('GET', None)
+        finally:
+            current_session.reset(reset)
+        self.assertEqual(headers['X-SOFA-Session'], 'T' * 43)
+        self.assertNotIn('Authorization', headers)
+        self.assertNotIn('X-CSRF-Token', headers)
 
 
 class ProxyTests(unittest.TestCase):
     def setUp(self):
-        self.secret = patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET})
-        self.secret.start()
-        self.addCleanup(self.secret.stop)
         self.context = authz()
         app.dependency_overrides[build_authorization_context] = lambda: self.context
         self.addCleanup(app.dependency_overrides.clear)
         self.client = TestClient(app)
-        self.token = issue(42)
 
     def test_all_logged_in_users_see_workspace_and_report_card(self):
         page = self.client.get('/workspace')
@@ -70,50 +66,27 @@ class ProxyTests(unittest.TestCase):
         self.assertIn('/reports/agent-stats', page.text)
         self.assertIn('workspace-reports-title', page.text)
 
-    def test_report_is_not_advertised_before_key_is_configured(self):
-        with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': ''}):
-            self.assertEqual(self.client.get('/workspace', follow_redirects=False).status_code, 303)
-            self.assertEqual(self.client.get('/reports/agent-stats', follow_redirects=False).status_code, 303)
-
-    def test_report_page_requires_signed_identity_matching_session(self):
-        self.assertEqual(self.client.get('/reports/agent-stats', follow_redirects=False).status_code, 303)
-        page = self.client.get('/reports/agent-stats', cookies={'sofa_agent_stats': self.token})
+    def test_report_page_opens_for_the_signed_in_user(self):
+        page = self.client.get('/reports/agent-stats')
         self.assertEqual(page.status_code, 200)
         self.assertIn('Anwesenheit', page.text)
-        self.context = authz(99)
-        self.assertEqual(self.client.get('/reports/agent-stats', cookies={'sofa_agent_stats': self.token},
-                                         follow_redirects=False).status_code, 303)
 
-    def test_proxy_rejects_forged_unsigned_session_and_forwards_only_safe_parameters(self):
+    def test_proxy_forwards_only_safe_parameters(self):
         calls = []
 
-        async def backend(token, *, params):
-            calls.append((token, params))
+        async def backend(*, params):
+            calls.append(params)
             return httpx.Response(200, json={'account_linked': True})
 
         with patch.object(report_route.api_client, 'agent_stats_request', backend):
-            self.assertEqual(self.client.get('/api/reporting/agent-stats').status_code, 401)
             response = self.client.get('/api/reporting/agent-stats?period=month&anchor=2026-09-20&user_id=999',
-                                       cookies={'sofa_agent_stats': self.token}, headers={'X-User-Id': '999'})
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.headers['cache-control'], 'no-store')
-            self.assertEqual(calls, [(self.token, [('period', 'month'), ('anchor', '2026-09-20')])])
-            self.context = authz(99)
-            self.assertEqual(self.client.get('/api/reporting/agent-stats',
-                                             cookies={'sofa_agent_stats': self.token}).status_code, 401)
-            self.assertEqual(len(calls), 1)
+                                       headers={'X-User-Id': '999'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers['cache-control'], 'no-store')
+        self.assertEqual(calls, [[('period', 'month'), ('anchor', '2026-09-20')]])
 
-    def test_login_issues_and_logout_clears_report_cookie(self):
-        async def login(*args):
-            return {'user_id': 42, 'pnr': '42', 'primary_role': {'role_id': 1}, 'secondary_roles': []}
-        async def build(*args):
-            return {'user_id': 42, 'pnr': '42', 'primary_role': {'role_id': 1}, 'secondary_roles': []}
-        with patch('app.routes.pages.api_client.login_user', login), \
-             patch('app.routes.pages._build_session_user_from_login', build):
-            response = self.client.post('/login', data={'pnr': '42', 'password': 'test'},
-                                        follow_redirects=False)
-        self.assertEqual(response.status_code, 303)
-        self.assertIn('sofa_agent_stats=', response.headers['set-cookie'])
-        self.assertIn('httponly', response.headers['set-cookie'].lower())
-        logout = self.client.get('/logout', follow_redirects=False)
-        self.assertIn('sofa_agent_stats=', logout.headers['set-cookie'])
+    def test_proxy_needs_a_session(self):
+        app.dependency_overrides.clear()
+        response = self.client.get('/api/reporting/agent-stats')
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['detail']['code'], 'session_missing')

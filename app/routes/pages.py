@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
+import secrets
 
-from fastapi import APIRouter, Cookie, Depends, Form, Request  # type: ignore
+from fastapi import APIRouter, Depends, Form, Request  # type: ignore
 from fastapi.responses import HTMLResponse, RedirectResponse  # type: ignore
 
-from app.agent_stats_token import is_configured, verify
 from app.api_client import api_client
 from app.authz import (
-    build_authorization_context_from_user,
     require_admin_access,
     require_any_permission,
     require_login,
@@ -19,85 +18,111 @@ from app.authz import (
 from app import tasks_board_mock
 from app.dashboard import build_dashboard_context
 from app.helpers.time_utils import today_local
-from app.login_errors import login_error_message
-from app.report_proxy import set_report_cookie
+from app.login_errors import BAD_CREDENTIALS, NOTICES, login_error_message
+from app.session import (
+    LOGIN_CSRF_COOKIE,
+    LOGIN_CSRF_MAX_AGE,
+    SESSION_COOKIE,
+    client_ip,
+    safe_next,
+    seconds_until_absolute_expiry,
+    tokens_match,
+)
+from app.session_gate import same_origin
 from app.workspace_catalog import visible_items
-from app.routes.shared import _build_session_user_from_login, _build_template_context, templates
+from app.routes.shared import _build_template_context, templates
 
 
 router = APIRouter()
 logger = logging.getLogger("uvicorn.error")
 
 
-def _request_uses_https(request: Request) -> bool:
-    forwarded_proto = request.headers.get("x-forwarded-proto", "")
-    if forwarded_proto:
-        primary_proto = forwarded_proto.split(",")[0].strip().lower()
-        return primary_proto == "https"
-    return request.url.scheme.lower() == "https"
-
-
 @router.get("/", response_class=HTMLResponse)
-def index(
-    request: Request,
-    sofa_user: str | None = Cookie(default=None),
-    sofa_agent_stats: str | None = Cookie(default=None),
-    mock: str | None = None,
-):
-    user = get_current_user(sofa_user)
-    extra = {}
-    if user:
-        authz = build_authorization_context_from_user(user, user.get("sofa_permissions"))
-        extra = build_dashboard_context(authz, sofa_agent_stats or "", mock)
-    return templates.TemplateResponse("dashboard.html", _build_template_context(request, user=user, **extra))
+def index(request: Request, authz=Depends(require_login), mock: str | None = None):
+    extra = build_dashboard_context(authz, mock)
+    return templates.TemplateResponse(
+        "dashboard.html", _build_template_context(request, user=authz.raw_user, authz=authz, **extra))
+
+
+def _login_page(request: Request, *, next_path: str = "/", pnr: str = "", error: str | None = None,
+                notice: str | None = None, status_code: int = 200) -> HTMLResponse:
+    """Loginseite mit frischem Login-CSRF-Token (Cookie und Formularfeld)."""
+    csrf_token = secrets.token_urlsafe(32)
+    response = templates.TemplateResponse(
+        "login.html",
+        {"request": request, "csrf_token": csrf_token, "next_path": next_path, "pnr": pnr,
+         "error": error, "notice": notice, "credentials_error": error == BAD_CREDENTIALS},
+        status_code=status_code,
+    )
+    response.set_cookie(LOGIN_CSRF_COOKIE, csrf_token, max_age=LOGIN_CSRF_MAX_AGE, path="/",
+                        secure=True, httponly=True, samesite="strict")
+    return response
 
 
 @router.get("/login", name="login", response_class=HTMLResponse)
-def login_page(request: Request):
-    return templates.TemplateResponse("login.html", _build_template_context(request))
+def login_page(request: Request, next: str | None = None, reason: str | None = None):
+    next_path = safe_next(next)
+    if get_current_user(request):
+        return RedirectResponse(url=next_path, status_code=303)
+    problem = getattr(request.state, "session_problem", None)
+    if problem == "unavailable":
+        return _login_page(request, next_path=next_path, error=NOTICES["unavailable"], status_code=503)
+    return _login_page(request, next_path=next_path, notice=NOTICES.get(reason or problem or ""))
 
 
 @router.post("/login")
-async def login(request: Request, pnr: str = Form(...), password: str = Form(...)):
+async def login(
+    request: Request,
+    pnr: str = Form(""),
+    password: str = Form(""),
+    csrf_token: str = Form(""),
+    next: str = Form("/"),
+):
+    next_path = safe_next(next)
+    pnr = pnr.strip()
+    if not same_origin(request) or not tokens_match(request.cookies.get(LOGIN_CSRF_COOKIE), csrf_token):
+        return _login_page(request, next_path=next_path, pnr=pnr, error=NOTICES["form_expired"], status_code=403)
+    if not pnr or not password:
+        return _login_page(request, next_path=next_path, pnr=pnr, error=NOTICES["missing_fields"], status_code=400)
+
     try:
-        user_data = await api_client.login_user(pnr, password)
-        session_user = await _build_session_user_from_login(user_data)
+        result = await api_client.login_user(
+            pnr, password,
+            client_ip=client_ip(request.headers),
+            previous_token=request.cookies.get(SESSION_COOKIE),
+        )
+        session = result["session"]
+        token = session["token"]
     except Exception as exc:
         status = getattr(getattr(exc, "response", None), "status_code", None)
         if status is None or status >= 500:
             logger.warning("Login fehlgeschlagen: %r", exc, exc_info=exc)
-        flash_messages = [("failure", login_error_message(exc))]
-        return templates.TemplateResponse(
-            "login.html",
-            _build_template_context(request, flash_messages=flash_messages, pnr=pnr),
-        )
+        return _login_page(request, next_path=next_path, pnr=pnr, error=login_error_message(exc),
+                           status_code=status if status in (401, 403, 429) else 503)
 
-    response = RedirectResponse(url="/", status_code=303)
+    response = RedirectResponse(url=next_path, status_code=303)
     response.set_cookie(
-        key="sofa_user",
-        value=json.dumps(session_user),
-        httponly=True,
-        max_age=3600 * 8,
-        samesite="lax",
-        secure=_request_uses_https(request),
+        SESSION_COOKIE, token, max_age=seconds_until_absolute_expiry(session), path="/",
+        secure=True, httponly=True, samesite="lax",
     )
-    # Eigene, signierte Identitaet fuer die Genesys-Reports.
-    if isinstance(session_user.get("user_id"), int):
-        set_report_cookie(response, session_user["user_id"], secure=_request_uses_https(request))
+    response.delete_cookie(LOGIN_CSRF_COOKIE, path="/", secure=True, httponly=True, samesite="strict")
     return response
 
 
-@router.get("/logout")
-def logout(request: Request):
-    response = RedirectResponse(url="/", status_code=303)
-    response.delete_cookie(
-        "sofa_user",
-        samesite="lax",
-        secure=_request_uses_https(request),
-    )
-    response.delete_cookie(
-        "sofa_agent_stats", samesite="lax", secure=_request_uses_https(request),
-    )
+@router.post("/logout")
+async def logout(request: Request, csrf_token: str = Form("")):
+    """Widerruf bei SD-API, dann Cookie loeschen. Ohne gueltige Sitzung nur aufraeumen."""
+    state = getattr(request.state, "session", None)
+    if state is not None:
+        if not tokens_match(state.csrf_token, csrf_token):
+            return RedirectResponse(url="/", status_code=303)
+        try:
+            await api_client.session_logout(state)
+        except Exception as exc:
+            # Cookie wird trotzdem geloescht; die Sitzung laeuft dann serverseitig regulaer ab.
+            logger.warning("Logout bei SD-API fehlgeschlagen: %r", exc)
+    response = RedirectResponse(url="/login?reason=logged_out", status_code=303)
+    response.delete_cookie(SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
     return response
 
 
@@ -125,7 +150,7 @@ def tasks(
 def workspace(request: Request, authz=Depends(require_login)):
     if not authz.has_any_tool() and not authz.has_admin_access():
         return RedirectResponse(url="/", status_code=303)
-    sections = visible_items(authz, is_configured())
+    sections = visible_items(authz)
     return templates.TemplateResponse("tools.html", _build_template_context(
         request, user=authz.raw_user, authz=authz,
         workspace_tools=sections["tools"], workspace_reports=sections["reports"]))
@@ -159,28 +184,12 @@ for _slug in LEGACY_REPORT_SLUGS:
 
 @router.get("/reports/agent-stats", response_class=HTMLResponse)
 def agent_stats_report(request: Request, authz=Depends(require_login)):
-    if not is_configured():
-        return RedirectResponse(url="/workspace", status_code=303)
-    try:
-        signed_user_id = verify(request.cookies.get("sofa_agent_stats", ""))
-    except (ValueError, RuntimeError):
-        signed_user_id = None
-    if signed_user_id != authz.user_id:
-        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("reports/agent_stats_report.html",
                                       _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
 @router.get("/reports/genesys-live", response_class=HTMLResponse)
 def genesys_live_page(request: Request, authz=Depends(require_login)):
-    if not is_configured():
-        return RedirectResponse(url="/workspace", status_code=303)
-    try:
-        signed_user_id = verify(request.cookies.get("sofa_agent_stats", ""))
-    except (ValueError, RuntimeError):
-        signed_user_id = None
-    if signed_user_id != authz.user_id:
-        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse("reports/genesys_live.html",
                                       _build_template_context(request, user=authz.raw_user, authz=authz))
 

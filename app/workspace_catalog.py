@@ -21,7 +21,6 @@ class WorkspaceItem:
     copy: str  # nur als Tooltip, nicht als Text auf der Karte
     permission: str | None = None
     admin_only: bool = False
-    needs_agent_stats: bool = False
 
 
 CATALOG: tuple[WorkspaceItem, ...] = (
@@ -65,13 +64,11 @@ CATALOG: tuple[WorkspaceItem, ...] = (
         id="genesys-live", kind="report", href="/reports/genesys-live", icon="process.png",
         title="Genesys Cloud Live",
         copy="Besetzung und Anwesenheit der Queues in Echtzeit.",
-        needs_agent_stats=True,
     ),
     WorkspaceItem(
         id="agent-stats", kind="report", href="/reports/agent-stats", icon="process.png",
         title="Meine Genesys-Zahlen",
         copy="Eigene Telefonie und Statuszeiten für Tag und Monat.",
-        needs_agent_stats=True,
     ),
     WorkspaceItem(
         id="iks", kind="report", href="/reports/iks", icon="roles.png",
@@ -106,18 +103,16 @@ CATALOG: tuple[WorkspaceItem, ...] = (
 )
 
 
-def is_visible(item: WorkspaceItem, authz: AuthorizationContext, agent_stats_configured: bool) -> bool:
+def is_visible(item: WorkspaceItem, authz: AuthorizationContext) -> bool:
     if item.admin_only and not authz.has_admin_access():
-        return False
-    if item.needs_agent_stats and not agent_stats_configured:
         return False
     if item.permission and not authz.has_permission(item.permission):
         return False
     return True
 
 
-def visible_items(authz: AuthorizationContext, agent_stats_configured: bool) -> dict[str, list[WorkspaceItem]]:
-    visible = [item for item in CATALOG if is_visible(item, authz, agent_stats_configured)]
+def visible_items(authz: AuthorizationContext) -> dict[str, list[WorkspaceItem]]:
+    visible = [item for item in CATALOG if is_visible(item, authz)]
     return {
         "tools": [item for item in visible if item.kind == "tool"],
         "reports": [item for item in visible if item.kind == "report"],

@@ -1,39 +1,62 @@
-{% extends "base.html" %}
-
-{% set page_title = "Login" %}
-
-{% block css %}
-<link rel="stylesheet" href="/static/css/overlay.css">
-{% endblock %}
-
-{% block content %}
-<div class="overlay" id="login-overlay">
-  <div class="overlay-content-wrapper">
-
-    <!-- Header -->
-    <div class="overlay-header">
-      <h2>Login</h2>
-      <span class="badge status-red">Anmeldung notwendig</span>
-      <button class="close-button" onclick="window.location.href='/'">x</button>
-    </div>
-
-    <!-- Form -->
-    <form class="overlay-form" method="POST" action="/login">
-      <div class="form-item col">
-        <span class="label">Personalnummer</span>
-        <input type="text" id="pnr" name="pnr" required>
-      </div>
-
-      <div class="form-item col">
-        <span class="label">Passwort</span>
-        <input type="password" id="password" name="password" required>
-      </div>
-
-      <div class="overlay-actions">
-        <button type="button" class="btn btn-secondary" onclick="window.location.href='/'">Abbrechen</button>
-        <button type="submit" class="btn btn-primary">Login</button>
-      </div>
-    </form>
-  </div>
-</div>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Anmelden | SOFA</title>
+    <link rel="icon" href="/static/img/handshake_hover.png">
+    <script>
+        try {
+            const theme = localStorage.getItem('sofaTheme');
+            document.documentElement.dataset.theme = ['light', 'dark', 'servodata'].includes(theme) ? theme : 'light';
+        } catch (_) { document.documentElement.dataset.theme = 'light'; }
+    </script>
+    <link rel="stylesheet" href="/static/css/_.css?v={{ static_v }}">
+    <link rel="stylesheet" href="/static/css/login.css?v={{ static_v }}">
+    <script src="/static/js/login.js?v={{ static_v }}" defer></script>
+</head>
+<body class="auth-page">
+    <main class="auth-stage">
+        <section class="auth-entry" aria-labelledby="auth-title">
+            <h1 id="auth-title" class="auth-visually-hidden">Bei SOFA anmelden</h1>
+            <span class="auth-logo" role="img" aria-label="SOFA"></span>
+            <div class="auth-card">
+                {% if notice %}
+                <div class="auth-notice" role="status"{% if request.query_params.get('reason') == 'logged_out' %} data-kind="success"{% endif %}>{{ notice }}</div>
+                {% endif %}
+                <form id="auth-form" action="/login" method="post" aria-labelledby="auth-title">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="next" value="{{ next_path }}">
+                    {% if error %}
+                    <div class="auth-error" id="auth-error" role="alert" tabindex="-1">{{ error }}</div>
+                    {% endif %}
+                    <div class="auth-field">
+                        <label for="auth-pnr" class="auth-visually-hidden">Personalnummer</label>
+                        <input id="auth-pnr" name="pnr" type="text" autocomplete="username" autocapitalize="none"
+                               spellcheck="false" placeholder="Personalnummer" required value="{{ pnr }}"
+                               {% if credentials_error %}aria-invalid="true" aria-describedby="auth-error"{% endif %}>
+                    </div>
+                    <div class="auth-field">
+                        <label for="auth-password" class="auth-visually-hidden">Passwort</label>
+                        <div class="auth-password-wrap">
+                            <input id="auth-password" name="password" type="password" autocomplete="current-password"
+                                   placeholder="Passwort" required
+                                   {% if credentials_error %}aria-invalid="true" aria-describedby="auth-error"{% endif %}>
+                            <button type="button" id="auth-show-password" class="auth-reveal" hidden
+                                    aria-label="Passwort anzeigen" aria-pressed="false" aria-controls="auth-password">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <button class="auth-primary auth-submit" id="auth-submit" type="submit">
+                        <span id="auth-submit-label">Anmelden</span><span aria-hidden="true">→</span>
+                    </button>
+                    <p class="auth-submit-status" id="auth-submit-status" role="status"></p>
+                </form>
+            </div>
+            <p class="auth-signature">Servodata One for All</p>
+        </section>
+    </main>
+</body>
+</html>

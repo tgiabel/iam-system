@@ -1,5 +1,3 @@
-import base64
-import json
 import os
 import re
 import subprocess
@@ -13,21 +11,12 @@ import httpx
 from fastapi.testclient import TestClient
 
 from app import dashboard, dashboard_mock
-from app.agent_stats_token import issue
 from app.authz import AuthorizationContext
 from app.main import app
 from app.routes import dashboard as dashboard_route, service_level
+from tests.session_helpers import sign_in
 
-SECRET = base64.b64encode(b'dashboard-test-secret-is-long-enough!').decode()
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def user_cookie(*identifiers, user_id=42):
-    permissions = {'accessible_pages': [{'identifier': item} for item in identifiers if item.startswith('SOFA-PAGE')],
-                   'accessible_tools': [{'identifier': item} for item in identifiers if item.startswith('SOFA-TOOL')],
-                   'accessible_reports': [{'identifier': item} for item in identifiers if item.startswith('SOFA-RPRT')]}
-    return json.dumps({'user_id': user_id, 'pnr': '42', 'first_name': 'Test', 'primary_role': {'name': 'Agent'},
-                       'secondary_roles': [], 'sofa_permissions': permissions})
 
 
 class CalendarSummaryTests(unittest.TestCase):
@@ -106,43 +95,22 @@ class DashboardContextTests(unittest.TestCase):
             self.assertEqual(dashboard.mock_scenario('quatsch'), 'normal')
             self.assertIsNone(dashboard.mock_scenario('0'))
 
-    def test_live_needs_secret_and_matching_cookie(self):
-        with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET}):
-            self.assertTrue(dashboard.live_available(self.authz(), issue(42)))
-            self.assertFalse(dashboard.live_available(self.authz(), issue(43)))
-            self.assertFalse(dashboard.live_available(self.authz(), ''))
-            self.assertFalse(dashboard.live_available(self.authz(), 'kaputt'))
-        with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': ''}):
-            self.assertFalse(dashboard.live_available(self.authz(), 'egal'))
-
     def test_real_sources_without_mock(self):
+        # Genesys-Bereiche kommen ueber die Sitzung; jede angemeldete Person hat sie.
         with patch.object(dashboard, 'app_env', 'production'):
-            context = dashboard.build_dashboard_context(self.authz('SOFA-PAGE-TODO'), '', None)
-            plain = dashboard.build_dashboard_context(self.authz(), '', None)
-            with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET}):
-                signed = dashboard.build_dashboard_context(self.authz(), issue(42), None)
-        self.assertEqual(context['dashboard_sources']['events'], '/api/events')
-        self.assertEqual(context['dashboard_sources']['service_level'], '', 'Servicelevel braucht den Report-Token')
-        self.assertEqual(context['dashboard_sources']['my_day'], '/api/dashboard/my-day')
-        self.assertFalse(context['dashboard_live'])
-        self.assertEqual((plain['dashboard_sources']['service_level'], plain['dashboard_sources']['my_day']), ('', ''))
-        self.assertEqual(signed['dashboard_sources']['service_level'], '/api/reporting/service-level')
-        self.assertEqual(signed['dashboard_sources']['my_day'], '/api/dashboard/my-day')
-        self.assertTrue(signed['dashboard_live'])
+            context = dashboard.build_dashboard_context(self.authz(), None)
+        self.assertEqual(context['dashboard_sources'], {
+            'events': '/api/events', 'live': '/api/reporting/genesys-live',
+            'service_level': '/api/reporting/service-level', 'my_day': '/api/dashboard/my-day'})
+        self.assertTrue(context['dashboard_live'])
 
 
 class RenderedDashboardTests(unittest.TestCase):
     def setUp(self):
-        env = patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET})
-        env.start()
-        self.addCleanup(env.stop)
         self.client = TestClient(app)
 
-    def page(self, *permissions, mock=None, cookies=None):
-        self.client.cookies.clear()
-        self.client.cookies.set('sofa_user', user_cookie(*permissions))
-        for key, value in (cookies or {}).items():
-            self.client.cookies.set(key, value)
+    def page(self, *permissions, mock=None):
+        sign_in(self, self.client, *permissions, first_name='Test')
         response = self.client.get('/', params={'mock': mock} if mock else None)
         self.assertEqual(response.status_code, 200)
         return response.text
@@ -160,12 +128,13 @@ class RenderedDashboardTests(unittest.TestCase):
         self.assertIn('Hallo Test</h1>', main)
         self.assertFalse('dash-stat' in main)
 
-    def test_live_panel_whenever_genesys_is_configured(self):
-        # Ohne gueltigen Token bittet das Panel im Browser um neue Anmeldung, statt zu verschwinden.
+    def test_live_panel_for_every_signed_in_user(self):
         self.assertTrue('id="dash-live"' in self.page('SOFA-TOOL-ZK'))
-        self.assertTrue('id="dash-live"' in self.page('SOFA-TOOL-ZK', cookies={'sofa_agent_stats': issue(7)}))
-        with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': ''}):
-            self.assertFalse('id="dash-live"' in self.page('SOFA-TOOL-ZK'))
+        self.assertTrue('id="dash-live"' in self.page())
+
+    def test_without_session_the_dashboard_sends_to_login(self):
+        response = TestClient(app).get('/', follow_redirects=False)
+        self.assertEqual((response.status_code, response.headers['location']), (303, '/login'))
 
     def pin_ids(self, html):
         template = html.split('<template id="dash-pin-source">', 1)[1].split('</template>', 1)[0]
@@ -173,14 +142,12 @@ class RenderedDashboardTests(unittest.TestCase):
 
     def test_pin_source_lists_only_visible_entries(self):
         self.assertEqual(self.pin_ids(self.page('SOFA-TOOL-ZK')), ['zeitkorrektur', 'genesys-live', 'agent-stats'])
-        with patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': ''}):
-            self.assertEqual(self.pin_ids(self.page('SOFA-TOOL-ZK')), ['zeitkorrektur'])
-            self.assertEqual(self.pin_ids(self.page()), [])
+        self.assertEqual(self.pin_ids(self.page()), ['genesys-live', 'agent-stats'])
 
     @unittest.skipIf(os.getenv('APP_ENV') == 'development', 'Mock-Routen sind in der Entwicklungsinstanz aktiv')
     def test_mock_routes_exist_only_in_development(self):
         # Die Testumgebung laeuft ohne APP_ENV=development.
-        self.client.cookies.set('sofa_user', user_cookie('SOFA-PAGE-TODO'))
+        sign_in(self, self.client, 'SOFA-PAGE-TODO')
         self.assertEqual(self.client.get('/api/dashboard-mock/events').status_code, 404)
         self.assertFalse('data-mock' in self.page('SOFA-PAGE-TODO', mock='busy'))
 
@@ -191,43 +158,36 @@ if __name__ == '__main__':
 
 class DashboardDataRouteTests(unittest.TestCase):
     def setUp(self):
-        env = patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET})
-        env.start()
-        self.addCleanup(env.stop)
         self.client = TestClient(app)
 
-    def login(self, *permissions, signed=False):
-        self.client.cookies.clear()
-        self.client.cookies.set('sofa_user', user_cookie(*permissions))
-        if signed:
-            self.client.cookies.set('sofa_agent_stats', issue(42))
+    def login(self, *permissions):
+        sign_in(self, self.client, *permissions)
 
     def test_events_need_only_a_login(self):
         async def events(from_date, to_date):
             return [{'event_id': 1, 'event_type': 'RETRAIN', 'title': 'Nachschulung', 'user_name': 'Mia Hoffmann'}]
 
-        self.assertEqual(self.client.get('/api/events', follow_redirects=False).status_code, 303)
+        anonymous = self.client.get('/api/events', follow_redirects=False)
+        self.assertEqual((anonymous.status_code, anonymous.json()['detail']['code']), (401, 'session_missing'))
         self.login()
         with patch('app.routes.api.api_client.get_events', events):
             response = self.client.get('/api/events')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()[0]['user_name'], 'Mia Hoffmann')
 
-    def test_service_level_forwards_scope_with_signed_token(self):
+    def test_service_level_forwards_only_the_scope(self):
         calls = []
 
-        async def backend(token, params=None):
-            calls.append((token, params))
+        async def backend(params=None):
+            calls.append(params)
             return httpx.Response(200, json={'scope': {'type': 'queue'}})
 
         with patch.object(service_level.api_client, 'service_level_request', backend):
             self.login()
-            self.assertEqual(self.client.get('/api/reporting/service-level').status_code, 401)
-            self.login(signed=True)
             response = self.client.get('/api/reporting/service-level', params={'queue_id': 'q1'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.headers['cache-control'], 'no-store')
-        self.assertEqual(calls, [(issue(42), [('queue_id', 'q1')])])
+        self.assertEqual(calls, [[('queue_id', 'q1')]])
 
     def test_my_day_counts_own_tasks_of_that_day_and_calls(self):
         overview_calls = []
@@ -240,23 +200,20 @@ class DashboardDataRouteTests(unittest.TestCase):
                 {'task_id': 3, 'assigned_to_user_id': 7, 'completed_at': '2026-10-14T10:00:00'},
             ]}
 
-        async def stats(token, params=None):
+        async def stats(params=None):
             self.assertEqual(params, [('period', 'day'), ('anchor', '2026-10-14')])
             return httpx.Response(200, json={'phone': {'available': True, 'summary': {'answered': 31}}},
                                   request=httpx.Request('GET', 'http://sd-api.test'))
 
         with patch.object(dashboard_route.api_client, 'get_task_overview', overview), \
                 patch.object(dashboard_route.api_client, 'agent_stats_request', stats):
-            self.login('SOFA-PAGE-TODO', signed=True)
-            both = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'}).json()
             self.login('SOFA-PAGE-TODO')
-            tasks_only = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'}).json()
-            self.login(signed=True)
+            both = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'}).json()
+            self.login()
             calls_only = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'}).json()
         self.assertEqual(both, {'date': '2026-10-14', 'tasks_completed': 1, 'calls_answered': 31})
-        self.assertEqual(tasks_only, {'date': '2026-10-14', 'tasks_completed': 1})
         self.assertEqual(calls_only, {'date': '2026-10-14', 'calls_answered': 31})
-        self.assertEqual(overview_calls, [(42, '2026-10-14')] * 2)
+        self.assertEqual(overview_calls, [(42, '2026-10-14')])
 
     def test_my_day_drops_a_failing_part(self):
         async def broken(*args, **kwargs):
@@ -264,37 +221,7 @@ class DashboardDataRouteTests(unittest.TestCase):
 
         with patch.object(dashboard_route.api_client, 'get_task_overview', broken), \
                 patch.object(dashboard_route.api_client, 'agent_stats_request', broken):
-            self.login('SOFA-PAGE-TODO', signed=True)
+            self.login('SOFA-PAGE-TODO')
             response = self.client.get('/api/dashboard/my-day', params={'date': '2026-10-14'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'date': '2026-10-14'})
-
-
-class ReportCookieRenewalTests(unittest.TestCase):
-    def setUp(self):
-        env = patch.dict(os.environ, {'SOFA_AGENT_STATS_SECRET_B64': SECRET})
-        env.start()
-        self.addCleanup(env.stop)
-
-    def renewed(self, cookie, user_id=42):
-        from fastapi.responses import Response
-        from starlette.requests import Request
-        from app.report_proxy import renew_report_cookie
-        headers = [(b'cookie', f'sofa_agent_stats={cookie}'.encode())] if cookie else []
-        request = Request({'type': 'http', 'headers': headers})
-        response = Response()
-        renew_report_cookie(request, response, user_id, secure=False)
-        return response.headers.get('set-cookie', '')
-
-    def test_only_a_valid_token_of_the_same_person_is_renewed(self):
-        import time
-        from app.agent_stats_token import verify
-        old = issue(42, now=time.time() - 3600)
-        cookie = self.renewed(old)
-        self.assertIn('sofa_agent_stats=', cookie)
-        fresh = cookie.split('sofa_agent_stats=', 1)[1].split(';', 1)[0]
-        self.assertNotEqual(fresh, old)
-        self.assertEqual(verify(fresh), 42)
-        self.assertEqual(self.renewed(issue(7)), '', 'fremder Token')
-        self.assertEqual(self.renewed(''), '', 'ohne Token stellt die Sitzung allein keinen aus')
-        self.assertEqual(self.renewed(issue(42, now=time.time() - 9 * 3600)), '', 'abgelaufen')

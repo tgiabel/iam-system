@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request  # type: ignore
 from fastapi.templating import Jinja2Templates  # type: ignore
 
 from app.api_client import api_client
+from app.session import current_session
 from app.authz import (
     AuthorizationContext,
     build_authorization_context_from_user,
@@ -107,41 +108,6 @@ def _normalize_session_user(user_data: dict | None) -> dict:
     return payload
 
 
-def _is_canonical_session_user(user_data: dict | None) -> bool:
-    if not isinstance(user_data, dict):
-        return False
-    return (
-        _coerce_int(user_data.get("user_id")) is not None
-        and isinstance(user_data.get("primary_role"), dict)
-        and isinstance(user_data.get("secondary_roles"), list)
-    )
-
-
-async def _build_session_user_from_login(login_payload: dict) -> dict:
-    if _is_canonical_session_user(login_payload):
-        normalized = _normalize_session_user(login_payload)
-    else:
-        user_id = _coerce_int(login_payload.get("user_id"))
-        if user_id is None:
-            return _normalize_session_user(login_payload)
-        try:
-            current_user = await api_client.get_current_user(user_id)
-        except Exception:
-            return _normalize_session_user(login_payload)
-        normalized = _normalize_session_user(current_user)
-
-    user_id = _coerce_int(normalized.get("user_id"))
-    if user_id is not None:
-        try:
-            normalized["sofa_permissions"] = await api_client.get_sofa_me(user_id)
-        except Exception:
-            normalized["sofa_permissions"] = {}
-    else:
-        normalized["sofa_permissions"] = {}
-
-    return normalized
-
-
 def _extract_event_records(payload) -> list[dict]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
@@ -209,10 +175,13 @@ def _build_template_context(
     resolved_authz = authz or (
         build_authorization_context_from_user(user, user.get("sofa_permissions")) if user else None
     )
+    state = current_session.get()
     context = {
         "request": request,
         "user": user,
         "authz": get_authz_payload_for_template(resolved_authz),
+        # Fuer <meta name="csrf-token"> und das Logout-Formular; JS sendet es als X-CSRF-Token.
+        "csrf_token": state.csrf_token if state is not None else "",
     }
     context.update(extra)
     return context

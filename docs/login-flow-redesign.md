@@ -1,6 +1,27 @@
 # Login und Sitzungsübergänge
 
-Stand: 28.10.2026. Designvorschau, noch keine Umstellung der echten Anmeldung.
+Stand: 11.11.2026. Phase A der echten Umstellung auf `feat/login-redesign` umgesetzt
+und gegen sd-api-dev geprüft (Vertrag: SD-API `docs/sofa-session-contract.md`).
+Nicht auf `main`: Der Stand verlangt SD-API API-1 und den Dienstschlüssel in Prod.
+
+## Umsetzung
+
+**Phase A (umgesetzt):** opakes Sitzungs-Cookie `__Host-sofa_session` (Dev
+`__Host-sofa_dev_session`); je Request `GET /access/users/me` in
+`app/session_gate.py`, AuthorizationContext nur daraus; Dienstschlüssel, Sitzung
+und Sitzungs-CSRF an jedem SD-API-Aufruf (`api_client`); zentrale CSRF- und
+Origin-Prüfung, `fetch`-Wrapper in `base.js`; neue Loginseite nach der Vorschau mit
+Login-CSRF und geprüftem Rücksprungziel; Logout per POST mit Widerruf; HTML ohne
+Sitzung → `/login?next=…&reason=…`, `/api/` → JSON 401, SD-API-Ausfall → 503 ohne
+Logout; Report-Token und `sofa_user` entfernt, alte Cookies werden gelöscht; Poll
+rein lesend; `no-store` auf allen Antworten außer `/static`.
+
+**Phase B (offen):** Aktivitätsmeldung aus dem Browser, Hinweise vor Inaktivitäts-
+und Absolutablauf, Wiederanmeldung im selben Tab ohne Entwurfsverlust (heute leitet
+ein 401 im Poll noch auf die Loginseite), Widget-Verhalten.
+
+**Phase C (offen):** keine Exception-Texte mehr nach außen (`{"error": str(exc)}`
+in `app/routes/api.py`).
 
 ## Abgestimmte Richtung
 

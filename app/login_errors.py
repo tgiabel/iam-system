@@ -12,6 +12,16 @@ SERVER_ERROR = "Der Anmeldedienst meldet einen Fehler. Bitte versuche es später
 RATE_LIMITED = "Zu viele Anmeldeversuche. Bitte warte einen Moment und versuche es erneut."
 
 
+# Hinweise auf der Loginseite (Query `reason` bzw. Ergebnis der Sitzungspruefung).
+NOTICES = {
+    "expired": "Deine Sitzung ist abgelaufen. Bitte melde dich erneut an.",
+    "revoked": "Deine Sitzung wurde beendet. Bitte melde dich erneut an.",
+    "logged_out": "Du bist abgemeldet.",
+    "unavailable": UNAVAILABLE,
+    "form_expired": "Die Anmeldeseite war zu lange geöffnet. Bitte versuche es erneut.",
+    "missing_fields": "Bitte Personalnummer und Passwort eingeben.",
+}
+
 # Zustaende der Designvorschau /dev/auth-preview; dieselben Texte wie im echten Login.
 PREVIEW_MESSAGES = {
     "credentials": BAD_CREDENTIALS,

@@ -2,26 +2,29 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-import json
 
-from fastapi import Cookie, Depends
+from fastapi import Depends, Request
 from fastapi.exceptions import HTTPException  # type: ignore
 
-from app.agent_stats_token import is_configured
+
+class SessionRequired(Exception):
+    """Keine gueltige Sitzung. `problem` wie in app.session_gate; der Handler in app.main
+    leitet HTML auf die Loginseite und beantwortet /api/ mit JSON 401 bzw. 503."""
+
+    def __init__(self, problem: str | None):
+        super().__init__(problem or "missing")
+        self.problem = problem
 
 
-def get_current_user(sofa_user: str | None):
-    if sofa_user:
-        return json.loads(sofa_user)
-    return None
+def get_current_user(request: Request) -> dict | None:
+    """Benutzer der von SD-API bestaetigten Sitzung (app.session_gate), sonst None."""
+    return getattr(request.state, "session_user", None)
 
 
-async def get_current_user_dep(
-    sofa_user: str | None = Cookie(default=None),
-):
-    user = get_current_user(sofa_user)
+async def get_current_user_dep(request: Request):
+    user = get_current_user(request)
     if not user:
-        raise HTTPException(status_code=303, headers={"Location": "/login"})
+        raise SessionRequired(getattr(request.state, "session_problem", None))
     return user
 
 
@@ -56,7 +59,7 @@ class AuthorizationContext:
     def has_any_tool(self) -> bool:
         # Der persoenliche Genesys-Report liegt im Workspace und steht allen
         # angemeldeten SOFA-Nutzern offen.
-        if self.user_id is not None and is_configured():
+        if self.user_id is not None:
             return True
         return any(
             self.has_permission(p) for p in self.permissions

@@ -49,12 +49,21 @@ class LoginErrorMessageTests(unittest.TestCase):
         self.assertEqual(login_error_message(ValueError("boom")), login_errors.GENERIC)
 
 
+def login_client():
+    """Client wie im Browser: Loginseite abrufen (setzt das Login-CSRF-Cookie), Token aus dem Formular."""
+    client = TestClient(app, base_url="https://testserver")
+    page = client.get("/login").text
+    token = page.split('name="csrf_token" value="', 1)[1].split('"', 1)[0]
+    return client, token
+
+
 class LoginPageTests(unittest.TestCase):
     def post(self, error):
-        async def login(*args):
+        async def login(*args, **kwargs):
             raise error
+        client, token = login_client()
         with patch("app.routes.pages.api_client.login_user", login):
-            return TestClient(app).post("/login", data={"pnr": "42", "password": "x"})
+            return client.post("/login", data={"pnr": "42", "password": "x", "csrf_token": token})
 
     def test_dns_failure_shows_plain_text_without_internals(self):
         error = wrapped(httpx.ConnectError("[Errno -3] Temporary failure in name resolution"))
@@ -64,14 +73,17 @@ class LoginPageTests(unittest.TestCase):
         self.assertNotIn("Request Error", page)
 
     def test_rejected_login_does_not_leak_backend_url(self):
-        page = self.post(status_error(404)).text
-        self.assertIn(login_errors.BAD_CREDENTIALS, page)
-        self.assertNotIn("api:8080", page)
-        self.assertNotIn("Client error", page)
+        response = self.post(status_error(401))
+        self.assertEqual(response.status_code, 401)
+        self.assertIn(login_errors.BAD_CREDENTIALS, response.text)
+        self.assertIn('value="42"', response.text, "Personalnummer bleibt stehen")
+        self.assertNotIn("api:8080", response.text)
+        self.assertNotIn("Client error", response.text)
 
     def test_real_client_connect_error_reaches_the_page(self):
+        client, token = login_client()
         with patch("httpx.AsyncClient.request", side_effect=httpx.ConnectError("[Errno -3] x")):
-            page = TestClient(app).post("/login", data={"pnr": "42", "password": "x"}).text
+            page = client.post("/login", data={"pnr": "42", "password": "x", "csrf_token": token}).text
         self.assertIn(login_errors.UNAVAILABLE, page)
 
 

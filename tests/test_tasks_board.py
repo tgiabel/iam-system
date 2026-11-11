@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 
 from app import tasks_board_mock
 from app.main import app
+from tests.session_helpers import sign_in
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 10, 14, 11, 30)  # Mittwoch
@@ -23,13 +24,6 @@ TASK_FIELDS = {
     "backlog_identifier", "target_date", "process_id", "process_type", "system_id", "system_name", "blocked_by",
     "archived_accounts",
 }
-
-
-def user_cookie(*pages, user_id=42, backlogs=()):
-    permissions = {"accessible_pages": [{"identifier": item} for item in pages],
-                   "accessible_backlogs": [{"identifier": item} for item in backlogs]}
-    return json.dumps({"user_id": user_id, "pnr": "42", "first_name": "Erika", "last_name": "Test",
-                       "primary_role": {"name": "Agent"}, "secondary_roles": [], "sofa_permissions": permissions})
 
 
 class TasksBoardModelTests(unittest.TestCase):
@@ -130,7 +124,7 @@ class TasksBoardMockTests(unittest.TestCase):
 class TasksBoardPageTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
-        self.client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-TODO"))
+        sign_in(self, self.client, "SOFA-PAGE-TODO")
 
     def board_data(self, html):
         return json.loads(html.split('id="task-board-data">', 1)[1].split("</script>", 1)[0])
@@ -159,7 +153,7 @@ class TasksBoardPageTests(unittest.TestCase):
         self.assertTrue(data["tasks"])
 
     def test_board_needs_page_permission(self):
-        self.client.cookies.set("sofa_user", user_cookie())
+        sign_in(self, self.client)
         with patch.dict(os.environ, {"APP_ENV": "development"}):
             response = self.client.get("/tasks", params={"mock": "normal"}, follow_redirects=False)
         self.assertIn(response.status_code, (302, 303, 307))
@@ -168,7 +162,7 @@ class TasksBoardPageTests(unittest.TestCase):
 class TasksProxyTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)
-        self.client.cookies.set("sofa_user", user_cookie("SOFA-PAGE-TODO", backlogs=("IT",)))
+        sign_in(self, self.client, "SOFA-PAGE-TODO", backlogs=("IT",))
         relevant = patch("app.routes.api._get_relevant_task_or_raise", self.relevant)
         relevant.start()
         self.addCleanup(relevant.stop)

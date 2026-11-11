@@ -674,6 +674,9 @@ body.mobile-nav-open .mobile-nav-toggle {
 }
 
 /* menu items */
+/* Logout ist ein POST-Formular; das <form> soll das Menuelayout nicht beeinflussen. */
+.subnav-form { display: contents; }
+
 .subnav-item, .subnav a {
     padding: 8px 0;
     color: var(--dropdown-text);

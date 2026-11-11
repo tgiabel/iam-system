@@ -3,6 +3,7 @@
 {% set is_widget_view = request.query_params.get('view') == 'widget' %}
 <head>
     <meta charset="UTF-8">
+    {% if csrf_token %}<meta name="csrf-token" content="{{ csrf_token }}">{% endif %}
     <title>{% if is_widget_view and widget_title is defined %}{{ widget_title }}{% else %}{{ page_title }} | SOFA{% endif %}</title>
     <link rel="icon" type="image/x-icon" href="{% block favicon %}/static/img/handshake_hover.png{% endblock %}">
     <script>
@@ -129,7 +130,10 @@
                     <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
                         <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1"><span class="subnav-item-label">Account</span></button>
                         <button type="button" role="menuitem" class="subnav-item" data-profile-modal-trigger="password-change-modal"><span class="subnav-item-label">Passwort ändern</span></button>
-                        <a href="/logout" role="menuitem" class="subnav-item is-danger"><span class="subnav-item-label">Logout</span></a>
+                        <form method="post" action="/logout" class="subnav-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" role="menuitem" class="subnav-item is-danger"><span class="subnav-item-label">Logout</span></button>
+                        </form>
                         <div class="profile-subnav-actions" role="group" aria-label="Schnellaktionen">
                             <button type="button" role="menuitem" class="profile-action-button problem-report-button"
                                     data-profile-modal-trigger="stoerung-melden-modal"

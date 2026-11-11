@@ -30,8 +30,28 @@ make deploy                # ersetzt die bisherige sofa-app-1 und wartet auf /he
 Ein älteres, bereits gebautes Image kann mit
 `make rollback RELEASE=<voller-main-commit-sha>` wieder aktiviert werden. Das
 Rollback-Ziel muss ein Vorfahr von `main` sein. `docker image ls sofa` zeigt die
-verfügbaren Images. Prod-Secrets bleiben in
-`/var/www/sofa-secrets/agent-stats.env` und gelangen nicht ins Image.
+verfügbaren Images. Prod-Secrets liegen in `/var/www/sofa-secrets/` und gelangen
+nicht ins Image:
+
+- `sd-api-service.env`: `SD_API_SERVICE_KEY`, der Dienstnachweis gegenüber der
+  SD-API (≥ 32 Zufallsbytes, base64url). Die SD-API kennt nur seinen SHA-256 in
+  `SOFA_SERVICE_KEY_SHA256`. Ohne Schlüssel startet SOFA in Prod nicht. Dev nutzt
+  den eingecheckten Fixture-Schlüssel der SD-API und braucht keine Datei.
+- `agent-stats.env`: nur noch für ein Rollback auf Releases vor den verifizierten
+  Sitzungen.
+
+### Umstellung auf verifizierte Sitzungen
+
+Vertrag: SD-API `docs/sofa-session-contract.md`, Abschnitt 11. Reihenfolge:
+
+1. SD-API API-1 deployen (Migration `user_sessions`, `SOFA_SERVICE_KEY_SHA256`).
+   Altes SOFA läuft unverändert weiter.
+2. Schlüssel erzeugen, `SD_API_SERVICE_KEY=<schlüssel>` in
+   `/var/www/sofa-secrets/sd-api-service.env` (Modus 600), Digest an SD-API.
+3. Im selben Wartungsfenster: SOFA deployen, danach SD-API API-2. Alle melden sich
+   einmal neu an; alte Cookies werden gelöscht, nie umgewandelt.
+
+Rollback von SOFA hinter diesen Stand verlangt vorher SD-API API-1 oder älter.
 
 Die erste Umstellung erfolgt, sobald die Konfiguration auf `main` steht und das
 Image gebaut und geprüft ist. Die frühere `docker-compose.yml` ist entfernt,
