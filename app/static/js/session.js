@@ -182,7 +182,8 @@
         focusBefore = document.activeElement;
         setLocked(true);
         showBanner("ended");
-        // Ein offener Seitendialog liegt ueber dem Banner: dann gleich die Anmeldung zeigen.
+        // Ein offener nativer Dialog liegt im Top Layer ueber dem Banner: dann gleich die Anmeldung zeigen.
+        // App-Overlays (.ui-modal-overlay u. a.) liegen per z-index darunter (session.css).
         if (document.querySelector("dialog:modal")) openRelogin();
     }
 

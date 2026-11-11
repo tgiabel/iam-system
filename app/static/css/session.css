@@ -4,7 +4,9 @@
     position: fixed;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 1500;
+    /* Ueber allen Seiten-Overlays (.ui-modal-overlay 4000, .overlay 9998), unter Flash (10000):
+       die Seite ist gesperrt, das Banner muss trotzdem sichtbar und bedienbar sein. */
+    z-index: 9999;
     width: min(56rem, calc(100vw - 2rem));
     display: flex;
     flex-wrap: wrap;
