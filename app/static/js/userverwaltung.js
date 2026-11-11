@@ -216,7 +216,7 @@ const api = {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-            throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht eingerichtet werden");
+            throw new Error(sofaContract.extractDetailMessage(data.detail) || data.error || "SOFA Zugriff konnte nicht eingerichtet werden");
         }
         return data;
     },
@@ -229,7 +229,7 @@ const api = {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-            throw new Error(data.detail || data.error || "SOFA Passwort konnte nicht zurückgesetzt werden");
+            throw new Error(sofaContract.extractDetailMessage(data.detail) || data.error || "SOFA Passwort konnte nicht zurückgesetzt werden");
         }
         return data;
     },
@@ -242,7 +242,7 @@ const api = {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-            throw new Error(data.detail || data.error || "SOFA Zugriff konnte nicht entzogen werden");
+            throw new Error(sofaContract.extractDetailMessage(data.detail) || data.error || "SOFA Zugriff konnte nicht entzogen werden");
         }
         return data;
     },

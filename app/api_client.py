@@ -402,11 +402,22 @@ class APIClient:
     async def get_backlogs(self) -> list[dict]:
         return await self._get(SOFA_BASE_URL, "/backlogs/")
 
-    async def setup_user_sofa_access(self, user_id: int, payload: dict) -> dict:
-        return await self._post(SOFA_BASE_URL, f"/users/{user_id}/sofa-access/setup", payload=payload)
+    # SD-API prueft SOFA-FN-ACC selbst und kennt den Bearbeiter nur aus X-User-Id.
+    async def setup_user_sofa_access(self, user_id: int, payload: dict, actor_user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            f"/users/{user_id}/sofa-access/setup",
+            payload=payload,
+            headers={"X-User-Id": str(actor_user_id)},
+        )
 
-    async def reset_user_sofa_password(self, user_id: int, payload: dict) -> dict:
-        return await self._post(SOFA_BASE_URL, f"/users/{user_id}/sofa-access/reset-password", payload=payload)
+    async def reset_user_sofa_password(self, user_id: int, payload: dict, actor_user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            f"/users/{user_id}/sofa-access/reset-password",
+            payload=payload,
+            headers={"X-User-Id": str(actor_user_id)},
+        )
 
     async def change_own_sofa_password(self, user_id: int, current_password: str, new_password: str) -> dict:
         return await self._post(
@@ -419,8 +430,13 @@ class APIClient:
             },
         )
 
-    async def revoke_user_sofa_access(self, user_id: int, payload: dict) -> dict:
-        return await self._post(SOFA_BASE_URL, f"/users/{user_id}/sofa-access/revoke", payload=payload)
+    async def revoke_user_sofa_access(self, user_id: int, payload: dict, actor_user_id: int) -> dict:
+        return await self._post(
+            SOFA_BASE_URL,
+            f"/users/{user_id}/sofa-access/revoke",
+            payload=payload,
+            headers={"X-User-Id": str(actor_user_id)},
+        )
 
     async def cancel_process(self, process_id: int, payload: dict) -> dict:
         return await self._post(SOFA_BASE_URL, f"/processes/{process_id}/cancel", payload=payload)

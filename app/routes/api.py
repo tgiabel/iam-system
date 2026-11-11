@@ -1024,7 +1024,7 @@ async def api_setup_user_sofa_access(user_id: int, payload: dict, current_user=D
             "password": payload.get("password"),
             "initiator_user_id": current_user.user_id,
         }
-        result = await api_client.setup_user_sofa_access(user_id, request_payload)
+        result = await api_client.setup_user_sofa_access(user_id, request_payload, current_user.user_id)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
@@ -1039,7 +1039,7 @@ async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user
             "password": payload.get("password"),
             "initiator_user_id": current_user.user_id,
         }
-        result = await api_client.reset_user_sofa_password(user_id, request_payload)
+        result = await api_client.reset_user_sofa_password(user_id, request_payload, current_user.user_id)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
@@ -1051,7 +1051,7 @@ async def api_reset_user_sofa_password(user_id: int, payload: dict, current_user
 async def api_revoke_user_sofa_access(user_id: int, current_user=Depends(require_permission("SOFA-FN-ACC"))):
     try:
         request_payload = {"initiator_user_id": current_user.user_id}
-        result = await api_client.revoke_user_sofa_access(user_id, request_payload)
+        result = await api_client.revoke_user_sofa_access(user_id, request_payload, current_user.user_id)
         return JSONResponse(content=result)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
