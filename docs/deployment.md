@@ -37,8 +37,10 @@ nicht ins Image:
   SD-API (≥ 32 Zufallsbytes, base64url). Die SD-API kennt nur seinen SHA-256 in
   `SOFA_SERVICE_KEY_SHA256`. Ohne Schlüssel startet SOFA in Prod nicht. Dev nutzt
   den eingecheckten Fixture-Schlüssel der SD-API und braucht keine Datei.
-- `agent-stats.env`: nur noch für ein Rollback auf Releases vor den verifizierten
-  Sitzungen.
+
+`agent-stats.env` (Report-Schlüssel der Releases vor den verifizierten Sitzungen)
+ist seit dem 12.11.2026 entfernt. Ein Rollback auf solche Releases startet ohne
+ihn, blendet aber die Reports mit Report-Token aus (Agent-Stats, Genesys-Live).
 
 ### Umstellung auf verifizierte Sitzungen
 

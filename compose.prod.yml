@@ -4,8 +4,6 @@ services:
   app:
     image: sofa:${RELEASE:?set RELEASE to a main commit SHA}
     env_file:
-      # Nur noch fuer ein Rollback auf Releases vor den verifizierten Sitzungen.
-      - /var/www/sofa-secrets/agent-stats.env
       # SD_API_SERVICE_KEY: Dienstnachweis SOFA -> SD-API. Ohne ihn startet SOFA in Prod nicht.
       - /var/www/sofa-secrets/sd-api-service.env
     environment:

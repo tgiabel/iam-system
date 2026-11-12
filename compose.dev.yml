@@ -3,8 +3,6 @@ name: sofa-dev
 services:
   app:
     build: .
-    env_file:
-      - /var/www/sofa-secrets/agent-stats.env
     environment:
       APP_ENV: development
       RELEASE_SHA: development
