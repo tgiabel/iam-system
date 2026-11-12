@@ -223,18 +223,22 @@ class TestIvrCallDetailsUiLogic(unittest.TestCase):
             assert.strictEqual(kpis.totalDurationSeconds, 412);
             assert.strictEqual(kpis.targets[0].label, 'S-Direkt');
             assert.strictEqual(kpis.targets[0].durationSeconds, 100);
-            assert.deepStrictEqual(kpis.targets[0].detailItems, [{ label: '0691302597', secondaryLabel: null, durationSeconds: 100 }]);
+            assert.deepStrictEqual(kpis.targets[0].detailItems, [{ label: '0691302597', secondaryLabel: null, durationSeconds: 100, callCount: 1 }]);
+            assert.strictEqual(kpis.totalCallCount, 6);
+            assert.strictEqual(kpis.targets[0].callCount, 1);
             const internal = kpis.targets.find(target => target.label === 'Intern');
             assert.strictEqual(internal.durationSeconds, 50);
             assert.deepStrictEqual(internal.detailItems, [
-                { label: 'DNIS 18', secondaryLabel: '0691302597', durationSeconds: 30 },
-                { label: 'DNIS 42', secondaryLabel: '0691302598', durationSeconds: 20 }
+                { label: 'DNIS 18', secondaryLabel: '0691302597', durationSeconds: 30, callCount: 1 },
+                { label: 'DNIS 42', secondaryLabel: '0691302598', durationSeconds: 20, callCount: 1 }
             ]);
             assert.strictEqual(kpis.targets.find(target => target.label === '0691302598').durationSeconds, 25);
             assert.strictEqual(kpis.rest.durationSeconds, 237);
+            assert.strictEqual(kpis.rest.callCount, 2);
+            assert.strictEqual(internal.callCount, 2);
             assert.deepStrictEqual(kpis.rest.results, [
-                { label: 'Sonstiges(15)', durationSeconds: 187 },
-                { label: 'Besetzt', durationSeconds: 50 }
+                { label: 'Sonstiges(15)', durationSeconds: 187, callCount: 1 },
+                { label: 'Besetzt', durationSeconds: 50, callCount: 1 }
             ]);
             const realInternAndDnis = ui.aggregateCallDurationKpis([
                 ui.normalizeCall({
@@ -256,6 +260,7 @@ class TestIvrCallDetailsUiLogic(unittest.TestCase):
                 key: null,
                 label: 'Gesamt IVR-Zeit',
                 durationSeconds: 0,
+                callCount: 0,
                 clickable: false
             }]);
             const emptyFilterCards = ui.buildKpiCardModels(ui.aggregateCallDurationKpis([
@@ -276,6 +281,7 @@ class TestIvrCallDetailsUiLogic(unittest.TestCase):
                 key: 'rest',
                 label: 'Restpositionen',
                 durationSeconds: 30,
+                callCount: 1,
                 clickable: true
             });
             const csv = ui.buildCsv([call]);

@@ -209,11 +209,16 @@ function isInternalDnisTarget(call) {
     return /^dnis\b/i.test(String(call.finalTargetLabel ?? "").trim());
 }
 
+function averageDurationSeconds(durationSeconds, callCount) {
+    return callCount > 0 ? durationSeconds / callCount : 0;
+}
+
 function aggregateCallDurationKpis(calls) {
     const targetsByKey = new Map();
     const restByResult = new Map();
     let totalDurationSeconds = 0;
     let restDurationSeconds = 0;
+    let restCallCount = 0;
 
     calls.forEach(call => {
         const durationSeconds = Math.max(0, toFiniteNumber(call.totalDurationSeconds, 0));
@@ -221,10 +226,12 @@ function aggregateCallDurationKpis(calls) {
         if (!isConnectedResult(call.finalResult)) {
             const resultLabel = getKpiResultLabel(call);
             const resultKey = normalizeValue(resultLabel) || "ohne-ergebnis";
-            const result = restByResult.get(resultKey) || { label: resultLabel, durationSeconds: 0 };
+            const result = restByResult.get(resultKey) || { label: resultLabel, durationSeconds: 0, callCount: 0 };
             result.durationSeconds += durationSeconds;
+            result.callCount += 1;
             restByResult.set(resultKey, result);
             restDurationSeconds += durationSeconds;
+            restCallCount += 1;
             return;
         }
 
@@ -238,6 +245,7 @@ function aggregateCallDurationKpis(calls) {
             key: targetKey,
             label,
             durationSeconds: 0,
+            callCount: 0,
             isInternalDnis: internalDnis,
             detailItems: new Map(),
         };
@@ -246,18 +254,22 @@ function aggregateCallDurationKpis(calls) {
         const detailSecondaryLabel = internalDnis ? targetCode : null;
         const detailKey = `${detailLabel}\u0000${detailSecondaryLabel || ""}`;
         target.durationSeconds += durationSeconds;
+        target.callCount += 1;
         const detailItem = target.detailItems.get(detailKey) || {
             label: detailLabel,
             secondaryLabel: detailSecondaryLabel,
             durationSeconds: 0,
+            callCount: 0,
         };
         detailItem.durationSeconds += durationSeconds;
+        detailItem.callCount += 1;
         target.detailItems.set(detailKey, detailItem);
         targetsByKey.set(targetKey, target);
     });
 
     return {
         totalDurationSeconds,
+        totalCallCount: calls.length,
         targets: Array.from(targetsByKey.values())
             .map(target => ({
                 ...target,
@@ -268,6 +280,7 @@ function aggregateCallDurationKpis(calls) {
         rest: {
             key: "rest",
             durationSeconds: restDurationSeconds,
+            callCount: restCallCount,
             results: Array.from(restByResult.values())
                 .sort((left, right) => right.durationSeconds - left.durationSeconds || left.label.localeCompare(right.label, "de")),
         },
@@ -305,7 +318,9 @@ function renderKpiDetails(kpis) {
     ivrCallDom.kpiDetails.innerHTML = `
         <div class="ivr-call-kpi-details-heading">
             <span>${escapeHtml(detail.title)} · ${escapeHtml(detail.itemLabel)}</span>
-            <span>IVR-Zeit</span>
+            <span class="ivr-call-kpi-detail-num">Calls</span>
+            <span class="ivr-call-kpi-detail-num ivr-call-kpi-detail-avg">Ø Zeit</span>
+            <span class="ivr-call-kpi-detail-num">IVR-Zeit</span>
         </div>
         <ul class="ivr-call-kpi-detail-list">
             ${detail.items.map(item => `
@@ -314,16 +329,19 @@ function renderKpiDetails(kpis) {
                         <span>${escapeHtml(item.label)}</span>
                         ${item.secondaryLabel ? `<span class="ivr-call-kpi-detail-secondary">${escapeHtml(item.secondaryLabel)}</span>` : ""}
                     </span>
-                    <strong>${escapeHtml(formatDuration(item.durationSeconds))}</strong>
+                    <span class="ivr-call-kpi-detail-num" data-label="Calls">${escapeHtml(String(item.callCount))}</span>
+                    <span class="ivr-call-kpi-detail-num ivr-call-kpi-detail-avg" data-label="Ø Zeit">${escapeHtml(formatDuration(averageDurationSeconds(item.durationSeconds, item.callCount)))}</span>
+                    <strong class="ivr-call-kpi-detail-num" data-label="IVR-Zeit">${escapeHtml(formatDuration(item.durationSeconds))}</strong>
                 </li>
             `).join("")}
         </ul>`;
 }
 
-function kpiCard({ key, label, durationSeconds, active = false, clickable = false }) {
+function kpiCard({ key, label, durationSeconds, callCount = 0, active = false, clickable = false }) {
     const content = `
         <span class="ivr-call-kpi-value">${escapeHtml(formatDuration(durationSeconds))}</span>
-        <span class="ivr-call-kpi-label">${escapeHtml(label)}</span>`;
+        <span class="ivr-call-kpi-label">${escapeHtml(label)}</span>
+        <span class="ivr-call-kpi-meta">${escapeHtml(String(callCount))} ${callCount === 1 ? "Call" : "Calls"} · Ø ${escapeHtml(formatDuration(averageDurationSeconds(durationSeconds, callCount)))}</span>`;
     if (!clickable) {
         return `<div class="ivr-call-kpi is-total" title="${escapeHtml(label)}">${content}</div>`;
     }
@@ -339,6 +357,7 @@ function buildKpiCardModels(kpis) {
         key: null,
         label: "Gesamt IVR-Zeit",
         durationSeconds: kpis.totalDurationSeconds,
+        callCount: kpis.totalCallCount,
         clickable: false,
     }];
     cards.push(...kpis.targets.map(target => ({
@@ -350,6 +369,7 @@ function buildKpiCardModels(kpis) {
             key: kpis.rest.key,
             label: "Restpositionen",
             durationSeconds: kpis.rest.durationSeconds,
+            callCount: kpis.rest.callCount,
             clickable: true,
         });
     }

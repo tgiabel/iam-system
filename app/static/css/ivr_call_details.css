@@ -97,6 +97,15 @@
     white-space: nowrap;
 }
 
+.ivr-call-kpi-meta {
+    overflow: hidden;
+    color: var(--ui-text-muted);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .ivr-call-kpi-details {
     overflow: hidden;
     margin-top: 2px;
@@ -108,7 +117,7 @@
 .ivr-call-kpi-details-heading,
 .ivr-call-kpi-detail-list li {
     display: grid;
-    grid-template-columns: minmax(10rem, 1fr) minmax(9rem, auto);
+    grid-template-columns: minmax(10rem, 1fr) 4.5rem 8rem minmax(9rem, auto);
     gap: 1rem;
     align-items: center;
 }
@@ -155,11 +164,19 @@
     font-size: 0.78rem;
 }
 
-.ivr-call-kpi-detail-list strong {
-    grid-column: 2;
-    color: var(--ui-text-strong);
+.ivr-call-kpi-detail-num {
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
     text-align: right;
     white-space: nowrap;
+}
+
+.ivr-call-kpi-detail-list .ivr-call-kpi-detail-avg {
+    color: var(--ui-text-muted);
+}
+
+.ivr-call-kpi-detail-list strong {
+    color: var(--ui-text-strong);
 }
 
 .ivr-call-details-import-note {
@@ -561,7 +578,7 @@
 
     .ivr-call-kpi-details-heading,
     .ivr-call-kpi-detail-list li {
-        grid-template-columns: minmax(8rem, 1fr) minmax(8rem, auto);
+        grid-template-columns: minmax(7rem, 1fr) 3.5rem 6.5rem minmax(7rem, auto);
         gap: 0.75rem;
     }
 
@@ -610,7 +627,7 @@
 
     .ivr-call-kpi-details-heading > span,
     .ivr-call-kpi-detail-target > span,
-    .ivr-call-kpi-detail-list strong {
+    .ivr-call-kpi-detail-list .ivr-call-kpi-detail-num {
         overflow: visible;
         overflow-wrap: anywhere;
         text-align: left;
@@ -623,7 +640,17 @@
     }
 
     .ivr-call-kpi-detail-secondary,
-    .ivr-call-kpi-detail-list strong {
+    .ivr-call-kpi-detail-list .ivr-call-kpi-detail-num {
         grid-column: 1;
+    }
+
+    .ivr-call-kpi-details-heading .ivr-call-kpi-detail-num {
+        display: none;
+    }
+
+    .ivr-call-kpi-detail-list .ivr-call-kpi-detail-num::before {
+        content: attr(data-label) ": ";
+        color: var(--ui-text-muted);
+        font-weight: 400;
     }
 }
