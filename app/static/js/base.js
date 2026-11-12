@@ -218,9 +218,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (navAdmin) navAdmin.classList.add("is-active");
         }
 
-        if (pathMatches(currentPath, "/account")) {
-            const accountItem = document.querySelector('[data-nav-target="account"]');
-            if (accountItem) accountItem.classList.add("is-active");
+        const profileItem = ["account", "releases"].find(target => pathMatches(currentPath, "/" + target));
+        if (profileItem) {
+            const item = document.querySelector(`[data-nav-target="${profileItem}"]`);
+            if (item) item.classList.add("is-active");
             if (navProfile) navProfile.classList.add("is-active");
         }
     }

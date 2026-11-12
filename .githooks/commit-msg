@@ -1,0 +1,3 @@
+#!/bin/sh
+# Pflicht-Trailer Scope/Note pruefen (docs/release-notes.md).
+exec python3 scripts/release_notes.py check-msg "$1"

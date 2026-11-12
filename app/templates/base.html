@@ -131,6 +131,7 @@
                     <div id="profile-subnav" class="subnav" role="menu" aria-label="Profil Menü" aria-hidden="true">
                         <button type="button" role="menuitem" class="subnav-item is-disabled" data-nav-target="account" aria-disabled="true" tabindex="-1"><span class="subnav-item-label">Account</span></button>
                         <button type="button" role="menuitem" class="subnav-item" data-profile-modal-trigger="password-change-modal"><span class="subnav-item-label">Passwort ändern</span></button>
+                        <a href="/releases" role="menuitem" class="subnav-item" data-nav-target="releases"><span class="subnav-item-label">Release Notes</span></a>
                         <form method="post" action="/logout" class="subnav-form">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <button type="submit" role="menuitem" class="subnav-item is-danger"><span class="subnav-item-label">Logout</span></button>

@@ -18,6 +18,7 @@ from app.routes.genesys_live import router as genesys_live_router
 from app.routes.logon_log import router as logon_log_router
 from app.routes.pages import router as page_router
 from app.routes.presence_report import router as presence_report_router
+from app.routes.releases import router as releases_router
 from app.routes.service_level import router as service_level_router
 from app.routes.session_api import router as session_api_router
 from app.routes.shared import static_path
@@ -84,8 +85,11 @@ async def session_required(request: Request, exc: SessionRequired):
 def health():
     import os
 
+    from app.release_notes import current_version
+
     return {
         "status": "ok",
+        "version": current_version(),
         "release": os.getenv("RELEASE_SHA", "development"),
         "env": os.getenv("APP_ENV", "production"),
     }
@@ -97,6 +101,7 @@ app.add_middleware(SessionGateMiddleware)
 app.add_middleware(ForwardedHeaderMiddleware)
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 app.include_router(page_router)
+app.include_router(releases_router)
 app.include_router(api_router)
 app.include_router(session_api_router)
 app.include_router(logon_log_router, prefix="/api")

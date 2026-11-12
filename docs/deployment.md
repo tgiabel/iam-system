@@ -20,12 +20,20 @@ Uvicorn-Reload. Ein Branchwechsel oder eine Dateiänderung im Checkout ändert
 Prod damit nicht mehr. Der bestehende Apache-VHost kann unverändert auf Port 8000
 zeigen.
 
-Release-Ablauf nach Commit und Review:
+Release-Ablauf nach Commit und Review (Versionen und Notes: `docs/release-notes.md`):
 
 ```sh
-make image                 # baut sofa:<main-sha> aus git archive main
-make deploy                # ersetzt die bisherige sofa-app-1 und wartet auf /health
+make release-notes         # Entwurf in app/release_notes.json, dann kürzen
+git add app/release_notes.json
+git commit -m "release: v$(python3 scripts/release_notes.py version)"
+make image                 # prüft Notes und Release-Commit, baut sofa:<main-sha>
+make deploy                # ersetzt sofa-app-1, wartet auf /health, setzt Tag vX.Y.Z
+git push --follow-tags
 ```
+
+Ausgeliefert wird nur ein Release-Commit `release: vX.Y.Z`, der allein
+`app/release_notes.json` ändert; `image` und `deploy` verweigern andere Commits.
+`/health` nennt zusätzlich die Version.
 
 Ein älteres, bereits gebautes Image kann mit
 `make rollback RELEASE=<voller-main-commit-sha>` wieder aktiviert werden. Das

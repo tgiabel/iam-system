@@ -1,0 +1,2285 @@
+{
+  "schema": 1,
+  "app": "sofa",
+  "scopes": {
+    "dashboard": "Dashboard",
+    "workspace": "Workspace",
+    "tasks": "Aufgaben",
+    "processes": "Prozesse (Eintritt, Austritt, Rollenwechsel)",
+    "users": "Benutzer",
+    "roles": "Rollen",
+    "systems": "Systeme und Ressourcen",
+    "computers": "Rechner",
+    "iks": "IKS und Rezertifizierung",
+    "reports": "Berichte",
+    "tools": "Werkzeuge",
+    "login": "Anmeldung und Rechte",
+    "ops": "Betrieb und Auslieferung",
+    "internal": "Intern"
+  },
+  "minor_if_added": [],
+  "trailers_required_after": "6dfc175ed63e666f0f6fb2e63f32405ccaa150c0",
+  "releases": [
+    {
+      "version": "1.5.0",
+      "date": "2026-11-12",
+      "scopes": [
+        "login"
+      ],
+      "requires": [
+        "sd-api >= 2.36.1"
+      ],
+      "notes": [
+        {
+          "scope": "login",
+          "text": "Neue Anmeldung mit geprüfter Sitzung; das unsichere Anmelde-Cookie entfällt."
+        },
+        {
+          "scope": "login",
+          "text": "SOFA warnt vor Ablauf der Sitzung; die erneute Anmeldung geht im selben Tab, ohne Eingaben zu verlieren."
+        },
+        {
+          "scope": "login",
+          "text": "Fehlermeldungen zeigen keine technischen Details mehr."
+        }
+      ],
+      "changes": [
+        {
+          "version": "1.5.0",
+          "commit": "7fb7866614ed",
+          "date": "2026-11-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "chore(deploy): drop agent-stats.env after the session cutover"
+        },
+        {
+          "version": "1.4.15",
+          "commit": "d2c30e5fdb63",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs(dashboard): live data comes from the session, not the report cookie"
+        },
+        {
+          "version": "1.4.14",
+          "commit": "cf49213c1aa3",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "chore: drop the nav highlight for the removed login link"
+        },
+        {
+          "version": "1.4.13",
+          "commit": "696bb6095c6b",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(authz): leave the IKS page when SOFA-TOOL-IKS is revoked"
+        },
+        {
+          "version": "1.4.12",
+          "commit": "cff188bb60de",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs: bring session docs in line with the code"
+        },
+        {
+          "version": "1.4.11",
+          "commit": "699d91ef220f",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(session): one path to /api/session/authz"
+        },
+        {
+          "version": "1.4.10",
+          "commit": "8b9bc9b71d47",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "chore: remove dead code from the cookie and report-token era"
+        },
+        {
+          "version": "1.4.9",
+          "commit": "3317631ab150",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(session): one sign-in path, one error mapping, session routes in their own module"
+        },
+        {
+          "version": "1.4.8",
+          "commit": "299e2336d1d6",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "style(auth): shared auth.css for login page and in-tab re-login, theme tokens"
+        },
+        {
+          "version": "1.4.7",
+          "commit": "56dd96306b2b",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(session): expiry banner above app overlays, below flash"
+        },
+        {
+          "version": "1.4.6",
+          "commit": "af0a3146bde0",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(api): no exception texts in responses; remove the auth design preview"
+        },
+        {
+          "version": "1.4.5",
+          "commit": "c54fb7baa339",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(session): activity, expiry notices and in-tab re-login without losing input"
+        },
+        {
+          "version": "1.4.4",
+          "commit": "d26699266631",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(auth): verified SD-API sessions replace the unsigned sofa_user cookie"
+        },
+        {
+          "version": "1.4.3",
+          "commit": "0e8cdb9f4010",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "style(login): bare logo above the card, amber re-login button in the expiry banner"
+        },
+        {
+          "version": "1.4.2",
+          "commit": "fb83916b653e",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(login): design preview for the new login and session transitions"
+        },
+        {
+          "version": "1.4.1",
+          "commit": "4a61d61982e9",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(users): send the actor as X-User-Id for SOFA access changes"
+        }
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-11-11",
+      "scopes": [
+        "roles",
+        "systems",
+        "users"
+      ],
+      "requires": [
+        "sd-api >= 2.35.4"
+      ],
+      "notes": [
+        {
+          "scope": "systems",
+          "text": "Neue Systemdetailseite mit Standardbehandlung, Schutzbedarf, Ressourcentypen und -rollen."
+        },
+        {
+          "scope": "systems",
+          "text": "Abhängige Ressourcen erscheinen auch über Systemgrenzen hinweg."
+        },
+        {
+          "scope": "roles",
+          "text": "Neue Rollendetailseite und Rollenart „Skill“; Zuweisungen passen sich nach Paketänderungen an."
+        },
+        {
+          "scope": "users",
+          "text": "Personendetails lassen sich direkt per Link öffnen."
+        }
+      ],
+      "changes": [
+        {
+          "version": "1.4.0",
+          "commit": "7127be082e0a",
+          "date": "2026-11-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(systems): dependents across systems via parent_resource_ids"
+        },
+        {
+          "version": "1.3.9",
+          "commit": "80593429c29a",
+          "date": "2026-10-30",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(users): open the person panel from /users?user_id=<id>"
+        },
+        {
+          "version": "1.3.8",
+          "commit": "4d373e835ca2",
+          "date": "2026-10-30",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(roles): adjust assignments after package changes (SD-API B2)"
+        },
+        {
+          "version": "1.3.7",
+          "commit": "7bb595c9fac7",
+          "date": "2026-10-30",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(roles): new role details page replaces the old one"
+        },
+        {
+          "version": "1.3.6",
+          "commit": "22066917573c",
+          "date": "2026-10-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(systems): type filter as badges, resource types in the system card"
+        },
+        {
+          "version": "1.3.5",
+          "commit": "a0387b844cdf",
+          "date": "2026-10-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(systems): calmer resource table header and handling chips"
+        },
+        {
+          "version": "1.3.4",
+          "commit": "16ad36eb92b2",
+          "date": "2026-10-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(systems): keep the current backlog selectable"
+        },
+        {
+          "version": "1.3.3",
+          "commit": "d0e085431e47",
+          "date": "2026-10-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(systems): default handling, protection need and resource roles (SD-API B1)"
+        },
+        {
+          "version": "1.3.2",
+          "commit": "c8b146a28a79",
+          "date": "2026-10-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(systems): new system details page replaces the old one"
+        },
+        {
+          "version": "1.3.1",
+          "commit": "2b98b945d011",
+          "date": "2026-10-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(roles): role type SKILL and resource types per system"
+        }
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-10-26",
+      "scopes": [
+        "dashboard",
+        "login",
+        "reports",
+        "tasks"
+      ],
+      "requires": [
+        "sd-api >= 2.29.3"
+      ],
+      "notes": [
+        {
+          "scope": "tasks",
+          "text": "Aufgaben als Kanban-Board; es ersetzt die bisherige Aufgabenseite."
+        },
+        {
+          "scope": "tasks",
+          "text": "Bot-Ergebnisse stehen direkt an der Aufgabe."
+        },
+        {
+          "scope": "dashboard",
+          "text": "Neues Dashboard mit Wochenkalender, Servicelevel und „Mein Tag“."
+        },
+        {
+          "scope": "reports",
+          "text": "Genesys Live zeigt das Alter der Daten und bleibt bei Störungen sichtbar."
+        },
+        {
+          "scope": "login",
+          "text": "Verständliche Fehlermeldungen bei der Anmeldung."
+        }
+      ],
+      "changes": [
+        {
+          "version": "1.3.0",
+          "commit": "1aa84ce3578d",
+          "date": "2026-10-26",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(genesys-live): renew the report token and show the data age"
+        },
+        {
+          "version": "1.2.21",
+          "commit": "32d09e8aaa83",
+          "date": "2026-10-26",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(dashboard): keep Genesys Live as stale on a 503 instead of removing it"
+        },
+        {
+          "version": "1.2.20",
+          "commit": "1acc3489cf3c",
+          "date": "2026-10-26",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(tasks): board on real data replaces the old tasks page"
+        },
+        {
+          "version": "1.2.19",
+          "commit": "e6974cd4f9d2",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "chore(tasks): follow the SD-API agreement for names and comments"
+        },
+        {
+          "version": "1.2.18",
+          "commit": "773ea1cdf69b",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs: bundle the SD-API requests for the tasks board and dashboard"
+        },
+        {
+          "version": "1.2.17",
+          "commit": "6b6c3816e9bf",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(tasks): board uses shared components, completion rules in the model"
+        },
+        {
+          "version": "1.2.16",
+          "commit": "2582046d78ac",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(tasks): kanban board draft with mock data"
+        },
+        {
+          "version": "1.2.15",
+          "commit": "45dd41c058cb",
+          "date": "2026-10-26",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(dashboard): connect service level, \"Mein Tag\" and calendar to real sources"
+        },
+        {
+          "version": "1.2.14",
+          "commit": "ae3a37aacaf9",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(dashboard): use the shared card, chip and button components"
+        },
+        {
+          "version": "1.2.13",
+          "commit": "ad522f1cf243",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(ui): shared page layout, dialog, chips, buttons and helpers"
+        },
+        {
+          "version": "1.2.12",
+          "commit": "8659e737bb09",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(ui): central status colours and process type labels"
+        },
+        {
+          "version": "1.2.11",
+          "commit": "f07a2533589d",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(dashboard): week calendar with day drawer, service level and \"Mein Tag\""
+        },
+        {
+          "version": "1.2.10",
+          "commit": "fb2fa15f6219",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(dashboard): replace calendar and KPI cards with a day/week side bar"
+        },
+        {
+          "version": "1.2.9",
+          "commit": "26631ee721d6",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(dashboard): first version with mock data for design review"
+        },
+        {
+          "version": "1.2.8",
+          "commit": "dfe0b5b58cdb",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(genesys-live): extract panel rendering into a shared module"
+        },
+        {
+          "version": "1.2.7",
+          "commit": "5802b5f0baf8",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs(dashboard): plan dashboard redesign and event summary request"
+        },
+        {
+          "version": "1.2.6",
+          "commit": "5f976b56c1f6",
+          "date": "2026-10-26",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(tasks): report the bot result instead of \"appears later\""
+        },
+        {
+          "version": "1.2.5",
+          "commit": "7061097bb30d",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(templates): load page scripts once on workspace and tasks pages"
+        },
+        {
+          "version": "1.2.4",
+          "commit": "56bcd3d8934e",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(workspace): flat pin bar on low windows so the lists keep their height"
+        },
+        {
+          "version": "1.2.3",
+          "commit": "1855026839c5",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs(deployment): describe the dev vhost https://sofa-dev"
+        },
+        {
+          "version": "1.2.2",
+          "commit": "b7fd50555950",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(login): show plain error messages instead of raw exceptions"
+        },
+        {
+          "version": "1.2.1",
+          "commit": "611f89994e34",
+          "date": "2026-10-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(workspace): register click delegation only once"
+        }
+      ]
+    },
+    {
+      "version": "1.2.0",
+      "date": "2026-10-14",
+      "scopes": [
+        "computers",
+        "iks",
+        "login",
+        "ops",
+        "processes",
+        "reports",
+        "roles",
+        "tasks",
+        "tools",
+        "users",
+        "workspace"
+      ],
+      "requires": [
+        "sd-api >= 2.28.10"
+      ],
+      "notes": [
+        {
+          "scope": "workspace",
+          "text": "Neuer Workspace: Werkzeuge und Berichte nebeneinander, bis zu vier lassen sich anheften."
+        },
+        {
+          "scope": "reports",
+          "text": "Neue Berichte: IVR mit Anrufdetails, Anmeldeprotokoll, Anwesenheit, Token-Löschungen, Genesys-Statistik und Genesys Live."
+        },
+        {
+          "scope": "tools",
+          "text": "Neu: Antragsvorlagen (Word, PDF), Genesys-Queue-Manager, Störungsprotokoll und Zeitkorrektur."
+        },
+        {
+          "scope": "iks",
+          "text": "IKS-Kontrollberichte und Rezertifizierung als interaktiver HTML-Bericht."
+        },
+        {
+          "scope": "processes",
+          "text": "Wiedereintritt, verschiebbare Austritte und Rückfrage vor dem Abbruch begonnener Prozesse."
+        },
+        {
+          "scope": "users",
+          "text": "Personendetails mit Konto- und Rechteverlauf, Kennungen, Geburtsdatum und passenden Aktionen."
+        },
+        {
+          "scope": "roles",
+          "text": "Ressourcen einer Rolle lassen sich als sofort oder nachgelagert einstufen."
+        },
+        {
+          "scope": "tasks",
+          "text": "Aufgabenseite mit Filter- und Gruppierungsleiste, Sammelaktionen und Zähler im Menü."
+        },
+        {
+          "scope": "computers",
+          "text": "Neue Rechnerverwaltung mit Inventardaten."
+        },
+        {
+          "scope": "login",
+          "text": "Rechte werden zentral in SD-API gepflegt."
+        },
+        {
+          "scope": "ops",
+          "text": "Produktion läuft als fester Stand, getrennt von der Entwicklungsinstanz."
+        }
+      ],
+      "changes": [
+        {
+          "version": "1.2.0",
+          "commit": "b88a74a72a31",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(workspace): serve overview at /workspace and reports under /reports"
+        },
+        {
+          "version": "1.1.138",
+          "commit": "23b347b1fba3",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "style(workspace): larger icons in pin tiles"
+        },
+        {
+          "version": "1.1.137",
+          "commit": "70e459bcd285",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "style(workspace): drop badges, anchor tile titles to the bottom"
+        },
+        {
+          "version": "1.1.136",
+          "commit": "26312077d5ac",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "style(workspace): left-aligned column heads with colored divider"
+        },
+        {
+          "version": "1.1.135",
+          "commit": "91451b8298d0",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(workspace): square pin tiles, mirrored column headers"
+        },
+        {
+          "version": "1.1.134",
+          "commit": "da0bae2a42b6",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(workspace): calmer layout with title, pin zone and list rows"
+        },
+        {
+          "version": "1.1.133",
+          "commit": "c473baa1b466",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(workspace): keep the pin hint inside narrow screens"
+        },
+        {
+          "version": "1.1.132",
+          "commit": "f6f9302592bd",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(workspace): pin up to four tools and reports"
+        },
+        {
+          "version": "1.1.131",
+          "commit": "ad0cb64ee073",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(workspace): show tools and reports side by side without tabs"
+        },
+        {
+          "version": "1.1.130",
+          "commit": "14cf86dee652",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(workspace): render all cards from one catalog and macro"
+        },
+        {
+          "version": "1.1.129",
+          "commit": "5f382d387589",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(iks): show process instances with person and responsibility, add HTML export"
+        },
+        {
+          "version": "1.1.128",
+          "commit": "08da21c64864",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "Reload SOFA dev on template and asset changes"
+        },
+        {
+          "version": "1.1.127",
+          "commit": "57ce7813f24c",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "Separate SOFA dev and main-based production releases"
+        },
+        {
+          "version": "1.1.126",
+          "commit": "a18847e3867e",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(genesys-live): refresh cached sorting script"
+        },
+        {
+          "version": "1.1.125",
+          "commit": "ce705b415618",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(genesys-live): show queues with waiting calls first"
+        },
+        {
+          "version": "1.1.124",
+          "commit": "6642b75a3641",
+          "date": "2026-10-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(genesys-live): add live queue report in workspace"
+        },
+        {
+          "version": "1.1.123",
+          "commit": "c4f94c34083b",
+          "date": "2026-10-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(agent-stats): Queue-Aufschlüsselung schon ab einer Queue"
+        },
+        {
+          "version": "1.1.122",
+          "commit": "f34e8bc878cb",
+          "date": "2026-10-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(agent-stats): add personal Genesys report"
+        },
+        {
+          "version": "1.1.121",
+          "commit": "4da4255a701b",
+          "date": "2026-09-28",
+          "scopes": [],
+          "notes": [],
+          "subject": "chore(workspace): alten IVR Report und Coming-Soon-Karten entfernen"
+        },
+        {
+          "version": "1.1.120",
+          "commit": "e80191c5647d",
+          "date": "2026-09-28",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add token deletion report"
+        },
+        {
+          "version": "1.1.119",
+          "commit": "7319a89c1032",
+          "date": "2026-09-28",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs: Langzeitplan Betrieb (Prod-Release, Dev-Instanz, Rechte, PWA)"
+        },
+        {
+          "version": "1.1.118",
+          "commit": "4836d3ef042a",
+          "date": "2026-09-28",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(presence-report): kompakte Leiste mit Status- und Quellenmenü"
+        },
+        {
+          "version": "1.1.117",
+          "commit": "c671e000a150",
+          "date": "2026-09-28",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(nav): Theme und Problem melden als Aktionen im Profilmenü"
+        },
+        {
+          "version": "1.1.116",
+          "commit": "9a989ab959ec",
+          "date": "2026-09-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs(presence-report): SOFA-Stand auf main"
+        },
+        {
+          "version": "1.1.115",
+          "commit": "9431d8c62b8e",
+          "date": "2026-09-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs(presence-report): Stand der Umsetzung"
+        },
+        {
+          "version": "1.1.114",
+          "commit": "830fd4a3848e",
+          "date": "2026-09-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(presence-report): Start nach DOMContentLoaded, Details und Handybreite"
+        },
+        {
+          "version": "1.1.113",
+          "commit": "5fa5aebb4411",
+          "date": "2026-09-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(presence-report): Tagesansicht mit Datumswahl, Kennzahlen und Zeilenmenü"
+        },
+        {
+          "version": "1.1.112",
+          "commit": "420faa0b3d5b",
+          "date": "2026-09-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(presence-report): Proxy, API-Client, Seite und Kachel"
+        },
+        {
+          "version": "1.1.111",
+          "commit": "60bd9dc5b236",
+          "date": "2026-09-24",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(time-correction): Einrasten, Grenze „jetzt“ und Tastatur"
+        },
+        {
+          "version": "1.1.110",
+          "commit": "151ec02407e3",
+          "date": "2026-09-24",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(time-correction): Oberfläche mit Mitarbeiter-Kacheln, Kennzahlen und Korrektur-Kacheln"
+        },
+        {
+          "version": "1.1.109",
+          "commit": "1a386ed4fe6f",
+          "date": "2026-09-24",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(time-correction): Korrekturen bearbeiten, Vorschau und Speichern"
+        },
+        {
+          "version": "1.1.108",
+          "commit": "467a7e1df2b7",
+          "date": "2026-09-24",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(time-correction): Zeitleiste lesen"
+        },
+        {
+          "version": "1.1.107",
+          "commit": "27638c9305db",
+          "date": "2026-09-24",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(time-correction): Proxy, API-Client, Seite und Kachel"
+        },
+        {
+          "version": "1.1.106",
+          "commit": "a3b088c23d29",
+          "date": "2026-09-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "UI von Nutzerverwaltung und Aufgaben vereinheitlichen"
+        },
+        {
+          "version": "1.1.105",
+          "commit": "c1bbaf6a9fb3",
+          "date": "2026-09-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(tasks): Randmaske fuer die Aufgaben-Streifen"
+        },
+        {
+          "version": "1.1.104",
+          "commit": "095838ad7be7",
+          "date": "2026-09-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(tasks): Blaetter-Buttons fuer die Aufgaben-Streifen"
+        },
+        {
+          "version": "1.1.103",
+          "commit": "f2a33a2e8094",
+          "date": "2026-09-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(tasks): Filter- und Gruppierungsleiste fuer die Aufgabenseite"
+        },
+        {
+          "version": "1.1.102",
+          "commit": "2c5a949381df",
+          "date": "2026-09-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix(logon-log): Beschriftungen kuerzen und Spaltenfolge angleichen"
+        },
+        {
+          "version": "1.1.101",
+          "commit": "60db09500d09",
+          "date": "2026-09-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat(userverwaltung): Geburtsdatum-Felder und Kopier-Buttons in den Stammdaten"
+        },
+        {
+          "version": "1.1.100",
+          "commit": "511671ff85f6",
+          "date": "2026-09-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: Geburtsdatum im Onboarding- und Wiedereintritts-Kontrakt fuehren"
+        },
+        {
+          "version": "1.1.99",
+          "commit": "7d66920d1c79",
+          "date": "2026-09-21",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: Anmeldeprotokoll-Karte und -Seite an die IVR-Reports angleichen"
+        },
+        {
+          "version": "1.1.98",
+          "commit": "f3091edddd51",
+          "date": "2026-09-21",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: LogonLog-Report an Theme-Tokens, Router-Einbindung und Zeitraum-Timeouts anpassen"
+        },
+        {
+          "version": "1.1.97",
+          "commit": "81836791463b",
+          "date": "2026-09-18",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add LogonLog report and protected review workflow"
+        },
+        {
+          "version": "1.1.96",
+          "commit": "b6b8151b5ba0",
+          "date": "2026-09-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: backlog-identifier label wurde nicht korregt angezeigt weil der allowed filter den falschen key hatte. identifier > technical_identifier"
+        },
+        {
+          "version": "1.1.95",
+          "commit": "1f7b2a4eabfb",
+          "date": "2026-09-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "Merge fix/rehire-followups"
+        },
+        {
+          "version": "1.1.94",
+          "commit": "eb7d03647949",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "Rename the rehire business reference field to Referenz/ Grund"
+        },
+        {
+          "version": "1.1.93",
+          "commit": "35db1806d772",
+          "date": "2026-09-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "Merge fix/form-archive-hints"
+        },
+        {
+          "version": "1.1.92",
+          "commit": "5b0f2f9ac364",
+          "date": "2026-09-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: show archived account hints in form previews"
+        },
+        {
+          "version": "1.1.91",
+          "commit": "4bd420af98da",
+          "date": "2026-09-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "Fix task backlog label refresh and user identity display"
+        },
+        {
+          "version": "1.1.90",
+          "commit": "14d6b6683ed7",
+          "date": "2026-09-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: hide the cancel action for rollback processes"
+        },
+        {
+          "version": "1.1.89",
+          "commit": "e1a496a42433",
+          "date": "2026-09-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: confirm process cancellations and offboardings that discard started work"
+        },
+        {
+          "version": "1.1.88",
+          "commit": "2ed6d95064e6",
+          "date": "2026-09-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: polish offboarding reschedule dialog and date validation"
+        },
+        {
+          "version": "1.1.87",
+          "commit": "16ca4a12721a",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add offboarding reschedule workflow"
+        },
+        {
+          "version": "1.1.86",
+          "commit": "6e44387dfa45",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "Show user panel actions that fit the employment state"
+        },
+        {
+          "version": "1.1.85",
+          "commit": "e29b98ebcc4d",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "Maintain account identifiers in the user detail panel"
+        },
+        {
+          "version": "1.1.84",
+          "commit": "0ca340949b0d",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "Match the open_process context shape delivered by SD-API"
+        },
+        {
+          "version": "1.1.83",
+          "commit": "04cfb1a3f95b",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add the rehire workflow and archived account restore in account tasks"
+        },
+        {
+          "version": "1.1.82",
+          "commit": "81e219f056f9",
+          "date": "2026-09-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "Show and change REQUIRED/DEFERRED per resource on the role detail page"
+        },
+        {
+          "version": "1.1.81",
+          "commit": "ab46a1837a94",
+          "date": "2026-09-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "Let role editors classify resources when adding them to a role"
+        },
+        {
+          "version": "1.1.80",
+          "commit": "b91bca3861c8",
+          "date": "2026-09-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "Drop the process overview, SOFA grant leftovers and the onboarding lookup"
+        },
+        {
+          "version": "1.1.79",
+          "commit": "0886655b3cda",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "Remove openpyxl from the SOFA requirements"
+        },
+        {
+          "version": "1.1.78",
+          "commit": "40143b52a83c",
+          "date": "2026-09-15",
+          "scopes": [],
+          "notes": [],
+          "subject": "Drop the IKS XLSX export in favour of the interactive HTML report"
+        },
+        {
+          "version": "1.1.77",
+          "commit": "02f331f6a2ea",
+          "date": "2026-09-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Adapt access review interactive HTML export"
+        },
+        {
+          "version": "1.1.76",
+          "commit": "d7acf270c480",
+          "date": "2026-09-02",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add the IKS access review report type"
+        },
+        {
+          "version": "1.1.75",
+          "commit": "698a5d85e18b",
+          "date": "2026-09-01",
+          "scopes": [],
+          "notes": [],
+          "subject": "test(datex): mark local credit fixture optional"
+        },
+        {
+          "version": "1.1.74",
+          "commit": "62f46e84d042",
+          "date": "2026-08-31",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add IVR call duration KPIs"
+        },
+        {
+          "version": "1.1.73",
+          "commit": "2f1d36450429",
+          "date": "2026-08-31",
+          "scopes": [],
+          "notes": [],
+          "subject": "Implement planned role process UI and safe task mail"
+        },
+        {
+          "version": "1.1.72",
+          "commit": "90a7f5a42bc2",
+          "date": "2026-08-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: filter the call detail report by service number"
+        },
+        {
+          "version": "1.1.71",
+          "commit": "3eb1bf1fcaa3",
+          "date": "2026-08-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "style: keep surfaces opaque over the themed background"
+        },
+        {
+          "version": "1.1.70",
+          "commit": "4b0497faeb5b",
+          "date": "2026-08-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: repair the pop-out icon outline on the tools overview"
+        },
+        {
+          "version": "1.1.69",
+          "commit": "64389ef590af",
+          "date": "2026-08-21",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: wire the computer administration to the SD-API read path"
+        },
+        {
+          "version": "1.1.68",
+          "commit": "e422169da0f8",
+          "date": "2026-08-21",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add computer inventory administration"
+        },
+        {
+          "version": "1.1.67",
+          "commit": "55e5a40486f4",
+          "date": "2026-08-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs: document IVR call-detail backend contract"
+        },
+        {
+          "version": "1.1.66",
+          "commit": "2e92832028ec",
+          "date": "2026-08-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "test: cover IVR call-detail report"
+        },
+        {
+          "version": "1.1.65",
+          "commit": "920fcf3e58db",
+          "date": "2026-08-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add IVR call-detail report"
+        },
+        {
+          "version": "1.1.64",
+          "commit": "a4d1c0599abf",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "data: add location workspace layout"
+        },
+        {
+          "version": "1.1.63",
+          "commit": "680c11e116d5",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add admin media-blocking workflow demo"
+        },
+        {
+          "version": "1.1.62",
+          "commit": "25ff18972a2f",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add auditable IKS control reports"
+        },
+        {
+          "version": "1.1.61",
+          "commit": "5ddcc933c976",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: validate and correct DAT exports"
+        },
+        {
+          "version": "1.1.60",
+          "commit": "6173c715c787",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: sort queue totals by service-level denominator"
+        },
+        {
+          "version": "1.1.59",
+          "commit": "8bc6dea40524",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: export filtered IVR reports as CSV"
+        },
+        {
+          "version": "1.1.58",
+          "commit": "27c9221e8ab8",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: show account and permission histories for users"
+        },
+        {
+          "version": "1.1.57",
+          "commit": "76dbc83b57a2",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: focus task views on actionable work"
+        },
+        {
+          "version": "1.1.56",
+          "commit": "242d3c729d25",
+          "date": "2026-08-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor: consolidate shared UI component styles"
+        },
+        {
+          "version": "1.1.55",
+          "commit": "ff8bd3456c46",
+          "date": "2026-07-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: round floating-point noise before ceiling in SL needed-interactions calc"
+        },
+        {
+          "version": "1.1.54",
+          "commit": "fa2c4010eda5",
+          "date": "2026-07-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add SL sort option, needed-interactions tooltip, and daily totals KPI to Queue Manager"
+        },
+        {
+          "version": "1.1.53",
+          "commit": "b638cb5b28a9",
+          "date": "2026-07-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: show service level per queue and lowest/overall SL KPIs in Queue Manager"
+        },
+        {
+          "version": "1.1.52",
+          "commit": "35b2653ecf6f",
+          "date": "2026-07-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs: add Q-Manager API reference and table styling notes"
+        },
+        {
+          "version": "1.1.51",
+          "commit": "6b27729b1382",
+          "date": "2026-07-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add IVR (116116) report tool"
+        },
+        {
+          "version": "1.1.50",
+          "commit": "f2d26c5ad28b",
+          "date": "2026-07-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: rename word-templates to request-templates and support PDF"
+        },
+        {
+          "version": "1.1.49",
+          "commit": "9fda243b55a8",
+          "date": "2026-07-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: use theme variables instead of hardcoded colors in tools.css"
+        },
+        {
+          "version": "1.1.48",
+          "commit": "ab0a150bb5d5",
+          "date": "2026-07-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: persist filters and polish table interactions in Userverwaltung"
+        },
+        {
+          "version": "1.1.47",
+          "commit": "fbdbde48d177",
+          "date": "2026-07-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: enhance Genesys Queue Manager live presence overview"
+        },
+        {
+          "version": "1.1.46",
+          "commit": "620935127f5f",
+          "date": "2026-06-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add Genesys Queue Manager with live presence overview"
+        },
+        {
+          "version": "1.1.45",
+          "commit": "0c5925dbbfbf",
+          "date": "2026-06-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add process-cancel action and skill filter to userverwaltung"
+        },
+        {
+          "version": "1.1.44",
+          "commit": "76e360d5145a",
+          "date": "2026-06-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: redesign tools overview with reports section and popout widget view"
+        },
+        {
+          "version": "1.1.43",
+          "commit": "0fb27dcc50ea",
+          "date": "2026-06-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add task count badge, related-revocations dialog and tasks UI polish"
+        },
+        {
+          "version": "1.1.42",
+          "commit": "7422ba90f770",
+          "date": "2026-06-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add process-cancel API endpoint and task-count to authz context"
+        },
+        {
+          "version": "1.1.41",
+          "commit": "0a0debc3f1b8",
+          "date": "2026-06-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor: introduce semantic color token system for UI components"
+        },
+        {
+          "version": "1.1.40",
+          "commit": "80769fc040fc",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs: add backlog and bulk-tasks request notes"
+        },
+        {
+          "version": "1.1.39",
+          "commit": "8b47d266ca29",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: rework userverwaltung filters, sorting, and permission-gated actions"
+        },
+        {
+          "version": "1.1.38",
+          "commit": "141e031fd714",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor: simplify user activity endpoint and add wildcard permission checks"
+        },
+        {
+          "version": "1.1.37",
+          "commit": "1eaccbcd1c49",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add day-detail modal to console calendar"
+        },
+        {
+          "version": "1.1.36",
+          "commit": "ab5d8f7de270",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: tasks page UI improvements (help modal, bulk actions, status styling)"
+        },
+        {
+          "version": "1.1.35",
+          "commit": "32b82dc892c9",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add bulk task assign/release endpoints"
+        },
+        {
+          "version": "1.1.34",
+          "commit": "66f8a694c500",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: add cache-busting query param to static script tags"
+        },
+        {
+          "version": "1.1.33",
+          "commit": "fb8d9a798206",
+          "date": "2026-06-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "style: theme-aware accent and warning chip colors"
+        },
+        {
+          "version": "1.1.32",
+          "commit": "908acd36567d",
+          "date": "2026-06-03",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(authz): removed harcoded permission_map"
+        },
+        {
+          "version": "1.1.31",
+          "commit": "06f1e6f4dd6f",
+          "date": "2026-06-03",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(authz): flat backend-driven permissions via /sofa/me"
+        },
+        {
+          "version": "1.1.30",
+          "commit": "317ae4bdb4d4",
+          "date": "2026-06-03",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: userverwaltung JS/CSS improvements and systemdetails refactor"
+        },
+        {
+          "version": "1.1.29",
+          "commit": "69fe2ed3f9f7",
+          "date": "2026-05-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: userdetails cleanup"
+        },
+        {
+          "version": "1.1.28",
+          "commit": "9a25517a4393",
+          "date": "2026-05-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: Störungsprotokoll tool with dashboard banner"
+        },
+        {
+          "version": "1.1.27",
+          "commit": "4d48481ac0e8",
+          "date": "2026-05-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "feat: Genesys Queue Manager tool"
+        },
+        {
+          "version": "1.1.26",
+          "commit": "d3e8095334ca",
+          "date": "2026-05-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "css: use theme variables, minor copy fixes"
+        },
+        {
+          "version": "1.1.25",
+          "commit": "7c4261521c61",
+          "date": "2026-05-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "systemdetails: simplify BOT meta to single JSON field"
+        },
+        {
+          "version": "1.1.24",
+          "commit": "1f8b5cc20f87",
+          "date": "2026-05-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "authz: add role_id 23 to full access"
+        },
+        {
+          "version": "1.1.23",
+          "commit": "45f6fb8a1d26",
+          "date": "2026-05-20",
+          "scopes": [],
+          "notes": [],
+          "subject": "round 2 - removed legacy authz artefacts"
+        },
+        {
+          "version": "1.1.22",
+          "commit": "6a665ac863b7",
+          "date": "2026-05-20",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor/authz: Remove unused artifacts"
+        },
+        {
+          "version": "1.1.21",
+          "commit": "66422126c4b9",
+          "date": "2026-05-20",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor/authz: Streamline authorization context, remove scope-based access control"
+        },
+        {
+          "version": "1.1.20",
+          "commit": "28bf49d997af",
+          "date": "2026-05-20",
+          "scopes": [],
+          "notes": [],
+          "subject": "experiment/authz-refactor: Role-based page authorization without SOFA grants"
+        },
+        {
+          "version": "1.1.19",
+          "commit": "291cc43a3c6b",
+          "date": "2026-05-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add tests for generated document deletion"
+        },
+        {
+          "version": "1.1.18",
+          "commit": "f16f5c16dcd0",
+          "date": "2026-05-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "Implement generated document delete workflow"
+        },
+        {
+          "version": "1.1.17",
+          "commit": "228aae86d234",
+          "date": "2026-05-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add generated document delete dialog"
+        },
+        {
+          "version": "1.1.16",
+          "commit": "99cdbbe6d05b",
+          "date": "2026-05-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add word document delete API proxy"
+        },
+        {
+          "version": "1.1.15",
+          "commit": "909d3c18af92",
+          "date": "2026-05-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: documents-route fixed (trailing-slash) and theme override"
+        },
+        {
+          "version": "1.1.14",
+          "commit": "549488048242",
+          "date": "2026-05-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "Refine word template document workflow UX"
+        },
+        {
+          "version": "1.1.13",
+          "commit": "138f12326376",
+          "date": "2026-05-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "Fix word template tool theme surfaces"
+        },
+        {
+          "version": "1.1.12",
+          "commit": "89d9042e3b25",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Expand tests for word template modal workflow"
+        },
+        {
+          "version": "1.1.11",
+          "commit": "c4fe1df9b5e0",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Rework word template rendering into modal workflow"
+        },
+        {
+          "version": "1.1.10",
+          "commit": "b30f23b44f0a",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add word template prefill and download proxies"
+        },
+        {
+          "version": "1.1.9",
+          "commit": "9819ec72be8d",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add tests for word template tool"
+        },
+        {
+          "version": "1.1.8",
+          "commit": "014f97561824",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Implement dynamic document rendering workflow"
+        },
+        {
+          "version": "1.1.7",
+          "commit": "707648dfdf1f",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Implement word template management flows"
+        },
+        {
+          "version": "1.1.6",
+          "commit": "524ca095081d",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add word template management UI shell"
+        },
+        {
+          "version": "1.1.5",
+          "commit": "e39619d6ff69",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add dataprocessing word template API proxies"
+        },
+        {
+          "version": "1.1.4",
+          "commit": "4c1322a613a3",
+          "date": "2026-05-11",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add word template tool entrypoints"
+        }
+      ]
+    },
+    {
+      "version": "1.1.3",
+      "date": "2026-05-08",
+      "scopes": [
+        "dashboard",
+        "login",
+        "ops",
+        "processes",
+        "roles",
+        "systems",
+        "tasks",
+        "tools",
+        "users"
+      ],
+      "requires": [
+        "sd-api >= 2.0.0"
+      ],
+      "notes": [
+        {
+          "scope": "processes",
+          "text": "Eintritt, Austritt, Skill-Vergabe und -Entzug, befristete Rollen und Schulungen laufen als geführte Prozesse."
+        },
+        {
+          "scope": "tasks",
+          "text": "Aufgaben mit Verlauf, Filtern, Backlogs je Team und Sammelaktionen."
+        },
+        {
+          "scope": "roles",
+          "text": "Rollen, Rollenpakete und Vererbung lassen sich in SOFA pflegen."
+        },
+        {
+          "scope": "systems",
+          "text": "Systeme und Ressourcen lassen sich anlegen und bearbeiten."
+        },
+        {
+          "scope": "users",
+          "text": "Userverwaltung mit Filtern, Status und SOFA-Zugriff."
+        },
+        {
+          "scope": "tools",
+          "text": "Werkzeuge für IKS-Berichte und DATEX-Exporte."
+        },
+        {
+          "scope": "dashboard",
+          "text": "Startseite mit Kennzahlen, Kalender und Schnellzugriffen; Themes hell, dunkel und Servodata."
+        },
+        {
+          "scope": "login",
+          "text": "Seiten und Funktionen richten sich nach SOFA-Rechten; Passwort selbst zurücksetzen."
+        },
+        {
+          "scope": "ops",
+          "text": "Verbindung zur API nur noch verschlüsselt."
+        }
+      ],
+      "changes": [
+        {
+          "version": "1.1.3",
+          "commit": "7bad173752f2",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Merge branch 'refactor/task-page' into main PATCHES:Task-Page"
+        },
+        {
+          "version": "1.1.3",
+          "commit": "5e461825167f",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Label-Change: Extern > Mail"
+        },
+        {
+          "version": "1.1.3",
+          "commit": "2538e9fecba8",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Keep task modal open on assign and release"
+        },
+        {
+          "version": "1.1.3",
+          "commit": "d5ecd9f38576",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add bulk task actions and progress accent"
+        },
+        {
+          "version": "1.1.3",
+          "commit": "80b0858ea7a9",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Move process overview from tasks to console"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "bd34b37b1178",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Merge branch 'refactor/auth-policies' into main MINOR!new app-rights handling"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "0a1e647d714e",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "auths-documentation"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "52fb5576fb33",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Move SOFA grant editing into console"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "29dfabd50f22",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Fix SOFA grant saves and refresh auth session"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "5caeeb63a902",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Update role UI for backend sofa grants contract"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "f0e710e588e8",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Align authz and proxies with backend SOFA contract"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "2b2ea5c1d8a0",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add SOFA grant management to role details"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "e283261db9cb",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Switch authz to grant-based SOFA permissions"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "87915e1be382",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add SOFA permission registry and profile seeds"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "25e568892aa9",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor: deprecated functions in authz removed; redundancies in role-policies removed"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "0fd2edc3f107",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "chore(py): postpone annotation evaluation in runtime modules"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "dbb58cf6640e",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "test(authz): document policies and cover authz behavior"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "bc4ead2ec937",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "refactor(authz): centralize role policies by id"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "12cf70d33972",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: user-table dynamic sizing"
+        },
+        {
+          "version": "1.1.0",
+          "commit": "a8409b754210",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "Merge branch 'ui/general' into main"
+        },
+        {
+          "version": "1.0.7",
+          "commit": "6c86ed736b0d",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: scroll-behaviour for tasks and console; vanishing table-th-bg"
+        },
+        {
+          "version": "1.0.6",
+          "commit": "4d0cb4e12246",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui: improve user table layout, status sorting, and visible count"
+        },
+        {
+          "version": "1.0.5",
+          "commit": "2118a4f32229",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui: add responsive burger navigation and stabilize header layout"
+        },
+        {
+          "version": "1.0.4",
+          "commit": "b54558d02482",
+          "date": "2026-05-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui: unify theme table headers and dark theme button contrast"
+        },
+        {
+          "version": "1.0.3",
+          "commit": "933936415da1",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui: back-arrow-button border/bg"
+        },
+        {
+          "version": "1.0.2",
+          "commit": "a73b9501794d",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "new: additional lables for process_types"
+        },
+        {
+          "version": "1.0.2",
+          "commit": "f5f5756e12d3",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "fix: derived-status label in user-table now correctly displays the label (status > process_type + status)"
+        },
+        {
+          "version": "1.0.1",
+          "commit": "80f567738a3e",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui: new dashboard lables + profile-icon fix in navbar"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "1d7eda6ddccd",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "MAJOR! server-certificate added so legacy http-calls had to be removed"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "984e8cf5ce99",
+          "date": "2026-05-06",
+          "scopes": [],
+          "notes": [],
+          "subject": "Add missing system map API client method"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "3380e2c3029f",
+          "date": "2026-05-06",
+          "scopes": [],
+          "notes": [],
+          "subject": "Refactor BFF routes and backend API prefixes"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "5014e750c768",
+          "date": "2026-05-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui: moved kpis/ shortcuts above calendar in dashboard"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "0e5a057bd34d",
+          "date": "2026-05-05",
+          "scopes": [],
+          "notes": [],
+          "subject": "removed public dashboard preview; quick-fix servodata-theme;"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "a96708b0f983",
+          "date": "2026-05-05",
+          "scopes": [],
+          "notes": [],
+          "subject": "expanded user details and onboarding payload (weekly_hours, telephone,entry_date)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "eab9a02affac",
+          "date": "2026-05-05",
+          "scopes": [],
+          "notes": [],
+          "subject": "added backlog for tasks to queue them to specific employees, filter for tasks, small ui fixes"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "8838d867c8d3",
+          "date": "2026-04-29",
+          "scopes": [],
+          "notes": [],
+          "subject": "new themes implemented; tasks-page now with filters; task-page process-tab now with real data; function to re-evaluate a role (for role-package-changes)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "36bb0b6074fb",
+          "date": "2026-04-27",
+          "scopes": [],
+          "notes": [],
+          "subject": "fallback for missing helix link in onboarding process; updated dashaboard (removed benachrichtigung, added calendar)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "ef9415f5c935",
+          "date": "2026-04-27",
+          "scopes": [],
+          "notes": [],
+          "subject": "training function added (bulk skill assognments)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "f87fcad8f98d",
+          "date": "2026-04-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui fixes (global btn styles + resource modal decluddered)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "87399da1e93b",
+          "date": "2026-04-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "small ui fixes"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "d42e1f7b96b9",
+          "date": "2026-04-21",
+          "scopes": [],
+          "notes": [],
+          "subject": "pw self-service finalized; added parent_resource_id to resource editor"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "5eac74572ebc",
+          "date": "2026-04-21",
+          "scopes": [],
+          "notes": [],
+          "subject": "new: self-service pw reset (still needs a proper BE-route), dashboard and console page (unfinished but working for now)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "9ce23b215a0e",
+          "date": "2026-04-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui/ux refactor for navbar"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "474ce7605a5c",
+          "date": "2026-04-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui/ux refactor for userverwaltung"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "2c9858241e1e",
+          "date": "2026-04-17",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui/ux refactor for systemverwaltung + rollenmanagement"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "c92d9d0702e3",
+          "date": "2026-04-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui/ux refactor for tools-page"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "e1c9ac820036",
+          "date": "2026-04-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "ui/ux refactor for /tasks"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "b200e3481e53",
+          "date": "2026-04-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "userverwaltung filtering methods"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "05a6f6a88625",
+          "date": "2026-04-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "sofa access control - added in userverwaltung"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "5682fc61e4a8",
+          "date": "2026-04-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "role inheritance display logic"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "fc6444e5d299",
+          "date": "2026-04-16",
+          "scopes": [],
+          "notes": [],
+          "subject": "updating systems and roles now possible. fixed system/map instead of json-placeholder-file"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "acfa4962536a",
+          "date": "2026-04-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "adding new roles/ systems now possible via ui"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "0055c4106fae",
+          "date": "2026-04-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "added datex-tool"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "98ef78a4af36",
+          "date": "2026-04-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "added tool to generate iks-reports"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "7247efaf2a18",
+          "date": "2026-04-14",
+          "scopes": [],
+          "notes": [],
+          "subject": "preparing tools, reports, iks"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "7310ad656625",
+          "date": "2026-04-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "bot dispatch via ui enabled"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "7c95ceaa5203",
+          "date": "2026-04-09",
+          "scopes": [],
+          "notes": [],
+          "subject": "function to add meta info to resource for automated tasks via ui"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "2d683064c416",
+          "date": "2026-04-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "preparation of mailing function"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "c43bc508f5a8",
+          "date": "2026-04-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "external onboarding"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "6374885f1141",
+          "date": "2026-04-07",
+          "scopes": [],
+          "notes": [],
+          "subject": "skill-removal/ offboarding tested and finalized"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "f00c9a55bbcc",
+          "date": "2026-04-01",
+          "scopes": [],
+          "notes": [],
+          "subject": "added offboard/ skill removal btn-events and route"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "c84b7bb71f64",
+          "date": "2026-03-30",
+          "scopes": [],
+          "notes": [],
+          "subject": "prepared external task handler; added task history for overlay;"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "5f804ac7e6d4",
+          "date": "2026-03-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "switched control of  success toast from urlParameter to sessionStorage (bfcache problem)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "d11c77dd7bfc",
+          "date": "2026-03-25",
+          "scopes": [],
+          "notes": [],
+          "subject": "implemented role package management"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "dde2af587b7f",
+          "date": "2026-03-24",
+          "scopes": [],
+          "notes": [],
+          "subject": "implementation of processes for skill assignment and temporary roles"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "ac13b595b686",
+          "date": "2026-02-18",
+          "scopes": [],
+          "notes": [],
+          "subject": "task lifecycle flows + onboarding process + system and role management (+ old files moved to deprecated/)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "974a6284cb61",
+          "date": "2026-01-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "added .gitignore  (looong overdue)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "c30581b01471",
+          "date": "2026-01-23",
+          "scopes": [],
+          "notes": [],
+          "subject": "Big refactor to frontend only: remove Flask and backend components, switch to FastAPI + Jinja2 + static files. > starting to implement an external backend (sd-api/ dev-api)"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "26f4b9f06893",
+          "date": "2025-11-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "RBAC: add password_hash, fix identity_permission, add rbac helper"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "2744158352db",
+          "date": "2025-11-13",
+          "scopes": [],
+          "notes": [],
+          "subject": "component builder ansatz verworfen, individuelle seiten nach der page_template vorlage"
+        },
+        {
+          "version": "1.0.0",
+          "commit": "7a63e69b8d1a",
+          "date": "2025-09-08",
+          "scopes": [],
+          "notes": [],
+          "subject": "init"
+        }
+      ]
+    }
+  ]
+}

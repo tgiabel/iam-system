@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% set page_title = "Release Notes" %}
+
+{% macro de_date(value) -%}
+{{ value[8:10] }}.{{ value[5:7] }}.{{ value[0:4] }}
+{%- endmacro %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/releases.css?v={{ static_v }}">
+{% endblock %}
+
+{% block content %}
+<div class="releases-page">
+    <header class="ui-section-header releases-header">
+        <div class="ui-section-heading">
+            <h2 class="ui-section-title">Release Notes</h2>
+            <div class="releases-versions">
+                {% for item in versions %}
+                    <span class="ui-chip ui-chip-sm {{ 'ui-chip-primary' if item.version else 'ui-chip-neutral' }}" data-release-version="{{ item.app }}">
+                        {{ item.label }} {{ item.version or "nicht erreichbar" }}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+        <nav class="releases-filter ui-segmented" aria-label="App">
+            <a href="/releases"{% if not app_filter %} aria-current="page"{% endif %}>Alle</a>
+            <a href="/releases?app=sofa"{% if app_filter == "sofa" %} aria-current="page"{% endif %}>SOFA</a>
+            <a href="/releases?app=sd-api"{% if app_filter == "sd-api" %} aria-current="page"{% endif %}>SD-API</a>
+        </nav>
+    </header>
+
+    {% if not entries %}
+        <div class="ui-empty-state ui-card">Keine Einträge</div>
+    {% endif %}
+
+    {% for entry in entries %}
+        <article class="ui-card release-entry" data-release="{{ entry.app }}-{{ entry.version }}">
+            <header class="release-entry-head">
+                <span class="ui-chip ui-chip-sm {{ 'ui-chip-primary' if entry.app == 'sofa' else 'ui-chip-neutral' }}">{{ entry.app_label }}</span>
+                <h3 class="release-entry-version">{{ entry.version }}</h3>
+                <time class="release-entry-date" datetime="{{ entry.date }}">{{ de_date(entry.date) }}</time>
+                {% if entry.current %}<span class="ui-chip ui-chip-sm ui-chip-success">läuft</span>{% endif %}
+                {% for value in entry.unmet %}
+                    <span class="ui-chip ui-chip-sm ui-chip-warning" data-release-unmet>Erwartet {{ value }}</span>
+                {% endfor %}
+            </header>
+            <ul class="release-notes">
+                {% for note in entry.notes %}
+                    <li><span class="release-note-scope">{{ note.scope }}</span><span>{{ note.text }}</span></li>
+                {% endfor %}
+            </ul>
+            {% if entry.changes %}
+                <details class="release-changes">
+                    <summary>{{ entry.changes | length }} {{ "Änderung" if entry.changes | length == 1 else "Änderungen" }}</summary>
+                    <ol>
+                        {% for change in entry.changes %}
+                            <li>
+                                <span class="release-change-version">{{ change.version }}</span>
+                                <code class="release-change-commit">{{ change.commit[:7] }}</code>
+                                <span class="release-change-text">{{ change.notes | join(" · ") if change.notes else change.subject }}</span>
+                            </li>
+                        {% endfor %}
+                    </ol>
+                </details>
+            {% endif %}
+        </article>
+    {% endfor %}
+</div>
+{% endblock %}
