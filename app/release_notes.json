@@ -21,6 +21,91 @@
   "trailers_required_after": "6dfc175ed63e666f0f6fb2e63f32405ccaa150c0",
   "releases": [
     {
+      "version": "1.6.3",
+      "date": "2026-11-12",
+      "scopes": [
+        "internal",
+        "login",
+        "ops",
+        "reports"
+      ],
+      "requires": [],
+      "notes": [
+        {
+          "scope": "ops",
+          "text": "Neu: Release Notes im Profilmenü zeigen die Neuerungen von SOFA und SD-API."
+        },
+        {
+          "scope": "login",
+          "text": "Die Einzeländerungen der Release Notes sieht nur, wer das Recht dafür hat."
+        },
+        {
+          "scope": "reports",
+          "text": "IVR-Calldetails zeigen in den KPI-Cards und der Detailtabelle die Anzahl der Calls und die Ø-Zeit pro Call."
+        },
+        {
+          "scope": "internal",
+          "text": "Interne Verbesserungen (2 Änderungen)."
+        }
+      ],
+      "changes": [
+        {
+          "version": "1.6.3",
+          "commit": "98a13b967647",
+          "date": "2026-11-12",
+          "scopes": [
+            "reports"
+          ],
+          "notes": [
+            "IVR Calldetails: KPI-Cards und Detailtabelle zeigen zusätzlich die Anzahl der Calls und die durchschnittliche Zeit pro Call."
+          ],
+          "subject": "feat(reports): show call count and average time in IVR call detail KPIs"
+        },
+        {
+          "version": "1.6.2",
+          "commit": "d263679dc965",
+          "date": "2026-11-12",
+          "scopes": [
+            "login"
+          ],
+          "notes": [
+            "Die Einzeländerungen der Release Notes sieht nur, wer das Recht dafür hat."
+          ],
+          "subject": "feat(release): show the detailed changes only with SOFA-FN-RELEASE-DETAIL"
+        },
+        {
+          "version": "1.6.1",
+          "commit": "1f119782a0b0",
+          "date": "2026-11-12",
+          "scopes": [
+            "internal"
+          ],
+          "notes": [],
+          "subject": "docs(release): requires is a minimum version, anchor tags are set"
+        },
+        {
+          "version": "1.6.0",
+          "commit": "8e16d23e4a63",
+          "date": "2026-11-12",
+          "scopes": [
+            "ops"
+          ],
+          "notes": [
+            "Neue Seite „Release Notes“ im Profilmenü zeigt die Neuerungen von SOFA und SD-API."
+          ],
+          "subject": "feat(release): versions and release notes from commit trailers"
+        },
+        {
+          "version": "1.5.1",
+          "commit": "6dfc175ed63e",
+          "date": "2026-11-12",
+          "scopes": [],
+          "notes": [],
+          "subject": "docs: record the session cutover of 2026-11-12"
+        }
+      ]
+    },
+    {
       "version": "1.5.0",
       "date": "2026-11-12",
       "scopes": [
