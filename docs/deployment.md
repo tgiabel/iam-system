@@ -44,7 +44,8 @@ ihn, blendet aber die Reports mit Report-Token aus (Agent-Stats, Genesys-Live).
 
 ### Umstellung auf verifizierte Sitzungen
 
-Vertrag: SD-API `docs/sofa-session-contract.md`, Abschnitt 11. Reihenfolge:
+Am 12.11.2026 durchgeführt (SD-API API-1 08:46, SOFA d2c30e5 09:04, SD-API API-2
+09:15 UTC). Vertrag: SD-API `docs/sofa-session-contract.md`, Abschnitt 11. Reihenfolge:
 
 1. SD-API API-1 deployen (Migration `user_sessions`, `SOFA_SERVICE_KEY_SHA256`).
    Altes SOFA läuft unverändert weiter.

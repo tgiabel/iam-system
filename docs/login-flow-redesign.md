@@ -1,9 +1,8 @@
 # Login und Sitzungsübergänge
 
-Stand: 11.11.2026. Phasen A bis C und das anschließende Review sind auf
-`feat/login-redesign` umgesetzt und gegen sd-api-dev geprüft (Vertrag: SD-API
-`docs/sofa-session-contract.md`). Nicht auf `main`: Der Stand verlangt SD-API API-1 und
-den Dienstschlüssel in Prod (siehe [deployment.md](deployment.md)).
+Stand: 12.11.2026. Phasen A bis C und das anschließende Review sind umgesetzt und seit
+dem 12.11.2026 in Prod (SOFA d2c30e5, SD-API API-2 1348585; Vertrag: SD-API
+`docs/sofa-session-contract.md`, Ablauf in [deployment.md](deployment.md)).
 
 ## Umsetzung
 
