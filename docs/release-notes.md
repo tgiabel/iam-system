@@ -23,7 +23,10 @@ Scopes (`scopes` in der Notes-Datei): `dashboard`, `workspace`, `tasks`,
 `login`, `ops`, `internal`. Es sind die SOFA-Bereiche der SD-API ohne `sofa/`.
 
 - `Note:` kurzer deutscher Stichpunkt, wie ein Nutzer die Änderung spürt; `Note: -` intern.
-- `Requires: sd-api >= x.y.z`, wenn der Commit eine bestimmte SD-API-Version braucht.
+- `Requires: sd-api >= x.y.z` ist eine Mindestversion. Der Trailer gehört nur an einen
+  Commit, der wirklich eine neuere SD-API braucht als die bisher geforderte (neue Route,
+  geändertes Feld), nicht an jeden Commit, der zufällig neben einem API-Deploy entsteht.
+  Der Release-Eintrag sammelt die `requires` seiner Commits.
   API-Änderungen stehen nur in den API-Notes, SOFA-Änderungen nur hier.
 - `minor_if_added` ist `[]`: SOFA hat keine Migrationen. Minor nur mit `Bump: minor`
   (z. B. am Ende eines Feature-Laufs).
@@ -76,7 +79,9 @@ Je Eintrag erscheinen die kuratierten `notes`; `changes` sind zugeklappt.
 ## Rückblick
 
 Die Einträge bis `1.5.0` sind am 12.11.2026 aus der Historie gebildet; ihre `changes`
-tragen nur den Commit-Betreff, ihre `requires` die SD-API-Version, die zum Deploy lief.
+tragen nur den Commit-Betreff. Ihre `requires` nennen als Mindestversion die SD-API,
+die zum Deploy lief; ab `1.6.0` kommen `requires` nur noch aus `Requires:`-Trailern.
+Die Anker-Tags `v1.2.0`–`v1.5.0` sind am 12.11.2026 gesetzt.
 
 | Version | Tag auf | Datum | Inhalt |
 |---|---|---|---|
