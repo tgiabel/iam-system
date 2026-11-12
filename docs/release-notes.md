@@ -65,8 +65,17 @@ git push --follow-tags             # Tags bleiben sonst lokal
 zeigt die Einträge von SOFA und SD-API zusammen, neueste zuerst, filterbar nach App.
 Je Eintrag erscheinen die kuratierten `notes`; `changes` sind zugeklappt.
 
+Die Einzeländerungen (`changes`) nennen auch Infrastruktur und Betrieb. Sie sieht nur,
+wer `SOFA-FN-RELEASE-DETAIL` hat (oder `SOFA-FN-ALL`); das Recht legt SD-API-Migration
+`20261112_sofa_fn_release_detail_permission.sql` an, keiner Rolle zugeordnet. Ohne Recht
+entfernt SOFA `changes` serverseitig, auf `/releases` wie in `GET /api/meta/releases`
+(dort zusätzlich `can_view_changes`). Für die SD-API gilt dasselbe Recht: SOFA zeigt
+deren `changes` nur, wenn die API sie mit `can_view_changes: true` liefert und der
+Nutzer das Recht auch in SOFA hat. Die Seite selbst bleibt für alle Angemeldeten.
+
 - SD-API-Notes kommen über `GET /meta/releases` mit Dienstschlüssel und Sitzung des
-  Nutzers und werden 5 Minuten zwischengespeichert. Antwortet die API nicht (oder
+  Nutzers und werden 5 Minuten zwischengespeichert, getrennt nach dem Detail-Recht.
+  Antwortet die API nicht (oder
   fehlt die Route), steht dort „SD-API nicht erreichbar“, die SOFA-Notes bleiben.
 - Fordert der laufende SOFA-Eintrag per `requires` eine neuere SD-API, als läuft,
   trägt er einen Hinweis „Erwartet sd-api >= …“. Ist die API-Version unbekannt, keiner.

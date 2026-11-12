@@ -2,7 +2,12 @@
 
 Quelle der eigenen Notes ist `app/release_notes.json`; der oberste Eintrag ist die
 ausgelieferte Version. Die SD-API-Notes kommen ueber `GET /meta/releases` mit der
-Sitzung des Nutzers und werden kurz zwischengespeichert, weil sie fuer alle gleich sind.
+Sitzung des Nutzers und werden kurz zwischengespeichert, getrennt nach dem Recht fuer
+die Einzelaenderungen.
+
+`changes` nennen auch Infrastruktur und Betrieb. Sie gehen nur an Inhaber von
+`SOFA-FN-RELEASE-DETAIL` (oder `SOFA-FN-ALL`); allen anderen entfernt SOFA sie
+serverseitig, bei den eigenen Notes wie bei denen der SD-API.
 """
 from __future__ import annotations
 
@@ -20,10 +25,12 @@ NOTES_PATH = Path(__file__).with_name("release_notes.json")
 PUBLIC_KEYS = ("schema", "app", "scopes", "releases")
 API_CACHE_SECONDS = 300
 APP_LABELS = {"sofa": "SOFA", "sd-api": "SD-API"}
+DETAIL_PERMISSION = "SOFA-FN-RELEASE-DETAIL"
 _REQUIRES = re.compile(r"^([a-z0-9-]+) >= (\d+)\.(\d+)\.(\d+)$")
 
 _own_cache: dict = {"mtime": None, "notes": None}
-_api_cache: dict = {"at": 0.0, "notes": None}
+# Je Recht ein Eintrag: Die Antwort der SD-API unterscheidet sich danach.
+_api_cache: dict = {}
 
 
 def load_own() -> dict:
@@ -41,6 +48,21 @@ def load_own() -> dict:
         return {"schema": None, "app": "sofa", "scopes": {}, "releases": []}
 
 
+def can_view_changes(authz) -> bool:
+    return bool(authz is not None and authz.has_permission(DETAIL_PERMISSION))
+
+
+def without_changes(notes: dict) -> dict:
+    releases = [{key: value for key, value in release.items() if key != "changes"}
+                for release in notes.get("releases") or []]
+    return {**notes, "releases": releases}
+
+
+def own_for(detailed: bool) -> dict:
+    notes = load_own()
+    return notes if detailed else without_changes(notes)
+
+
 def version_of(notes: dict | None) -> str | None:
     releases = (notes or {}).get("releases") or []
     return releases[0].get("version") if releases else None
@@ -50,11 +72,16 @@ def current_version() -> str:
     return version_of(load_own()) or "unbekannt"
 
 
-async def load_api() -> dict | None:
-    """SD-API-Notes oder None, solange die Route fehlt oder die API nicht antwortet."""
+async def load_api(detailed: bool) -> dict | None:
+    """SD-API-Notes oder None, solange die Route fehlt oder die API nicht antwortet.
+
+    `changes` bleiben nur, wenn der Nutzer das Recht hat und die API sie ausdruecklich
+    freigibt (`can_view_changes`); sonst werden sie entfernt.
+    """
     now = time.monotonic()
-    if _api_cache["notes"] is not None and now - _api_cache["at"] < API_CACHE_SECONDS:
-        return _api_cache["notes"]
+    cached = _api_cache.get(detailed)
+    if cached is not None and now - cached[0] < API_CACHE_SECONDS:
+        return cached[1]
     try:
         notes = await api_client.get_release_notes()
     except Exception as exc:  # 404 vor dem SD-API-Deploy, Netz, Sitzung
@@ -62,7 +89,9 @@ async def load_api() -> dict | None:
         return None
     if not isinstance(notes, dict) or not isinstance(notes.get("releases"), list):
         return None
-    _api_cache.update(at=now, notes=notes)
+    if not (detailed and notes.get("can_view_changes") is True):
+        notes = without_changes(notes)
+    _api_cache[detailed] = (now, notes)
     return notes
 
 

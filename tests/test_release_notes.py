@@ -17,23 +17,29 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import release_notes as rn  # noqa: E402  (scripts/release_notes.py, Kopie aus SD-API)
 
 
-def authz(user_id=42):
+DETAIL = "SOFA-FN-RELEASE-DETAIL"
+API_CHANGE = {"version": "3.1.0", "commit": "abcdef123456", "date": "2026-11-13", "scopes": ["ops"],
+              "notes": [], "subject": "chore(ops): rotate the proxy certificate"}
+
+
+def authz(*permissions, user_id=42):
     return AuthorizationContext(
         user_id=user_id,
         pnr="00042",
         primary_role_name="Agent",
-        permissions=frozenset(),
+        permissions=frozenset(permissions),
         accessible_backlogs=frozenset(),
         has_all_backlog_access=False,
         raw_user={"user_id": user_id, "first_name": "Erika"},
     )
 
 
-def api_notes(version="3.1.0", date="2026-11-13"):
+def api_notes(version="3.1.0", date="2026-11-13", can_view_changes=False):
     return {
         "schema": 1,
         "app": "sd-api",
         "version": version,
+        "can_view_changes": can_view_changes,
         "scopes": {"sofa/tasks": "SOFA · Aufgaben", "ticketing": "Ticket-Eingang"},
         "releases": [
             {
@@ -42,7 +48,7 @@ def api_notes(version="3.1.0", date="2026-11-13"):
                     {"scope": "sofa/tasks", "text": "API-Aufgaben schneller."},
                     {"scope": "ticketing", "text": "Tickets kommen sofort an."},
                 ],
-                "changes": [],
+                "changes": [dict(API_CHANGE, version=version)] if can_view_changes else [],
             },
         ],
     }
@@ -50,7 +56,7 @@ def api_notes(version="3.1.0", date="2026-11-13"):
 
 def reset_caches():
     release_notes._own_cache.update(mtime=None, notes=None)
-    release_notes._api_cache.update(at=0.0, notes=None)
+    release_notes._api_cache.clear()
 
 
 class NotesFileTests(unittest.TestCase):
@@ -139,10 +145,37 @@ class ModuleTests(unittest.TestCase):
         fetch = AsyncMock(side_effect=[Exception("404"), api_notes(), api_notes("9.9.9")])
         with patch.object(release_notes.api_client, "get_release_notes", fetch), \
                 self.assertLogs(release_notes.logger, "WARNING"):
-            self.assertIsNone(asyncio.run(release_notes.load_api()))
-            self.assertEqual(asyncio.run(release_notes.load_api())["version"], "3.1.0")
-            self.assertEqual(asyncio.run(release_notes.load_api())["version"], "3.1.0")
+            self.assertIsNone(asyncio.run(release_notes.load_api(False)))
+            self.assertEqual(asyncio.run(release_notes.load_api(False))["version"], "3.1.0")
+            self.assertEqual(asyncio.run(release_notes.load_api(False))["version"], "3.1.0")
         self.assertEqual(fetch.await_count, 2)
+
+    def test_api_changes_need_the_right_and_the_api_release(self):
+        cases = [
+            (False, True, False),   # API liefert, Nutzer ohne Recht: entfernt
+            (True, False, False),   # Recht, aber API gibt nicht frei: entfernt
+            (True, True, True),
+        ]
+        for detailed, released, expected in cases:
+            reset_caches()
+            payload = api_notes(can_view_changes=released)
+            payload["releases"][0]["changes"] = [API_CHANGE]  # auch bei Fehlverhalten der API
+            with patch.object(release_notes.api_client, "get_release_notes", AsyncMock(return_value=payload)):
+                notes = asyncio.run(release_notes.load_api(detailed))
+            self.assertEqual("changes" in notes["releases"][0], expected, (detailed, released))
+
+    def test_api_cache_is_separate_per_right(self):
+        fetch = AsyncMock(side_effect=[api_notes(can_view_changes=True), api_notes()])
+        with patch.object(release_notes.api_client, "get_release_notes", fetch):
+            self.assertIn("changes", asyncio.run(release_notes.load_api(True))["releases"][0])
+            self.assertNotIn("changes", asyncio.run(release_notes.load_api(False))["releases"][0])
+        self.assertEqual(fetch.await_count, 2)
+
+    def test_detail_right_follows_the_function_wildcard(self):
+        self.assertTrue(release_notes.can_view_changes(authz(DETAIL)))
+        self.assertTrue(release_notes.can_view_changes(authz("SOFA-FN-ALL")))
+        self.assertFalse(release_notes.can_view_changes(authz("SOFA-PAGE-ALL", "SOFA-FN-ACC")))
+        self.assertFalse(release_notes.can_view_changes(None))
 
     def test_client_reads_meta_releases_with_service_key(self):
         seen = {}
@@ -175,7 +208,8 @@ class PageTests(unittest.TestCase):
 
         reset_caches()
         self.addCleanup(reset_caches)
-        app.dependency_overrides[build_authorization_context] = lambda: authz()
+        self.context = authz()
+        app.dependency_overrides[build_authorization_context] = lambda: self.context
         self.addCleanup(app.dependency_overrides.clear)
         self.client = TestClient(app)
 
@@ -194,7 +228,31 @@ class PageTests(unittest.TestCase):
         self.assertIn("SD-API 3.1.0", text)
         self.assertIn("Tickets kommen sofort an.", text)
         self.assertIn("12.11.2026", text)
-        self.assertIn("<details", text)
+
+    def test_without_the_right_no_changes_reach_the_page(self):
+        own_commit = release_notes.load_own()["releases"][0]["changes"][0]["commit"][:7]
+        with self._fetch(api_notes(can_view_changes=True)):
+            text = self.client.get("/releases").text
+        self.assertNotIn("<details", text)
+        self.assertNotIn(own_commit, text)
+        self.assertNotIn("rotate the proxy certificate", text)
+
+    def test_with_the_right_changes_are_shown_for_both_apps(self):
+        own_commit = release_notes.load_own()["releases"][0]["changes"][0]["commit"][:7]
+        for right in (DETAIL, "SOFA-FN-ALL"):
+            reset_caches()
+            self.context = authz(right)
+            with self._fetch(api_notes(can_view_changes=True)):
+                text = self.client.get("/releases").text
+            self.assertIn("<details", text, right)
+            self.assertIn(own_commit, text, right)
+            self.assertIn("rotate the proxy certificate", text, right)
+
+    def test_sd_api_changes_stay_hidden_when_the_api_withholds_them(self):
+        self.context = authz(DETAIL)
+        with self._fetch(api_notes()):
+            text = self.client.get("/releases?app=sd-api").text
+        self.assertNotIn("<details", text)
 
     def test_page_stays_up_without_sd_api_notes(self):
         with self._fetch(Exception("404")), self.assertLogs(release_notes.logger, "WARNING"):
@@ -214,6 +272,16 @@ class PageTests(unittest.TestCase):
         response = self.client.get("/releases", follow_redirects=False)
         self.assertEqual(response.status_code, 303)
         self.assertTrue(response.headers["location"].startswith("/login"))
+
+    def test_json_carries_changes_only_with_the_right(self):
+        data = self.client.get("/api/meta/releases").json()
+        self.assertFalse(data["can_view_changes"])
+        self.assertFalse([release for release in data["releases"] if "changes" in release])
+        for right in (DETAIL, "SOFA-FN-ALL"):
+            self.context = authz(right)
+            data = self.client.get("/api/meta/releases").json()
+            self.assertTrue(data["can_view_changes"], right)
+            self.assertTrue(all(release["changes"] for release in data["releases"]), right)
 
     def test_own_notes_as_json_and_version_in_health(self):
         data = self.client.get("/api/meta/releases").json()
