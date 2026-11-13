@@ -3,6 +3,10 @@
 // SOFA BFF response for the signed-in user's Genesys queues.
 const LIVE_URL = "/api/reporting/genesys-live";
 const REFRESH_MS = 15000;
+// Ohne jeden Stand (Kaltstart der SD-API, 503) kurz nachfassen statt bis zum nächsten Takt zu warten.
+const COLD_RETRY_MS = 3000;
+const COLD_RETRIES = 3;
+let coldRetries = 0;
 let live = null;
 let loadError = "";
 let loading = false;
@@ -111,9 +115,10 @@ function renderTime(){
 async function load(manual=false){
   if(loading)return;
   loading=true;
+  let retry=false;
   try{
     const response=await fetch(LIVE_URL,{cache:"no-store"});
-    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    if(!response.ok){retry=response.status>=500;throw new Error(`HTTP ${response.status}`)}
     live=await response.json();loadError="";
     if(selectedId&&!live.queues.some(q=>q.queue_id===selectedId))selectedId=null;
   }catch(error){
@@ -124,6 +129,7 @@ async function load(manual=false){
     loading=false;
   }
   renderCards();renderPanel();renderTime();
+  if(retry&&!live&&coldRetries<COLD_RETRIES){coldRetries++;setTimeout(load,COLD_RETRY_MS)}
 }
 
 for(const scroller of document.querySelectorAll(".queue-scroller"))scroller.addEventListener("scroll",updateScrollArrows,{passive:true});

@@ -4,6 +4,8 @@
 // Die Zusammenfassung der Events steckt in calendar_summary.js, das Panel in genesys_live_panel.js.
 (function () {
     const REFRESH_LIVE_MS = 15000;
+    const COLD_RETRY_MS = 3000;
+    const COLD_RETRIES_LIVE = 3;
     const REFRESH_DATA_MS = 120000;
     const REFRESH_SERVICE_LEVEL_MS = 60000;
     // Bis die SD-API ein Ziel liefert: 80 % und mehr gilt als erreicht.
@@ -337,6 +339,7 @@
         let live = null;
         let loading = false;
         let signedOut = false;
+        let coldRetries = 0;
         const open = panel.loadOpen(readStorage());
 
         function render() {
@@ -357,11 +360,14 @@
 
         // Ein 503 heißt nur, dass Genesys gerade nicht antwortet: der letzte Stand bleibt und altert sichtbar.
         // Ein ungültiger Report-Token (401) braucht eine neue Anmeldung; dann wird nicht mehr abgefragt.
+        // Ohne jeden Stand (Kaltstart der SD-API) wird nach einem 5xx kurz nachgefasst statt bis zum nächsten Takt zu warten.
         async function load() {
             if (loading || signedOut) return;
             loading = true;
+            let retry = false;
             try {
                 const { ok, status, data } = await fetchJson(url);
+                retry = status >= 500;
                 if (status === 401) {
                     signedOut = true;
                 } else if (ok && data?.total) {
@@ -375,6 +381,10 @@
                 loading = false;
             }
             render();
+            if (retry && !live && coldRetries < COLD_RETRIES_LIVE) {
+                coldRetries += 1;
+                setTimeout(load, COLD_RETRY_MS);
+            }
         }
 
         aside.addEventListener("click", event => {
