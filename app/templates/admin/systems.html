@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% set page_title = "Systemverwaltung" %}
+{% block body_class %}app-fixed app-fixed-flush app-fixed-until-900{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/admin_lists.css?v={{ static_v }}">
+{% endblock %}
+
+{% block scripts %}
+<script defer src="/static/js/list_page.js?v={{ static_v }}"></script>
+<script defer src="/static/js/detail_shared.js?v={{ static_v }}"></script>
+<script defer src="/static/js/admin_systems.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="ui-list-page al-sysmgmt" id="systems-page"{% if list_mock %} data-mock="{{ list_mock }}"{% endif %}>
+    <header class="ui-page-toolbar">
+        <h1 class="ui-page-title">Systemverwaltung</h1>
+        <input type="search" id="systems-search" class="ui-input ui-page-search" placeholder="System, Kürzel, Ressource" aria-label="Systeme durchsuchen" autocomplete="off">
+
+        <div class="ui-toolbar-end">
+            <span class="ui-toolbar-count" id="systems-count" aria-live="polite"></span>
+            <button type="button" class="btn btn-primary" id="systems-create">Neues System</button>
+        </div>
+    </header>
+
+    <div class="ui-quick-filters" id="systems-quick" role="group" aria-label="Schnellfilter"></div>
+
+    <section class="ui-table-card ui-list-card">
+        <div class="table-wrapper">
+            <table class="ui-table-compact" id="systems-table">
+                <thead>
+                    <tr>
+                        <th data-sort-col="name"><button type="button" class="ui-table-sort-button">System <span data-sort-indicator></span></button></th>
+                        <th class="al-col-content">Inhalt</th>
+                        <th data-sort-col="protection"><button type="button" class="ui-table-sort-button">Schutzbedarf <span data-sort-indicator></span></button></th>
+                        <th class="al-col-handling">Bearbeitung</th>
+                        <th class="ui-table-num al-col-res" data-sort-col="resources"><button type="button" class="ui-table-sort-button">Ressourcen <span data-sort-indicator></span></button></th>
+                        <th class="ui-table-num al-col-users" data-sort-col="users"><button type="button" class="ui-table-sort-button">User <span data-sort-indicator></span></button></th>
+                        <th class="ui-table-num al-col-tasks" data-sort-col="tasks"><button type="button" class="ui-table-sort-button">Aufgaben <span data-sort-indicator></span></button></th>
+                        <th class="ui-table-num" data-sort-col="overdue"><button type="button" class="ui-table-sort-button">Überfällig <span data-sort-indicator></span></button></th>
+                        <th class="ui-table-action"><span class="ui-visually-hidden">Aktionen</span></th>
+                    </tr>
+                </thead>
+                <tbody id="systems-body"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <dialog class="ui-dialog al-dialog" id="systems-create-dialog" aria-labelledby="systems-create-title">
+        <form method="dialog" id="systems-create-form">
+            <div class="ui-modal-header">
+                <h2 id="systems-create-title">Neues System</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body al-form">
+                <label class="al-field al-span-2">Name<input class="ui-input" name="name" required maxlength="100"></label>
+                <label class="al-field">Kürzel<input class="ui-input" name="short_name" required maxlength="20"></label>
+                <label class="al-field">Standard-Backlog<select class="ui-input" name="default_backlog_identifier" id="systems-create-backlog" required></select></label>
+                <fieldset class="al-field al-span-2 al-protection-fields">
+                    <legend>Schutzbedarf</legend>
+                    <label class="al-field">Vertraulichkeit<select class="ui-input" name="confidentiality" data-protection></select></label>
+                    <label class="al-field">Integrität<select class="ui-input" name="integrity" data-protection></select></label>
+                    <label class="al-field">Verfügbarkeit<select class="ui-input" name="availability" data-protection></select></label>
+                </fieldset>
+            </div>
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                <button type="submit" class="btn btn-primary">Anlegen</button>
+            </div>
+        </form>
+    </dialog>
+</div>
+{% endblock %}

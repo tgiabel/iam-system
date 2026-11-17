@@ -14,7 +14,7 @@ from app.authz import (
     require_permission,
     get_current_user,
 )
-from app import tasks_board_mock
+from app import admin_lists_mock, tasks_board_mock
 from app.dashboard import build_dashboard_context
 from app.helpers.time_utils import today_local
 from app.login_errors import FORM_EXPIRED, MISSING_FIELDS, NOTICES
@@ -190,8 +190,22 @@ def console(request: Request, authz=Depends(require_permission("SOFA-PAGE-CNSL",
     return templates.TemplateResponse("console.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
+def _admin_list_mock(request: Request, authz, template: str, mock: str | None):
+    """Entwurf der neuen Userverwaltung, nur in der Entwicklungsinstanz mit `?mock=` (bis Session 2)."""
+    scenario = admin_lists_mock.mock_scenario(mock)
+    if not scenario:
+        return None
+    data = admin_lists_mock.mock_lists(scenario, today_local())
+    data_json = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+    return templates.TemplateResponse(template, _build_template_context(
+        request, user=authz.raw_user, authz=authz, list_json=data_json, list_mock=scenario))
+
+
 @router.get("/users", response_class=HTMLResponse)
-async def users(request: Request, authz=Depends(require_permission("SOFA-PAGE-USER", redirect_to="/"))):
+async def users(request: Request, mock: str | None = None,
+                authz=Depends(require_permission("SOFA-PAGE-USER", redirect_to="/"))):
+    if (draft := _admin_list_mock(request, authz, "admin/users.html", mock)) is not None:
+        return draft
     return templates.TemplateResponse(
         "userverwaltung.html",
         _build_template_context(request, user=authz.raw_user, authz=authz),
@@ -199,11 +213,11 @@ async def users(request: Request, authz=Depends(require_permission("SOFA-PAGE-US
 
 
 @router.get("/systems", response_class=HTMLResponse)
-async def systems(request: Request, authz=Depends(require_permission("SOFA-PAGE-SYS", redirect_to="/"))):
-    return templates.TemplateResponse(
-        "systemverwaltung.html",
-        _build_template_context(request, user=authz.raw_user, authz=authz),
-    )
+async def systems(request: Request, mock: str | None = None,
+                  authz=Depends(require_permission("SOFA-PAGE-SYS", redirect_to="/"))):
+    # Die Daten laedt die Seite ueber /api/views/systems; `mock` reicht sie dorthin weiter.
+    return templates.TemplateResponse("admin/systems.html", _build_template_context(
+        request, user=authz.raw_user, authz=authz, list_mock=admin_lists_mock.mock_scenario(mock)))
 
 
 @router.get("/systems/{system_id}", response_class=HTMLResponse)
@@ -226,11 +240,11 @@ async def computers(
 
 
 @router.get("/roles", response_class=HTMLResponse)
-async def roles(request: Request, authz=Depends(require_permission("SOFA-PAGE-ROLE", redirect_to="/"))):
-    return templates.TemplateResponse(
-        "rollenmanagement.html",
-        _build_template_context(request, user=authz.raw_user, authz=authz),
-    )
+async def roles(request: Request, mock: str | None = None,
+                authz=Depends(require_permission("SOFA-PAGE-ROLE", redirect_to="/"))):
+    # Die Daten laedt die Seite ueber /api/views/roles; `mock` reicht sie dorthin weiter.
+    return templates.TemplateResponse("admin/roles.html", _build_template_context(
+        request, user=authz.raw_user, authz=authz, list_mock=admin_lists_mock.mock_scenario(mock)))
 
 
 @router.get("/roles/{role_id}", response_class=HTMLResponse)

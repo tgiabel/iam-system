@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% set page_title = "Rollenmanagement" %}
+{% block body_class %}app-fixed app-fixed-flush app-fixed-until-900{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="/static/css/admin_lists.css?v={{ static_v }}">
+{% endblock %}
+
+{% block scripts %}
+<script defer src="/static/js/list_page.js?v={{ static_v }}"></script>
+<script defer src="/static/js/admin_roles.js?v={{ static_v }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="ui-list-page al-rolemgmt" id="roles-page"{% if list_mock %} data-mock="{{ list_mock }}"{% endif %}>
+    <header class="ui-page-toolbar">
+        <h1 class="ui-page-title">Rollenmanagement</h1>
+        <input type="search" id="roles-search" class="ui-input ui-page-search" placeholder="Rolle, Ressource, User" aria-label="Rollen durchsuchen" autocomplete="off">
+        <button type="button" class="ui-tool-btn" id="roles-inactive" aria-pressed="false">Inaktive</button>
+
+        <div class="ui-toolbar-end">
+            <span class="ui-toolbar-count" id="roles-count" aria-live="polite"></span>
+            <button type="button" class="btn btn-primary" id="roles-create">Neue Rolle</button>
+        </div>
+    </header>
+
+    <div class="ui-quick-filters" id="roles-quick" role="group" aria-label="Schnellfilter"></div>
+
+    <div class="al-split">
+        <section class="ui-card al-panel" aria-labelledby="roles-tree-title">
+            <header class="al-panel-head al-cols">
+                <span class="al-panel-heading">
+                    <h2 class="al-panel-title" id="roles-tree-title">Funktionen</h2>
+                    <span class="al-panel-count" id="roles-tree-count"></span>
+                </span>
+                <span class="al-col-label al-col-sys">Systeme</span>
+                <span class="al-col-label">Ressourcen</span>
+                <span class="al-col-label">User</span>
+                <span></span>
+            </header>
+            <ul class="al-tree" id="roles-tree" role="tree" aria-labelledby="roles-tree-title"></ul>
+        </section>
+
+        <section class="ui-card al-panel" aria-labelledby="roles-flat-title">
+            <header class="al-panel-head">
+                <h2 class="ui-visually-hidden" id="roles-flat-title">Neben- und Skillrollen</h2>
+                <div class="ui-segmented" id="roles-flat-type" role="group" aria-label="Rollentyp">
+                    <button type="button" data-type="ALL" aria-pressed="true">Alle <span data-type-count="ALL"></span></button>
+                    <button type="button" data-type="SECONDARY" aria-pressed="false">Nebenrollen <span data-type-count="SECONDARY"></span></button>
+                    <button type="button" data-type="SKILL" aria-pressed="false">Skills <span data-type-count="SKILL"></span></button>
+                </div>
+            </header>
+            <div class="table-wrapper al-panel-scroll">
+                <table class="ui-table-compact al-plain-table" id="roles-table">
+                    <thead>
+                        <tr>
+                            <th data-sort-col="name"><button type="button" class="ui-table-sort-button">Name <span data-sort-indicator></span></button></th>
+                            <th data-sort-col="type" class="al-col-type"><button type="button" class="ui-table-sort-button">Typ <span data-sort-indicator></span></button></th>
+                            <th class="al-col-sys">Systeme</th>
+                            <th data-sort-col="resources" class="ui-table-num"><button type="button" class="ui-table-sort-button">Ressourcen <span data-sort-indicator></span></button></th>
+                            <th data-sort-col="users" class="ui-table-num"><button type="button" class="ui-table-sort-button">User <span data-sort-indicator></span></button></th>
+                            <th class="ui-table-action"><span class="ui-visually-hidden">Aktionen</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="roles-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <dialog class="ui-dialog al-dialog" id="roles-create-dialog" aria-labelledby="roles-create-title">
+        <form method="dialog" id="roles-create-form">
+            <div class="ui-modal-header">
+                <h2 id="roles-create-title">Neue Rolle</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-body al-form">
+                <label class="al-field al-span-2">Name<input class="ui-input" name="name" required maxlength="100"></label>
+                <label class="al-field">Typ
+                    <select class="ui-input" name="role_type" id="roles-create-type">
+                        <option value="PRIMARY">Hauptrolle</option>
+                        <option value="SECONDARY">Nebenrolle</option>
+                        <option value="SKILL">Skill</option>
+                        <option value="TEMPLATE">Template</option>
+                    </select>
+                </label>
+                <label class="al-field" id="roles-create-parent-field">Erbt von<select class="ui-input" name="parent_role_id" id="roles-create-parent"></select></label>
+                <label class="al-field al-span-2">Beschreibung<textarea class="ui-textarea" name="description" rows="3" required></textarea></label>
+            </div>
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                <button type="submit" class="btn btn-primary">Anlegen</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="ui-dialog al-dialog al-confirm" id="roles-confirm-dialog" aria-labelledby="roles-confirm-title">
+        <form method="dialog" id="roles-confirm-form">
+            <div class="ui-modal-header">
+                <h2 id="roles-confirm-title">„<span id="roles-confirm-name"></span>“ deaktivieren?</h2>
+                <button type="button" class="ui-icon-button" data-dialog-close aria-label="Schließen">&times;</button>
+            </div>
+            <div class="ui-modal-footer">
+                <button type="button" class="btn btn-secondary" data-dialog-close>Abbrechen</button>
+                <button type="submit" class="btn btn-red">Deaktivieren</button>
+            </div>
+        </form>
+    </dialog>
+</div>
+{% endblock %}

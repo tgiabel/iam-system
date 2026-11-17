@@ -1,0 +1,702 @@
+/* Verwaltungsseiten (Entwurf): Userverwaltung, Rollenmanagement, Systemverwaltung.
+   Gemeinsame Bausteine (Werkzeugleiste, Schnellfilter, Liste, Zeilenmenü) stehen in ui.css. */
+
+/* ---------- Userverwaltung ---------- */
+.al-users .al-name strong {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.al-users .al-exit {
+    color: var(--ui-orange-text);
+    font-weight: 600;
+}
+
+/* Kennung: übereinander, die sortierte (Standard PNR) oben und fett. */
+.al-ids {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+}
+
+.al-ids strong {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.al-ids span {
+    color: var(--ui-text-muted);
+    font-size: 0.88em !important;
+}
+
+.al-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+/* Rollen: erste Rolle ausgeschrieben, Rest als +N; ohne Platz nur die Zahl. */
+.al-roles {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    max-width: 15rem;
+}
+
+.al-roles-first {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.al-roles-count {
+    display: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.al-users .ui-list-card {
+    container-type: inline-size;
+}
+
+@container (max-width: 1250px) {
+    .al-roles-first,
+    .al-roles .al-more {
+        display: none;
+    }
+
+    .al-roles-count {
+        display: inline;
+    }
+}
+
+.al-more {
+    color: var(--ui-text-muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+/* Zeilenmenü nur bei Hover/Fokus der Zeile deutlich, sonst dezent. */
+.al-row-menu {
+    color: var(--ui-text-muted);
+    opacity: 0.45;
+}
+
+tr:hover .al-row-menu,
+.al-tree-row:hover .al-row-menu,
+.al-row-menu:focus-visible,
+.al-row-menu[aria-expanded="true"] {
+    color: var(--ui-text-strong);
+    opacity: 1;
+}
+
+/* ---------- Rollenmanagement ---------- */
+/* Zwei Panels, die sich an ihren Inhalt anpassen und erst bei Platzmangel scrollen. Baum und Tabelle
+   teilen die Spaltenbreiten, damit beide Hälften gleich lesen. */
+.al-split {
+    flex: 1 1 0;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.9rem;
+}
+
+.al-panel {
+    container-type: inline-size;
+    max-height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.al-panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 3.2rem;
+    padding: 0.55rem 1rem;
+    border-bottom: 1px solid var(--ui-border);
+}
+
+.al-cols,
+.al-tree-row {
+    --al-tree-cols: minmax(0, 1fr) 9.5rem 6rem 4rem 2.25rem;
+}
+
+.al-cols {
+    display: grid;
+    grid-template-columns: var(--al-tree-cols);
+    padding-right: 0.5rem;
+}
+
+.al-panel-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.al-panel-title {
+    margin: 0;
+    color: var(--ui-text-strong);
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.al-panel-count {
+    color: var(--ui-text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.al-col-label {
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: right;
+    text-transform: uppercase;
+}
+
+.al-col-label.al-col-sys {
+    text-align: left;
+}
+
+.al-panel-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.al-panel-head .ui-segmented > button {
+    white-space: nowrap;
+}
+
+.al-panel-head .ui-segmented [data-type-count] {
+    margin-left: 0.2rem;
+    opacity: 0.7;
+}
+
+/* Tabelle im Panel: ohne den dunklen Tabellenkopf, damit beide Hälften gleich ruhig wirken. */
+.al-plain-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+/* Feste Spalten, der Name nimmt den Rest und wird bei Bedarf gekürzt. */
+.al-plain-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.al-plain-table .al-col-type {
+    width: 7rem;
+}
+
+
+.al-plain-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.al-plain-table thead th:first-child,
+.al-plain-table tbody td:first-child {
+    padding-left: 1rem;
+}
+
+.al-plain-table .ui-table-sort-button:hover {
+    color: var(--ui-text-strong);
+}
+
+.al-plain-table .ui-table-sort-button:focus-visible {
+    color: var(--ui-text-strong);
+    outline-color: var(--ui-border-strong);
+}
+
+.al-plain-table tbody td {
+    padding: 0.45rem 0.8rem;
+    border-bottom: 1px solid var(--ui-border);
+    color: var(--ui-text);
+}
+
+.al-plain-table tbody tr:hover,
+.al-tree-row:hover {
+    background: var(--ui-surface-soft);
+}
+
+.al-plain-table th.ui-table-num:nth-last-child(3),
+.al-plain-table td.ui-table-num:nth-last-child(3) {
+    width: 6rem;
+}
+
+.al-plain-table th.ui-table-num:nth-last-child(2),
+.al-plain-table td.ui-table-num:nth-last-child(2) {
+    width: 4rem;
+}
+
+.al-plain-table .al-col-sys {
+    width: 11rem;
+}
+
+.al-plain-table:not(.is-all) .al-col-type {
+    display: none;
+}
+
+.al-plain-table .ui-table-action {
+    width: 2.75rem;
+    padding-right: 0.5rem;
+}
+
+/* Namen: Hauptrollen, Neben- und Skillrollen fett; Templates als Gerüst normal mit Marke. */
+.al-role-name {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.al-tree-row.is-template .al-role-name {
+    color: var(--ui-text);
+    font-weight: 500;
+}
+
+.al-tree-row:hover .al-role-name,
+.al-plain-table tbody tr:hover .al-role-name {
+    color: var(--color-primary);
+}
+
+.al-name-cell .al-tag,
+.al-name-cell .al-hit {
+    margin-left: 0.5rem;
+}
+
+/* Baum */
+.al-tree {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    margin: 0;
+    padding: 0.3rem 0;
+    list-style: none;
+}
+
+.al-tree-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--al-tree-cols);
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.3rem 0.5rem 0.3rem calc(0.6rem + var(--depth) * 1.5rem);
+    color: var(--ui-text);
+    cursor: pointer;
+}
+
+/* Führungslinie von der Elternrolle (Mitte ihres Pfeils) zur Zeile. */
+.al-tree-row:not([aria-level="1"])::before,
+.al-tree-row:not([aria-level="1"])::after {
+    content: "";
+    position: absolute;
+    left: calc(0.6rem + (var(--depth) - 1) * 1.5rem + 0.65rem);
+    border-color: var(--ui-border-strong);
+    border-style: solid;
+    border-width: 0;
+}
+
+.al-tree-row:not([aria-level="1"])::before {
+    top: 0;
+    bottom: 0;
+    border-left-width: 1.5px;
+}
+
+.al-tree-row:not([aria-level="1"])::after {
+    top: 50%;
+    width: 0.7rem;
+    border-top-width: 1.5px;
+}
+
+.al-tree-row.is-leaf:not([aria-level="1"])::after {
+    width: 1.9rem;
+}
+
+.al-tree-row:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.al-tree-row.is-context {
+    opacity: 0.5;
+}
+
+.al-tree-row.is-inactive .al-role-name,
+.ui-table-row.is-inactive td,
+.ui-table-row.is-inactive .al-role-name {
+    color: var(--ui-text-muted);
+}
+
+.al-tree-name {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.al-tree-name .al-role-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.al-twisty {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: var(--ui-text-muted);
+    cursor: pointer;
+}
+
+button.al-twisty:hover {
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-strong);
+}
+
+.al-twisty .ui-icon-sm {
+    width: 1rem;
+    height: 1rem;
+    transition: transform 0.15s ease;
+}
+
+.al-twisty[aria-expanded="true"] .ui-icon-sm {
+    transform: rotate(90deg);
+}
+
+.al-tree-section {
+    margin: 0.5rem 1rem 0.15rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--ui-border);
+    color: var(--ui-text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.al-num {
+    color: var(--ui-text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.al-num-sum {
+    color: var(--ui-text-muted);
+}
+
+.al-act {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.al-tag {
+    flex: none;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: var(--ui-surface-muted);
+    color: var(--ui-text-muted);
+    font-size: 0.72rem !important;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+}
+
+.al-tag--template,
+.al-tag--handling {
+    padding: 0 0.4rem;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--ui-surface-card));
+    background: var(--ui-surface-card);
+    color: var(--color-primary) !important;
+}
+
+/* Systeme einer Rolle als Kürzel, die meisten Ressourcen zuerst. */
+.al-systems {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.al-sys {
+    flex: none;
+    padding: 0 0.35rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 6px;
+    color: var(--ui-text-muted);
+    font-size: 0.75rem !important;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    line-height: 1.35rem;
+}
+
+/* Bei einer Suche: welche Ressource oder welcher User getroffen hat. */
+.al-hit {
+    flex: none;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    background: var(--ui-surface-soft);
+    color: var(--color-primary);
+    font-size: 0.78rem !important;
+    font-weight: 600;
+}
+
+/* Zahlen mit Tooltip: gepunktet erst, wenn die Zeile unter der Maus ist, sonst wird es unruhig. */
+.al-split .ui-hint {
+    text-decoration-color: transparent;
+}
+
+.al-split :is(tr, .al-tree-row):hover .ui-hint {
+    text-decoration-color: var(--ui-text-muted);
+}
+
+/* Ohne Platz entfallen die Systemkürzel (die Ressourcen-Tooltips nennen sie weiter). */
+@container (max-width: 640px) {
+    .al-cols,
+    .al-tree-row {
+        --al-tree-cols: minmax(0, 1fr) 6rem 4rem 2.25rem;
+    }
+
+    .al-cols .al-col-sys,
+    .al-tree-row .al-col-sys {
+        display: none;
+    }
+}
+
+@container (max-width: 680px) {
+    .al-plain-table .al-col-sys {
+        display: none;
+    }
+}
+
+@container (max-width: 460px) {
+    .al-plain-table .al-col-type {
+        display: none;
+    }
+
+    .al-plain-table th.ui-table-num:nth-last-child(3),
+    .al-plain-table td.ui-table-num:nth-last-child(3) {
+        width: 4.5rem;
+    }
+
+    .al-plain-table th.ui-table-num:nth-last-child(2),
+    .al-plain-table td.ui-table-num:nth-last-child(2) {
+        width: 3.5rem;
+    }
+
+    .al-plain-table thead th {
+        letter-spacing: 0.02em;
+    }
+}
+
+@container (max-width: 460px) {
+    .al-cols,
+    .al-tree-row {
+        --al-tree-cols: minmax(0, 1fr) 3.5rem 3rem 2.25rem;
+    }
+
+    .al-cols .al-col-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.02em;
+    }
+}
+
+/* ---------- Systemverwaltung ---------- */
+.al-sysmgmt .ui-list-card {
+    container-type: inline-size;
+}
+
+.al-sysname {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.al-sysname strong {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.al-composition {
+    display: block;
+    /* Schrumpft mit der Kartenbreite, sonst läuft die Tabelle zwischen 1050 und ca. 1350 px seitlich über. */
+    max-width: clamp(8rem, calc(100cqw - 62rem), 22rem);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.al-tags {
+    display: inline-flex;
+    gap: 0.3rem;
+}
+
+.al-tag--todo {
+    border: 1px dashed var(--ui-border);
+    background: var(--ui-surface-card);
+}
+
+.al-overdue {
+    color: var(--ui-red-text);
+    font-weight: 700;
+}
+
+/* Zwischenzeile je Standard-Backlog. */
+.al-group-row th {
+    padding: 0.85rem 0.9rem 0.35rem !important;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface-card);
+    color: var(--ui-text-muted);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.al-group-row th span {
+    margin-left: 0.3rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.al-sysmgmt .ui-hint {
+    text-decoration-color: transparent;
+}
+
+.al-sysmgmt tr:hover .ui-hint {
+    text-decoration-color: var(--ui-text-muted);
+}
+
+@container (max-width: 1120px) {
+    .al-sysmgmt .al-col-content {
+        display: none;
+    }
+}
+
+@container (max-width: 960px) {
+    .al-sysmgmt .al-col-handling {
+        display: none;
+    }
+}
+
+@container (max-width: 600px) {
+    .al-sysmgmt :is(.al-col-res, .al-col-users, .al-col-tasks) {
+        display: none;
+    }
+
+    .al-sysmgmt .al-sysname-cell {
+        white-space: normal !important;
+    }
+
+    .al-sysname {
+        flex-wrap: wrap;
+        row-gap: 0.2rem;
+    }
+}
+
+.al-quick-critical { --ui-quick-accent: var(--ui-red-text); }
+.al-quick-elevated { --ui-quick-accent: var(--ui-orange-text); }
+.al-quick-low { --ui-quick-accent: var(--ui-green-text); }
+.al-quick-none { --ui-quick-accent: var(--ui-text-muted); }
+
+/* ---------- Dialoge Anlegen ---------- */
+.al-dialog {
+    width: min(560px, calc(100vw - 2rem));
+}
+
+.al-dialog[open] {
+    display: flex;
+    flex-direction: column;
+}
+
+.al-dialog .ui-modal-header h2 {
+    margin: 0;
+    color: var(--ui-text-strong);
+    font-size: 1.3rem;
+}
+
+.al-dialog .ui-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+}
+
+.al-form {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.al-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    color: var(--ui-text-strong);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.al-span-2 {
+    grid-column: 1 / -1;
+}
+
+.al-protection-fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.al-protection-fields legend {
+    margin-bottom: 0.35rem;
+    padding: 0;
+}
+
+@media (max-width: 900px) {
+    .al-split {
+        flex: none;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .al-panel {
+        max-height: none;
+    }
+
+    .al-tree,
+    .al-panel-scroll {
+        overflow: visible;
+    }
+}
+
+/* Bestätigung in einer Zeile: nur Titel und Buttons. */
+.al-confirm {
+    width: min(440px, calc(100vw - 2rem));
+}
+
+.al-confirm .ui-modal-header h2 {
+    font-size: 1.1rem;
+    line-height: 1.35;
+}

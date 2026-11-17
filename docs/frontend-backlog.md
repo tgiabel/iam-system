@@ -12,10 +12,9 @@ expand/modal pattern used for the calendar.
 
 ## Duplicated "+x weitere" text-preview helper
 
-Three near-identical helpers build a "name1, name2 +N weitere" preview string with a
-tooltip listing all items:
-- `app/static/js/systemverwaltung.js` — `getResourcePreview()` / `getRolePreview()`
-- `app/static/js/rollenmanagement.js` — `getPreview()`
+Near-identical helpers build a "name1, name2 +N weitere" preview string with a
+tooltip listing all items. Systemverwaltung and Rollenmanagement were replaced by the
+list pages (`list_page.js`, `SofaList.bindTips`) in November 2026; left:
 - `app/static/js/userverwaltung.js` — derived-status badge "+N weitere Status" count
 
 Candidate for consolidation into a single shared utility (likely `base.js`). This is

@@ -742,8 +742,23 @@ body.app-fixed-flush > main {
 .ui-table-sort-button:hover,
 .ui-table-sort-button:focus-visible {
     color: var(--text-inverse);
+}
+
+/* Rahmen nur für die Tastatur; beim Hover zeigt ein Zeichen, dass die Spalte sortierbar ist:
+   ▾ öffnet ein Sortiermenü, ↕ sortiert direkt. */
+.ui-table-sort-button:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--text-inverse) 55%, transparent);
     outline-offset: 4px;
+}
+
+th[aria-sort="none"] > .ui-table-sort-button:hover [data-sort-indicator]::after {
+    content: "↕";
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+th[aria-sort="none"] > .ui-table-sort-button[aria-haspopup="menu"]:hover [data-sort-indicator]::after {
+    content: "▾";
 }
 
 .ui-table-sort-button [data-sort-indicator] {
@@ -1138,4 +1153,660 @@ body.modal-open {
     font-size: 0.75rem;
     font-weight: 800;
     letter-spacing: 0.06em;
+}
+
+/* ---------- Listenseiten (Verwaltung): eine Werkzeugleiste, darunter Schnellfilter, darunter der Inhalt in
+   Resthöhe. Body-Klassen: app-fixed app-fixed-flush app-fixed-until-900. Vorbild: Werkzeugleiste der Aufgaben. */
+.ui-list-page {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    max-width: 120rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.1rem 50px 1rem;
+    font-size: 1.02rem;
+}
+
+.ui-list-page [hidden] {
+    display: none !important;
+}
+
+/* _.css setzt span/label global auf 1rem; :where hält die Spezifität bei der von "span". */
+:where(.ui-list-page, .ui-menu) :is(span, label) {
+    font-size: inherit;
+    color: inherit;
+}
+
+.ui-page-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem 0.6rem 1.1rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-lg);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-sm);
+}
+
+.ui-page-title {
+    margin: 0 0.5rem 0 0;
+    color: var(--ui-text-strong);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.ui-page-search {
+    flex: 0 1 22rem;
+    min-width: 8rem;
+}
+
+.ui-toolbar-end {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+}
+
+.ui-toolbar-count {
+    padding-inline: 0.4rem;
+    color: var(--ui-text-muted);
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ui-toolbar-end .btn {
+    white-space: nowrap;
+}
+
+.ui-pop-wrap {
+    position: relative;
+}
+
+.ui-icon-sm {
+    width: 1.1rem;
+    height: 1.1rem;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Pillen-Buttons der Werkzeugleiste (Filter, Schalter). */
+.ui-tool-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text);
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.ui-tool-btn:hover {
+    background: var(--ui-surface-soft);
+}
+
+.ui-tool-btn.is-active,
+.ui-tool-btn[aria-pressed="true"] {
+    border-color: var(--color-primary);
+    background: var(--ui-surface-soft);
+    color: var(--color-primary);
+}
+
+/* Schalter, deren aktiver Zustand Vorsicht signalisiert (z. B. Inaktive einblenden). */
+.ui-tool-btn--danger[aria-pressed="true"] {
+    border-color: var(--ui-red-text);
+    background: var(--ui-red-bg);
+    color: var(--ui-red-text);
+}
+
+.ui-tool-btn:focus-visible,
+.ui-quick-filter:focus-visible,
+.ui-pop-option:focus-visible,
+.ui-menu button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.ui-tool-badge {
+    min-width: 1.2rem;
+    padding: 0 0.3rem;
+    border-radius: 999px;
+    background: var(--color-primary);
+    color: var(--ui-surface-card);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2rem;
+    text-align: center;
+}
+
+/* Popover unter einem Werkzeug-Button; Gruppen stehen nebeneinander und scrollen einzeln. */
+.ui-pop {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-md);
+    font-size: 0.95rem;
+}
+
+.ui-pop-columns {
+    display: flex;
+    gap: 1.1rem;
+}
+
+.ui-pop-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 11rem;
+    max-height: min(60vh, 26rem);
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.ui-pop-group legend,
+.ui-pop-group-title {
+    margin-bottom: 0.25rem;
+    padding: 0;
+    color: var(--ui-text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* Option mit drei Zuständen: aus → nur diese (✓) → ohne diese (✕) → aus. */
+.ui-pop-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.22rem 0.35rem;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--ui-text-strong);
+    font: inherit;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.ui-pop-option:hover {
+    background: var(--ui-surface-soft);
+}
+
+.ui-pop-option::before {
+    content: "";
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    border: 1.5px solid var(--ui-border-strong);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 0.85rem;
+    text-align: center;
+}
+
+.ui-pop-option[data-state="include"]::before {
+    content: "✓";
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: var(--ui-surface-card);
+}
+
+.ui-pop-option[data-state="exclude"] {
+    color: var(--ui-red-text);
+}
+
+.ui-pop-option[data-state="exclude"]::before {
+    content: "✕";
+    border-color: var(--ui-red-text);
+    background: var(--ui-red-bg);
+    color: var(--ui-red-text);
+}
+
+.ui-pop-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--ui-border);
+}
+
+.ui-link-btn {
+    padding: 0.2rem 0.3rem;
+    border: 0;
+    background: none;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.ui-link-btn:disabled {
+    color: var(--ui-text-muted);
+    cursor: default;
+}
+
+/* Zeile unter der Werkzeugleiste: links Schnellfilter, rechts die aktive Sortierung. */
+.ui-list-meta {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.ui-list-meta .ui-quick-filters {
+    flex: 1 1 auto;
+}
+
+.ui-sort-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-height: 2rem;
+    padding-inline: 0.4rem;
+    color: var(--ui-text-muted);
+    font-size: 0.85rem !important;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ui-sort-label .ui-icon-sm {
+    width: 0.95rem;
+    height: 0.95rem;
+}
+
+/* Schnellfilter: Zahl + Begriff, Klick filtert die Liste (ein Schnellfilter zur Zeit). */
+.ui-quick-filters {
+    flex: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2rem;
+    padding-inline: 0.4rem;
+}
+
+.ui-quick-filter {
+    --ui-quick-accent: var(--color-primary);
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.28rem 0.75rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: var(--ui-surface-card);
+    color: var(--ui-text);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.ui-quick-filter strong {
+    color: var(--ui-quick-accent);
+    font-size: 1rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.ui-quick-filter:hover {
+    background: var(--ui-surface-soft);
+}
+
+.ui-quick-filter[aria-pressed="true"] {
+    border-color: var(--ui-quick-accent);
+    background: color-mix(in srgb, var(--ui-quick-accent) 12%, var(--ui-surface-card));
+    color: var(--ui-text-strong);
+}
+
+.ui-quick-filter.is-warning {
+    --ui-quick-accent: var(--ui-red-text);
+}
+
+.ui-quick-filter.is-zero {
+    color: var(--ui-text-muted);
+}
+
+.ui-quick-filter.is-zero strong {
+    color: var(--ui-text-muted);
+}
+
+.ui-quick-sep {
+    width: 1px;
+    height: 1.3rem;
+    margin-inline: 0.3rem;
+    background: var(--ui-border);
+}
+
+/* Gesetzte Filter als kleine Marken, × entfernt. */
+.ui-filter-token {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.3rem 0.15rem 0.65rem;
+    border-radius: 999px;
+    background: var(--ui-surface-soft);
+    color: var(--color-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ui-filter-token.is-excluded {
+    background: var(--ui-red-bg);
+    color: var(--ui-red-text);
+}
+
+.ui-filter-token button {
+    width: 1.3rem;
+    height: 1.3rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: none;
+    color: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.ui-filter-token button:hover {
+    background: color-mix(in srgb, currentColor 14%, transparent);
+}
+
+/* Liste in Resthöhe: Kopf bleibt stehen, nur der Körper scrollt. */
+.ui-list-card {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.ui-list-card .table-wrapper {
+    flex: 1 1 0;
+    max-height: none;
+}
+
+.ui-table-compact thead th {
+    padding: 0.7rem 0.9rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.ui-table-compact tbody td {
+    padding: 0.5rem 0.9rem;
+    white-space: nowrap;
+}
+
+th[aria-sort="ascending"] > .ui-table-sort-button [data-sort-indicator]::after {
+    content: "▲";
+    font-size: 0.7em;
+}
+
+th[aria-sort="descending"] > .ui-table-sort-button [data-sort-indicator]::after {
+    content: "▼";
+    font-size: 0.7em;
+}
+
+.ui-table-compact tbody tr[data-href],
+.ui-table-compact tbody tr[data-open] {
+    cursor: pointer;
+}
+
+.ui-table-num {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Zahlenspalten: Label bündig über den Zahlen, der Sortierpfeil links davon. */
+.ui-table-num .ui-table-sort-button {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+}
+
+.ui-table-muted {
+    color: var(--ui-text-muted) !important;
+}
+
+.ui-table-mono {
+    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 0.92em;
+}
+
+.ui-table-action {
+    width: 1%;
+    padding-block: 0.2rem !important;
+    text-align: right;
+}
+
+.ui-list-empty {
+    padding: 2.5rem 1rem !important;
+    color: var(--ui-text-muted) !important;
+    text-align: center;
+    white-space: normal !important;
+}
+
+/* Lade- und Fehlerzustand der Listen: eine Zeile, beim Fehler mit „Erneut laden“. */
+.ui-list-error {
+    color: var(--ui-red-text);
+}
+
+.ui-list-empty .ui-flat-button {
+    margin-left: 0.5rem;
+    vertical-align: baseline;
+}
+
+/* Kontextmenü an einer Zeile (⋯). Liegt fest positioniert am Body, damit es nicht im Scrollbereich abgeschnitten wird. */
+.ui-menu {
+    position: fixed;
+    z-index: 1200;
+    min-width: 13rem;
+    display: flex;
+    flex-direction: column;
+    padding: 0.35rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-md);
+    font-size: 0.95rem;
+}
+
+.ui-menu button {
+    padding: 0.45rem 0.7rem;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--ui-text-strong);
+    font: inherit;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.ui-menu button:hover {
+    background: var(--ui-surface-soft);
+}
+
+.ui-menu button.is-danger {
+    color: var(--ui-red-text);
+}
+
+/* Auswahlmenü (z. B. Sortierung): Haken vor der gewählten Option. */
+.ui-menu button[aria-checked] {
+    padding-left: 1.9rem;
+}
+
+.ui-menu button[aria-checked="true"] {
+    position: relative;
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.ui-menu button[aria-checked="true"]::before {
+    content: "✓";
+    position: absolute;
+    left: 0.65rem;
+}
+
+/* Text mit Hover-Tooltip: gepunktet unterstrichen. Das Element mit [data-tip] trägt den Tooltip. */
+.ui-hint {
+    text-decoration: underline dotted 1.5px;
+    text-decoration-color: var(--ui-text-muted);
+    text-underline-offset: 0.25em;
+}
+
+[data-tip] {
+    cursor: default;
+}
+
+[data-tip]:hover .ui-hint {
+    text-decoration-color: var(--ui-text-strong);
+}
+
+.ui-tip {
+    position: fixed;
+    z-index: 1300;
+    max-width: min(34rem, calc(100vw - 16px));
+    display: flex;
+    gap: 1.2rem;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-surface-card);
+    box-shadow: var(--ui-shadow-md);
+    color: var(--ui-text);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    pointer-events: none;
+}
+
+.ui-tip :is(span, strong) {
+    font-size: inherit;
+}
+
+.ui-tip-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ui-tip-title {
+    margin-bottom: 0.15rem;
+    color: var(--ui-text-muted) !important;
+    font-size: 0.72rem !important;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.ui-tip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ui-tip-list strong {
+    color: var(--ui-text-strong);
+}
+
+/* Zahl vor einem Eintrag (z. B. „12 Agent“), rechtsbündig untereinander. */
+.ui-tip-num {
+    display: inline-block;
+    min-width: 1.8em;
+    margin-right: 0.5em;
+    color: var(--ui-text-strong);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.ui-tip-warn {
+    margin-left: 0.3rem;
+    color: var(--ui-red-text);
+    font-weight: 700;
+}
+
+.ui-menu-sep {
+    height: 1px;
+    margin: 0.3rem 0.4rem;
+    background: var(--ui-border);
+}
+
+@media (max-width: 900px) {
+    .ui-list-page {
+        padding: 0.75rem 16px;
+    }
+
+    .ui-page-toolbar {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.6rem 0.75rem;
+    }
+
+    .ui-page-title {
+        flex: 1 1 auto;
+        font-size: 1.15rem;
+    }
+
+    .ui-page-search {
+        order: 9;
+        flex: 1 1 100%;
+    }
+
+    .ui-toolbar-end {
+        margin-left: 0;
+    }
+
+    .ui-list-card,
+    .ui-list-card .table-wrapper {
+        flex: none;
+    }
+
+    .ui-list-meta {
+        flex-wrap: wrap;
+    }
+
+    .ui-pop-columns {
+        flex-direction: column;
+    }
+}
+
+.ui-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
