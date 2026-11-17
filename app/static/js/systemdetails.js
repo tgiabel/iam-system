@@ -38,8 +38,12 @@
             (Array.isArray(backlogs) ? backlogs : []).forEach(b => { state.backlogs[b.technical_identifier] = b.name; });
             state.users = Array.isArray(users) ? users : [];
             await reload();
-            const openId = new URLSearchParams(location.search).get("res");
-            if (openId) openPanel("view", findResource(openId));
+            // Einstiege aus der Systemverwaltung: ?edit=1 (Stammdaten), ?resource=new (neue Ressource), ?res=<id>.
+            const query = new URLSearchParams(location.search);
+            const openId = query.get("res");
+            if (query.get("edit") === "1") openSystemEdit();
+            else if (query.get("resource") === "new") openPanel("new");
+            else if (openId) openPanel("view", findResource(openId));
         } catch (error) {
             showFlash(error.message, "failure");
         }
