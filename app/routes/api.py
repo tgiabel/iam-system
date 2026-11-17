@@ -1433,10 +1433,8 @@ async def api_create_system(payload: dict, current_user=Depends(require_permissi
 async def api_system_map(current_user=Depends(require_any_permission("SOFA-PAGE-SYS", "SOFA-PAGE-USER"))):
     try:
         systems = await api_client.get_system_map()
-        system_map = {
-            system["system_id"]: {"name": system["name"], "type": system.get("type")}
-            for system in systems
-        }
+        # Die SD-API liefert je System nur ID und Name (SystemMapItem).
+        system_map = {system["system_id"]: {"name": system["name"]} for system in systems}
         return JSONResponse(content=system_map)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=exc.response.json(), status_code=exc.response.status_code)
