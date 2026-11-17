@@ -123,7 +123,8 @@ class ModuleTests(unittest.TestCase):
 
     def test_page_merges_both_apps_newest_first_with_sofa_scope_labels(self):
         own = release_notes.load_own()
-        page = release_notes.build_page(own, api_notes())
+        # Neuer als jeder echte SOFA-Eintrag, damit der API-Eintrag oben steht, egal was die Notes-Datei enthält.
+        page = release_notes.build_page(own, api_notes(date="2099-01-01"))
         first = page["entries"][0]
         self.assertEqual((first["app"], first["version"]), ("sd-api", "3.1.0"))
         self.assertEqual([note["scope"] for note in first["notes"]], ["Aufgaben", "Ticket-Eingang"])
