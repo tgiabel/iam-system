@@ -21,6 +21,187 @@
   "trailers_required_after": "6dfc175ed63e666f0f6fb2e63f32405ccaa150c0",
   "releases": [
     {
+      "version": "1.7.0",
+      "date": "2026-11-17",
+      "scopes": [
+        "dashboard",
+        "internal",
+        "reports",
+        "roles",
+        "systems",
+        "tasks",
+        "users"
+      ],
+      "requires": [
+        "sd-api >= 3.3.1"
+      ],
+      "notes": [
+        {
+          "scope": "users",
+          "text": "Die Userverwaltung ist neu gestaltet: Liste mit Suche, Schnellfiltern nach laufendem Prozess, Filtern und Aktionen direkt an der Zeile."
+        },
+        {
+          "scope": "roles",
+          "text": "Rollenmanagement und Systemverwaltung sind neu gestaltet: übersichtliche Listen mit Suche, Schnellfiltern, Tooltips und Aktionen direkt an der Zeile."
+        },
+        {
+          "scope": "tasks",
+          "text": "Aufgaben lassen sich nach System filtern, auch direkt aus der Systemverwaltung."
+        },
+        {
+          "scope": "dashboard",
+          "text": "Genesys Live erscheint nach dem Öffnen schneller."
+        },
+        {
+          "scope": "internal",
+          "text": "Interne Verbesserungen."
+        }
+      ],
+      "changes": [
+        {
+          "version": "1.7.0",
+          "commit": "e955dc305fa9",
+          "date": "2026-11-17",
+          "scopes": [
+            "internal"
+          ],
+          "notes": [],
+          "subject": "docs: table pages state after session 2"
+        },
+        {
+          "version": "1.6.15",
+          "commit": "39c44a7e054d",
+          "date": "2026-11-17",
+          "scopes": [
+            "internal"
+          ],
+          "notes": [],
+          "subject": "test: release notes page test no longer depends on the newest SOFA entry"
+        },
+        {
+          "version": "1.6.14",
+          "commit": "7e9b4d756c38",
+          "date": "2026-11-17",
+          "scopes": [
+            "internal"
+          ],
+          "notes": [],
+          "subject": "chore: remove unused filter and no-user icons"
+        },
+        {
+          "version": "1.6.13",
+          "commit": "87e278536465",
+          "date": "2026-11-17",
+          "scopes": [
+            "users"
+          ],
+          "notes": [
+            "Die Userverwaltung ist neu gestaltet: Liste mit Suche, Schnellfiltern nach laufendem Prozess, Filtern und Aktionen direkt an der Zeile."
+          ],
+          "subject": "feat(users): new user administration on real data"
+        },
+        {
+          "version": "1.6.12",
+          "commit": "7021b1679e06",
+          "date": "2026-11-17",
+          "scopes": [
+            "users"
+          ],
+          "notes": [],
+          "subject": "fix(ui): keep list filter popovers inside the window"
+        },
+        {
+          "version": "1.6.11",
+          "commit": "59ec8ad212c6",
+          "date": "2026-11-17",
+          "scopes": [
+            "users"
+          ],
+          "notes": [],
+          "subject": "feat(admin): data view for the user administration"
+        },
+        {
+          "version": "1.6.10",
+          "commit": "8ed0ab5c5c3d",
+          "date": "2026-11-17",
+          "scopes": [
+            "internal"
+          ],
+          "notes": [],
+          "subject": "docs: table pages plan, SD-API request and state after session 1"
+        },
+        {
+          "version": "1.6.9",
+          "commit": "cb1e852b4a4f",
+          "date": "2026-11-17",
+          "scopes": [
+            "roles",
+            "systems"
+          ],
+          "notes": [
+            "Rollenmanagement und Systemverwaltung sind neu gestaltet: übersichtliche Listen mit Suche, Schnellfiltern, Tooltips und Aktionen direkt an der Zeile."
+          ],
+          "subject": "feat(admin): new role management and system administration"
+        },
+        {
+          "version": "1.6.8",
+          "commit": "482d19c6d012",
+          "date": "2026-11-17",
+          "scopes": [
+            "roles",
+            "systems"
+          ],
+          "notes": [],
+          "subject": "feat(admin): data views for role management and system administration"
+        },
+        {
+          "version": "1.6.7",
+          "commit": "b491c3639c25",
+          "date": "2026-11-17",
+          "scopes": [
+            "tasks"
+          ],
+          "notes": [
+            "Aufgaben lassen sich nach System filtern, auch direkt aus der Systemverwaltung."
+          ],
+          "subject": "feat(tasks): filter tasks by system, also via /tasks?system=<id>"
+        },
+        {
+          "version": "1.6.6",
+          "commit": "bf6c63be6867",
+          "date": "2026-11-17",
+          "scopes": [
+            "systems"
+          ],
+          "notes": [],
+          "subject": "feat(systems): open the master data dialog or a new resource from the URL"
+        },
+        {
+          "version": "1.6.5",
+          "commit": "58151e647642",
+          "date": "2026-11-17",
+          "scopes": [
+            "internal"
+          ],
+          "notes": [],
+          "subject": "fix(api): system map without the nonexistent type field"
+        },
+        {
+          "version": "1.6.4",
+          "commit": "2509038e4eb1",
+          "date": "2026-11-13",
+          "scopes": [
+            "dashboard",
+            "reports"
+          ],
+          "notes": [
+            "Genesys Live erscheint nach dem Öffnen schneller, auch wenn die Daten gerade erst geladen werden."
+          ],
+          "subject": "fix(genesys-live): retry shortly while there is no live data yet"
+        }
+      ]
+    },
+    {
       "version": "1.6.3",
       "date": "2026-11-12",
       "scopes": [
