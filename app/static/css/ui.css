@@ -1310,10 +1310,14 @@ body.modal-open {
     background: var(--ui-surface-card);
     box-shadow: var(--ui-shadow-md);
     font-size: 0.95rem;
+    /* Nie breiter als das Fenster; bindPopover rückt es nach links, wenn es rechts übersteht. */
+    width: max-content;
+    max-width: calc(100vw - 1rem);
 }
 
 .ui-pop-columns {
     display: flex;
+    flex-wrap: wrap;
     gap: 1.1rem;
 }
 

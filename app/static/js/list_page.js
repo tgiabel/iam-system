@@ -93,6 +93,15 @@
         openPop = null;
     }
 
+    // Ein Popover, das rechts aus dem Fenster ragen würde, rückt um den Überstand nach links (8 px Rand).
+    function keepInViewport(pop) {
+        pop.style.left = "";
+        const overflow = pop.getBoundingClientRect().right - (document.documentElement.clientWidth - 8);
+        if (overflow > 0) {
+            pop.style.left = `${-overflow}px`;
+        }
+    }
+
     function bindPopover(button, pop, onOpen = () => {}) {
         button.addEventListener("click", event => {
             event.stopPropagation();
@@ -102,6 +111,7 @@
             if (!wasOpen) {
                 onOpen();
                 pop.hidden = false;
+                keepInViewport(pop);
                 button.setAttribute("aria-expanded", "true");
                 openPop = { button, pop };
             }
