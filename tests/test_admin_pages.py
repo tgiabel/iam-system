@@ -19,10 +19,11 @@ def source(path: str) -> str:
 class AdminPagesTest(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app, base_url="https://testserver")
-        sign_in(self, self.client, "SOFA-PAGE-ROLE", "SOFA-PAGE-SYS")
+        sign_in(self, self.client, "SOFA-PAGE-USER", "SOFA-PAGE-ROLE", "SOFA-PAGE-SYS")
 
     def test_pages_render_the_list_templates_without_data(self):
-        for path, page, script in (("/roles", 'id="roles-page"', "admin_roles.js"),
+        for path, page, script in (("/users", 'id="users-page"', "admin_users.js"),
+                                   ("/roles", 'id="roles-page"', "admin_roles.js"),
                                    ("/systems", 'id="systems-page"', "admin_systems.js")):
             with self.subTest(path=path), patch.dict(os.environ, {"APP_ENV": "production"}):
                 response = self.client.get(f"{path}?mock=busy")
@@ -37,17 +38,37 @@ class AdminPagesTest(unittest.TestCase):
         with patch.dict(os.environ, {"APP_ENV": "development"}):
             self.assertIn('data-mock="busy"', self.client.get("/roles?mock=busy").text)
             self.assertIn('data-mock="normal"', self.client.get("/systems?mock=1").text)
+            self.assertIn('data-mock="quiet"', self.client.get("/users?mock=quiet").text)
+
+    def test_user_page_brings_panel_and_dialogs(self):
+        with patch.dict(os.environ, {"APP_ENV": "production"}):
+            html = self.client.get("/users?user_id=5").text
+        for marker in ('id="sidebar-overlay"', 'id="offboard-overlay"', 'id="rehire-overlay"',
+                       "/static/js/user_actions.js", "/static/js/sofa_contract.js", "/static/css/user_actions.css"):
+            self.assertIn(marker, html)
+        # Ohne die Rechte keine Werkzeugleisten-Buttons und keine Panel-Aktionen.
+        self.assertNotIn('id="onboard-action-btn"', html)
+        self.assertNotIn('id="offboard-action-btn"', html)
+
+        client = TestClient(app, base_url="https://testserver")
+        sign_in(self, client, "SOFA-PAGE-USER", "SOFA-FN-ONB", "SOFA-FN-TRNG", "SOFA-FN-OFFB")
+        html = client.get("/users").text
+        for marker in ('id="onboard-action-btn"', 'id="training-action-btn"', 'id="offboard-action-btn"', 'id="rehire-action-btn"'):
+            self.assertIn(marker, html)
 
     def test_pages_check_their_own_permission(self):
         client = TestClient(app, base_url="https://testserver")
         sign_in(self, client, "SOFA-PAGE-SYS")
-        response = client.get("/roles", follow_redirects=False)
-        self.assertIn(response.status_code, (302, 303, 307))
+        for path in ("/roles", "/users"):
+            response = client.get(path, follow_redirects=False)
+            self.assertIn(response.status_code, (302, 303, 307), path)
 
     def test_old_pages_are_gone(self):
         for path in ("app/templates/rollenmanagement.html", "app/static/js/rollenmanagement.js",
                      "app/static/css/rollenmanagement.css", "app/templates/systemverwaltung.html",
-                     "app/static/js/systemverwaltung.js", "app/static/css/systemverwaltung.css"):
+                     "app/static/js/systemverwaltung.js", "app/static/css/systemverwaltung.css",
+                     "app/templates/userverwaltung.html", "app/static/js/userverwaltung.js",
+                     "app/static/css/userverwaltung.css"):
             self.assertFalse((ROOT / path).exists(), path)
         self.assertTrue((ROOT / "app/static/css/page_w_table.css").exists())
 
@@ -83,6 +104,28 @@ class DeepLinkTest(unittest.TestCase):
         self.assertIn("description: current.description", js)
         self.assertIn("status\n", js)
 
+    def test_user_page_deep_links(self):
+        page = source("app/static/js/admin_users.js")
+        actions = source("app/static/js/user_actions.js")
+        # ?role=<id> setzt die Rolle nach dem Laden als Filter nach ihrem Typ.
+        self.assertIn('let presetRoleId = params.get("role");', page)
+        self.assertIn('{ PRIMARY: "primary", SECONDARY: "secondary", SKILL: "skill" }[role?.role_type]', page)
+        self.assertIn("applyPresetRole();", page[page.index("function setData"):])
+        # ?user_id=<id> öffnet das Panel; das übernimmt user_actions.js beim init.
+        self.assertIn("A.init({ reload: load, visibleUsers });", page)
+        self.assertIn("const linkedUserId = userIdFromSearch(location.search);", actions)
+        self.assertIn("if (linkedUserId !== null) sidebarController.open(linkedUserId);", actions)
+        self.assertIn("/api/views/users", page)
+
+    def test_user_page_keeps_list_and_actions_apart(self):
+        actions = source("app/static/js/user_actions.js")
+        for gone in ("tableController", "filterController", "sofaUserverwaltungFilters", "state.users", "getFilteredUsers"):
+            self.assertNotIn(gone, actions)
+        # Ein Weg nach jeder erfolgreichen Aktion; refreshCurrentUser nur noch im Hook und im Fehlerfall der Kennung.
+        self.assertEqual(actions.count("hooks.reload()"), 1)
+        self.assertEqual(actions.count("refreshCurrentUser()"), 3)
+        self.assertIn("const baseUsers = hooks.visibleUsers().filter(user => user.is_active);", actions)
+
     def test_task_page_takes_the_system_parameter(self):
         js = source("app/static/js/tasks_board.js")
         self.assertIn("Model.applyUrlFilters(view, window.location.search)", js)
@@ -90,10 +133,16 @@ class DeepLinkTest(unittest.TestCase):
 
 
 class ListPageChecksTest(unittest.TestCase):
-    def test_list_page_in_node(self):
-        result = subprocess.run([os.environ.get("SOFA_NODE_BINARY", "node"), "tests/list_page_checks.js"],
+    def run_checks(self, script):
+        result = subprocess.run([os.environ.get("SOFA_NODE_BINARY", "node"), script],
                                 cwd=ROOT, capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_list_page_in_node(self):
+        self.run_checks("tests/list_page_checks.js")
+
+    def test_user_actions_in_node(self):
+        self.run_checks("tests/user_actions_checks.js")
 
 
 if __name__ == "__main__":

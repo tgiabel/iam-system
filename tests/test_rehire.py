@@ -280,8 +280,8 @@ assert.deepStrictEqual(c.getArchivedAccounts({task_type: 'ASSIGNMENT', resource_
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_pages_expose_rehire_entry_and_restore_notice(self):
-        user_template = read("app/templates/userverwaltung.html")
-        user_script = read("app/static/js/userverwaltung.js")
+        user_template = read("app/templates/admin/user_actions.html")
+        user_script = read("app/static/js/user_actions.js")
         task_script = read("app/static/js/tasks_board_detail.js")
 
         onboarding_block = user_template[user_template.index('{% if "SOFA-FN-ONB" in authz.permissions %}\n                <button type="button" class="btn btn-sm btn-primary" id="rehire-action-btn"'):]
@@ -330,7 +330,7 @@ const vm = require('vm');
 
 const context = {window: {SofaContract: require('./app/static/js/sofa_contract.js')}, document: {addEventListener() {}}, URLSearchParams, console};
 vm.createContext(context);
-vm.runInContext(fs.readFileSync('./app/static/js/userverwaltung.js', 'utf8'), context);
+vm.runInContext(fs.readFileSync('./app/static/js/user_actions.js', 'utf8'), context);
 const id = search => context.userIdFromSearch(search);
 
 assert.strictEqual(id('?user_id=821'), 821);
@@ -340,11 +340,11 @@ for (const search of ['', '?user_id=', '?user_id=0', '?user_id=-3', '?user_id=1.
 }
 """)
         self.assertEqual(completed.returncode, 0, completed.stderr)
-        self.assertIn("sidebarController.open(linkedUserId)", read("app/static/js/userverwaltung.js"))
+        self.assertIn("sidebarController.open(linkedUserId)", read("app/static/js/user_actions.js"))
 
     def test_panel_buttons_are_toggled_and_hidden_really_hides(self):
-        script = read("app/static/js/userverwaltung.js")
-        styles = read("app/static/css/userverwaltung.css")
+        script = read("app/static/js/user_actions.js")
+        styles = read("app/static/css/user_actions.css")
 
         for button in (
             "DOM.rehireActionBtn, actions.rehire",

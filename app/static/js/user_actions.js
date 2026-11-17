@@ -1,89 +1,25 @@
+// User-Panel und Prozessdialoge der Userverwaltung, aus userverwaltung.js übernommen. Die Liste gehört der Seite
+// (admin_users.js); sie bindet sich über window.SofaUserActions an: init({ reload, visibleUsers }), openUser(id),
+// run(action, userId) und allowed(action, user).
 const sofaContract = window.SofaContract;
 
-function createDefaultUserFilters() {
-    return {
-        primaryRoles: { include: [], exclude: [] },
-        secondaryRoles: { include: [], exclude: [] },
-        skillRoles: { include: [], exclude: [] },
-        severities: { include: [], exclude: [] },
-        overdue: { include: [], exclude: [] },
-        actions: { include: [], exclude: [] },
-        openCategory: null
-    };
-}
-
+// Daten des Panels und der Dialoge. Die Liste selbst gehört der Seite (admin_users.js).
 const state = {
-    users: [],
     systemMap: null,
     roleMap: null,
     resourceMap: null,
     currentUserDetail: null,
     currentUserHistory: null,
-    activeUserTab: "details",
-    searchTerm: "",
-    filters: createDefaultUserFilters(),
-    showInactive: false,
-    sortField: "last_name"
+    activeUserTab: "details"
 };
 
-const PERSISTED_FILTERS_KEY = "sofaUserverwaltungFilters";
-
-function loadPersistedFilters() {
-    try {
-        const raw = localStorage.getItem(PERSISTED_FILTERS_KEY);
-        if (!raw) {
-            return;
-        }
-        const saved = JSON.parse(raw);
-        if (saved.filters) {
-            Object.assign(state.filters, saved.filters);
-        }
-        if (typeof saved.showInactive === "boolean") {
-            state.showInactive = saved.showInactive;
-        }
-        if (typeof saved.sortField === "string") {
-            state.sortField = saved.sortField;
-        }
-        if (typeof saved.searchTerm === "string") {
-            state.searchTerm = saved.searchTerm;
-        }
-    } catch (err) {
-        console.error("Gespeicherte Filter konnten nicht geladen werden", err);
-    }
-}
-
-function savePersistedFilters() {
-    try {
-        localStorage.setItem(PERSISTED_FILTERS_KEY, JSON.stringify({
-            filters: state.filters,
-            showInactive: state.showInactive,
-            sortField: state.sortField,
-            searchTerm: state.searchTerm
-        }));
-    } catch (err) {
-        console.error("Filter konnten nicht gespeichert werden", err);
-    }
-}
-
-function hasNonDefaultUserView() {
-    return Boolean(
-        state.searchTerm
-        || state.showInactive
-        || state.sortField !== "last_name"
-        || Object.entries(state.filters).some(([key, filter]) => key !== "openCategory"
-            && (filter.include?.length || filter.exclude?.length))
-    );
-}
+// Von der Seite über SofaUserActions.init gesetzt.
+const hooks = {
+    reload: async () => {},
+    visibleUsers: () => []
+};
 
 const DOM = {};
-
-function getAuthz() {
-    return window.currentAuthz || { permissions: [], has_admin_access: false };
-}
-
-function hasUsersPageAccess() {
-    return hasPerm("SOFA-PAGE-USER");
-}
 
 const STATUS_LABELS = {
     active: "Aktiv",
@@ -102,42 +38,11 @@ const ASSIGNMENT_LABELS = {
     revoked: "Entzogen"
 };
 
-const SEVERITY_OPTIONS = [
-    { id: "none", label: "Normal" },
-    { id: "low", label: "Niedrig" },
-    { id: "info", label: "Bemerkenswert" },
-    { id: "warning", label: "Warnung" },
-    { id: "error", label: "Fehler" }
-];
-
-const OVERDUE_OPTIONS = [
-    { id: "overdue", label: "Überfällig" }
-];
-
-const ACTION_OPTIONS = [
-    { id: "onboarding", label: "Onboarding" },
-    { id: "skill_assignment", label: "Neue Rolle" },
-    { id: "training_schedule", label: "Schulung" },
-    { id: "skill_removal", label: "Rollenentzug" },
-    { id: "temporary_role", label: "Temporäre Rolle" },
-    { id: "change", label: "Abteilungswechsel" },
-    { id: "offboarding", label: "Offboarding" }
-];
-
 const ACTIVE_ROLE_ASSIGNMENT_CODES = new Set(["active"]);
 const REQUESTED_ROLE_ASSIGNMENT_CODES = new Set(["requested", "open", "pending", "in_progress"]);
 const USER_HISTORY_PAGE_SIZE = 50;
 
 const api = {
-    async getUsers() {
-        const isActive = String(!state.showInactive);
-        const res = await fetch(`/api/users?is_active=${isActive}`);
-        if (!res.ok) {
-            throw new Error(`Users konnten nicht geladen werden (${res.status})`);
-        }
-        return res.json();
-    },
-
     async getUserDetails(id) {
         const res = await fetch(`/api/users/${id}/details`);
         if (!res.ok) {
@@ -727,57 +632,6 @@ function getSummaryStatus(user) {
     return { code: normalized, label, className, count: 1, extraCount: 0, tooltip: label, source: "fallback" };
 }
 
-const SEVERITY_SORT_PRIORITIES = {
-    error: 0,
-    warning: 1,
-    info: 2,
-    low: 3,
-    none: 4
-};
-
-function getStatusSortPriority(user) {
-    const derivedStatuses = getNormalizedDerivedStatuses(user);
-
-    if (derivedStatuses.length) {
-        return Math.min(...derivedStatuses.map(status =>
-            SEVERITY_SORT_PRIORITIES[status.severity] ?? SEVERITY_SORT_PRIORITIES.info
-        ));
-    }
-
-    const fallbackStatus = normalizeValue(
-        user?.summary_status_code ||
-        user?.summary_status ||
-        (user?.is_active === false ? "inactive" : "active")
-    ).replace(/\s+/g, "_");
-
-    if (fallbackStatus === "inactive") {
-        return SEVERITY_SORT_PRIORITIES.low;
-    }
-
-    if (fallbackStatus.includes("warning") || fallbackStatus.includes("revocation") || fallbackStatus.includes("error")) {
-        return fallbackStatus.includes("error")
-            ? SEVERITY_SORT_PRIORITIES.error
-            : SEVERITY_SORT_PRIORITIES.warning;
-    }
-
-    if (
-        fallbackStatus.includes("request") ||
-        fallbackStatus.includes("progress") ||
-        fallbackStatus.includes("pending") ||
-        fallbackStatus.includes("open") ||
-        fallbackStatus.includes("revoked") ||
-        (fallbackStatus && fallbackStatus !== "active")
-    ) {
-        return SEVERITY_SORT_PRIORITIES.info;
-    }
-
-    return SEVERITY_SORT_PRIORITIES.none;
-}
-
-function hasOverdueDerivedStatus(user) {
-    return getNormalizedDerivedStatuses(user).some(status => status.isOverdue);
-}
-
 function getSeverityBadgeClass(severity) {
     const normalized = normalizeValue(severity) || "info";
     if (normalized === "error") {
@@ -902,17 +756,6 @@ function buildDerivedStatusesTooltip(statuses) {
     return statuses.map(formatDerivedStatusSummary).join("\n");
 }
 
-function renderDerivedStatusBadge(status, options = {}) {
-    const extraCount = Number(options.extraCount || 0);
-    const tooltip = options.tooltip || status.label;
-    return `
-        <span class="users-derived-status-main" title="${escapeHtml(tooltip)}">
-            <span class="ui-status-badge ${escapeHtml(status.className)}">${escapeHtml(status.label)}</span>
-            ${extraCount > 0 ? `<span class="users-derived-status-count" aria-label="${escapeHtml(`${extraCount} weitere Status`)}">+${escapeHtml(extraCount)}</span>` : ""}
-        </span>
-    `;
-}
-
 function getAssignmentStatus(resourceOrRole) {
     const rawStatus =
         resourceOrRole?.assignment_status ||
@@ -983,17 +826,6 @@ function getBlockedRoleIdsForSelection(user, roleTypes = null) {
     );
 }
 
-function getRolePreview(roles) {
-    const names = (roles || []).map(role => role?.name).filter(Boolean);
-    if (!names.length) {
-        return "Keine Nebenrollen";
-    }
-    if (names.length <= 2) {
-        return names.join(", ");
-    }
-    return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-}
-
 function getResourceIdentifier(resource) {
     return resource?.technical_identifier ||
         resource?.resource_name ||
@@ -1034,14 +866,6 @@ function sortUsersByName(users) {
     return [...(Array.isArray(users) ? users : [])].sort(compareByNameKey);
 }
 
-const SORT_OPTIONS = [
-    { field: "last_name", label: "Nachname" },
-    { field: "main_role", label: "Funktion" },
-    { field: "status", label: "Status" },
-    { field: "entry_date", label: "Eintrittsdatum" },
-    { field: "exit_date", label: "Austrittsdatum" }
-];
-
 function getNameSortKey(user) {
     return `${user?.last_name || ""} ${user?.first_name || ""}`.trim();
 }
@@ -1049,48 +873,6 @@ function getNameSortKey(user) {
 function compareByNameKey(left, right) {
     return getNameSortKey(left).localeCompare(getNameSortKey(right), "de");
 }
-
-function parseDateValue(value) {
-    if (!value) {
-        return null;
-    }
-    const time = new Date(value).getTime();
-    return Number.isNaN(time) ? null : time;
-}
-
-function compareByDateDescending(left, right, field) {
-    const leftDate = parseDateValue(left?.[field]);
-    const rightDate = parseDateValue(right?.[field]);
-
-    if (leftDate === null) {
-        return rightDate === null ? compareByNameKey(left, right) : 1;
-    }
-    if (rightDate === null) {
-        return -1;
-    }
-
-    const diff = rightDate - leftDate;
-    return diff !== 0 ? diff : compareByNameKey(left, right);
-}
-
-const SORT_COMPARATORS = {
-    last_name: compareByNameKey,
-    main_role: (left, right) => {
-        const diff = (left?.primary_role?.name || "").localeCompare(right?.primary_role?.name || "", "de");
-        return diff !== 0 ? diff : compareByNameKey(left, right);
-    },
-    status: (left, right) => {
-        const diff = getStatusSortPriority(left) - getStatusSortPriority(right);
-        if (diff !== 0) {
-            return diff;
-        }
-
-        const overdueDiff = Number(hasOverdueDerivedStatus(right)) - Number(hasOverdueDerivedStatus(left));
-        return overdueDiff !== 0 ? overdueDiff : compareByNameKey(left, right);
-    },
-    entry_date: (left, right) => compareByDateDescending(left, right, "entry_date"),
-    exit_date: (left, right) => compareByDateDescending(left, right, "exit_date")
-};
 
 function buildUserLabel(user) {
     const name = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
@@ -1262,629 +1044,6 @@ function formatHistoryAction(value) {
         status_changed: "Status geändert"
     }[normalized] || humanizeToken(value || "Änderung");
 }
-
-const filterController = {
-    async init() {
-        this.bindEvents();
-        try {
-            await api.getRoleMap();
-        } catch (err) {
-            console.error("Role Map konnte nicht für Filter geladen werden", err);
-        }
-        this.renderActiveTags();
-    },
-
-    bindEvents() {
-        DOM.filterBtn?.addEventListener("click", event => {
-            event.stopPropagation();
-            const shouldOpen = !DOM.filterDropdown.classList.contains("active");
-            this.closeMenus();
-            tableController.closeSortDropdown();
-            if (shouldOpen) {
-                DOM.filterDropdown.classList.add("active");
-                DOM.filterBtn.setAttribute("aria-expanded", "true");
-            }
-        });
-
-        DOM.filterDropdown?.querySelectorAll("[data-filter]").forEach(button => {
-            button.addEventListener("click", async event => {
-                event.stopPropagation();
-                await this.openSubfilter(button.dataset.filter);
-            });
-        });
-
-        DOM.subfilterDropdown?.addEventListener("click", event => {
-            event.stopPropagation();
-        });
-
-        DOM.subfilterDropdown?.addEventListener("change", event => {
-            const target = event.target;
-            if (!(target instanceof HTMLInputElement)) {
-                return;
-            }
-
-            const { filterKey, action } = target.dataset;
-            if (!filterKey || !action) {
-                return;
-            }
-
-            if (target.dataset.selectAllValues) {
-                const values = JSON.parse(target.dataset.selectAllValues);
-                values.forEach(value => this.toggleOptionFilter(filterKey, value, action, target.checked));
-            } else {
-                this.toggleOptionFilter(filterKey, target.value, action, target.checked);
-            }
-
-            this.renderActiveTags();
-            this.rerenderOpenSubfilter();
-            savePersistedFilters();
-            tableController.render();
-        });
-
-        DOM.activeFilters?.addEventListener("click", event => {
-            const target = event.target;
-            if (!(target instanceof HTMLElement) || !target.matches("[data-filter-key]")) {
-                return;
-            }
-
-            const { filterKey, action, value } = target.dataset;
-            this.toggleOptionFilter(filterKey, value, action, false);
-            this.renderActiveTags();
-            this.rerenderOpenSubfilter();
-            savePersistedFilters();
-            tableController.render();
-        });
-
-        DOM.inactiveToggle?.addEventListener("click", async () => {
-            state.showInactive = !state.showInactive;
-            DOM.inactiveToggle.setAttribute("aria-pressed", String(state.showInactive));
-            savePersistedFilters();
-            await tableController.loadUsers();
-        });
-
-        DOM.usersFilterReset?.addEventListener("click", async () => {
-            const needsReload = state.showInactive;
-            state.searchTerm = "";
-            state.filters = createDefaultUserFilters();
-            state.showInactive = false;
-            state.sortField = "last_name";
-
-            if (DOM.searchInput) {
-                DOM.searchInput.value = "";
-            }
-            DOM.inactiveToggle?.setAttribute("aria-pressed", "false");
-            this.closeMenus();
-            tableController.closeSortDropdown();
-            this.renderActiveTags();
-            savePersistedFilters();
-
-            if (needsReload) {
-                await tableController.loadUsers();
-            } else {
-                tableController.render();
-            }
-        });
-
-        document.addEventListener("click", event => {
-            if (!DOM.filterContainer?.contains(event.target)) {
-                this.closeMenus();
-            }
-            if (!DOM.sortContainer?.contains(event.target)) {
-                tableController.closeSortDropdown();
-            }
-        });
-    },
-
-    async openSubfilter(category) {
-        state.filters.openCategory = category;
-        if (!state.roleMap && (category === "hauptrolle" || category === "nebenrolle" || category === "skill")) {
-            await api.getRoleMap();
-        }
-
-        DOM.filterDropdown.classList.add("active");
-        DOM.subfilterDropdown.classList.add("active");
-        this.renderSubfilter(category);
-    },
-
-    closeMenus() {
-        DOM.filterDropdown?.classList.remove("active");
-        DOM.subfilterDropdown?.classList.remove("active");
-        DOM.filterBtn?.setAttribute("aria-expanded", "false");
-        state.filters.openCategory = null;
-    },
-
-    rerenderOpenSubfilter() {
-        if (!state.filters.openCategory || !DOM.subfilterDropdown?.classList.contains("active")) {
-            return;
-        }
-        this.renderSubfilter(state.filters.openCategory);
-    },
-
-    renderOptionRow(label, filterKey, value, includeSet, excludeSet) {
-        const v = String(value);
-        return `
-            <div class="users-subfilter-option">
-                <span class="users-subfilter-option-label">${escapeHtml(label)}</span>
-                <span class="users-subfilter-toggle-group">
-                    <label class="users-subfilter-toggle users-subfilter-toggle-include" title="Nur „${escapeHtml(label)}“ anzeigen">
-                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="include" value="${escapeHtml(v)}" ${includeSet.has(v) ? "checked" : ""}>
-                        <span aria-hidden="true">✓</span>
-                    </label>
-                    <label class="users-subfilter-toggle users-subfilter-toggle-exclude" title="„${escapeHtml(label)}“ ausschließen">
-                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="exclude" value="${escapeHtml(v)}" ${excludeSet.has(v) ? "checked" : ""}>
-                        <span aria-hidden="true">✕</span>
-                    </label>
-                </span>
-            </div>
-        `;
-    },
-
-    renderSelectAllRow(filterKey, values, includeSet, excludeSet) {
-        if (!values.length) {
-            return "";
-        }
-
-        const stringValues = values.map(String);
-        const allIncluded = stringValues.every(v => includeSet.has(v));
-        const allExcluded = stringValues.every(v => excludeSet.has(v));
-        const valuesAttr = escapeHtml(JSON.stringify(stringValues));
-
-        return `
-            <div class="users-subfilter-option users-subfilter-select-all">
-                <span class="users-subfilter-option-label">Alle</span>
-                <span class="users-subfilter-toggle-group">
-                    <label class="users-subfilter-toggle users-subfilter-toggle-include" title="Alle anzeigen">
-                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="include" data-select-all-values='${valuesAttr}' ${allIncluded ? "checked" : ""}>
-                        <span aria-hidden="true">✓</span>
-                    </label>
-                    <label class="users-subfilter-toggle users-subfilter-toggle-exclude" title="Alle ausschließen">
-                        <input type="checkbox" data-filter-key="${escapeHtml(filterKey)}" data-action="exclude" data-select-all-values='${valuesAttr}' ${allExcluded ? "checked" : ""}>
-                        <span aria-hidden="true">✕</span>
-                    </label>
-                </span>
-            </div>
-        `;
-    },
-
-    renderSubfilter(category) {
-        if (!DOM.subfilterDropdown) {
-            return;
-        }
-
-        if (category === "status" || category === "aktion") {
-            const filterKey = category === "status" ? "severities" : "actions";
-            const options = category === "status" ? SEVERITY_OPTIONS : ACTION_OPTIONS;
-            const { include, exclude } = state.filters[filterKey];
-            const includeSet = new Set(include.map(String));
-            const excludeSet = new Set(exclude.map(String));
-
-            const optionsMarkup =
-                this.renderSelectAllRow(filterKey, options.map(option => option.id), includeSet, excludeSet) +
-                options.map(option => this.renderOptionRow(option.label, filterKey, option.id, includeSet, excludeSet)).join("");
-
-            if (category === "status") {
-                const overdueFilter = state.filters.overdue;
-                const overdueIncludeSet = new Set(overdueFilter.include.map(String));
-                const overdueExcludeSet = new Set(overdueFilter.exclude.map(String));
-                DOM.subfilterDropdown.innerHTML = optionsMarkup +
-                    '<div class="users-subfilter-section-label">Überfälligkeit</div>' +
-                    OVERDUE_OPTIONS.map(option => this.renderOptionRow(
-                        option.label,
-                        "overdue",
-                        option.id,
-                        overdueIncludeSet,
-                        overdueExcludeSet
-                    )).join("");
-                return;
-            }
-
-            DOM.subfilterDropdown.innerHTML = optionsMarkup;
-            return;
-        }
-
-        if (category === "nebenrolle" || category === "skill") {
-            const filterKey = category === "nebenrolle" ? "secondaryRoles" : "skillRoles";
-            const { include, exclude } = state.filters[filterKey];
-            const includeSet = new Set(include.map(String));
-            const excludeSet = new Set(exclude.map(String));
-            const options = getRoleOptionsByType(category === "skill" ? "SKILL" : "SECONDARY");
-
-            DOM.subfilterDropdown.innerHTML = options.length
-                ? this.renderSelectAllRow(filterKey, options.map(([roleId]) => roleId), includeSet, excludeSet) +
-                  options.map(([roleId, role]) => this.renderOptionRow(role.name, filterKey, roleId, includeSet, excludeSet)).join("")
-                : "<span>Keine Rollen gefunden</span>";
-            return;
-        }
-
-        const filterKey = "primaryRoles";
-        const { include, exclude } = state.filters[filterKey];
-        const includeSet = new Set(include.map(String));
-        const excludeSet = new Set(exclude.map(String));
-        const options = getRoleOptionsByType("PRIMARY");
-
-        DOM.subfilterDropdown.innerHTML = options.length
-            ? this.renderSelectAllRow(filterKey, options.map(([roleId]) => roleId), includeSet, excludeSet) +
-              options.map(([roleId, role]) => this.renderOptionRow(role.name, filterKey, roleId, includeSet, excludeSet)).join("")
-            : "<span>Keine Rollen gefunden</span>";
-    },
-
-    toggleOptionFilter(filterKey, value, action, checked) {
-        const v = String(value);
-        const filter = state.filters[filterKey];
-        const include = new Set(filter.include.map(String));
-        const exclude = new Set(filter.exclude.map(String));
-        if (action === "include") {
-            if (checked) {
-                include.add(v);
-                exclude.delete(v);
-            } else {
-                include.delete(v);
-            }
-        } else {
-            if (checked) {
-                exclude.add(v);
-                include.delete(v);
-            } else {
-                exclude.delete(v);
-            }
-        }
-        filter.include = Array.from(include);
-        filter.exclude = Array.from(exclude);
-    },
-
-    renderActiveTags() {
-        const tagLabel = (name, action) => action === "exclude" ? `Kein ${name}` : name;
-
-        const roleTag = (filterKey, action, roleId) => ({
-            filterKey,
-            action,
-            value: roleId,
-            label: tagLabel(state.roleMap?.[roleId]?.name || roleId, action),
-            excluded: action === "exclude"
-        });
-
-        const optionTag = (filterKey, action, optionId, options) => ({
-            filterKey,
-            action,
-            value: optionId,
-            label: tagLabel(options.find(option => option.id === optionId)?.label || optionId, action),
-            excluded: action === "exclude"
-        });
-
-        const tags = [
-            ...state.filters.primaryRoles.include.map(id => roleTag("primaryRoles", "include", id)),
-            ...state.filters.primaryRoles.exclude.map(id => roleTag("primaryRoles", "exclude", id)),
-            ...state.filters.secondaryRoles.include.map(id => roleTag("secondaryRoles", "include", id)),
-            ...state.filters.secondaryRoles.exclude.map(id => roleTag("secondaryRoles", "exclude", id)),
-            ...state.filters.skillRoles.include.map(id => roleTag("skillRoles", "include", id)),
-            ...state.filters.skillRoles.exclude.map(id => roleTag("skillRoles", "exclude", id)),
-            ...state.filters.severities.include.map(id => optionTag("severities", "include", id, SEVERITY_OPTIONS)),
-            ...state.filters.severities.exclude.map(id => optionTag("severities", "exclude", id, SEVERITY_OPTIONS)),
-            ...state.filters.overdue.include.map(id => optionTag("overdue", "include", id, OVERDUE_OPTIONS)),
-            ...state.filters.overdue.exclude.map(id => optionTag("overdue", "exclude", id, OVERDUE_OPTIONS)),
-            ...state.filters.actions.include.map(id => optionTag("actions", "include", id, ACTION_OPTIONS)),
-            ...state.filters.actions.exclude.map(id => optionTag("actions", "exclude", id, ACTION_OPTIONS))
-        ];
-
-        DOM.filterBtn?.classList.toggle("is-active", tags.length > 0);
-
-        if (DOM.usersFilterReset) {
-            DOM.usersFilterReset.disabled = !hasNonDefaultUserView();
-        }
-
-        if (!DOM.activeFilters) {
-            return;
-        }
-
-        DOM.activeFilters.innerHTML = tags.map(tag => `
-            <div class="users-filter-tag${tag.excluded ? " is-excluded" : ""}">
-                <span>${escapeHtml(tag.label)}</span>
-                <button type="button" data-filter-key="${escapeHtml(tag.filterKey)}" data-action="${escapeHtml(tag.action)}" data-value="${escapeHtml(tag.value)}" aria-label="${escapeHtml(tag.label)} entfernen">&times;</button>
-            </div>
-        `).join("");
-    }
-};
-
-const tableController = {
-    async init() {
-        this.bindSearch();
-        this.bindSortToggle();
-        this.updateSortToggle();
-        await this.loadUsers();
-    },
-
-    async loadUsers() {
-        try {
-            state.users = await api.getUsers();
-            this.render();
-        } catch (err) {
-            console.error(err);
-        DOM.tableBody.innerHTML = `
-                <tr class="users-empty-row">
-                    <td colspan="6">${renderEmptyState("Fehler beim Laden der User.")}</td>
-                </tr>
-            `;
-            showFlash("Fehler beim Laden der User", "failure");
-        }
-    },
-
-    getFilteredUsers() {
-        const users = state.users
-            .filter(user => this.matchesSearch(user))
-            .filter(user => this.matchesPrimaryRoles(user))
-            .filter(user => this.matchesSecondaryRoles(user))
-            .filter(user => this.matchesSkillRoles(user))
-            .filter(user => this.matchesSeverity(user))
-            .filter(user => this.matchesOverdue(user))
-            .filter(user => this.matchesAction(user));
-
-        const comparator = SORT_COMPARATORS[state.sortField] || SORT_COMPARATORS.last_name;
-        return [...users].sort(comparator);
-    },
-
-    matchesSearch(user) {
-        const searchValue = normalizeValue(state.searchTerm);
-        if (!searchValue) {
-            return true;
-        }
-
-        const haystacks = [
-            user.pnr,
-            user.racf,
-            user.xde,
-            user.last_name,
-            user.first_name,
-            user.email,
-            user.primary_role?.name,
-            ...getSecondaryRoles(user).map(role => role?.name)
-        ];
-
-        return haystacks.some(value => normalizeValue(value).includes(searchValue));
-    },
-
-    matchesPrimaryRoles(user) {
-        const { include, exclude } = state.filters.primaryRoles;
-        if (!include.length && !exclude.length) {
-            return true;
-        }
-
-        const roleId = String(user.primary_role?.role_id || "");
-        if (exclude.includes(roleId)) {
-            return false;
-        }
-        if (include.length && !include.includes(roleId)) {
-            return false;
-        }
-        return true;
-    },
-
-    matchesSecondaryRoles(user) {
-        const { include, exclude } = state.filters.secondaryRoles;
-        if (!include.length && !exclude.length) {
-            return true;
-        }
-
-        const userRoleIds = getSecondaryRoles(user).map(role => String(role.role_id));
-        if (exclude.length && userRoleIds.some(roleId => exclude.includes(roleId))) {
-            return false;
-        }
-        if (include.length && !userRoleIds.some(roleId => include.includes(roleId))) {
-            return false;
-        }
-        return true;
-    },
-
-    matchesSkillRoles(user) {
-        const { include, exclude } = state.filters.skillRoles;
-        if (!include.length && !exclude.length) {
-            return true;
-        }
-
-        const userRoleIds = getSecondaryRoles(user).map(role => String(role.role_id));
-        if (exclude.length && userRoleIds.some(roleId => exclude.includes(roleId))) {
-            return false;
-        }
-        if (include.length && !userRoleIds.some(roleId => include.includes(roleId))) {
-            return false;
-        }
-        return true;
-    },
-
-    matchesSeverity(user) {
-        const { include, exclude } = state.filters.severities;
-        if (!include.length && !exclude.length) {
-            return true;
-        }
-
-        const statuses = getNormalizedDerivedStatuses(user);
-        const ids = statuses.length
-            ? [...new Set(statuses.map(status => status.severity))]
-            : ["none"];
-
-        if (exclude.length && ids.some(id => exclude.includes(id))) {
-            return false;
-        }
-        if (include.length && !ids.some(id => include.includes(id))) {
-            return false;
-        }
-        return true;
-    },
-
-    matchesOverdue(user) {
-        const { include, exclude } = state.filters.overdue;
-        if (!include.length && !exclude.length) {
-            return true;
-        }
-
-        const ids = getNormalizedDerivedStatuses(user).some(status => status.isOverdue)
-            ? ["overdue"]
-            : [];
-
-        if (exclude.length && ids.some(id => exclude.includes(id))) {
-            return false;
-        }
-        if (include.length && !ids.some(id => include.includes(id))) {
-            return false;
-        }
-        return true;
-    },
-
-    matchesAction(user) {
-        const { include, exclude } = state.filters.actions;
-        if (!include.length && !exclude.length) {
-            return true;
-        }
-
-        const ids = [...new Set(getNormalizedDerivedStatuses(user)
-            .map(status => normalizeValue(status.processType)))]
-            .filter(Boolean);
-
-        if (exclude.length && ids.some(id => exclude.includes(id))) {
-            return false;
-        }
-        if (include.length && !ids.some(id => include.includes(id))) {
-            return false;
-        }
-        return true;
-    },
-
-    render() {
-        const users = this.getFilteredUsers();
-
-        if (DOM.usersFilterReset) {
-            DOM.usersFilterReset.disabled = !hasNonDefaultUserView();
-        }
-
-        if (DOM.usersVisibleCount) {
-            DOM.usersVisibleCount.textContent = `${users.length} Nutzer`;
-        }
-
-        this.updateSortToggle();
-
-        const dateField = state.sortField === "entry_date" || state.sortField === "exit_date"
-            ? state.sortField
-            : null;
-        const dateLabel = dateField === "entry_date" ? "Eintrittsdatum" : dateField === "exit_date" ? "Austrittsdatum" : "";
-
-        if (DOM.usersDateColumnHeader) {
-            DOM.usersDateColumnHeader.textContent = dateLabel;
-            DOM.usersDateColumnHeader.classList.toggle("is-visible", Boolean(dateField));
-        }
-
-        const totalCols = dateField ? 7 : 6;
-
-        DOM.tableBody.innerHTML = users.length
-            ? users.map(user => {
-                const secondaryRoles = getSecondaryRoles(user);
-                const status = getSummaryStatus(user);
-                const dateCell = dateField
-                    ? `<td class="users-date-column is-visible">${escapeHtml(formatDate(user[dateField]))}</td>`
-                    : "";
-
-                return `
-                    <tr class="ui-table-row users-table-row ${user.is_active ? "" : "is-inactive"}" data-user-id="${escapeHtml(user.user_id)}">
-                        <td class="users-identity-cell">
-                            <div class="users-identity-block">
-                                <span class="users-identity-main">${escapeHtml(user.pnr || "-")}</span>
-                                <span class="users-identity-meta">${escapeHtml(user.racf || "-")}</span>
-                                <span class="users-identity-meta">${escapeHtml(user.xde || "-")}</span>
-                            </div>
-                        </td>
-                        <td class="users-name-cell">
-                            <div class="users-name-block">
-                                <span class="users-name-main">${escapeHtml(user.last_name || "-")}</span>
-                                <span class="users-name-meta">${escapeHtml(user.email || "")}</span>
-                            </div>
-                        </td>
-                        <td>${escapeHtml(user.first_name || "-")}</td>
-                        <td class="users-role-cell">${escapeHtml(user.primary_role?.name || "-")}</td>
-                        <td class="users-secondary-cell">
-                            <div class="users-secondary-block">
-                                <span class="ui-table-count" title="${escapeHtml(secondaryRoles.map(role => role.name).join("\n") || "Keine Nebenrollen")}">${secondaryRoles.length}</span>
-                                <span class="users-secondary-preview ${secondaryRoles.length ? "" : "is-empty"}">${escapeHtml(getRolePreview(secondaryRoles))}</span>
-                            </div>
-                        </td>
-                        ${dateCell}
-                        <td>${renderDerivedStatusBadge(status, { extraCount: status.extraCount, tooltip: status.tooltip })}</td>
-                    </tr>
-                `;
-            }).join("")
-            : `
-                <tr class="users-empty-row">
-                    <td colspan="${totalCols}">${renderEmptyState("Keine User gefunden.")}</td>
-                </tr>
-            `;
-
-        this.bindRows();
-    },
-
-    bindRows() {
-        DOM.tableBody.querySelectorAll("[data-user-id]").forEach(row => {
-            row.addEventListener("click", () => {
-                sidebarController.open(row.dataset.userId);
-            });
-        });
-    },
-
-    bindSearch() {
-        DOM.searchInput?.addEventListener("input", event => {
-            state.searchTerm = event.target.value || "";
-            savePersistedFilters();
-            this.render();
-        });
-    },
-
-    bindSortToggle() {
-        DOM.usersSortToggle?.addEventListener("click", event => {
-            event.stopPropagation();
-            const shouldOpen = !DOM.sortDropdown.classList.contains("active");
-            filterController.closeMenus();
-            this.closeSortDropdown();
-            if (shouldOpen) {
-                this.renderSortDropdown();
-                DOM.sortDropdown.classList.add("active");
-                DOM.usersSortToggle.setAttribute("aria-expanded", "true");
-            }
-        });
-
-        DOM.sortDropdown?.addEventListener("click", event => {
-            const button = event.target.closest("[data-sort]");
-            if (!button) {
-                return;
-            }
-            state.sortField = button.dataset.sort;
-            savePersistedFilters();
-            this.closeSortDropdown();
-            this.render();
-        });
-    },
-
-    closeSortDropdown() {
-        DOM.sortDropdown?.classList.remove("active");
-        DOM.usersSortToggle?.setAttribute("aria-expanded", "false");
-    },
-
-    renderSortDropdown() {
-        if (!DOM.sortDropdown) {
-            return;
-        }
-        DOM.sortDropdown.innerHTML = SORT_OPTIONS.map(option => `
-            <button type="button" data-sort="${escapeHtml(option.field)}" class="${option.field === state.sortField ? "is-active" : ""}">${escapeHtml(option.label)}</button>
-        `).join("");
-    },
-
-    updateSortToggle() {
-        if (!DOM.usersSortToggle) {
-            return;
-        }
-
-        const option = SORT_OPTIONS.find(opt => opt.field === state.sortField) || SORT_OPTIONS[0];
-        DOM.usersSortToggle.setAttribute("aria-label", `Sortierung: ${option.label}. Klicken zum Ändern.`);
-        if (DOM.usersSortLabel) {
-            DOM.usersSortLabel.textContent = option.label;
-        }
-    }
-};
 
 const sidebarController = {
     init() {
@@ -2263,7 +1422,7 @@ const sidebarController = {
 
         if (result.ok) {
             showFlash(sofaContract.accountIdentifierOutcomeMessage(result.data), "success");
-            await this.refreshCurrentUser();
+            await afterChange(userId);
             return;
         }
 
@@ -2790,8 +1949,7 @@ const sofaAccessModalController = {
                     showFlash("SOFA Zugriff entzogen", "success");
                 }
 
-                await tableController.loadUsers();
-                await sidebarController.refreshCurrentUser();
+                await afterChange(user.user_id);
                 this.close();
             } catch (err) {
                 console.error(err);
@@ -3042,7 +2200,7 @@ const onboardModalController = {
                 return;
             }
 
-            await tableController.loadUsers();
+            await afterChange();
             this.close();
         });
     },
@@ -3124,7 +2282,7 @@ const onboardModalController = {
                 return;
             }
 
-            await tableController.loadUsers();
+            await afterChange();
             this.close();
         });
     }
@@ -3464,8 +2622,7 @@ const rehireModalController = {
 
         showFlash("Wiedereintritt gestartet", "success");
         this.close();
-        await tableController.loadUsers();
-        await sidebarController.refreshCurrentUser();
+        await afterChange();
     },
 
     handleError(error) {
@@ -3556,22 +2713,8 @@ const trainingModalController = {
     },
 
     resolveAvailableUsers(options = {}) {
-        const hasUserFilters = Boolean(
-            normalizeValue(state.searchTerm) ||
-            state.filters.primaryRoles.include.length ||
-            state.filters.primaryRoles.exclude.length ||
-            state.filters.secondaryRoles.include.length ||
-            state.filters.secondaryRoles.exclude.length ||
-            state.filters.skillRoles.include.length ||
-            state.filters.skillRoles.exclude.length ||
-            state.filters.severities.include.length ||
-            state.filters.severities.exclude.length ||
-            state.filters.overdue.include.length ||
-            state.filters.overdue.exclude.length ||
-            state.filters.actions.include.length ||
-            state.filters.actions.exclude.length
-        );
-        const baseUsers = hasUserFilters ? tableController.getFilteredUsers() : state.users;
+        // Die User, die die Liste gerade zeigt (Suche, Filter, Schnellfilter); Ausgetretene nie, auch mit „Inaktive“.
+        const baseUsers = hooks.visibleUsers().filter(user => user.is_active);
         const presetUsers = Array.isArray(options.presetUsers) ? options.presetUsers : [];
         return sortUsersByName(mergeUsersById(baseUsers, presetUsers));
     },
@@ -3857,6 +3000,7 @@ const trainingModalController = {
             }
 
             this.close();
+            await afterChange();
         });
     }
 };
@@ -3952,7 +3096,7 @@ const tmpRightsModalController = {
                 return;
             }
 
-            await sidebarController.refreshCurrentUser();
+            await afterChange(user.user_id);
             this.close();
         });
     }
@@ -4043,7 +3187,7 @@ const newSkillModalController = {
                 return;
             }
 
-            await sidebarController.refreshCurrentUser();
+            await afterChange(user.user_id);
             this.close();
         });
     }
@@ -4149,7 +3293,7 @@ const primaryRoleChangeModalController = {
                 return;
             }
 
-            await sidebarController.refreshCurrentUser();
+            await afterChange(user.user_id);
             this.close();
         });
     }
@@ -4229,7 +3373,7 @@ const skillRevokeModalController = {
                 return;
             }
 
-            await sidebarController.refreshCurrentUser();
+            await afterChange(user.user_id);
             this.close();
         });
     }
@@ -4308,8 +3452,7 @@ const processCancellationModalController = {
                 return;
             }
             this.close();
-            await tableController.loadUsers();
-            await sidebarController.refreshCurrentUser();
+            await afterChange();
         } finally {
             DOM.processCancelSubmitBtn.disabled = false;
         }
@@ -4436,8 +3579,7 @@ const processRescheduleModalController = {
             const result = await api.rescheduleProcess(this.processId, request.payload);
             if (!result) return;
             this.close();
-            await tableController.loadUsers();
-            await sidebarController.refreshCurrentUser();
+            await afterChange();
         } finally {
             DOM.processRescheduleSubmitBtn.disabled = false;
         }
@@ -4517,30 +3659,13 @@ const offboardModalController = {
                 return;
             }
 
-            await sidebarController.refreshCurrentUser();
+            await afterChange(user.user_id);
             this.close();
         });
     }
 };
 
 function cacheDOM() {
-    DOM.filterContainer = document.getElementById("users-filter-container");
-    DOM.filterBtn = document.getElementById("filter-btn");
-    DOM.filterDropdown = document.getElementById("filter-dropdown");
-    DOM.subfilterDropdown = document.getElementById("subfilter-dropdown");
-    DOM.activeFilters = document.getElementById("active-filters");
-    DOM.usersFilterReset = document.getElementById("users-filter-reset");
-    DOM.inactiveToggle = document.getElementById("users-inactive-toggle");
-    DOM.searchInput = document.getElementById("search-input");
-    DOM.usersVisibleCount = document.getElementById("users-visible-count");
-    DOM.usersSortToggle = document.getElementById("users-sort-toggle");
-    DOM.usersSortLabel = document.getElementById("users-sort-label");
-    DOM.sortContainer = document.getElementById("users-sort-container");
-    DOM.sortDropdown = document.getElementById("sort-dropdown");
-    DOM.usersDateColumnHeader = document.getElementById("users-date-column-header");
-    DOM.userTable = document.getElementById("user-table");
-    DOM.tableBody = document.getElementById("user-table-body");
-
     DOM.sidebarOverlay = document.getElementById("sidebar-overlay");
     DOM.sidebarCloseBtn = document.getElementById("sidebar-close-btn");
     DOM.userPanelTabs = document.getElementById("user-panel-tabs");
@@ -4666,16 +3791,89 @@ function userIdFromSearch(search) {
     return raw && Number.isInteger(id) && id > 0 ? id : null;
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-    cacheDOM();
-    loadPersistedFilters();
-    if (DOM.searchInput) {
-        DOM.searchInput.value = state.searchTerm;
+// Nach jeder erfolgreichen Aktion: das Panel aktualisieren, falls es (für diesen User) offen ist, dann still
+// die Liste neu laden. Ohne userId gilt das offene Panel.
+async function afterChange(userId = null) {
+    const openUserId = state.currentUserDetail?.user_id;
+    if (openUserId != null && (userId == null || String(openUserId) === String(userId))) {
+        await sidebarController.refreshCurrentUser();
     }
-    DOM.inactiveToggle?.setAttribute("aria-pressed", String(state.showInactive));
+    await hooks.reload();
+}
+
+// Aktionen je User: dasselbe Recht wie der Button im Panel, dieselbe Regel (aktiv/inaktiv) aus dem Vertrag.
+// Temp. Rolle steht nur im Panel.
+const USER_ACTIONS = {
+    change: { permission: "SOFA-FN-ROLE", rule: "roleActions", open: user => primaryRoleChangeModalController.open(user) },
+    skill: { permission: "SOFA-FN-RL", rule: "roleActions", open: user => newSkillModalController.open(user) },
+    training: { permission: "SOFA-FN-TRNG", rule: "roleActions", open: user => trainingModalController.open({ presetUsers: [user], source: "detail" }) },
+    revoke: { permission: "SOFA-FN-RMRL", rule: "roleActions", open: user => skillRevokeModalController.open(user) },
+    offboarding: { permission: "SOFA-FN-OFFB", rule: "offboarding", open: user => offboardModalController.open(user) },
+    rehire: { permission: "SOFA-FN-ONB", rule: "rehire", open: user => rehireModalController.openForUser(user) }
+};
+
+function isActionAllowed(action, user) {
+    if (action === "details") {
+        return true;
+    }
+    const entry = USER_ACTIONS[action];
+    return Boolean(entry && user && hasPerm(entry.permission) && sofaContract.getUserPanelActions(user)[entry.rule]);
+}
+
+function openUser(userId) {
+    return sidebarController.open(userId);
+}
+
+// Eine Aktion für einen User (Zeilenmenü) oder ohne User (Werkzeugleiste: training, onboarding).
+// Die Dialoge erwarten das Detail-Objekt: erst die Details laden, dann öffnen, wie aus dem Panel.
+async function runAction(action, userId = null) {
+    if (action === "details") {
+        return openUser(userId);
+    }
+    if (userId == null) {
+        if (action === "onboarding" && hasPerm("SOFA-FN-ONB")) {
+            return onboardModalController.open();
+        }
+        if (action === "training" && hasPerm("SOFA-FN-TRNG")) {
+            return trainingModalController.open({ source: "global" });
+        }
+        return undefined;
+    }
+    if (!USER_ACTIONS[action]) {
+        return undefined;
+    }
+    let detail;
+    try {
+        [detail] = await Promise.all([
+            api.getUserDetails(userId),
+            api.getRoleMap().catch(() => state.roleMap || {})
+        ]);
+    } catch (err) {
+        console.error("UserDetails Fehler", err);
+        showFlash("Userdetails konnten nicht geladen werden", "failure");
+        return undefined;
+    }
+    if (isActionAllowed(action, detail)) {
+        return USER_ACTIONS[action].open(detail);
+    }
+    return undefined;
+}
+
+let initialized = false;
+
+function init(options = {}) {
+    if (typeof options.reload === "function") {
+        hooks.reload = options.reload;
+    }
+    if (typeof options.visibleUsers === "function") {
+        hooks.visibleUsers = options.visibleUsers;
+    }
+    if (initialized) {
+        return;
+    }
+    initialized = true;
+    cacheDOM();
     sidebarController.init();
-    await filterController.init();
-    await tableController.init();
     onboardModalController.init();
     trainingModalController.init();
     sofaAccessModalController.init();
@@ -4687,8 +3885,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     processRescheduleModalController.init();
     offboardModalController.init();
     rehireModalController.init();
+    // Die Dialoge lesen Rollennamen und -typen aus der Role Map (früher lud sie der Filter vor).
+    api.getRoleMap().catch(err => console.error("Role Map konnte nicht geladen werden", err));
 
     // open lädt die Details selbst; die Person muss nicht in der gefilterten Liste stehen.
     const linkedUserId = userIdFromSearch(location.search);
     if (linkedUserId !== null) sidebarController.open(linkedUserId);
-});
+}
+
+window.SofaUserActions = { init, openUser, run: runAction, allowed: isActionAllowed };

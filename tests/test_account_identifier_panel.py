@@ -164,8 +164,8 @@ assert.strictEqual(c.accountIdentifierOutcomeMessage({action: 'UNCHANGED', accou
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_panel_exposes_editor_and_account_log_history(self):
-        template = read("app/templates/userverwaltung.html")
-        script = read("app/static/js/userverwaltung.js")
+        template = read("app/templates/admin/user_actions.html")
+        script = read("app/static/js/user_actions.js")
 
         self.assertIn('data-history-category="accountLogs"', template)
         self.assertIn('hasPerm("SOFA-FN-EDITACC")', script)

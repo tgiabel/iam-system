@@ -1,12 +1,17 @@
-// Userverwaltung (Entwurf): Tabelle mit Suche, Filter, Schnellfiltern je laufendem Prozess und Zeilenmenü.
+// Userverwaltung: Tabelle mit Suche, Filter, Schnellfiltern je laufendem Prozess und Zeilenmenü.
+// Daten aus /api/views/users (alle User, aktive und inaktive; „Inaktive“ filtert nur hier).
 document.addEventListener("DOMContentLoaded", () => {
     "use strict";
 
     const L = window.SofaList;
-    const escapeHtml = window.SofaUtils.escapeHtml;
+    const A = window.SofaUserActions;
+    const { escapeHtml, fetchJson, apiErrorMessage, withParams } = window.SofaUtils;
     const root = document.getElementById("users-page");
-    const data = L.readData("list-data") || { users: [], roles: [] };
-    const isMock = Boolean(root.dataset.mock);
+    const mock = root.dataset.mock || "";
+    const params = new URLSearchParams(window.location.search);
+    let data = { users: [], roles: [] };
+    let loadState = "loading";
+    let loadError = "";
 
     // Kurzbezeichnungen der Prozesse; Reihenfolge = Reihenfolge der Schnellfilter.
     const PROCESS_LABELS = {
@@ -16,10 +21,11 @@ document.addEventListener("DOMContentLoaded", () => {
         skill_assignment: "Neue Rolle",
         skill_removal: "Rollenentzug",
         training_schedule: "Schulung",
-        temporary_role: "Temp. Rolle"
+        temporary_role: "Temp. Rolle",
+        rollback: "Rücknahme"
     };
 
-    const roleById = new Map(data.roles.map(role => [String(role.role_id), role]));
+    let roleById = new Map();
 
     const view = {
         search: "",
@@ -29,11 +35,23 @@ document.addEventListener("DOMContentLoaded", () => {
         sort: { key: "last_name", dir: "asc" }
     };
 
-    // Aufruf mit ?role=<id> (z. B. aus dem Rollenmanagement): diese Rolle als Filter setzen.
-    const presetRole = roleById.get(new URLSearchParams(window.location.search).get("role") || "");
-    const presetFacet = { PRIMARY: "primary", SECONDARY: "secondary", SKILL: "skill" }[presetRole?.role_type];
-    if (presetFacet) {
-        view.facets[presetFacet].set(String(presetRole.role_id), "include");
+    // Aufruf mit ?role=<id> (z. B. aus dem Rollenmanagement): die Rolle je nach Typ als Filter setzen.
+    // Das geht erst, wenn die Rollen geladen sind; danach gilt der Filter wie jeder andere.
+    let presetRoleId = params.get("role");
+
+    function applyPresetRole() {
+        const role = presetRoleId ? roleById.get(presetRoleId) : null;
+        const facet = { PRIMARY: "primary", SECONDARY: "secondary", SKILL: "skill" }[role?.role_type];
+        if (facet) {
+            view.facets[facet].set(String(role.role_id), "include");
+        }
+        presetRoleId = null;
+    }
+
+    function setData(payload) {
+        data = { users: Array.isArray(payload.users) ? payload.users : [], roles: Array.isArray(payload.roles) ? payload.roles : [] };
+        roleById = new Map(data.roles.map(role => [String(role.role_id), role]));
+        applyPresetRole();
     }
 
     const FACETS = [
@@ -65,7 +83,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusesOf = user => Array.isArray(user.derived_statuses) ? user.derived_statuses : [];
     const processesOf = user => [...new Set(statusesOf(user).map(status => String(status.process_type || "").toLowerCase()))];
     const isOverdue = user => statusesOf(user).some(status => status.is_overdue);
-    const secondaryOf = user => (user.secondary_roles || []).filter(role => !role.assignment_status || role.assignment_status === "active");
+    // Die Datenquelle liefert nur aktive Rollen mit aktiver Zuweisung.
+    const secondaryOf = user => Array.isArray(user.secondary_roles) ? user.secondary_roles : [];
     const fullName = user => [user.first_name, user.last_name].filter(Boolean).join(" ");
 
     function statusRank(user) {
@@ -163,7 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function visibleUsers() {
         const users = baseUsers().filter(user => matchesQuick(user) && matchesFacets(user) && L.matchesSearch(view.search, [
-            user.pnr, user.racf, user.xde, user.first_name, user.last_name, fullName(user), user.email,
+            user.pnr, user.racf, user.xde, user.first_name, user.last_name, fullName(user),
             user.primary_role?.name, ...secondaryOf(user).map(role => role.name)
         ]));
         return L.sortBy(users, SORT_KEYS, view.sort);
@@ -172,6 +191,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // ---------- Darstellung ----------
 
     function renderQuick() {
+        if (loadState !== "ready") {
+            document.getElementById("users-quick").innerHTML = "";
+            return;
+        }
         const users = baseUsers();
         const counts = Object.keys(PROCESS_LABELS).map(type => ({
             id: type, label: PROCESS_LABELS[type], count: users.filter(user => processesOf(user).includes(type)).length
@@ -235,7 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const ROLE_GROUPS = [["SECONDARY", "Nebenrollen"], ["SKILL", "Skills"]];
 
     function sortedRoles(user) {
-        const rank = role => ROLE_GROUPS.findIndex(([type]) => type === (role.role_type || roleById.get(String(role.role_id))?.role_type));
+        const rank = role => ROLE_GROUPS.findIndex(([type]) => type === role.role_type);
         return [...secondaryOf(user)].sort((left, right) => (rank(left) - rank(right)) || left.name.localeCompare(right.name, "de"));
     }
 
@@ -251,7 +274,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function rolesTip(user) {
         const roles = sortedRoles(user);
         return ROLE_GROUPS.map(([type, title]) => {
-            const names = roles.filter(role => (role.role_type || roleById.get(String(role.role_id))?.role_type) === type).map(role => role.name);
+            const names = roles.filter(role => role.role_type === type).map(role => role.name);
             return names.length ? `<div class="ui-tip-group"><span class="ui-tip-title">${title} · ${names.length}</span>${names.map(name => `<span>${escapeHtml(name)}</span>`).join("")}</div>` : "";
         }).join("");
     }
@@ -265,11 +288,23 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<span class="al-ids"><strong>${escapeHtml(user[top] || "–")}</strong>${rest.map(key => `<span>${escapeHtml(user[key])}</span>`).join("")}</span>`;
     }
 
+    function renderState() {
+        const message = loadState === "loading"
+            ? '<span class="ui-list-loading">Lädt …</span>'
+            : `<span class="ui-list-error">${escapeHtml(loadError)}</span> <button type="button" class="ui-flat-button ui-flat-button--sm" data-reload>Erneut laden</button>`;
+        document.getElementById("users-body").innerHTML = `<tr><td colspan="8" class="ui-list-empty">${message}</td></tr>`;
+        document.getElementById("users-count").textContent = "";
+    }
+
     function renderTable() {
+        document.getElementById("users-sort-label").textContent = sortMenu.label();
+        if (loadState !== "ready") {
+            renderState();
+            return;
+        }
         const users = visibleUsers();
         const total = baseUsers().length;
         document.getElementById("users-count").textContent = users.length === total ? `${total} User` : `${users.length} von ${total}`;
-        document.getElementById("users-sort-label").textContent = sortMenu.label();
 
         const body = document.getElementById("users-body");
         if (!users.length) {
@@ -283,8 +318,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td class="al-name"><strong>${escapeHtml(user.last_name || "–")}</strong>, ${escapeHtml(user.first_name || "")}</td>
                     <td>${escapeHtml(user.primary_role?.name || "–")}</td>
                     <td>${rolesCell(user)}</td>
-                    <td class="ui-table-muted">${escapeHtml(L.formatDate(user.entry_date))}</td>
-                    <td class="${user.is_active ? "al-exit" : "ui-table-muted"}">${escapeHtml(L.formatDate(user.exit_date))}</td>
+                    <td class="al-col-date ui-table-muted">${escapeHtml(L.formatDate(user.entry_date))}</td>
+                    <td class="al-col-date ${user.is_active ? "al-exit" : "ui-table-muted"}">${escapeHtml(L.formatDate(user.exit_date))}</td>
                     <td>${statusCell(user)}</td>
                     <td class="ui-table-action">
                         ${L.menuButton(user.user_id, fullName(user))}
@@ -329,33 +364,65 @@ document.addEventListener("DOMContentLoaded", () => {
         renderTable();
     }
 
+    async function load() {
+        // Beim ersten Laden zeigt die Seite „Lädt …“; ein späterer Fehler lässt den letzten Stand stehen.
+        if (loadState !== "ready") {
+            loadState = "loading";
+            render();
+        }
+        const { ok, data: payload } = await fetchJson(withParams("/api/views/users", mock ? { mock } : {}))
+            .catch(() => ({ ok: false, data: null }));
+        if (ok && payload) {
+            setData(payload);
+            loadState = "ready";
+        } else if (loadState === "ready") {
+            showFlash(apiErrorMessage(payload, "User konnten nicht geladen werden"), "failure");
+        } else {
+            loadState = "error";
+            loadError = apiErrorMessage(payload, "User konnten nicht geladen werden");
+        }
+        render();
+    }
+
     // ---------- Aktionen ----------
 
     function mockAction(label, user) {
         showFlash(user ? `${label}: ${fullName(user)} (Mock)` : `${label} (Mock)`, "success");
     }
 
-    function menuItems(user) {
-        const details = { id: "details", label: "Details öffnen" };
-        if (!user.is_active) {
-            return [details, { separator: true }, { id: "rehire", label: "Wiedereintritt" }];
-        }
-        return [
-            details,
-            { separator: true },
+    // Einträge nur mit dem Recht und nach derselben Regel wie im Panel (SofaUserActions.allowed).
+    // Gruppen werden durch Trenner getrennt; leere Gruppen entfallen.
+    const MENU_GROUPS = [
+        [{ id: "details", label: "Details öffnen" }],
+        [
             { id: "change", label: "Funktion wechseln" },
             { id: "skill", label: "Neue Rolle" },
             { id: "training", label: "Schulung planen" },
-            { id: "revoke", label: "Rolle entziehen" },
-            { separator: true },
-            { id: "offboarding", label: "Offboarding", danger: true }
-        ];
+            { id: "revoke", label: "Rolle entziehen" }
+        ],
+        [{ id: "offboarding", label: "Offboarding", danger: true }],
+        [{ id: "rehire", label: "Wiedereintritt" }]
+    ];
+
+    function menuItems(user) {
+        return MENU_GROUPS
+            .map(group => group.filter(item => A.allowed(item.id, user)))
+            .filter(group => group.length)
+            .flatMap((group, index) => index ? [{ separator: true }, ...group] : group);
     }
 
     const ACTION_LABELS = {
         details: "Details", rehire: "Wiedereintritt", change: "Funktion wechseln", skill: "Neue Rolle",
         training: "Schulung planen", revoke: "Rolle entziehen", offboarding: "Offboarding", onboarding: "Onboarding"
     };
+
+    function runAction(id, user) {
+        if (mock) {
+            mockAction(ACTION_LABELS[id] || id, user);
+            return;
+        }
+        A.run(id, user.user_id);
+    }
 
     function userById(id) {
         return data.users.find(user => String(user.user_id) === String(id));
@@ -416,25 +483,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("users-body").addEventListener("click", event => {
+        if (event.target.closest("[data-reload]")) {
+            load();
+            return;
+        }
         const menuButton = event.target.closest("[data-menu]");
         if (menuButton) {
             event.stopPropagation();
             const user = userById(menuButton.dataset.menu);
-            L.openMenu(menuButton, menuItems(user), id => mockAction(ACTION_LABELS[id] || id, user));
+            L.openMenu(menuButton, menuItems(user), id => runAction(id, user));
             return;
         }
         const row = event.target.closest("tr[data-open]");
         if (row && !window.getSelection()?.toString()) {
-            mockAction("Details", userById(row.dataset.open));
+            runAction("details", userById(row.dataset.open));
         }
     });
 
-    root.querySelectorAll(".ui-toolbar-end [data-action]").forEach(button => {
-        button.addEventListener("click", () => mockAction(ACTION_LABELS[button.dataset.action] || button.textContent.trim()));
-    });
-
-    if (!isMock) {
-        console.warn("Userverwaltung-Entwurf ohne Mock-Daten");
+    if (mock) {
+        // Im Mock gibt es die User nicht in der SD-API: keine echten Dialoge, nur eine Meldung.
+        root.querySelectorAll(".ui-toolbar-end [data-action]").forEach(button => {
+            button.addEventListener("click", () => mockAction(ACTION_LABELS[button.dataset.action] || button.textContent.trim()));
+        });
+    } else {
+        // Panel, Dialoge, Werkzeugleiste (#training-action-btn, #onboard-action-btn) und ?user_id= übernimmt user_actions.js.
+        A.init({ reload: load, visibleUsers });
     }
-    render();
+
+    load();
 });

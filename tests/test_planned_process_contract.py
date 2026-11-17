@@ -288,7 +288,7 @@ const assert = require('assert');
 const fs = require('fs');
 const vm = require('vm');
 const c = require('./app/static/js/sofa_contract.js');
-const source = fs.readFileSync('./app/static/js/userverwaltung.js', 'utf8');
+const source = fs.readFileSync('./app/static/js/user_actions.js', 'utf8');
 const controller = source.slice(source.indexOf('const processRescheduleModalController ='), source.indexOf('const offboardModalController ='));
 const field = () => ({value: '', hidden: false, disabled: false, innerHTML: '', focus() {}});
 const DOM = Object.fromEntries([
@@ -431,11 +431,11 @@ for (const status of [400, 401, 403, 404, 409, 422]) {
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_templates_and_scripts_expose_required_controls(self):
-        user_script = (ROOT / "app/static/js/userverwaltung.js").read_text(encoding="utf-8")
+        user_script = (ROOT / "app/static/js/user_actions.js").read_text(encoding="utf-8")
         board_model = (ROOT / "app/static/js/tasks_board_model.js").read_text(encoding="utf-8")
         board_scripts = "".join((ROOT / "app/static/js" / name).read_text(encoding="utf-8")
                                 for name in ("tasks_board.js", "tasks_board_detail.js", "tasks_board_data.js"))
-        user_template = (ROOT / "app/templates/userverwaltung.html").read_text(encoding="utf-8")
+        user_template = (ROOT / "app/templates/admin/user_actions.html").read_text(encoding="utf-8")
 
         self.assertNotIn("window.confirm", user_script)
         self.assertIn('id="process-cancel-reason"', user_template)

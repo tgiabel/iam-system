@@ -190,26 +190,12 @@ def console(request: Request, authz=Depends(require_permission("SOFA-PAGE-CNSL",
     return templates.TemplateResponse("console.html", _build_template_context(request, user=authz.raw_user, authz=authz))
 
 
-def _admin_list_mock(request: Request, authz, template: str, mock: str | None):
-    """Entwurf der neuen Userverwaltung, nur in der Entwicklungsinstanz mit `?mock=` (bis Session 2)."""
-    scenario = admin_lists_mock.mock_scenario(mock)
-    if not scenario:
-        return None
-    data = admin_lists_mock.mock_lists(scenario, today_local())
-    data_json = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    return templates.TemplateResponse(template, _build_template_context(
-        request, user=authz.raw_user, authz=authz, list_json=data_json, list_mock=scenario))
-
-
 @router.get("/users", response_class=HTMLResponse)
 async def users(request: Request, mock: str | None = None,
                 authz=Depends(require_permission("SOFA-PAGE-USER", redirect_to="/"))):
-    if (draft := _admin_list_mock(request, authz, "admin/users.html", mock)) is not None:
-        return draft
-    return templates.TemplateResponse(
-        "userverwaltung.html",
-        _build_template_context(request, user=authz.raw_user, authz=authz),
-    )
+    # Die Daten laedt die Seite ueber /api/views/users; `mock` reicht sie dorthin weiter.
+    return templates.TemplateResponse("admin/users.html", _build_template_context(
+        request, user=authz.raw_user, authz=authz, list_mock=admin_lists_mock.mock_scenario(mock)))
 
 
 @router.get("/systems", response_class=HTMLResponse)

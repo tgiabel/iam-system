@@ -70,6 +70,14 @@
     }
 }
 
+/* Unter 1040 px Kartenbreite passen acht Spalten nicht mehr (ab 900 px Fensterbreite darf nichts überlaufen).
+   Eintritt und Austritt fallen weg; laufende Ein- und Austritte zeigt die Statusmarke mit Datum. */
+@container (max-width: 1040px) {
+    .al-users .al-col-date {
+        display: none;
+    }
+}
+
 .al-more {
     color: var(--ui-text-muted);
     font-size: 0.85rem;

@@ -169,8 +169,8 @@ class OnboardingWithoutLookupTests(unittest.TestCase):
         self.assertEqual(json_body(response), {"detail": detail})
 
     def test_frontend_sends_only_form_data(self):
-        script = read("app/static/js/userverwaltung.js")
-        template = read("app/templates/userverwaltung.html")
+        script = read("app/static/js/user_actions.js")
+        template = read("app/templates/admin/user_actions.html")
 
         for removed in ("onboarding/lookup", "lookup_token", "helix", "Helix"):
             with self.subTest(removed=removed):

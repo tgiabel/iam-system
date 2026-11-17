@@ -5,17 +5,18 @@
 
 {% block css %}
 <link rel="stylesheet" href="/static/css/admin_lists.css?v={{ static_v }}">
+<link rel="stylesheet" href="/static/css/user_actions.css?v={{ static_v }}">
 {% endblock %}
 
 {% block scripts %}
 <script defer src="/static/js/list_page.js?v={{ static_v }}"></script>
+<script defer src="/static/js/sofa_contract.js?v={{ static_v }}"></script>
+<script defer src="/static/js/user_actions.js?v={{ static_v }}"></script>
 <script defer src="/static/js/admin_users.js?v={{ static_v }}"></script>
 {% endblock %}
 
 {% block content %}
 <div class="ui-list-page al-users" id="users-page"{% if list_mock %} data-mock="{{ list_mock }}"{% endif %}>
-    <script type="application/json" id="list-data">{{ list_json | safe }}</script>
-
     <header class="ui-page-toolbar">
         <h1 class="ui-page-title">Userverwaltung</h1>
         <input type="search" id="users-search" class="ui-input ui-page-search" placeholder="Name, Kennung, Rolle" aria-label="User durchsuchen" autocomplete="off">
@@ -32,10 +33,10 @@
         <div class="ui-toolbar-end">
             <span class="ui-toolbar-count" id="users-count" aria-live="polite"></span>
             {% if "SOFA-FN-TRNG" in authz.permissions or list_mock %}
-            <button type="button" class="btn btn-secondary" data-action="training">Schulung planen</button>
+            <button type="button" class="btn btn-secondary" id="training-action-btn" data-action="training">Schulung planen</button>
             {% endif %}
             {% if "SOFA-FN-ONB" in authz.permissions or list_mock %}
-            <button type="button" class="btn btn-primary" data-action="onboarding">Onboarding</button>
+            <button type="button" class="btn btn-primary" id="onboard-action-btn" data-action="onboarding">Onboarding</button>
             {% endif %}
         </div>
     </header>
@@ -57,8 +58,8 @@
                         <th data-sort-col="name"><button type="button" class="ui-table-sort-button">Name <span data-sort-indicator></span></button></th>
                         <th data-sort-col="role"><button type="button" class="ui-table-sort-button">Funktion <span data-sort-indicator></span></button></th>
                         <th data-sort-col="roles"><button type="button" class="ui-table-sort-button">Rollen <span data-sort-indicator></span></button></th>
-                        <th data-sort-col="entry"><button type="button" class="ui-table-sort-button">Eintritt <span data-sort-indicator></span></button></th>
-                        <th data-sort-col="exit"><button type="button" class="ui-table-sort-button">Austritt <span data-sort-indicator></span></button></th>
+                        <th data-sort-col="entry" class="al-col-date"><button type="button" class="ui-table-sort-button">Eintritt <span data-sort-indicator></span></button></th>
+                        <th data-sort-col="exit" class="al-col-date"><button type="button" class="ui-table-sort-button">Austritt <span data-sort-indicator></span></button></th>
                         <th data-sort-col="status"><button type="button" class="ui-table-sort-button">Status <span data-sort-indicator></span></button></th>
                         <th class="ui-table-action"><span class="ui-visually-hidden">Aktionen</span></th>
                     </tr>
@@ -68,4 +69,6 @@
         </div>
     </section>
 </div>
+
+{% include "admin/user_actions.html" %}
 {% endblock %}

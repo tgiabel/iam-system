@@ -5,7 +5,7 @@
 
 ## Hintergrund
 
-In der User-Detailansicht (`app/static/js/userverwaltung.js`,
+In der User-Detailansicht (`app/static/js/user_actions.js`,
 `renderDerivedStatuses()`, ~Zeile 1608-1665) werden die "abgeleiteten Status"
 eines Users (prozessgebundene Badges wie "Onboarding läuft", "Schulung
 überfällig") angezeigt. Jede Karte hat bereits einen optionalen
@@ -59,7 +59,7 @@ Anforderungen:
      aufrufen, danach `tableController.loadUsers()` +
      `sidebarController.refreshCurrentUser()`. Kein `window.confirm`.
 
-4. **CSS** (`app/static/css/userverwaltung.css`):
+4. **CSS** (`app/static/css/user_actions.css`):
    - `.user-derived-status-actions` (flex column container für Cancel +
      Priority-Group), nach `.user-derived-status-head` (~Zeile 739).
    - `.user-derived-status-priority-group` (flex column, kleine Pfeil-Buttons)
@@ -145,9 +145,9 @@ relevanten Rollen ergänzen (analog zu `SOFA-FN-PCNCL`/`SOFA-FN-RMRL`/`SOFA-FN-A
 
 ## Betroffene Dateien (bei Umsetzung)
 
-- `app/static/js/userverwaltung.js` — `normalizeDerivedStatus` (~658-690),
+- `app/static/js/user_actions.js` — `normalizeDerivedStatus` (~658-690),
   `api`-Objekt (~395-422), `renderDerivedStatuses` (~1608-1665)
-- `app/static/css/userverwaltung.css` — Card/Button-Styles (~717-788),
+- `app/static/css/user_actions.css` — Card/Button-Styles (~717-788),
   Mobile-Media-Query (~1342)
 - `app/api_client.py` — neue `set_process_priority` (~nach 221)
 - `app/routes/api.py` — neue `POST /processes/{process_id}/priority` Route

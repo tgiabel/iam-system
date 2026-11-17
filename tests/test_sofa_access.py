@@ -52,7 +52,7 @@ class SofaAccessActorTests(unittest.TestCase):
                 self.assertEqual(args[2], 42)
 
     def test_error_display_reads_structured_detail(self):
-        script = (ROOT / "app/static/js/userverwaltung.js").read_text(encoding="utf-8")
+        script = (ROOT / "app/static/js/user_actions.js").read_text(encoding="utf-8")
         for fallback in (
             "SOFA Zugriff konnte nicht eingerichtet werden",
             "SOFA Passwort konnte nicht zurückgesetzt werden",
