@@ -1,9 +1,10 @@
 # Tabellenseiten der Verwaltung (Userverwaltung, Rollenmanagement, Systemverwaltung)
 
 Stand 17.11.2026. Branch `feature/table-pages` im Live-Checkout.
-- **Rollenmanagement und Systemverwaltung** sind umgesetzt (Session 1): `/roles` und `/systems` laden echte Daten
-  über `/api/views/*`, mit `?mock=normal|busy|quiet` (nur Dev) die Mock-Daten.
-- **Userverwaltung** ist noch Mock: `/users?mock=…` auf Dev, ohne `mock` läuft die alte Seite (Session 2).
+- Alle drei Seiten sind umgesetzt: Rollenmanagement und Systemverwaltung in Session 1, die Userverwaltung in
+  Session 2. `/users`, `/roles` und `/systems` laden echte Daten über `/api/views/*`, mit
+  `?mock=normal|busy|quiet` (nur Dev) die Mock-Daten.
+- Die alten Seiten (`userverwaltung.*`, `rollenmanagement.*`, `systemverwaltung.*`) sind gelöscht.
 
 Dieses Dokument beschreibt die drei abgenommenen Mocks und den Plan (Abschnitt „Umsetzung“) mit dem Stand der
 Umsetzung.
@@ -13,16 +14,19 @@ Umsetzung.
 | Datei | Inhalt |
 |---|---|
 | `app/admin_lists_mock.py` | Mock-Daten in der Form der SD-API-Listen (Stand 7bc2533), Mengen wie Prod (16.11.2026) |
-| `app/admin_views.py` | Datenquellen `GET /api/views/roles` und `/api/views/systems` |
-| `app/routes/pages.py` | `/roles`, `/systems` rendern die neuen Seiten; Weiche `_admin_list_mock` nur noch für `/users` |
+| `app/admin_views.py` | Datenquellen `GET /api/views/users`, `/api/views/roles` und `/api/views/systems` |
+| `app/routes/pages.py` | `/users`, `/roles`, `/systems` rendern die neuen Seiten und reichen `mock` weiter |
 | `app/templates/admin/{users,roles,systems}.html` | Neue Seiten |
+| `app/templates/admin/user_actions.html` | User-Panel und Prozessdialoge (Include der Userverwaltung) |
+| `app/static/js/user_actions.js`, `app/static/css/user_actions.css` | Panel und Dialoge, `window.SofaUserActions` |
 | `app/static/js/list_page.js` | `window.SofaList`: Suche, Sortiermenü, Popover, Zeilenmenü, Tooltips, Filter mit drei Zuständen |
 | `app/static/js/admin_{users,roles,systems}.js` | Seitenlogik |
 | `app/static/css/ui.css` | Abschnitt „Listenseiten“ (gemeinsame Bausteine) und Sortierköpfe |
 | `app/static/css/admin_lists.css` | Seitenspezifisches der drei Seiten |
-| `tests/test_admin_lists_mock.py` | Mengen, Vererbung, `resource_items`, Weiche nur in Entwicklung |
+| `tests/test_admin_lists_mock.py` | Mengen, Vererbung, `resource_items`, Inaktiv-Eintrag |
 | `tests/test_admin_views.py` | Form der Datenquellen, Rechte, Mock nur in Entwicklung, Aufgabenzahlen je Betrachter |
 | `tests/test_admin_pages.py`, `tests/list_page_checks.js` | Seiten, Deep-Links, Vorfilter; Node-Checks für `list_page.js` |
+| `tests/user_actions_checks.js` | Node-Checks der Schnittstelle von `user_actions.js` (Rechte, Regel, Details vor Dialog, `afterChange`) |
 
 ## Userverwaltung
 
@@ -30,7 +34,7 @@ Stand 17.11.2026, vom Nutzer abgenommen („passt fürs Erste“).
 
 ### Aufbau
 
-- **Werkzeugleiste:** Titel, Suche (Name, Kennung, Rolle; findet auch E-Mail und XDE), „Filter“ mit Popover,
+- **Werkzeugleiste:** Titel, Suche (Name, Kennung, Rolle), „Filter“ mit Popover,
   Schalter „Inaktive“ (aktiv rot, `.ui-tool-btn--danger`), Anzahl („97 User“ bzw. „x von 97“), „Schulung planen“
   (`SOFA-FN-TRNG`) und „Onboarding“ (`SOFA-FN-ONB`).
 - **Schnellfilter je laufendem Prozess:**
@@ -381,6 +385,96 @@ Offen:
   - `/api/views/systems`: Aufgabenzahlen gegen `/tasks`.
 - Anlegen, Deaktivieren (inkl. 409) und die Deep-Links sind nur offline und per Test geprüft, nicht gegen die
   SD-API auf Dev.
+
+### Stand nach Session 2 (17.11.2026)
+
+Der Nutzer hat die Daten in Prod und alle Aktionen auf Dev durchgeklickt, ohne Befund.
+
+Erledigt:
+
+- [x] **Datenquelle `GET /api/views/users`** (SOFA-PAGE-USER), `?mock=` nur bei `APP_ENV=development`.
+  - **User:** ein Aufruf `GET /access/users/?is_active=false` (alle User). Je User `user_id`, `pnr`, `racf`, `xde`,
+    Vor- und Nachname, `is_active`, Ein- und Austritt, `primary_role` (ID, Name), `secondary_roles` (ID, Name,
+    `role_type`) und `derived_statuses` mit `process_type`, `label`, `is_overdue`, `reference_date`, `role_name`,
+    `source_role_name`, `target_role_name`.
+  - **Inaktiv-Eintrag:** Die SD-API hängt bei inaktiven Usern `{code: "user_inactive", label: "Inaktiv"}` ohne
+    `process_type` an. Der Zuschnitt behält nur Einträge mit `process_type`, so zählt er nicht als Prozess. Der Mock
+    trägt den Eintrag jetzt auch, damit derselbe Zuschnitt greift.
+  - **Rollen über `GET /access/roles/`, nicht `/roles/map`:** Die Map liefert nur aktive Rollen und keinen Status.
+    `?role=<id>` braucht aber Name und Typ auch für inaktive Rollen (Marke, Facette); die Facetten zeigen nur aktive,
+    dafür braucht es den Status. Die Rollenliste ist schwerer (Ressourcen, `assigned_to`), läuft aber parallel zur
+    Userliste, und der Zuschnitt gibt nur ID, Name, Typ und Status weiter.
+  - `/users` rendert nur noch `admin/users.html`; `_admin_list_mock` und das eingebettete `list-data` sind entfernt.
+    Die Seite lädt per Fetch, mit Lade- und Fehlerzustand wie Rollen und Systeme. `?role=` greift nach dem Laden.
+  - Datenprüfung des Nutzers in Prod (17.11.2026): 97 aktive, 21 inaktive User; alle Inaktiven mit `user_inactive`,
+    keine E-Mail, kein Eintrag ohne `role_type`. `process_type` kommt groß (`OFFBOARDING`); die Seite normalisiert,
+    der Mock liefert jetzt ebenfalls groß.
+- [x] **`userverwaltung.js` aufgeteilt:** Panel und Dialoge stehen nahezu unverändert in `user_actions.js`,
+  das Markup in `admin/user_actions.html` (Include), die Stile in `user_actions.css`.
+  - Entfallen: `filterController`, `tableController`, gespeicherte Filter (`sofaUserverwaltungFilters`) und die
+    Hilfen, die nur die alte Liste nutzte (Sortierung, Status-Marke, Rollenvorschau, Filteroptionen).
+  - **Schnittstelle** `window.SofaUserActions`: `init({ reload, visibleUsers })`, `openUser(id)`,
+    `run(action, userId)` und zusätzlich `allowed(action, user)` für das Zeilenmenü.
+  - **Ein Hook `afterChange(userId)`** nach jeder erfolgreichen Aktion (Entscheidung des Nutzers): aktualisiert
+    das Panel, falls es für diesen User offen ist, und lädt danach still die Liste neu. Er ersetzt die 6
+    `tableController.loadUsers()` außerhalb der Liste (2 weitere lagen im entfallenen `filterController`) und die
+    `refreshCurrentUser()` nach Erfolgen. `refreshCurrentUser()` bleibt nur im Fehlerfall „Kennung inzwischen
+    geändert“ der Kontozeile.
+  - `getFilteredUsers()` heißt jetzt `visibleUsers()` und kommt von der Seite (Suche, Filter, Schnellfilter, Inaktive).
+  - Die Role Map lädt `init` vor, wie vorher der Filter; der Deep-Link `?user_id=` öffnet beim `init` das Panel.
+- [x] **Neue Seite angebunden:**
+  - Zeilenklick öffnet das Panel.
+  - ⋯-Menü laut Tabelle „Zeilenmenü ⋯“. Ein Eintrag erscheint nur mit dem Recht des Panel-Buttons (Funktion
+    wechseln SOFA-FN-ROLE, Neue Rolle SOFA-FN-RL, Schulung planen SOFA-FN-TRNG, Rolle entziehen SOFA-FN-RMRL,
+    Offboarding SOFA-FN-OFFB, Wiedereintritt SOFA-FN-ONB) und nach `sofaContract.getUserPanelActions(user)`.
+    Die Regel steht einmal in `user_actions.js` (`USER_ACTIONS`); `run` prüft sie noch einmal an den Details.
+  - Menüeinträge laden erst die Details, dann öffnet der Dialog mit dem Detail-Objekt.
+  - „Schulung planen“ und „Onboarding“ in der Werkzeugleiste tragen die alten IDs (`training-action-btn`,
+    `onboard-action-btn`), `user_actions.js` bindet sie wie bisher.
+  - Im Mock (`?mock=`) bleibt es bei der Meldung „(Mock)“: Die Mock-User gibt es in der SD-API nicht, und echte
+    Dialoge würden auf Dev Prozesse starten. Das Menü filtert aber schon nach `allowed`.
+  - Prozesslabel „Rücknahme“ (`rollback`) ergänzt, wie auf der alten Seite.
+  - „Schulung planen“ bietet nur aktive User an, auch wenn die Liste mit „Inaktive“ Ausgetretene zeigt
+    (Entscheidung des Nutzers, Filter im Hook).
+- [x] **Aufgeräumt:** `userverwaltung.html`, `.js` und `.css` gelöscht; `_admin_list_mock` entfernt. Die nur dort
+  genutzten Bilder `filter-icon-*.png` und `no-user-icon-*.png` sind ebenfalls gelöscht (eigener Commit). Einträge in
+  `docs/frontend-backlog.md` nachgezogen (Statusliste jetzt in `user_actions.js`, die Kopie `.users-filter-*` und
+  der „+N weitere“-Helfer der alten Liste sind weg), Pfade in `docs/idea-process-priority-controls.md` angepasst.
+- [x] **Tests:** neu `tests/user_actions_checks.js`, Datenquelle und Deep-Links in `test_admin_views` und
+  `test_admin_pages`; die fünf Testdateien der alten Seite lesen die neuen Pfade. Die ganze Suite läuft grün
+  (422 Tests).
+- [x] **Screenshots** offline (hell, dunkel, Servodata; 1600, 1100 und 820 px; Panel, Dialog „Offboarding“ aus dem
+  ⋯-Menü, Filter-Popover, Lade- und Fehlerzustand, Leerzustand). Überlauf gemessen von 880 bis 1600 px, mit und
+  ohne „Inaktive“, mit den Mock-Daten `busy`: überall 0.
+
+Abweichungen und Befunde:
+
+- **Usertabelle lief zwischen 900 und 1100 px über** (bei 950 px um 132 px, Fehler aus dem Mock). Acht Spalten
+  brauchen mit den längsten Werten rund 980 px; Kürzen und engere Abstände reichen bis 900 px nicht. Unter 1040 px
+  Kartenbreite fallen deshalb **Eintritt und Austritt** weg (`.al-col-date`, Muster der Systemverwaltung). Laufende
+  Ein- und Austritte zeigt die Statusmarke mit Datum.
+- **Filter-Popover ragte unter ca. 1400 px Fensterbreite rechts aus dem Fenster** (bei 1100 px um 271 px, die Seite
+  scrollte seitlich; Fehler aus dem Mock). `SofaList.bindPopover` rückt das Popover jetzt um den Überstand nach
+  links, `.ui-pop` ist höchstens fensterbreit und bricht seine Spalten dann um (unter 900 px einspaltig).
+
+- **Keine E-Mail in der Liste:** `UserListContext` der SD-API hat kein `email` (erst die Details). Die Suche findet
+  deshalb keine E-Mail-Adressen; das war auf der alten Seite genauso. `email` ist aus dem Zuschnitt entfernt.
+- **Schulung planen lädt jetzt auch neu:** Der Dialog hat vorher weder Panel noch Liste aktualisiert. Er läuft jetzt
+  wie die anderen über `afterChange`, damit die neue Schulung in der Statusspalte erscheint.
+- **`userverwaltung.css` → `user_actions.css`:** Der Teil für Panel und Dialoge ist unter dem neuen Namen
+  übernommen, ohne die Listenregeln und ohne die `main`-Regel der alten Seite. Die alte Datei fällt mit der alten
+  Seite weg.
+- **Keine neuen SD-API-Felder für die Userverwaltung:** `role_type` in `secondary_roles` gibt es seit v2.0.0, der
+  Inaktiv-Eintrag seit v2.8.0.
+- **`Requires: sd-api >= 3.3.1`** trägt der Doku-Commit von Session 2. Er holt den fehlenden Trailer von `482d19c`
+  nach (Felder aus SD-API `7bc2533`, laut `release_notes.py version` dort 3.3.1), damit der Release-Eintrag die
+  Mindestversion sammelt.
+
+Offen:
+
+- **Deploy:** Release `v1.7.0` ist vorbereitet (`Bump: minor` am Doku-Commit, Release-Commit am Ende des Branches).
+  Merge auf `main` und Deploy macht der Nutzer, erst nach dem Deploy von SD-API 3.3.1.
+- Wie nach Session 1: `/users?system=` und „Gilt für“ kommen später.
 
 ### Ablauf
 
