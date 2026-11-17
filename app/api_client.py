@@ -353,8 +353,9 @@ class APIClient:
     async def get_role_resources(self, role_id: int) -> list[dict]:
         return await self._get(ACCESS_BASE_URL, f"/roles/{role_id}/resources")
 
-    async def get_system_overview(self) -> dict:
-        return await self._get(ACCESS_BASE_URL, "/systems/")
+    async def get_system_overview(self, params: dict | None = None) -> list[dict]:
+        # task_backlogs/task_unbacklogged grenzen die Aufgabenzahlen auf das ein, was der Betrachter sieht.
+        return await self._get(ACCESS_BASE_URL, "/systems/", params=params)
 
     async def get_system_map(self) -> dict:
         return await self._get(ACCESS_BASE_URL, "/systems/map")

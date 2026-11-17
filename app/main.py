@@ -11,6 +11,7 @@ from app.authz import SessionRequired
 from app.session import APP_ENV, safe_next, service_key
 from app.session_gate import SessionGateMiddleware, session_error
 
+from app.admin_views import router as admin_views_router
 from app.routes.api import router as api_router
 from app.routes.agent_stats_report import router as agent_stats_report_router
 from app.routes.dashboard import router as dashboard_router
@@ -103,6 +104,7 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 app.include_router(page_router)
 app.include_router(releases_router)
 app.include_router(api_router)
+app.include_router(admin_views_router)
 app.include_router(session_api_router)
 app.include_router(logon_log_router, prefix="/api")
 app.include_router(time_corrections_router, prefix="/api")
