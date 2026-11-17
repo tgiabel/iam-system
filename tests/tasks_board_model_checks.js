@@ -89,7 +89,12 @@ assert.deepEqual(model.normalizeView(null), defaults);
 assert.deepEqual(model.normalizeView({ openGrouping: "quatsch", doneRange: "year", railOpen: "ja" }), defaults, "Unbekanntes fällt auf Standard");
 const restored = model.normalizeView({ openGrouping: "process", openSort: "age", doneRange: "week", onlyMine: true, railOpen: true, search: "x", facets: { backlog: ["TEL"] } });
 assert.equal(restored.search, "", "Suche wird nicht wiederhergestellt");
-assert.deepEqual(restored.facets, { backlog: ["TEL"], taskType: [], handling: [] });
+assert.deepEqual(restored.facets, { backlog: ["TEL"], taskType: [], handling: [], system: [] });
+// Vorfilter /tasks?system=<id> setzt nur die Systemauswahl.
+assert.deepEqual(model.applyUrlFilters(restored, "?system=9&mock=1").facets, { backlog: ["TEL"], taskType: [], handling: [], system: ["9"] });
+assert.equal(model.applyUrlFilters(restored, "?mock=1"), restored);
+assert.equal(model.facetValue({ system_id: 9 }, "system"), "9");
+assert.equal(model.facetValue({}, "system"), "__NONE__");
 assert.equal("search" in model.serializeView(restored), false);
 
 // ---------- Board ----------

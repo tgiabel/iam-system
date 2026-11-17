@@ -21,7 +21,7 @@
     const OPEN_SORTS = ["due", "age"];
     const DONE_RANGES = ["today", "week", "month"];
     const RAIL_TABS = ["blocked", "deferred"];
-    const FACETS = ["backlog", "taskType", "handling"];
+    const FACETS = ["backlog", "taskType", "handling", "system"];
 
     const DAY_MS = 24 * 60 * 60 * 1000;
     const WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
@@ -210,7 +210,7 @@
             doneRange: "today",
             onlyMine: false,
             search: "",
-            facets: { backlog: [], taskType: [], handling: [] }
+            facets: { backlog: [], taskType: [], handling: [], system: [] }
         };
     }
 
@@ -239,6 +239,12 @@
         };
     }
 
+    // Vorfilter aus der URL (/tasks?system=<id>, z. B. aus der Systemverwaltung): ersetzt die Systemauswahl.
+    function applyUrlFilters(view, search) {
+        const system = new URLSearchParams(search || "").get("system");
+        return system ? { ...view, facets: { ...view.facets, system: [String(system)] } } : view;
+    }
+
     function serializeView(view) {
         const { search, ...stored } = view;
         return stored;
@@ -252,6 +258,9 @@
         }
         if (key === "taskType") {
             return upper(task?.task_type);
+        }
+        if (key === "system") {
+            return String(task?.system_id ?? "").trim() || "__NONE__";
         }
         return upper(task?.handling_type);
     }
@@ -636,6 +645,7 @@
         RAIL_TABS,
         activeParkedSection,
         FACETS,
+        applyUrlFilters,
         OPEN_GROUPINGS,
         OPEN_SORTS,
         actionLabel,

@@ -47,6 +47,15 @@
     let loadRequest = 0;
     let bulkBusy = false;
     let view = loadView();
+    // ?system= setzt die Facette System und wird wie jede Auswahl gespeichert; danach fällt der Parameter weg,
+    // damit Zurücksetzen und Neuladen ihn nicht wieder anwenden.
+    if (new URLSearchParams(window.location.search).has("system")) {
+        view = Model.applyUrlFilters(view, window.location.search);
+        saveView();
+        const query = new URLSearchParams(window.location.search);
+        query.delete("system");
+        window.history.replaceState(null, "", `${window.location.pathname}${query.toString() ? `?${query}` : ""}`);
+    }
     let board = null;
     const selected = new Set();
     let anchor = null;
@@ -412,16 +421,23 @@
     // ---------- Werkzeugleiste ----------
 
     function facetOptions() {
-        const values = { backlog: new Set(), taskType: new Set(), handling: new Set() };
-        tasks.forEach(task => Model.FACETS.forEach(key => values[key].add(Model.facetValue(task, key))));
+        const values = Object.fromEntries(Model.FACETS.map(key => [key, new Set()]));
+        const systemNames = new Map();
+        tasks.forEach(task => {
+            Model.FACETS.forEach(key => values[key].add(Model.facetValue(task, key)));
+            systemNames.set(Model.facetValue(task, "system"), task.system_name);
+        });
+        // Eine Auswahl aus der URL bleibt sichtbar, auch wenn das System gerade keine Aufgaben hat.
+        view.facets.system.forEach(value => values.system.add(value));
         const label = {
             backlog: value => value === "__NONE__" ? "Kein Backlog" : (backlogLookup[value]?.name || value),
             taskType: value => LABELS.taskType[value] || value,
-            handling: value => LABELS.handling[value] || value
+            handling: value => LABELS.handling[value] || value,
+            system: value => value === "__NONE__" ? "Kein System" : (systemNames.get(value) || `System ${value}`)
         };
         return Model.FACETS.map(key => ({
             key,
-            title: { backlog: "Backlog", taskType: "Aufgabentyp", handling: "Bearbeitungsart" }[key],
+            title: { backlog: "Backlog", taskType: "Aufgabentyp", handling: "Bearbeitungsart", system: "System" }[key],
             options: Array.from(values[key]).filter(Boolean)
                 .map(value => ({ value, label: label[key](value) }))
                 .sort((left, right) => left.label.localeCompare(right.label, "de"))
