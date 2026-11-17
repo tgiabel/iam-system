@@ -35,7 +35,7 @@ class AdminListsMockTest(unittest.TestCase):
     def test_one_lifecycle_process_per_user(self):
         for scenario in admin_lists_mock.SCENARIOS:
             for user in admin_lists_mock.mock_lists(scenario, TODAY)["users"]:
-                lifecycle = [s for s in user["derived_statuses"] if s["process_type"] in ("onboarding", "offboarding", "change")]
+                lifecycle = [s for s in user["derived_statuses"] if s.get("process_type") in ("ONBOARDING", "OFFBOARDING", "CHANGE")]
                 self.assertLessEqual(len(lifecycle), 1)
 
     def test_deterministic(self):
@@ -47,19 +47,11 @@ class AdminListsRouteTest(unittest.TestCase):
         self.client = TestClient(app, base_url="https://testserver")
         sign_in(self, self.client, *PERMS)
 
-    def test_mock_draft_only_in_development(self):
-        with patch.dict(os.environ, {"APP_ENV": "production"}):
-            response = self.client.get("/users?mock=1")
-        self.assertEqual(response.status_code, 200)
-        self.assertNotIn('id="list-data"', response.text)
-
-    def test_mock_draft_users_page(self):
-        # Bis Session 2 bringt nur noch die Userverwaltung ihre Mock-Daten im Template mit.
-        with patch.dict(os.environ, {"APP_ENV": "development"}):
-            response = self.client.get("/users?mock=busy")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('id="list-data"', response.text)
-        self.assertIn("ui-page-toolbar", response.text)
+    def test_inactive_users_carry_the_inactive_status(self):
+        # Wie die SD-API: ein Status ohne Prozess, den die Datenquelle wegschneidet.
+        for user in admin_lists_mock.mock_lists("normal", TODAY)["users"]:
+            codes = [status.get("code") for status in user["derived_statuses"]]
+            self.assertEqual("user_inactive" in codes, not user["is_active"])
 
     def test_resource_items_follow_resources(self):
         data = admin_lists_mock.mock_lists("normal", TODAY)

@@ -1,4 +1,4 @@
-"""Datenquellen der Verwaltungslisten: `GET /api/views/roles` und `GET /api/views/systems`.
+"""Datenquellen der Verwaltungslisten: `GET /api/views/users`, `/api/views/roles` und `/api/views/systems`.
 
 Jede Quelle baut serverseitig die Form, mit der die Seite rechnet (`{systems, roles, users, backlogs}` wie
 `admin_lists_mock.mock_lists`), und gibt je Seite nur die Felder weiter, die sie braucht. Geprueft wird nur das
@@ -33,6 +33,36 @@ def _pick(item: dict, fields) -> dict:
 
 def _list(value) -> list:
     return value if isinstance(value, list) else []
+
+
+# ---------- Userverwaltung ----------
+
+# `UserListContext` der SD-API hat keine E-Mail; die steht erst in den Details.
+_USER_FIELDS = ("user_id", "pnr", "racf", "xde", "first_name", "last_name", "is_active", "entry_date", "exit_date")
+_STATUS_FIELDS = ("process_type", "label", "is_overdue", "reference_date", "role_name",
+                  "source_role_name", "target_role_name")
+_ROLE_FIELDS = ("role_id", "name", "role_type", "role_status")
+
+
+def _user_row(user: dict) -> dict:
+    return {
+        **_pick(user, _USER_FIELDS),
+        "primary_role": _pick(user.get("primary_role") or {}, ("role_id", "name")),
+        # Die SD-API liefert hier nur aktive Rollen mit aktiver Zuweisung, mit `role_type`.
+        "secondary_roles": [_pick(role, ("role_id", "name", "role_type")) for role in _list(user.get("secondary_roles"))],
+        # Nur laufende Prozesse: Der Inaktiv-Eintrag (`user_inactive`) hat keinen `process_type`.
+        "derived_statuses": [_pick(status, _STATUS_FIELDS) for status in _list(user.get("derived_statuses"))
+                             if isinstance(status, dict) and status.get("process_type")],
+    }
+
+
+def users_payload(users: list, roles: list, mock: str | None = None) -> dict:
+    return {
+        "mock": mock,
+        "users": [_user_row(user) for user in _list(users)],
+        # Fuer die Facetten und `?role=`; mit Status, damit auch inaktive Rollen Namen und Typ haben.
+        "roles": [_pick(role, _ROLE_FIELDS) for role in _list(roles)],
+    }
 
 
 # ---------- Rollenmanagement ----------
@@ -103,6 +133,24 @@ async def _respond(build):
 def _mock_data(mock: str | None) -> tuple[str | None, dict | None]:
     scenario = admin_lists_mock.mock_scenario(mock)
     return scenario, admin_lists_mock.mock_lists(scenario, today_local()) if scenario else None
+
+
+@router.get("/users")
+async def users_view(mock: str | None = None, authz=Depends(require_permission("SOFA-PAGE-USER"))):
+    scenario, data = _mock_data(mock)
+
+    async def build():
+        if data:
+            return users_payload(data["users"], data["roles"], scenario)
+        users, roles = await asyncio.gather(
+            # is_active=false liefert bei der SD-API alle User; "Inaktive" filtert die Seite.
+            api_client.list_users(is_active=False),
+            # Die Rollenliste statt /roles/map: Die Map kennt nur aktive Rollen und keinen Status.
+            api_client.get_role_overview(),
+        )
+        return users_payload(users, roles)
+
+    return await _respond(build)
 
 
 @router.get("/roles")

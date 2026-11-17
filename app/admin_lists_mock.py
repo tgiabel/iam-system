@@ -1,4 +1,4 @@
-"""Mock-Daten der Verwaltungsseiten (nur Entwicklungsinstanz): `/users?mock=` und `/api/views/roles|systems?mock=`.
+"""Mock-Daten der Verwaltungsseiten (nur Entwicklungsinstanz): `/api/views/users|roles|systems?mock=`.
 
 Die Formen folgen den Listen-Endpunkten der SD-API (`/access/users`, `/access/roles/`, `/access/systems/`, Stand 7bc2533),
 die Mengen den Prod-Zahlen vom 16./17.11.2026: 23 Systeme wie in Prod (153 Ressourcen), 42 aktive Rollen
@@ -244,6 +244,8 @@ _PROCESS_COUNTS = {
              "training_schedule": 8},
 }
 _OVERDUE = {"quiet": 0, "normal": 2, "busy": 9}
+_INACTIVE_STATUS = {"code": "user_inactive", "label": "Inaktiv", "severity": "low", "is_overdue": False,
+                    "reference_date": None}
 
 
 def _users(rng: random.Random, roles: list[dict], scenario: str, today: date) -> list[dict]:
@@ -280,7 +282,8 @@ def _users(rng: random.Random, roles: list[dict], scenario: str, today: date) ->
             "primary_role": {"role_id": primary["role_id"], "name": primary["name"]},
             "secondary_roles": [{"role_id": role["role_id"], "name": role["name"], "role_type": role["role_type"],
                                  "assignment_status": "active"} for role in secondary],
-            "derived_statuses": [],
+            # Wie die SD-API: Inaktive tragen einen Status ohne Prozess (`_inactive_user_status`).
+            "derived_statuses": [] if active else [dict(_INACTIVE_STATUS)],
         })
         for role in ([primary] if active else []) + secondary:
             role["assigned_to"].append(f"{first} {last}")
@@ -290,7 +293,7 @@ def _users(rng: random.Random, roles: list[dict], scenario: str, today: date) ->
     for process_type, count in _PROCESS_COUNTS[scenario].items():
         # Eintritt, Austritt und Wechsel schliessen sich je User aus.
         pool = [user for user in active_users if process_type not in lifecycle
-                or not any(status["process_type"] in lifecycle for status in user["derived_statuses"])]
+                or not any(status["process_type"].lower() in lifecycle for status in user["derived_statuses"])]
         for user in rng.sample(pool, count):
             reference = today + timedelta(days=rng.randint(-3, 21))
             if process_type == "onboarding":
@@ -301,7 +304,8 @@ def _users(rng: random.Random, roles: list[dict], scenario: str, today: date) ->
                 user["exit_date"] = reference.isoformat()
             status = {
                 "code": f"{process_type}_running", "label": _PROCESSES[process_type],
-                "process_type": process_type, "process_id": rng.randint(5000, 9999),
+                # Die SD-API liefert den Typ gross (OFFBOARDING), wie der Enum ProcessType.
+                "process_type": process_type.upper(), "process_id": rng.randint(5000, 9999),
                 "severity": "warning" if process_type == "offboarding" else "info",
                 "is_overdue": False, "reference_date": reference.isoformat(),
             }
