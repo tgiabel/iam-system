@@ -439,25 +439,27 @@
             <section class="dp-section" data-guide>
                 <div class="dp-section-head">
                     <h3 class="dp-guide-title">Anleitung<button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm dp-guide-syntax-btn" data-guide-syntax aria-expanded="${state.panel.guideSyntax}" aria-controls="dp-guide-syntax" aria-label="Schreibweise" title="Schreibweise"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/></svg></button></h3>
-                    <div class="dp-guide-tools">
+                    <div class="ui-segmented" role="group" aria-label="Vorgang">
+                        ${D.TASK_TYPES.map(t => `<button type="button" data-form-task="${t.value}" aria-pressed="${t.value === state.panel.activeTask}">${t.label}</button>`).join("")}
+                    </div>
+                </div>
+                ${guideSyntaxHtml()}
+                <div class="dp-guide-editor">
+                    <div class="dp-guide-toolbar">
                         ${groups.length ? `<select class="ui-input dp-guide-insert" data-guide-insert aria-label="Platzhalter einfügen">
                             <option value="">Platzhalter</option>
                             ${groups.map(group => `<optgroup label="${esc(group.name)}">${group.entries.map(entry =>
                                 `<option value="${esc(entry.key)}">${esc(entry.label || entry.key)}</option>`).join("")}</optgroup>`).join("")}
-                        </select>` : ""}
-                        <button type="button" class="ui-flat-button ui-flat-button--sm" data-guide-preview aria-pressed="${state.panel.guidePreview}">Vorschau</button>
-                        <div class="ui-segmented" role="group" aria-label="Vorgang">
-                            ${D.TASK_TYPES.map(t => `<button type="button" data-form-task="${t.value}" aria-pressed="${t.value === state.panel.activeTask}">${t.label}</button>`).join("")}
-                        </div>
+                        </select>` : "<span></span>"}
+                        <button type="button" class="ui-flat-button ui-flat-button--sm dp-guide-preview-btn" data-guide-preview aria-pressed="${state.panel.guidePreview}">Vorschau</button>
                     </div>
+                    ${D.TASK_TYPES.map(t => `
+                    <div data-guide-fields="${t.value}">
+                        <textarea class="ui-textarea" data-guide="${t.value}" rows="7" maxlength="${window.ResourceGuide.MAX_LENGTH}" aria-label="Anleitung ${esc(t.label)}">${esc(r?.guides?.[t.value] || "")}</textarea>
+                        <div class="dp-guide-preview" data-guide-preview-for="${t.value}" hidden></div>
+                    </div>`).join("")}
                 </div>
-                ${guideSyntaxHtml()}
-                ${D.TASK_TYPES.map(t => `
-                <div class="dp-field" data-guide-fields="${t.value}">
-                    <textarea class="ui-textarea" data-guide="${t.value}" rows="7" maxlength="${window.ResourceGuide.MAX_LENGTH}" aria-label="Anleitung ${esc(t.label)}">${esc(r?.guides?.[t.value] || "")}</textarea>
-                    <div class="dp-guide-preview" data-guide-preview-for="${t.value}" hidden></div>
-                    <p class="dp-guide-unknown" data-guide-unknown="${t.value}" hidden></p>
-                </div>`).join("")}
+                ${D.TASK_TYPES.map(t => `<div data-guide-fields="${t.value}"><p class="dp-guide-unknown" data-guide-unknown="${t.value}" hidden></p></div>`).join("")}
             </section>`;
     }
 

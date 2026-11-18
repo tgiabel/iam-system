@@ -211,46 +211,8 @@
     align-items: end;
 }
 
-/* Anleitung im Ressourcen-Formular */
-.dp-guide-tools {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem;
-}
-
-.dp-guide-insert {
-    width: auto;
-    min-height: 0;
-    padding: 0.3rem 0.6rem;
-    font-size: 0.88rem;
-}
-
-.dp-guide-tools .ui-flat-button[aria-pressed="true"] {
-    color: var(--color-primary);
-    font-weight: 700;
-}
-
-.dp-guide-preview {
-    min-height: 6rem;
-    padding: 0.9rem 1rem;
-    border: 1px dashed var(--ui-border);
-    border-radius: 16px;
-    background: var(--ui-surface-card);
-}
-
-.dp-guide-unknown {
-    margin: 0.35rem 0 0;
-    color: var(--ui-warning-text);
-    font-size: 0.85rem;
-}
-
-.dp-guide-unknown[hidden],
-.dp-guide-preview[hidden] {
-    display: none;
-}
-
+/* Anleitung im Ressourcen-Formular: Kopf (Titel + i | Vorgang), darunter ein Editor-Kasten mit
+   angedockter Leiste (Platzhalter | Vorschau) über Textfeld bzw. Vorschau. */
 .dp-guide-title {
     display: inline-flex;
     align-items: center;
@@ -275,7 +237,7 @@
 }
 
 .dp-guide-syntax {
-    margin: 0.6rem 0 0.75rem;
+    margin-top: 0.6rem;
     padding: 0.55rem 0.8rem;
     border-radius: 12px;
     background: var(--ui-surface-soft);
@@ -306,4 +268,65 @@
     font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace);
     font-size: 0.95em;
     color: var(--ui-text-strong);
+}
+
+.dp-guide-editor {
+    margin-top: 0.75rem;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 16px;
+    background: var(--ui-surface-card);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dp-guide-editor:focus-within {
+    border-color: rgba(var(--color-primary-rgb), 0.38);
+    box-shadow: 0 0 0 4px rgba(var(--color-primary-rgb), 0.12);
+}
+
+.dp-guide-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.45rem;
+    border-bottom: 1px solid var(--ui-border);
+    background: var(--ui-surface-soft);
+}
+
+.dp-guide-insert {
+    width: auto;
+    min-height: 0;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.88rem;
+}
+
+.dp-guide-preview-btn[aria-pressed="true"] {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.dp-guide-editor .ui-textarea,
+.dp-guide-editor .ui-textarea:focus {
+    display: block;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.dp-guide-editor .ui-textarea[hidden],
+.dp-guide-preview[hidden],
+.dp-guide-unknown[hidden] {
+    display: none;
+}
+
+.dp-guide-preview {
+    min-height: 10rem;
+    padding: 0.9rem 1rem;
+}
+
+.dp-guide-unknown {
+    margin: 0.35rem 0 0;
+    color: var(--ui-warning-text);
+    font-size: 0.85rem;
 }
