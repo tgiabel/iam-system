@@ -355,7 +355,7 @@
                         ${TASK_TYPES.map(t => `<button type="button" data-view-task="${t.value}" aria-pressed="${t.value === activeTask}">${t.label}</button>`).join("")}
                     </div>
                 </div>
-                ${guides[activeTask] ? `<div class="rg-guide">${guide.preview(guides[activeTask], ctx.guideCatalog)}</div>` : `<p class="dp-note">Keine</p>`}
+                ${guides[activeTask] ? `<div class="rg-guide">${guide.previewPages(guides[activeTask], ctx.guideCatalog).join('<hr class="rg-page-break">')}</div>` : `<p class="dp-note">Keine</p>`}
             </section>` : "";
 
         return `

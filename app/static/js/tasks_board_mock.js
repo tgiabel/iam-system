@@ -77,7 +77,11 @@
                 `1. In der Administration von ${task.system_name || "System"} den Benutzer suchen: \`${lacksId ? "{{genesys_user_id}}" : `user${task.target_user_id}`}\``,
                 `2. Gruppe **${task.resource_name || "Ressource"}** ${verb}`,
                 `3. Stichtag beachten: ${task.target_date ? contract.formatDateKey(task.target_date) : "–"}`,
-                "",
+                "---",
+                "**Prüfen**",
+                "- Gruppe erscheint im Profil",
+                "- Anmeldung mit `Standardprofil` möglich",
+                "---",
                 `Rückfragen zu ${name} an das Team, Doku unter https://wiki.example.test/zugaenge.`
             ].join("\n");
             return ok({ ...base, guide, missing: lacksId ? [{ key: "genesys_user_id", label: "Genesys-ID" }] : [] });

@@ -120,24 +120,82 @@
         return out.join("");
     }
 
+    // Eine Zeile nur aus "---" beginnt eine neue Seite; Seiten werden getrimmt, leere fallen weg.
+    function splitPages(text) {
+        const pages = [[]];
+        for (const line of String(text ?? "").replace(/\r\n?/g, "\n").split("\n")) {
+            if (line.trim() === "---") pages.push([]);
+            else pages[pages.length - 1].push(line);
+        }
+        return pages.map(lines => lines.join("\n").trim()).filter(Boolean);
+    }
+
     // Anzeige in der Task-Card: übrig gebliebene Platzhalter aus missing/unknown werden zu Warnungen.
-    function render(text, { missing = [], unknown = [] } = {}) {
+    function guideResolver({ missing = [], unknown = [] } = {}) {
         const missingLabels = new Map((missing || []).map(entry => [entry?.key ?? entry, entry?.label || entry?.key || entry]));
         const unknownKeys = new Set((unknown || []).map(entry => entry?.key ?? entry));
-        return toHtml(text, key => {
+        return key => {
             if (missingLabels.has(key)) return { kind: "missing", label: missingLabels.get(key) };
             if (unknownKeys.has(key)) return { kind: "unknown", label: key };
             return null;
-        });
+        };
     }
 
     // Vorschau und lesende Ansicht: Platzhalter erscheinen mit ihrem Label aus dem Katalog.
-    function preview(text, catalog = []) {
+    function previewResolver(catalog = []) {
         const labels = new Map((catalog || []).map(entry => [entry.key, entry.label || entry.key]));
         // Ohne Katalog (nicht geladen) ist kein Platzhalter als unbekannt zu werten.
-        return toHtml(text, key => labels.has(key) || !labels.size
+        return key => labels.has(key) || !labels.size
             ? { kind: "placeholder", label: labels.get(key) || key }
-            : { kind: "unknown", label: key });
+            : { kind: "unknown", label: key };
+    }
+
+    // Einseitig wie bisher; "---" bleibt hier ein Seitenwechsel ohne Ausgabe.
+    const render = (text, data) => renderPages(text, data).join("");
+    const preview = (text, catalog) => previewPages(text, catalog).join("");
+    const renderPages = (text, data) => splitPages(text).map(page => toHtml(page, guideResolver(data)));
+    const previewPages = (text, catalog) => splitPages(text).map(page => toHtml(page, previewResolver(catalog)));
+
+    const CHEVRON = { prev: "m15 6-6 6 6 6", next: "m9 6 6 6-6 6" };
+    const arrowHtml = (dir, disabled) => `<button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm rg-pager-arrow" data-guide-step="${dir === "prev" ? -1 : 1}" aria-label="${dir === "prev" ? "Vorherige Seite" : "Nächste Seite"}"${disabled ? " disabled" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${CHEVRON[dir]}"/></svg></button>`;
+
+    // Mehrere Seiten: Pfeile links/rechts, Punkte unten. Alle Seiten liegen übereinander, damit die Höhe
+    // beim Blättern gleich bleibt (die längste zählt). Eine Seite: nur der Inhalt.
+    function pagerHtml(pages, active = 0) {
+        if (pages.length <= 1) return `<div class="rg-guide">${pages[0] || ""}</div>`;
+        const index = Math.min(Math.max(0, active), pages.length - 1);
+        return `<div class="rg-pager" data-guide-pager>
+            ${arrowHtml("prev", index === 0)}
+            <div class="rg-pages">${pages.map((html, page) => `<div class="rg-guide rg-page${page === index ? " is-active" : ""}" data-guide-page="${page}" role="group" aria-label="Seite ${page + 1} von ${pages.length}"${page === index ? "" : " aria-hidden=\"true\""}>${html}</div>`).join("")}</div>
+            ${arrowHtml("next", index === pages.length - 1)}
+            <div class="rg-dots">${pages.map((_, page) => `<button type="button" class="rg-dot" data-guide-dot="${page}" aria-label="Seite ${page + 1}"${page === index ? ' aria-current="true"' : ""}></button>`).join("")}</div>
+        </div>`;
+    }
+
+    // Blättern im gerenderten Pager (Browser); liefert die neue Seite oder null ohne Pager.
+    function showPage(root, index) {
+        const pager = root?.querySelector("[data-guide-pager]");
+        if (!pager) return null;
+        const pages = [...pager.querySelectorAll("[data-guide-page]")];
+        const current = Math.min(Math.max(0, index), pages.length - 1);
+        pages.forEach((page, i) => {
+            page.classList.toggle("is-active", i === current);
+            page.toggleAttribute("aria-hidden", i !== current);
+        });
+        pager.querySelectorAll("[data-guide-dot]").forEach((dot, i) => {
+            if (i === current) dot.setAttribute("aria-current", "true"); else dot.removeAttribute("aria-current");
+        });
+        pager.querySelector('[data-guide-step="-1"]').disabled = current === 0;
+        pager.querySelector('[data-guide-step="1"]').disabled = current === pages.length - 1;
+        return { index: current, count: pages.length };
+    }
+
+    // Klick auf Pfeil oder Punkt: Zielseite, sonst null.
+    function pageTarget(target, current) {
+        const step = target.closest("[data-guide-step]");
+        if (step) return current + Number(step.dataset.guideStep);
+        const dot = target.closest("[data-guide-dot]");
+        return dot ? Number(dot.dataset.guideDot) : null;
     }
 
     function unknownKeys(text, catalog = []) {
@@ -156,5 +214,5 @@
         return [...groups].map(([name, entries]) => ({ name, entries }));
     }
 
-    return { MAX_LENGTH, render, preview, placeholderKeys, unknownKeys, groupCatalog };
+    return { MAX_LENGTH, render, preview, splitPages, renderPages, previewPages, pagerHtml, showPage, pageTarget, placeholderKeys, unknownKeys, groupCatalog };
 }));

@@ -1934,3 +1934,93 @@ button.rg-chip.is-copied {
     background: var(--ui-blue-bg);
     color: var(--ui-blue-text);
 }
+
+/* Mehrseitige Anleitung: Pfeile links/rechts, Punkte unten. Alle Seiten liegen in derselben
+   Rasterzelle, sichtbar ist nur die aktive; so bleibt die Höhe beim Blättern gleich. */
+.rg-pager {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "prev pages next" ". dots .";
+    align-items: center;
+    column-gap: 0.4rem;
+    row-gap: 0.7rem;
+}
+
+.rg-pages {
+    grid-area: pages;
+    display: grid;
+    min-width: 0;
+}
+
+.rg-page {
+    grid-area: 1 / 1;
+    align-self: start;
+}
+
+.rg-page:not(.is-active) {
+    visibility: hidden;
+}
+
+.rg-pager-arrow[data-guide-step="-1"] { grid-area: prev; }
+.rg-pager-arrow[data-guide-step="1"] { grid-area: next; }
+
+.rg-pager-arrow svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.rg-dots {
+    grid-area: dots;
+    display: flex;
+    justify-content: center;
+    gap: 0.1rem;
+}
+
+.rg-dot {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+
+.rg-dot::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--ui-border-strong, var(--ui-border));
+    transition: width 0.15s ease, background-color 0.15s ease;
+}
+
+.rg-dot:hover::before {
+    background: var(--ui-text-muted);
+}
+
+.rg-dot[aria-current="true"]::before {
+    width: 1.1rem;
+    background: var(--color-primary);
+}
+
+.rg-dot:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+    border-radius: 999px;
+}
+
+/* Lesende Ansicht: Seiten untereinander mit dezenter Trennlinie. */
+.rg-page-break {
+    width: 100%;
+    margin: 0.2rem 0;
+    border: 0;
+    border-top: 1px dashed var(--ui-border);
+}

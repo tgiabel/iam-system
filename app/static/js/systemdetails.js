@@ -251,7 +251,7 @@
 
     function openPanel(mode, resource = null) {
         if (mode !== "new" && !resource) return;
-        state.panel = { mode, resource, activeTask: "ASSIGNMENT", snapshot: null, roles: null, guidePreview: false };
+        state.panel = { mode, resource, activeTask: "ASSIGNMENT", snapshot: null, roles: null, guidePreview: false, guidePage: 0, guideSyntax: false };
         renderPanel();
         $("res-panel-overlay").classList.add("active");
         if (resource) loadRoles(state.panel);
@@ -438,7 +438,7 @@
         return `
             <section class="dp-section" data-guide>
                 <div class="dp-section-head">
-                    <h3>Anleitung</h3>
+                    <h3 class="dp-guide-title">Anleitung<button type="button" class="ui-flat-button ui-flat-button--icon ui-flat-button--sm dp-guide-syntax-btn" data-guide-syntax aria-expanded="${state.panel.guideSyntax}" aria-controls="dp-guide-syntax" aria-label="Schreibweise" title="Schreibweise"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/></svg></button></h3>
                     <div class="dp-guide-tools">
                         ${groups.length ? `<select class="ui-input dp-guide-insert" data-guide-insert aria-label="Platzhalter einfügen">
                             <option value="">Platzhalter</option>
@@ -451,13 +451,31 @@
                         </div>
                     </div>
                 </div>
+                ${guideSyntaxHtml()}
                 ${D.TASK_TYPES.map(t => `
                 <div class="dp-field" data-guide-fields="${t.value}">
                     <textarea class="ui-textarea" data-guide="${t.value}" rows="7" maxlength="${window.ResourceGuide.MAX_LENGTH}" aria-label="Anleitung ${esc(t.label)}">${esc(r?.guides?.[t.value] || "")}</textarea>
-                    <div class="rg-guide dp-guide-preview" data-guide-preview-for="${t.value}" hidden></div>
+                    <div class="dp-guide-preview" data-guide-preview-for="${t.value}" hidden></div>
                     <p class="dp-guide-unknown" data-guide-unknown="${t.value}" hidden></p>
                 </div>`).join("")}
             </section>`;
+    }
+
+    // Schreibweise hinter dem i-Icon: die Markdown-Untermenge der Anleitungen (resource_guide.js).
+    function guideSyntaxHtml() {
+        const rows = [
+            ["**fett**", "<strong>fett</strong>"],
+            ["- Punkt", "Aufzählung, eine Zeile je Punkt"],
+            ["1. Schritt", "Nummerierte Liste"],
+            ["[Text](https://…)", "Link; https://… allein ebenso"],
+            ["`Wert`", `<span class="rg-chip">Wert</span> zum Kopieren`],
+            ["{{racf}}", "Wert der Person, Auswahl „Platzhalter“"],
+            ["Leerzeile", "Neuer Absatz"],
+            ["---", "Neue Seite (eigene Zeile)"]
+        ];
+        return `<div class="dp-guide-syntax" id="dp-guide-syntax"${state.panel.guideSyntax ? "" : " hidden"}>
+            <table><tbody>${rows.map(([input, result]) => `<tr><td><code>${esc(input)}</code></td><td>${result}</td></tr>`).join("")}</tbody></table>
+        </div>`;
     }
 
     // Unbekannte Platzhalter gleich am Feld; die API lehnt sie beim Speichern ohnehin ab (422).
@@ -473,7 +491,10 @@
             const view = body.querySelector(`[data-guide-preview-for="${taskType}"]`);
             field.hidden = preview;
             view.hidden = !preview;
-            if (preview) view.innerHTML = window.ResourceGuide.preview(field.value, state.guideCatalog) || `<p class="dp-note">Leer</p>`;
+            if (preview) {
+                const pages = window.ResourceGuide.previewPages(field.value, state.guideCatalog);
+                view.innerHTML = pages.length ? window.ResourceGuide.pagerHtml(pages, state.panel.guidePage) : `<p class="dp-note">Leer</p>`;
+            }
             const unknown = state.guideCatalog.length ? window.ResourceGuide.unknownKeys(field.value, state.guideCatalog) : [];
             const hint = body.querySelector(`[data-guide-unknown="${taskType}"]`);
             hint.hidden = !unknown.length;
@@ -554,6 +575,7 @@
 
     function showFormTask(taskType) {
         state.panel.activeTask = taskType;
+        state.panel.guidePage = 0;
         $("res-panel-body").querySelectorAll("[data-form-task]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.formTask === taskType)));
         syncForm();
     }
@@ -827,7 +849,21 @@
             }
             const viewTask = event.target.closest("[data-view-task]");
             if (viewTask) { state.panel.activeTask = viewTask.dataset.viewTask; renderPanel(); return; }
-            if (event.target.closest("[data-guide-preview]")) { state.panel.guidePreview = !state.panel.guidePreview; syncGuide(); return; }
+            if (event.target.closest("[data-guide-preview]")) { state.panel.guidePreview = !state.panel.guidePreview; state.panel.guidePage = 0; syncGuide(); return; }
+            const syntax = event.target.closest("[data-guide-syntax]");
+            if (syntax) {
+                state.panel.guideSyntax = !state.panel.guideSyntax;
+                syntax.setAttribute("aria-expanded", String(state.panel.guideSyntax));
+                $("dp-guide-syntax").hidden = !state.panel.guideSyntax;
+                return;
+            }
+            const previewBox = event.target.closest("[data-guide-preview-for]");
+            const page = previewBox ? window.ResourceGuide.pageTarget(event.target, state.panel.guidePage) : null;
+            if (page !== null) {
+                const shown = window.ResourceGuide.showPage(previewBox, page);
+                if (shown) state.panel.guidePage = shown.index;
+                return;
+            }
             const formTask = event.target.closest("[data-form-task]");
             if (formTask) { showFormTask(formTask.dataset.formTask); return; }
             if (event.target.closest("[data-panel-edit]")) { state.panel.mode = "edit"; renderPanel(); return; }

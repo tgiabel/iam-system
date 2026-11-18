@@ -82,7 +82,7 @@
             if (state?.busy) return;
             if (state) capture();
             if (!dialog.open) opener = document.activeElement;
-            state = { taskId, step: "detail", history: null, historyFailed: false, historyLimit: HISTORY_PAGE_SIZE, historyCount: null, newEntries: new Set(), followHistory: true, historyReady: false, historyLoading: false, unread: 0, guide: null, guideState: "", mailExpanded: new Set(), comment: drafts.get(String(taskId)) || "", identifier: "", accountChoice: "", restored: false, early: new Set(), related: new Set(), manual: false, busy: "", error: "", message: "", mail: {} };
+            state = { taskId, step: "detail", history: null, historyFailed: false, historyLimit: HISTORY_PAGE_SIZE, historyCount: null, newEntries: new Set(), followHistory: true, historyReady: false, historyLoading: false, unread: 0, guide: null, guideState: "", guidePage: 0, mailExpanded: new Set(), comment: drafts.get(String(taskId)) || "", identifier: "", accountChoice: "", restored: false, early: new Set(), related: new Set(), manual: false, busy: "", error: "", message: "", mail: {} };
             el("tb-detail-announcement").textContent = "";
             render();
             if (!dialog.open) dialog.showModal();
@@ -148,7 +148,23 @@
             if (task) syncGuide(task);
         }
 
-        const guideHtml = () => window.ResourceGuide.render(state.guide.guide, state.guide);
+        // Seiten ("---") mit Pfeilen und Punkten; die Seite bleibt gemerkt, solange die Karte offen ist.
+        const guideHtml = () => window.ResourceGuide.pagerHtml(window.ResourceGuide.renderPages(state.guide.guide, state.guide), state.guidePage);
+
+        function goToGuidePage(index) {
+            const shown = window.ResourceGuide.showPage(el("tb-guide-body"), index);
+            if (!shown || shown.index === state.guidePage) return;
+            state.guidePage = shown.index;
+            if (document.activeElement?.disabled || !guidePop.contains(document.activeElement)) guidePop.focus({ preventScroll: true });
+            announce(`Seite ${shown.index + 1} von ${shown.count}`);
+        }
+
+        guidePop.addEventListener("keydown", event => {
+            const step = { ArrowLeft: -1, ArrowRight: 1 }[event.key];
+            if (!step || !state?.guide) return;
+            event.preventDefault();
+            goToGuidePage(state.guidePage + step);
+        });
 
         function openGuide() {
             closeMore();
@@ -568,6 +584,10 @@
                 return;
             }
             if (!guidePop.contains(event.target)) closeGuide();
+            else if (state?.guide) {
+                const page = window.ResourceGuide.pageTarget(event.target, state.guidePage);
+                if (page !== null) { goToGuidePage(page); return; }
+            }
             closeMore();
             if (!state || state.busy) return;
             capture();

@@ -81,6 +81,30 @@ assert.ok(html.includes('<span class="rg-missing">geburtstag unbekannt</span>'),
 
 assert.equal(guide.preview("{{racf}}"), '<p><span class="rg-placeholder">racf</span></p>');
 
+// Seiten: eine Zeile nur aus "---" trennt, Leerraum je Seite und leere Seiten entfallen
+assert.deepEqual(guide.splitPages("Eins\n---\nZwei"), ["Eins", "Zwei"]);
+assert.deepEqual(guide.splitPages("---\n\n  Eins  \n\n  ---  \n\n---\nZwei\n---\n"), ["Eins", "Zwei"]);
+assert.deepEqual(guide.splitPages("a\r\n---\r\nb"), ["a", "b"]);
+assert.deepEqual(guide.splitPages("Text --- weiter\n----\n- --"), ["Text --- weiter\n----\n- --"]);
+assert.deepEqual(guide.splitPages(" \n---\n "), []);
+assert.deepEqual(guide.splitPages(null), []);
+// Listen und Absätze bleiben je Seite für sich
+assert.deepEqual(guide.renderPages("1. a\n---\n2. b"), ["<ol><li>a</li></ol>", '<ol start="2"><li>b</li></ol>']);
+assert.equal(guide.render("Eins\n---\nZwei"), "<p>Eins</p><p>Zwei</p>");
+assert.deepEqual(guide.renderPages("`{{genesys_user_id}}`\n---\nok", { missing }).map(page => page.includes("Genesys-ID fehlt")), [true, false]);
+assert.deepEqual(guide.previewPages("{{racf}}\n---\nx", catalog), ['<p><span class="rg-placeholder">RACF-Kennung</span></p>', "<p>x</p>"]);
+
+// Pager: eine Seite ohne Steuerung, mehrere mit Pfeilen und Punkten, aktive Seite begrenzt
+assert.equal(guide.pagerHtml(["<p>a</p>"]), '<div class="rg-guide"><p>a</p></div>');
+assert.equal(guide.pagerHtml([]), '<div class="rg-guide"></div>');
+html = guide.pagerHtml(["<p>a</p>", "<p>b</p>", "<p>c</p>"], 7);
+assert.equal((html.match(/data-guide-dot=/g) || []).length, 3);
+assert.ok(html.includes('data-guide-page="2" role="group" aria-label="Seite 3 von 3">'), html);
+assert.ok(html.includes('data-guide-dot="2" aria-label="Seite 3" aria-current="true"'), html);
+assert.ok(html.includes('data-guide-step="1" aria-label="Nächste Seite" disabled'), html);
+assert.ok(!html.includes('data-guide-step="-1" aria-label="Vorherige Seite" disabled'), html);
+assert.equal((html.match(/aria-hidden="true"><p>/g) || []).length, 2);
+
 // Platzhalter-Hilfen
 assert.deepEqual(guide.placeholderKeys("{{a}} {{ b }} {{a}} {{c-d}}"), ["a", "b"]);
 assert.deepEqual(guide.unknownKeys("{{racf}} {{geburtstag}}", catalog), ["geburtstag"]);

@@ -14,6 +14,12 @@ Anleitung für Zuweisung und Entzug, mit Platzhaltern für Werte des Ziel-Users.
 - Runde 2 (18.11.2026): Hilfe-Button oben rechts links vom Schließen-Button, gleicher Button-Look,
   Icon nur „?“. Status-Badge darunter rechts unten im Kopf. Kopieren zeigt kurz einen Haken (Chip grün,
   Kennungs-Button ebenso).
+- Seiten (18.11.2026): Eine Zeile nur aus `---` beginnt eine neue Seite; Seiten werden getrimmt, leere
+  entfallen. Im Popover Pfeile links/rechts (an den Enden deaktiviert, auch Pfeiltasten) und Punkte
+  unten; die Höhe richtet sich nach der längsten Seite. Die Seite bleibt gemerkt, solange die Karte
+  offen ist. Keine Markierung von Seiten mit fehlenden Werten (wer den Wert braucht, blättert ohnehin
+  dorthin). Editor-Vorschau blättert ebenso, die lesende Ansicht zeigt die Seiten untereinander mit
+  Trennlinie. Die Schreibweise erklärt ein i-Icon neben „Anleitung“ im Editor.
 - Zurückgestellt (18.11.2026): Hinweis auf eine archivierte Kennung bei fehlendem Kontowert (Klick auf
   „… fehlt“ zeigt Kennung und Archivierungsdatum). Braucht in `missing` je Eintrag `reason`
   (`none`/`archived`/`ambiguous`) und `archived: [{identifier, archived_at, in_use_by_other}]`.
