@@ -46,10 +46,12 @@
         state.canApply = hasPerm("SOFA-FN-RL");
         bindEvents();
         try {
-            const [backlogs, resourceMap] = await Promise.all([
+            const [backlogs, resourceMap, guideCatalog] = await Promise.all([
                 D.getJson("/api/backlogs").catch(() => []),
-                D.getJson("/api/resources/map").catch(() => ({}))
+                D.getJson("/api/resources/map").catch(() => ({})),
+                D.getJson("/api/resources/guide-placeholders").catch(() => [])
             ]);
+            state.guideCatalog = Array.isArray(guideCatalog) ? guideCatalog : [];
             (Array.isArray(backlogs) ? backlogs : []).forEach(b => { state.backlogs[b.technical_identifier] = b.name; });
             state.resources = Object.entries(resourceMap || {}).map(([id, r]) => ({ ...r, resource_id: Number(id) }));
             await reload();
@@ -384,7 +386,7 @@
         const backlogId = r.backlog_identifier || sys?.default_backlog_identifier;
         const body = $("res-panel-body");
         body.classList.add("is-view");
-        body.innerHTML = D.renderResourceView({ ...r, meta: full?.meta ?? r.meta }, {
+        body.innerHTML = D.renderResourceView({ ...r, meta: full?.meta ?? r.meta, guides: full?.guides ?? r.guides }, {
             handling: r.override_handling_type || sys?.default_handling_type || "INTERNAL",
             handlingIsDefault: !r.override_handling_type,
             backlogLabel: backlogId ? esc(state.backlogs[backlogId] || backlogId) : `<span class="dp-muted">keins</span>`,
@@ -397,6 +399,7 @@
             },
             roles: state.panel.roles,
             system: { system_id: r.system_id, name: r.system_name || "-", linked: state.canOpenSystems },
+            guideCatalog: state.guideCatalog,
             activeTask: state.panel.activeTask
         });
     }

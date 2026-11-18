@@ -210,3 +210,43 @@
     gap: 0.6rem;
     align-items: end;
 }
+
+/* Anleitung im Ressourcen-Formular */
+.dp-guide-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.dp-guide-insert {
+    width: auto;
+    min-height: 0;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.88rem;
+}
+
+.dp-guide-tools .ui-flat-button[aria-pressed="true"] {
+    color: var(--color-primary);
+    font-weight: 700;
+}
+
+.dp-guide-preview {
+    min-height: 6rem;
+    padding: 0.9rem 1rem;
+    border: 1px dashed var(--ui-border);
+    border-radius: 16px;
+    background: var(--ui-surface-card);
+}
+
+.dp-guide-unknown {
+    margin: 0.35rem 0 0;
+    color: var(--ui-warning-text);
+    font-size: 0.85rem;
+}
+
+.dp-guide-unknown[hidden],
+.dp-guide-preview[hidden] {
+    display: none;
+}

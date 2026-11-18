@@ -22,6 +22,7 @@
         filterType: "",
         query: "",
         collapsed: null,
+        guideCatalog: [],
         panel: null
     };
 
@@ -31,10 +32,12 @@
         bindEvents();
         state.systemId = $("system-page").dataset.systemId;
         try {
-            const [backlogs, users] = await Promise.all([
+            const [backlogs, users, guideCatalog] = await Promise.all([
                 D.getJson("/api/backlogs").catch(() => []),
-                D.getJson("/api/users").catch(() => [])
+                D.getJson("/api/users").catch(() => []),
+                D.getJson("/api/resources/guide-placeholders").catch(() => [])
             ]);
+            state.guideCatalog = Array.isArray(guideCatalog) ? guideCatalog : [];
             (Array.isArray(backlogs) ? backlogs : []).forEach(b => { state.backlogs[b.technical_identifier] = b.name; });
             state.users = Array.isArray(users) ? users : [];
             await reload();
@@ -248,7 +251,7 @@
 
     function openPanel(mode, resource = null) {
         if (mode !== "new" && !resource) return;
-        state.panel = { mode, resource, activeTask: "ASSIGNMENT", snapshot: null, roles: null };
+        state.panel = { mode, resource, activeTask: "ASSIGNMENT", snapshot: null, roles: null, guidePreview: false };
         renderPanel();
         $("res-panel-overlay").classList.add("active");
         if (resource) loadRoles(state.panel);
@@ -314,6 +317,7 @@
                 },
                 roles: state.panel.roles || undefined,
                 recipientLabel: userLabel,
+                guideCatalog: state.guideCatalog,
                 activeTask: state.panel.activeTask
             });
             $("res-panel-actions").innerHTML = `<button type="button" class="btn btn-primary" data-panel-edit>Bearbeiten</button>`;
@@ -424,7 +428,79 @@
                     </div>
                 </div>
                 ${D.TASK_TYPES.map(t => renderAutomationFields(r, t.value)).join("")}
+            </section>
+            ${renderGuideFields(r)}`;
+    }
+
+    // Anleitung je Vorgang, unabhängig von der Bearbeitung; der Vorgang-Umschalter ist mit der Automatisierung gekoppelt.
+    function renderGuideFields(r) {
+        const groups = window.ResourceGuide.groupCatalog(state.guideCatalog);
+        return `
+            <section class="dp-section" data-guide>
+                <div class="dp-section-head">
+                    <h3>Anleitung</h3>
+                    <div class="dp-guide-tools">
+                        ${groups.length ? `<select class="ui-input dp-guide-insert" data-guide-insert aria-label="Platzhalter einfügen">
+                            <option value="">Platzhalter</option>
+                            ${groups.map(group => `<optgroup label="${esc(group.name)}">${group.entries.map(entry =>
+                                `<option value="${esc(entry.key)}">${esc(entry.label || entry.key)}</option>`).join("")}</optgroup>`).join("")}
+                        </select>` : ""}
+                        <button type="button" class="ui-flat-button ui-flat-button--sm" data-guide-preview aria-pressed="${state.panel.guidePreview}">Vorschau</button>
+                        <div class="ui-segmented" role="group" aria-label="Vorgang">
+                            ${D.TASK_TYPES.map(t => `<button type="button" data-form-task="${t.value}" aria-pressed="${t.value === state.panel.activeTask}">${t.label}</button>`).join("")}
+                        </div>
+                    </div>
+                </div>
+                ${D.TASK_TYPES.map(t => `
+                <div class="dp-field" data-guide-fields="${t.value}">
+                    <textarea class="ui-textarea" data-guide="${t.value}" rows="7" maxlength="${window.ResourceGuide.MAX_LENGTH}" aria-label="Anleitung ${esc(t.label)}">${esc(r?.guides?.[t.value] || "")}</textarea>
+                    <div class="rg-guide dp-guide-preview" data-guide-preview-for="${t.value}" hidden></div>
+                    <p class="dp-guide-unknown" data-guide-unknown="${t.value}" hidden></p>
+                </div>`).join("")}
             </section>`;
+    }
+
+    // Unbekannte Platzhalter gleich am Feld; die API lehnt sie beim Speichern ohnehin ab (422).
+    function syncGuide() {
+        const body = $("res-panel-body");
+        const preview = state.panel.guidePreview;
+        body.querySelector("[data-guide-preview]")?.setAttribute("aria-pressed", String(preview));
+        const insert = body.querySelector("[data-guide-insert]");
+        if (insert) insert.disabled = preview;
+        for (const { value: taskType } of D.TASK_TYPES) {
+            const field = body.querySelector(`[data-guide="${taskType}"]`);
+            if (!field) continue;
+            const view = body.querySelector(`[data-guide-preview-for="${taskType}"]`);
+            field.hidden = preview;
+            view.hidden = !preview;
+            if (preview) view.innerHTML = window.ResourceGuide.preview(field.value, state.guideCatalog) || `<p class="dp-note">Leer</p>`;
+            const unknown = state.guideCatalog.length ? window.ResourceGuide.unknownKeys(field.value, state.guideCatalog) : [];
+            const hint = body.querySelector(`[data-guide-unknown="${taskType}"]`);
+            hint.hidden = !unknown.length;
+            hint.textContent = unknown.length ? `Unbekannt: ${unknown.join(", ")}` : "";
+        }
+    }
+
+    function insertPlaceholder(select) {
+        const key = select.value;
+        select.value = "";
+        const field = $("res-panel-body").querySelector(`[data-guide="${state.panel.activeTask}"]`);
+        if (!key || !field) return;
+        field.focus();
+        field.setRangeText(`{{${key}}}`, field.selectionStart, field.selectionEnd, "end");
+        syncGuide();
+    }
+
+    // Nur geänderte Anleitungen; ein fehlender Schlüssel lässt die gespeicherte unverändert, null löscht sie.
+    function buildGuides(r) {
+        const guides = {};
+        for (const { value: taskType } of D.TASK_TYPES) {
+            const field = $("res-panel-body").querySelector(`[data-guide="${taskType}"]`);
+            if (!field) continue;
+            const value = field.value.trim();
+            if (value !== String(r?.guides?.[taskType] || "").trim()) guides[taskType] = value || null;
+        }
+        return guides;
     }
 
     function renderAutomationFields(r, taskType) {
@@ -469,9 +545,11 @@
         const body = $("res-panel-body");
         const handling = selectedHandling();
         body.querySelectorAll("[data-task-fields]").forEach(el => { el.hidden = el.dataset.taskFields !== state.panel.activeTask; });
+        body.querySelectorAll("[data-guide-fields]").forEach(el => { el.hidden = el.dataset.guideFields !== state.panel.activeTask; });
         body.querySelectorAll("[data-handling-fields]").forEach(el => { el.hidden = el.dataset.handlingFields !== handling; });
         const segmented = body.querySelector("[data-automation] .ui-segmented");
         if (segmented) segmented.hidden = !D.AUTOMATED.includes(handling);
+        syncGuide();
     }
 
     function showFormTask(taskType) {
@@ -566,6 +644,8 @@
             backlog_identifier: body.querySelector("#f-backlog").value || null
         };
         if (meta.length) payload.meta = meta;
+        const guides = buildGuides(r);
+        if (Object.keys(guides).length) payload.guides = guides;
         if (r) payload.resource_id = r.resource_id;
 
         button.disabled = true;
@@ -577,7 +657,14 @@
             const fresh = findResource(r ? r.resource_id : saved?.resource_id);
             if (fresh) openPanel("view", fresh);
         } catch (error) {
-            showFlash(error.message, "failure");
+            // „Unbekannte Platzhalter in Anleitung ASSIGNMENT: …“ – zum betroffenen Vorgang wechseln, Label statt Kürzel.
+            const failed = error.status === 422 ? D.TASK_TYPES.find(t => error.message.includes(`Anleitung ${t.value}`)) : null;
+            if (failed) {
+                state.panel.guidePreview = false;
+                showFormTask(failed.value);
+                $("res-panel-body").querySelector(`[data-guide="${failed.value}"]`)?.focus();
+            }
+            showFlash(failed ? error.message.replace(`Anleitung ${failed.value}`, `Anleitung (${failed.label})`) : error.message, "failure");
             button.disabled = false;
         }
     }
@@ -740,6 +827,7 @@
             }
             const viewTask = event.target.closest("[data-view-task]");
             if (viewTask) { state.panel.activeTask = viewTask.dataset.viewTask; renderPanel(); return; }
+            if (event.target.closest("[data-guide-preview]")) { state.panel.guidePreview = !state.panel.guidePreview; syncGuide(); return; }
             const formTask = event.target.closest("[data-form-task]");
             if (formTask) { showFormTask(formTask.dataset.formTask); return; }
             if (event.target.closest("[data-panel-edit]")) { state.panel.mode = "edit"; renderPanel(); return; }
@@ -751,10 +839,12 @@
             if (save) saveResource(save);
         });
         $("res-panel-body").addEventListener("change", event => {
+            if (event.target.matches("[data-guide-insert]")) insertPlaceholder(event.target);
             if (event.target.id === "f-handling") syncForm();
             if (event.target.id === "f-type") onTypeChange();
         });
         $("res-panel-body").addEventListener("input", event => {
+            if (event.target.matches("[data-guide]")) { syncGuide(); return; }
             if (event.target.id !== "f-parent-search") return;
             const q = event.target.value.trim().toLowerCase();
             $("f-parent-list").querySelectorAll("label[data-search]").forEach(label => {

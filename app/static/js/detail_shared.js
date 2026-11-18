@@ -1,14 +1,14 @@
 // Gemeinsame Bausteine für Rollen- und Systemdetails. Das Modell (Baum, Voraussetzungen, Bot-Parameter)
 // ist DOM-frei und wird in tests/detail_shared_checks.js geprüft.
 (function (root, factory) {
-    const shared = factory(root.SofaUtils || require("./sofa_utils.js"));
+    const shared = factory(root.SofaUtils || require("./sofa_utils.js"), root.ResourceGuide || require("./resource_guide.js"));
     if (typeof module === "object" && module.exports) {
         module.exports = shared;
     }
     if (root) {
         root.DetailShared = shared;
     }
-}(typeof window !== "undefined" ? window : globalThis, function (utils) {
+}(typeof window !== "undefined" ? window : globalThis, function (utils, guide) {
     "use strict";
 
     const esc = utils.escapeHtml;
@@ -345,6 +345,19 @@
                     : `<p class="dp-note">In keiner Rolle.</p>`}
             </section>` : "";
 
+        // Anleitungen gelten für jede Bearbeitung; der Block erscheint nur, wenn eine gepflegt ist.
+        const guides = resource.guides || {};
+        const guideBlock = TASK_TYPES.some(t => guides[t.value]) ? `
+            <section class="dp-pblock">
+                <div class="dp-pblock-head">
+                    <h3>Anleitung</h3>
+                    <div class="ui-segmented" role="group" aria-label="Vorgang">
+                        ${TASK_TYPES.map(t => `<button type="button" data-view-task="${t.value}" aria-pressed="${t.value === activeTask}">${t.label}</button>`).join("")}
+                    </div>
+                </div>
+                ${guides[activeTask] ? `<div class="rg-guide">${guide.preview(guides[activeTask], ctx.guideCatalog)}</div>` : `<p class="dp-note">Keine</p>`}
+            </section>` : "";
+
         return `
             <div class="dp-facts">${facts.map(([k, v]) => `<div class="dp-fact"><span>${k}</span><strong>${v}</strong></div>`).join("")}</div>
             ${renderClassification(ctx.classification || {})}
@@ -358,6 +371,7 @@
                 </div>
                 ${renderAutomation(resource, handling, activeTask, ctx.recipientLabel || (v => v ?? "-"))}
             </section>
+            ${guideBlock}
             ${rolesBlock}`;
     }
 
