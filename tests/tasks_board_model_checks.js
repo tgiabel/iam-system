@@ -254,7 +254,19 @@ assert.equal(model.relatedCompletionComment("  Geprüft. "), "Mit dem Kontoentzu
     const bot = {...fresh, handling_type: "BOT"};
     assert.equal(plan(bot).automatic, true);
     assert.equal(plan(bot).issue, null, "Automatisierung braucht keine Kennung");
-    assert.equal(plan(bot, {manual: true}).issue.field, "identifier", "nach Fehlschlag manuell erfassen");
+    assert.equal(plan(bot, {manual: true}).issue.field, "identifier", "manuell erfassen verlangt die Kennung");
+
+    // Manueller Abschluss ohne gescheiterte Automatisierung braucht eine Abschlussnotiz.
+    const botTask = task(302, {task_type: "REVOCATION", handling_type: "BOT", status: "IN_PROGRESS", assigned_to_user_id: ME});
+    assert.equal(plan(botTask).needsNote, false, "automatisch ausführen braucht keine Notiz");
+    assert.equal(plan(botTask, {manual: true}).needsNote, true);
+    assert.equal(plan(botTask, {manual: true}).issue.field, "comment");
+    assert.equal(plan(botTask, {manual: true, comment: "   "}).issue.field, "comment", "nur Leerzeichen zählen nicht");
+    assert.equal(plan(botTask, {manual: true, comment: "Bot hängt"}).issue, null);
+    assert.equal(plan(botTask, {manual: true, automationFailed: true}).needsNote, false, "nach Fehlschlag steht der Grund im Verlauf");
+    assert.equal(plan(botTask, {manual: true, automationFailed: true}).issue, null);
+    assert.equal(plan({...botTask, handling_type: "EXTERNAL"}, {manual: true}).needsNote, false, "nur automatisierte Tasks");
+    assert.equal(plan(bot, {manual: true, identifier: "neu"}).issue.field, "comment", "Kennung zuerst, dann die Notiz");
 
     const revoke = task(310, {task_type: "REVOCATION", resource_type_id: 1, target_date: "2026-10-20", status: "IN_PROGRESS", assigned_to_user_id: ME});
     const group = task(311, {task_type: "REVOCATION", target_date: "2026-10-30"});

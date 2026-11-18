@@ -610,15 +610,19 @@
 
     // Abschluss einer Aufgabe: was er braucht (Konto-Entscheidung, Kennung, Bestätigungen) und was noch fehlt.
     // Gilt für jeden Abschlussweg (Modal, später Sammelabschluss), damit die Sonderregeln überall greifen.
+    // Ein automatisierter Task, der ohne gescheiterte Automatisierung manuell abgeschlossen wird, braucht
+    // eine Abschlussnotiz (nur hier geprüft, die SD-API verlangt sie nicht).
     function completionPlan(task, {
-        tasks = [], meId = null, todayKey, manual = false, accountChoice = "", restored = false,
-        identifier = "", relatedIds = [], earlyIds = []
+        tasks = [], meId = null, todayKey, manual = false, automationFailed = false, accountChoice = "", restored = false,
+        identifier = "", comment = "", relatedIds = [], earlyIds = []
     } = {}) {
         const chosen = new Set(Array.from(relatedIds, String));
         const confirmed = new Set(Array.from(earlyIds, String));
         const archived = contract.getArchivedAccounts(task);
         const archive = archived.find(account => String(account.userAccountHistoryId) === String(accountChoice)) || null;
-        const automatic = upper(task?.handling_type) === "BOT" && !manual && !archive;
+        const bot = upper(task?.handling_type) === "BOT";
+        const automatic = bot && !manual && !archive;
+        const needsNote = bot && manual && !automationFailed;
         const related = relatedRevocations(task, tasks, meId);
         const included = [task, ...related.filter(other => chosen.has(String(other.task_id)))];
         const early = included.filter(other => contract.isFutureRevocationTask(other, todayKey));
@@ -634,8 +638,10 @@
             issue = { field: "identifier", message: "Bitte die Account-Kennung eintragen." };
         } else if (early.some(other => !confirmed.has(String(other.task_id)))) {
             issue = { field: "early", message: "Bitte jeden Entzug vor seinem Stichtag ausdrücklich bestätigen." };
+        } else if (needsNote && !String(comment || "").trim()) {
+            issue = { field: "comment", message: "Bitte eine Abschlussnotiz eintragen." };
         }
-        return { archived, archive, automatic, related, included, early, needsIdentifier, issue };
+        return { archived, archive, automatic, related, included, early, needsIdentifier, needsNote, issue };
     }
 
     return {

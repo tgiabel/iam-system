@@ -27,8 +27,9 @@
         const button = (text, action, primary = false, extra = "") => `<button type="button" class="btn ${primary ? "btn-primary" : "btn-secondary"}" data-detail-action="${action}"${extra}>${esc(text)}</button>`;
         const editable = task => task.status === "IN_PROGRESS" && Model.isMine(task, me.user_id);
         const planOf = task => Model.completionPlan(task, {
-            tasks: getTasks(), meId: me.user_id, todayKey: today(), manual: state.manual, accountChoice: state.accountChoice,
-            restored: state.restored, identifier: state.identifier, relatedIds: state.related, earlyIds: state.early
+            tasks: getTasks(), meId: me.user_id, todayKey: today(), manual: state.manual, automationFailed: Boolean(facts().automationError),
+            accountChoice: state.accountChoice, restored: state.restored, identifier: state.identifier, comment: state.comment,
+            relatedIds: state.related, earlyIds: state.early
         });
         const statusTone = task => task.status === "OPEN" && Model.isDeferred(task) ? "deferred"
             : { OPEN: "open", IN_PROGRESS: "progress", COMPLETED: "completed", BLOCKED: "blocked" }[task.status] || "neutral";
@@ -40,7 +41,9 @@
             <label class="tb-detail-field" for="${id}"><span>${esc(label)}${required ? " *" : ""}</span>
             ${textarea ? `<textarea id="${id}" rows="3" placeholder="${esc(placeholder)}"${limit}>${esc(value)}</textarea>` : `<input id="${id}" type="text" value="${esc(value)}" placeholder="${esc(placeholder)}"${required ? " required" : ""}${limit}>`}</label>`;
         };
-        const commentField = () => textField("Kommentar", "tb-detail-comment", state.comment, {textarea: true, placeholder: "Hinweis für Verlauf oder Übergabe", maxLength: Model.COMMENT_MAX_LENGTH});
+        const commentField = ({ note = false } = {}) => note
+            ? textField("Abschlussnotiz", "tb-detail-comment", state.comment, {textarea: true, required: true, placeholder: "Grund für den manuellen Abschluss", maxLength: Model.COMMENT_MAX_LENGTH})
+            : textField("Kommentar", "tb-detail-comment", state.comment, {textarea: true, placeholder: "Hinweis für Verlauf oder Übergabe", maxLength: Model.COMMENT_MAX_LENGTH});
         const dateOf = stamp => contract.formatDateKey(String(stamp).slice(0, 10));
         const CHECK_ICON = '<svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
         // Kurz Haken statt Kopier-Icon; Chips schalten per Klasse, der Kennungs-Button tauscht sein Icon.
@@ -58,6 +61,9 @@
         }
         const guideButton = el("tb-guide-btn");
         const guidePop = el("tb-guide-pop");
+        const moreButton = el("tb-more-btn");
+        const moreMenu = el("tb-more-menu");
+        const manualAllowed = task => editable(task) && task.handling_type === "BOT";
 
         function capture() {
             if (!state) return;
@@ -145,6 +151,7 @@
         const guideHtml = () => window.ResourceGuide.render(state.guide.guide, state.guide);
 
         function openGuide() {
+            closeMore();
             el("tb-guide-body").innerHTML = guideHtml();
             guidePop.hidden = false;
             guideButton.setAttribute("aria-expanded", "true");
@@ -169,7 +176,42 @@
             guidePop.style.left = `${Math.max(8, Math.min(box.right - width, window.innerWidth - 8 - width))}px`;
         }
 
-        window.addEventListener("resize", () => { if (!guidePop.hidden) placeGuide(); });
+        // ---------- Menü ⋯ ----------
+        // Manueller Abschluss eines automatisierten Tasks, ohne dass die Automatisierung erst scheitern muss.
+
+        function syncMore(task) {
+            moreButton.hidden = !(manualAllowed(task) && state.step === "detail");
+            moreButton.disabled = Boolean(state.busy);
+            if (moreButton.hidden || state.busy) closeMore();
+        }
+
+        function openMore() {
+            closeGuide();
+            moreMenu.hidden = false;
+            moreButton.setAttribute("aria-expanded", "true");
+            const box = moreButton.getBoundingClientRect();
+            const width = moreMenu.getBoundingClientRect().width;
+            moreMenu.style.top = `${box.bottom + 4}px`;
+            moreMenu.style.left = `${Math.max(8, Math.min(box.right - width, window.innerWidth - 8 - width))}px`;
+            moreMenu.querySelector("[role=menuitem]")?.focus({ preventScroll: true });
+        }
+
+        function closeMore({ focus = false } = {}) {
+            if (moreMenu.hidden) return;
+            moreMenu.hidden = true;
+            moreButton.setAttribute("aria-expanded", "false");
+            if (focus) moreButton.focus({ preventScroll: true });
+        }
+
+        moreMenu.addEventListener("keydown", event => {
+            const items = [...moreMenu.querySelectorAll("[role=menuitem]")];
+            const index = items.indexOf(document.activeElement);
+            const next = { ArrowDown: (index + 1) % items.length, ArrowUp: (index - 1 + items.length) % items.length, Home: 0, End: items.length - 1 }[event.key];
+            if (next !== undefined) { event.preventDefault(); items[next]?.focus(); }
+            else if (event.key === "Tab") { event.preventDefault(); closeMore({ focus: true }); }
+        });
+
+        window.addEventListener("resize", () => { if (!guidePop.hidden) placeGuide(); closeMore(); });
 
         function contextHtml(task) {
             const due = Model.dueInfo(task, today());
@@ -215,13 +257,14 @@
         }
 
         function completionHtml(task) {
-            const { archived, archive, automatic, related, early, needsIdentifier } = planOf(task);
-            return `<section class="tb-detail-work-section">${workHeading(automatic ? "Automatisierung" : "Abschluss", "complete")}
+            const { archived, archive, automatic, related, early, needsIdentifier, needsNote } = planOf(task);
+            const heading = automatic ? "Automatisierung" : state.manual ? "Manueller Abschluss" : "Abschluss";
+            return `<section class="tb-detail-work-section">${workHeading(heading, "complete")}
                 ${archived.length ? `<fieldset class="tb-detail-choices"><legend>Archiviertes Konto vorhanden</legend>${archived.map(account => `<label><input type="radio" name="tb-account-choice" value="${esc(account.userAccountHistoryId)}"${state.accountChoice === String(account.userAccountHistoryId) ? " checked" : ""}${account.restorable ? "" : " disabled"}><span><strong>${esc(account.accountIdentifier)}</strong><small>${account.restorable ? `Wiederherstellung bestätigen · archiviert ${esc(formatDateTime(account.archivedAt))}` : "Kennung inzwischen anderweitig vergeben"}</small></span></label>`).join("")}<label><input type="radio" name="tb-account-choice" value="new"${state.accountChoice === "new" ? " checked" : ""}><span>Neues Konto ${automatic ? "anlegen" : "erfassen"}</span></label></fieldset>` : ""}
                 ${archive ? `<label class="tb-detail-confirm"><input type="checkbox" id="tb-account-restored"${state.restored ? " checked" : ""}><span>Das Konto ${esc(archive.accountIdentifier)} wurde im Zielsystem wiederhergestellt.</span></label>` : needsIdentifier ? textField("Account-Kennung", "tb-complete-identifier", state.identifier, {required: true, placeholder: "Benutzername oder Account-Kennung"}) : ""}
                 ${related.length ? `<fieldset class="tb-detail-related"><legend>Umgesetzte Entzüge mit abschließen</legend>${related.map(other => `<label><input type="checkbox" data-related="${esc(other.task_id)}"${state.related.has(other.task_id) ? " checked" : ""}><span><strong>${esc(other.resource_name)}</strong><small>${esc(statusLabel(other))}${other.target_date ? ` · Stichtag ${esc(dateOf(other.target_date))}` : ""}</small></span></label>`).join("")}</fieldset>` : ""}
                 ${early.map(other => `<label class="tb-detail-confirm is-warning"><input type="checkbox" data-early="${esc(other.task_id)}"${state.early.has(other.task_id) ? " checked" : ""}><span><strong>Entzug vor Stichtag</strong>${esc(other.resource_name)} ist erst für den ${esc(dateOf(other.target_date))} vorgesehen. Trotzdem jetzt abschließen.</span></label>`).join("")}
-                ${commentField()}
+                ${commentField({ note: needsNote })}
             </section>`;
         }
 
@@ -348,7 +391,8 @@
             if (state.busy) return `<span class="tb-detail-running" role="status">${esc(state.busy)}</span>`;
             if (state.step === "complete") {
                 const { automatic } = planOf(task);
-                const confirm = task.status === "OPEN" ? automatic ? "Übernehmen & ausführen" : "Übernehmen & abschließen" : automatic ? "Automatisiert ausführen" : "Abschluss bestätigen";
+                const confirm = task.status === "OPEN" ? automatic ? "Übernehmen & ausführen" : "Übernehmen & abschließen"
+                    : automatic ? "Automatisiert ausführen" : state.manual ? "Manuell abschließen" : "Abschluss bestätigen";
                 return `${button(confirm, "confirm-complete", true)}${button("Zurück", "back")}`;
             }
             if (state.step === "mail") return `${button("Mail senden", "send-mail", true)}${button("Zurück", "back")}`;
@@ -375,6 +419,7 @@
             el("tb-detail-status").textContent = statusLabel(task);
             el("tb-detail-status").className = `tb-detail-status ui-status-badge ui-status-badge-sm ui-status-${statusTone(task)}`;
             syncGuide(task);
+            syncMore(task);
             el("tb-detail-context").innerHTML = contextHtml(task);
             el("tb-detail-work").innerHTML = workHtml(task) + errorHtml();
             renderHistory();
@@ -436,7 +481,7 @@
         function finish(task) {
             if (!Model.canSelect(task, me.user_id)) return;
             const plan = planOf(task);
-            if (plan.issue) return validationError(plan.issue.message, { restored: "tb-account-restored", identifier: "tb-complete-identifier" }[plan.issue.field]);
+            if (plan.issue) return validationError(plan.issue.message, { restored: "tb-account-restored", identifier: "tb-complete-identifier", comment: "tb-detail-comment" }[plan.issue.field]);
             const comment = state.comment.trim();
             const payload = { comment: comment || null };
             if (plan.archive) payload.reactivate_user_account_history_id = plan.archive.userAccountHistoryId;
@@ -518,7 +563,12 @@
                 if (guidePop.hidden && state?.guide) openGuide(); else closeGuide();
                 return;
             }
+            if (event.target.closest("#tb-more-btn")) {
+                if (moreMenu.hidden && state && !state.busy) openMore(); else closeMore();
+                return;
+            }
             if (!guidePop.contains(event.target)) closeGuide();
+            closeMore();
             if (!state || state.busy) return;
             capture();
             const task = taskOf();
@@ -580,8 +630,9 @@
                 }, { board: false, focusId: "tb-detail-comment" });
                 return;
             }
+            if (action === "manual" && !manualAllowed(task)) return;
             if ((action === "complete" || action === "manual") && Model.canSelect(task, me.user_id)) {
-                state.manual = action === "manual" && Boolean(facts().automationError);
+                state.manual = action === "manual";
                 state.step = "complete";
                 state.error = "";
                 announce("");
@@ -619,11 +670,13 @@
         el("tb-detail-close").addEventListener("click", close);
         dialog.addEventListener("cancel", event => {
             event.preventDefault();
-            if (!guidePop.hidden) closeGuide({ focus: true }); else close();
+            if (!moreMenu.hidden) closeMore({ focus: true });
+            else if (!guidePop.hidden) closeGuide({ focus: true }); else close();
         });
         dialog.addEventListener("close", () => {
             clearTimeout(highlightTimer);
             closeGuide();
+            closeMore();
             const taskId = state?.taskId;
             if (state) drafts.set(String(state.taskId), state.comment);
             state = null;

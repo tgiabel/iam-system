@@ -48,6 +48,7 @@ Filter (Suche, Backlog, Typ, Bearbeitungsart, „Nur meine“) gelten fürs ganz
 
 - Genesys ist derzeit die einzige automatisierbare Integration. `dispatch_bot` läuft in der SD-API schon synchron über `integration_service.integrate_user_in`.
 - Diese Version: bei Erfolg schließt die SD-API den Task selbst ab (Kennung = `user_id` aus dem Ergebnis). Bei Misserfolg bleibt er in Bearbeitung, das freie Kennungsfeld erscheint erst danach („Manuell erfassen“). Der Log-Text „Warten auf Antwort“ entfällt.
+- Manueller Abschluss ohne Fehlschlag (18.11.2026): Bei eigenen BOT-Tasks in Bearbeitung bietet „⋯“ im Kopf des Details „Manuell abschließen …“ an (nur im Detail-Schritt, nicht bei Offen/„Direkt erledigen“). Es führt in denselben Abschluss-Schritt wie „Manuell erfassen“; alle Sonderregeln aus `completionPlan` gelten. Ohne vorherigen Fehlschlag ist eine Abschlussnotiz Pflicht, nach einem Fehlschlag nicht (Grund steht im Verlauf). Die Pflicht prüft nur das Frontend; die SD-API kennt keine Markierung „manuell statt automatisiert“, im Verlauf steht „Erledigt“ mit der Notiz. Mail-Tasks (EXTERNAL) bleiben unverändert, „Erledigen …“ geht dort weiter ohne Mail.
 - Zielbild später: automatische Tasks laufen ohne Bearbeiter, sobald sie freigeschaltet sind; Bearbeiter ist ein System-User; bei Misserfolg wird der Task `OPEN` mit der Fehlermeldung im Log.
 
 ### Reihenfolge

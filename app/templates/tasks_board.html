@@ -114,6 +114,9 @@
             </div>
             <div class="tb-detail-head-tools">
                 <div class="tb-detail-head-buttons">
+                    <button type="button" class="ui-icon-button tb-more-btn" id="tb-more-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="tb-more-menu" aria-label="Weitere Aktionen" title="Weitere Aktionen" hidden>
+                        <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>
+                    </button>
                     <button type="button" class="ui-icon-button tb-guide-btn" id="tb-guide-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="tb-guide-pop" aria-label="Anleitung" title="Anleitung" hidden>
                         <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 8.6a3.6 3.6 0 0 1 7 1.1c0 2.4-3.5 3-3.5 5.3"/><path d="M12 19.2h.01"/></svg>
                     </button>
@@ -145,6 +148,9 @@
                     <span class="tb-history-unread" id="tb-history-unread" aria-hidden="true" hidden></span>
                 </button>
             </section>
+        </div>
+        <div class="ui-menu tb-more-menu" id="tb-more-menu" role="menu" aria-label="Weitere Aktionen" hidden>
+            <button type="button" role="menuitem" data-detail-action="manual">Manuell abschließen …</button>
         </div>
         <div class="tb-guide-pop" id="tb-guide-pop" role="dialog" aria-label="Anleitung" tabindex="-1" hidden>
             <div class="rg-guide" id="tb-guide-body"></div>

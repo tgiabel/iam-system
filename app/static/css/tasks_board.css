@@ -1486,4 +1486,8 @@ button.tb-person-head:hover {
 .tb-guide-btn[hidden] { display: none; }
 .tb-guide-btn .tb-icon { stroke-width: 2.2; }
 .tb-guide-btn[aria-expanded="true"] { border-color: var(--color-primary); color: var(--color-primary); }
+.tb-more-btn[hidden], .tb-more-menu[hidden] { display: none; }
+.tb-more-btn .tb-icon circle { fill: currentColor; }
+.tb-more-btn[aria-expanded="true"] { border-color: var(--color-primary); color: var(--color-primary); }
+.tb-more-menu { z-index: 5; }
 .tb-detail [data-copy-identifier].is-copied { color: var(--ui-success-text); }
