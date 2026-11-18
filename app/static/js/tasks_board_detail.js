@@ -42,6 +42,22 @@
         };
         const commentField = () => textField("Kommentar", "tb-detail-comment", state.comment, {textarea: true, placeholder: "Hinweis für Verlauf oder Übergabe", maxLength: Model.COMMENT_MAX_LENGTH});
         const dateOf = stamp => contract.formatDateKey(String(stamp).slice(0, 10));
+        const CHECK_ICON = '<svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+        // Kurz Haken statt Kopier-Icon; Chips schalten per Klasse, der Kennungs-Button tauscht sein Icon.
+        function markCopied(button) {
+            clearTimeout(button.copiedTimer);
+            button.classList.add("is-copied");
+            if (!button.classList.contains("rg-chip")) {
+                button.dataset.icon ??= button.innerHTML;
+                button.innerHTML = CHECK_ICON;
+            }
+            button.copiedTimer = setTimeout(() => {
+                button.classList.remove("is-copied");
+                if (button.dataset.icon !== undefined) { button.innerHTML = button.dataset.icon; delete button.dataset.icon; }
+            }, 1600);
+        }
+        const guideButton = el("tb-guide-btn");
+        const guidePop = el("tb-guide-pop");
 
         function capture() {
             if (!state) return;
@@ -60,7 +76,7 @@
             if (state?.busy) return;
             if (state) capture();
             if (!dialog.open) opener = document.activeElement;
-            state = { taskId, step: "detail", history: null, historyFailed: false, historyLimit: HISTORY_PAGE_SIZE, historyCount: null, newEntries: new Set(), followHistory: true, historyReady: false, historyLoading: false, unread: 0, mailExpanded: new Set(), comment: drafts.get(String(taskId)) || "", identifier: "", accountChoice: "", restored: false, early: new Set(), related: new Set(), manual: false, busy: "", error: "", message: "", mail: {} };
+            state = { taskId, step: "detail", history: null, historyFailed: false, historyLimit: HISTORY_PAGE_SIZE, historyCount: null, newEntries: new Set(), followHistory: true, historyReady: false, historyLoading: false, unread: 0, guide: null, guideState: "", mailExpanded: new Set(), comment: drafts.get(String(taskId)) || "", identifier: "", accountChoice: "", restored: false, early: new Set(), related: new Set(), manual: false, busy: "", error: "", message: "", mail: {} };
             el("tb-detail-announcement").textContent = "";
             render();
             if (!dialog.open) dialog.showModal();
@@ -98,6 +114,62 @@
             render();
             requestAnimationFrame(() => { if (state === current) state.historyReady = true; });
         }
+
+        // ---------- Anleitung ----------
+        // Nur für eigene Tasks in Bearbeitung und erst auf Klick; ohne Anleitung (auch 403/409) kein Button.
+
+        function syncGuide(task) {
+            if (!editable(task)) {
+                state.guide = null;
+                state.guideState = "";
+            } else if (!state.guideState) {
+                loadGuide();
+            }
+            guideButton.hidden = !(editable(task) && state.guide && state.step !== "mail");
+            if (guideButton.hidden) closeGuide();
+            else if (!guidePop.hidden) el("tb-guide-body").innerHTML = guideHtml();
+        }
+
+        async function loadGuide() {
+            const current = state;
+            current.guideState = "loading";
+            const result = await backend.guide(current.taskId);
+            if (state !== current || current.guideState !== "loading") return;
+            const data = result.ok ? result.data : null;
+            state.guide = typeof data?.guide === "string" && data.guide.trim() ? data : null;
+            state.guideState = "done";
+            const task = taskOf();
+            if (task) syncGuide(task);
+        }
+
+        const guideHtml = () => window.ResourceGuide.render(state.guide.guide, state.guide);
+
+        function openGuide() {
+            el("tb-guide-body").innerHTML = guideHtml();
+            guidePop.hidden = false;
+            guideButton.setAttribute("aria-expanded", "true");
+            placeGuide();
+            guidePop.focus({ preventScroll: true });
+        }
+
+        function closeGuide({ focus = false } = {}) {
+            if (guidePop.hidden) return;
+            guidePop.hidden = true;
+            guideButton.setAttribute("aria-expanded", "false");
+            if (focus) guideButton.focus({ preventScroll: true });
+        }
+
+        // Fest positioniert am Button, damit der Dialog (overflow: hidden) es nicht abschneidet.
+        function placeGuide() {
+            const box = guideButton.getBoundingClientRect();
+            const top = box.bottom + 6;
+            guidePop.style.top = `${top}px`;
+            guidePop.style.maxHeight = `${Math.max(160, window.innerHeight - top - 12)}px`;
+            const width = guidePop.getBoundingClientRect().width;
+            guidePop.style.left = `${Math.max(8, Math.min(box.right - width, window.innerWidth - 8 - width))}px`;
+        }
+
+        window.addEventListener("resize", () => { if (!guidePop.hidden) placeGuide(); });
 
         function contextHtml(task) {
             const due = Model.dueInfo(task, today());
@@ -296,12 +368,13 @@
             dialog.dataset.mode = nextMode;
             dialog.classList.toggle("is-foreign", Model.isForeign(task, me.user_id));
             el("tb-detail-kicker").textContent = task.system_name || "Aufgabe";
-            el("tb-detail-title").textContent = task.resource_name || "Ressource";
+            el("tb-detail-title-text").textContent = task.resource_name || "Ressource";
             el("tb-detail-operation").textContent = operation;
             el("tb-detail-operation").className = `tb-detail-operation ${task.task_type === "REVOCATION" ? "is-revoke" : "is-assign"}`;
             el("tb-detail-person").textContent = `für ${Model.displayName(task.target_user_name) || "–"}`;
             el("tb-detail-status").textContent = statusLabel(task);
             el("tb-detail-status").className = `tb-detail-status ui-status-badge ui-status-badge-sm ui-status-${statusTone(task)}`;
+            syncGuide(task);
             el("tb-detail-context").innerHTML = contextHtml(task);
             el("tb-detail-work").innerHTML = workHtml(task) + errorHtml();
             renderHistory();
@@ -441,6 +514,11 @@
 
         dialog.addEventListener("click", async event => {
             if (event.target === dialog) return;
+            if (event.target.closest("#tb-guide-btn")) {
+                if (guidePop.hidden && state?.guide) openGuide(); else closeGuide();
+                return;
+            }
+            if (!guidePop.contains(event.target)) closeGuide();
             if (!state || state.busy) return;
             capture();
             const task = taskOf();
@@ -456,9 +534,15 @@
             }
             const dependency = event.target.closest("[data-detail-dependency]");
             if (dependency) { drafts.set(String(task.task_id), state.comment); open(Number(dependency.dataset.detailDependency)); return; }
+            const chip = event.target.closest("[data-copy]");
+            if (chip) {
+                try { await navigator.clipboard.writeText(chip.dataset.copy); markCopied(chip); announce("Kopiert."); }
+                catch (_) { announce("Kopieren nicht möglich. Der Text kann markiert und kopiert werden."); }
+                return;
+            }
             const copy = event.target.closest("[data-copy-identifier]");
             if (copy) {
-                try { await navigator.clipboard.writeText(copy.dataset.copyIdentifier); announce("Kennung kopiert."); }
+                try { await navigator.clipboard.writeText(copy.dataset.copyIdentifier); markCopied(copy); announce("Kennung kopiert."); }
                 catch (_) { announce("Kopieren nicht möglich. Die Kennung kann markiert und kopiert werden."); }
                 return;
             }
@@ -533,9 +617,13 @@
             }
         });
         el("tb-detail-close").addEventListener("click", close);
-        dialog.addEventListener("cancel", event => { event.preventDefault(); close(); });
+        dialog.addEventListener("cancel", event => {
+            event.preventDefault();
+            if (!guidePop.hidden) closeGuide({ focus: true }); else close();
+        });
         dialog.addEventListener("close", () => {
             clearTimeout(highlightTimer);
+            closeGuide();
             const taskId = state?.taskId;
             if (state) drafts.set(String(state.taskId), state.comment);
             state = null;

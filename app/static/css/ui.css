@@ -1814,3 +1814,123 @@ th[aria-sort="descending"] > .ui-table-sort-button [data-sort-indicator]::after 
     clip: rect(0 0 0 0);
     white-space: nowrap;
 }
+
+/* Ressourcen-Anleitung (resource_guide.js): Task-Card, Editor-Vorschau und lesende Ressourcenansicht. */
+/* Abstände über gap, damit Seitenregeln wie ".x p { margin: 0 }" sie nicht aufheben. */
+.rg-guide {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    color: var(--ui-text);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.rg-guide p,
+.rg-guide ul,
+.rg-guide ol {
+    margin: 0;
+}
+
+.rg-guide ul,
+.rg-guide ol {
+    padding-left: 1.4rem;
+}
+
+.rg-guide li + li {
+    margin-top: 0.3rem;
+}
+
+.rg-guide strong {
+    color: var(--ui-text-strong);
+    font-weight: 700;
+}
+
+.rg-link {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.rg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    padding: 0.05rem 0.5rem;
+    border: 1px solid var(--ui-border);
+    border-radius: 6px;
+    background: var(--ui-surface-soft);
+    color: var(--ui-text-strong);
+    font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace);
+    font-size: 0.9em;
+    line-height: 1.45;
+    vertical-align: baseline;
+    overflow-wrap: anywhere;
+}
+
+button.rg-chip {
+    cursor: pointer;
+    text-align: left;
+}
+
+button.rg-chip:hover {
+    border-color: rgba(var(--color-primary-rgb), 0.4);
+    color: var(--color-primary);
+}
+
+button.rg-chip:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.rg-chip-icon {
+    width: 0.95em;
+    height: 0.95em;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.7;
+}
+
+.rg-chip-done,
+.rg-chip.is-copied .rg-chip-copy {
+    display: none;
+}
+
+.rg-chip.is-copied .rg-chip-done {
+    display: inline;
+    opacity: 1;
+    stroke-width: 2.4;
+}
+
+button.rg-chip.is-copied {
+    border-color: color-mix(in srgb, var(--ui-success-text) 40%, transparent);
+    background: var(--ui-success-bg);
+    color: var(--ui-success-text);
+}
+
+.rg-missing,
+.rg-placeholder {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    font-family: "Abel", sans-serif;
+    font-size: 0.88em;
+    font-weight: 650;
+    white-space: nowrap;
+}
+
+.rg-missing {
+    background: var(--ui-warning-bg);
+    color: var(--ui-warning-text);
+}
+
+.rg-placeholder {
+    background: var(--ui-blue-bg);
+    color: var(--ui-blue-text);
+}

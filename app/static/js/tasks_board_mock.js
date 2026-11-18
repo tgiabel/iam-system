@@ -62,8 +62,30 @@
             return { done, failed: ids.filter(id => !done.includes(id)).map(id => ({ task_id: id, message })) };
         }
 
+        // Wie GET /sofa/tasks/{id}/guide: jeder dritte Task ohne Anleitung, jeder zweite mit fehlendem Wert.
+        function guideOf(taskId) {
+            const task = find(taskId);
+            if (!task) return fail(404, "Task nicht gefunden.");
+            if (!Model.isMine(task, me.user_id)) return fail(403, "Nicht zugewiesen.");
+            if (task.status !== "IN_PROGRESS") return fail(409, "Nicht in Bearbeitung.");
+            const base = { task_id: task.task_id, task_type: task.task_type, resource_id: task.resource_id, missing: [], unknown: [] };
+            if (Number(task.task_id) % 3 === 0) return ok({ ...base, guide: null });
+            const lacksId = Number(task.task_id) % 2 === 0;
+            const name = Model.displayName(task.target_user_name) || "–";
+            const verb = task.task_type === "REVOCATION" ? "entfernen" : "zuweisen";
+            const guide = [
+                `1. In der Administration von ${task.system_name || "System"} den Benutzer suchen: \`${lacksId ? "{{genesys_user_id}}" : `user${task.target_user_id}`}\``,
+                `2. Gruppe **${task.resource_name || "Ressource"}** ${verb}`,
+                `3. Stichtag beachten: ${task.target_date ? contract.formatDateKey(task.target_date) : "–"}`,
+                "",
+                `Rückfragen zu ${name} an das Team, Doku unter https://wiki.example.test/zugaenge.`
+            ].join("\n");
+            return ok({ ...base, guide, missing: lacksId ? [{ key: "genesys_user_id", label: "Genesys-ID" }] : [] });
+        }
+
         return {
             load: async () => ok({ tasks: tasks.slice(), truncated: false }),
+            guide: async taskId => guideOf(taskId),
             backlogs: async () => data.backlogs || [],
             history: async taskId => ok(historyOf(taskId).slice()),
             assign: async ids => outcome(ids, ids.filter(assignOne), "Nicht mehr offen."),

@@ -38,6 +38,8 @@
                 const result = await call("/api/backlogs", {}, "");
                 return result.ok && Array.isArray(result.data) ? result.data : [];
             },
+            // Nur für eigene Tasks in Bearbeitung; 403/409 heißen schlicht: keine Anleitung.
+            guide: taskId => call(`/api/tasks/${encodeURIComponent(taskId)}/guide`, {}, ""),
             history: taskId => call(`/api/tasks/${encodeURIComponent(taskId)}/history`, {}, "Verlauf konnte nicht geladen werden."),
             async assign(ids) {
                 return bulkOutcome(await call("/api/tasks/bulk-assign", post({ task_ids: ids }), "Übernehmen nicht möglich."), ids);

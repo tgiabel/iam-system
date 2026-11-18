@@ -104,19 +104,24 @@
         </button>
     </div>
 
-    <dialog class="ui-dialog tb-detail" id="tb-detail" aria-labelledby="tb-detail-title">
+    <dialog class="ui-dialog tb-detail" id="tb-detail" aria-labelledby="tb-detail-title-text">
         <div class="tb-detail-head">
             <div class="tb-detail-heading">
                 <p class="tb-detail-kicker" id="tb-detail-kicker"></p>
-                <h2 class="tb-detail-title" id="tb-detail-title"></h2>
+                <h2 class="tb-detail-title" id="tb-detail-title"><span id="tb-detail-title-text"></span></h2>
                 <p class="tb-detail-operation" id="tb-detail-operation"></p>
                 <p class="tb-detail-person" id="tb-detail-person"></p>
             </div>
             <div class="tb-detail-head-tools">
+                <div class="tb-detail-head-buttons">
+                    <button type="button" class="ui-icon-button tb-guide-btn" id="tb-guide-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="tb-guide-pop" aria-label="Anleitung" title="Anleitung" hidden>
+                        <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 8.6a3.6 3.6 0 0 1 7 1.1c0 2.4-3.5 3-3.5 5.3"/><path d="M12 19.2h.01"/></svg>
+                    </button>
+                    <button type="button" class="ui-icon-button" id="tb-detail-close" aria-label="Schließen">
+                        <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                    </button>
+                </div>
                 <span class="tb-detail-status" id="tb-detail-status"></span>
-                <button type="button" class="ui-icon-button" id="tb-detail-close" aria-label="Schließen">
-                    <svg class="tb-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-                </button>
             </div>
         </div>
         <div class="tb-detail-layout">
@@ -141,6 +146,9 @@
                 </button>
             </section>
         </div>
+        <div class="tb-guide-pop" id="tb-guide-pop" role="dialog" aria-label="Anleitung" tabindex="-1" hidden>
+            <div class="rg-guide" id="tb-guide-body"></div>
+        </div>
         <p class="tb-detail-announcement" id="tb-detail-announcement" role="status" aria-live="polite"></p>
     </dialog>
 </div>
@@ -152,6 +160,7 @@
 <script src="/static/js/tasks_board_model.js?v={{ static_v }}"></script>
 <script src="/static/js/tasks_board_data.js?v={{ static_v }}"></script>
 {% if board_mock %}<script src="/static/js/tasks_board_mock.js?v={{ static_v }}"></script>{% endif %}
+<script src="/static/js/resource_guide.js?v={{ static_v }}"></script>
 <script src="/static/js/tasks_board_detail.js?v={{ static_v }}"></script>
 <script src="/static/js/tasks_board.js?v={{ static_v }}" defer></script>
 {% endblock %}

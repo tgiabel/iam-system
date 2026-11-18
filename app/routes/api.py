@@ -1406,6 +1406,18 @@ async def api_task_logs(task_id, current_user=Depends(require_permission("SOFA-P
         return internal_error(exc)
 
 
+# Nur für eigene Tasks in Bearbeitung; die SD-API prüft beides selbst, daher keine eigene Sichtprüfung.
+@router.get("/tasks/{task_id}/guide")
+async def api_task_guide(task_id: int, current_user=Depends(require_permission("SOFA-PAGE-TODO"))):
+    try:
+        guide = await api_client.get_task_guide(task_id, current_user.user_id)
+        return JSONResponse(content=guide)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return internal_error(exc)
+
+
 @router.get("/systems")
 async def api_system_overview(current_user=Depends(require_permission("SOFA-PAGE-SYS"))):
     try:
@@ -1530,6 +1542,18 @@ async def api_resource_map(current_user=Depends(require_any_permission("SOFA-PAG
             if "resource_id" in r
         }
         return JSONResponse(content=resource_map)
+    except httpx.HTTPStatusError as exc:
+        return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
+    except Exception as exc:
+        return internal_error(exc)
+
+
+# Platzhalter-Katalog für den Anleitungs-Editor und die lesende Ansicht der Ressource.
+@router.get("/resources/guide-placeholders")
+async def api_resource_guide_placeholders(current_user=Depends(require_any_permission("SOFA-PAGE-SYS", "SOFA-PAGE-ROLE"))):
+    try:
+        placeholders = await api_client.get_resource_guide_placeholders()
+        return JSONResponse(content=placeholders)
     except httpx.HTTPStatusError as exc:
         return JSONResponse(content=_error_content_from_response(exc.response), status_code=exc.response.status_code)
     except Exception as exc:

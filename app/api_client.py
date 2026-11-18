@@ -399,6 +399,9 @@ class APIClient:
     async def get_role_map(self) -> dict:
         return await self._get(ACCESS_BASE_URL, "/roles/map")
 
+    async def get_resource_guide_placeholders(self) -> list[dict]:
+        return await self._get(ACCESS_BASE_URL, "/resources/guide-placeholders")
+
     async def get_mail_template(self, payload) -> dict:
         return await self._post(ACCESS_BASE_URL, "/resources/mail_template", payload=payload)
 
@@ -641,6 +644,10 @@ class APIClient:
             headers=self._iks_headers(user_id),
             timeout=IKS_REPORT_TIMEOUT_SECONDS,
         )
+
+    # Anleitung mit eingesetzten Werten; die SD-API prüft Zuständigkeit (403) und Status (409) über X-User-Id.
+    async def get_task_guide(self, task_id: int, user_id: int) -> dict:
+        return await self._get(SOFA_BASE_URL, f"/tasks/{task_id}/guide", headers={"X-User-Id": str(user_id)})
 
     async def get_task_logs(self, task_id):
         return await self._get(SOFA_BASE_URL, f"/tasks/{task_id}/logs")
