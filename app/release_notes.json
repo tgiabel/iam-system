@@ -21,8 +21,8 @@
   "trailers_required_after": "6dfc175ed63e666f0f6fb2e63f32405ccaa150c0",
   "releases": [
     {
-      "version": "1.7.0",
-      "date": "2026-11-17",
+      "version": "1.7.6",
+      "date": "2026-11-18",
       "scopes": [
         "dashboard",
         "internal",
@@ -33,7 +33,8 @@
         "users"
       ],
       "requires": [
-        "sd-api >= 3.3.1"
+        "sd-api >= 3.3.1",
+        "sd-api >= 3.4.0"
       ],
       "notes": [
         {
@@ -43,6 +44,18 @@
         {
           "scope": "roles",
           "text": "Rollenmanagement und Systemverwaltung sind neu gestaltet: übersichtliche Listen mit Suche, Schnellfiltern, Tooltips und Aktionen direkt an der Zeile."
+        },
+        {
+          "scope": "tasks",
+          "text": "Aufgaben mit hinterlegter Anleitung zeigen sie über einen Hilfe-Button, mit den Werten der Person, kopierbaren Kennungen und Seiten zum Blättern."
+        },
+        {
+          "scope": "systems",
+          "text": "Ressourcen bekommen je Zuweisung und Entzug eine Anleitung mit Platzhaltern, Vorschau und erklärter Schreibweise."
+        },
+        {
+          "scope": "tasks",
+          "text": "Automatisierte Aufgaben lassen sich über „⋯“ direkt manuell abschließen, mit Pflicht-Abschlussnotiz."
         },
         {
           "scope": "tasks",
@@ -58,6 +71,74 @@
         }
       ],
       "changes": [
+        {
+          "version": "1.7.6",
+          "commit": "562976174eb1",
+          "date": "2026-11-18",
+          "scopes": [
+            "systems"
+          ],
+          "notes": [],
+          "subject": "fix(systems): tidy the guide editor layout"
+        },
+        {
+          "version": "1.7.5",
+          "commit": "8a3646db85ca",
+          "date": "2026-11-18",
+          "scopes": [
+            "tasks"
+          ],
+          "notes": [
+            "Anleitungen lassen sich mit „---“ in Seiten teilen und im Hilfe-Fenster durchblättern; im Formular erklärt ein i-Symbol die Schreibweise."
+          ],
+          "subject": "feat(tasks): guides with pages and a syntax help in the editor"
+        },
+        {
+          "version": "1.7.4",
+          "commit": "03e604233b71",
+          "date": "2026-11-18",
+          "scopes": [
+            "tasks"
+          ],
+          "notes": [
+            "Automatisierte Aufgaben lassen sich über „⋯“ direkt manuell abschließen, mit Pflicht-Abschlussnotiz."
+          ],
+          "subject": "feat(tasks): complete automated tasks manually without a failed run first"
+        },
+        {
+          "version": "1.7.3",
+          "commit": "d519dc0cbd0b",
+          "date": "2026-11-18",
+          "scopes": [
+            "internal"
+          ],
+          "notes": [],
+          "subject": "docs: resource guides decisions and implementation"
+        },
+        {
+          "version": "1.7.2",
+          "commit": "323094f995b3",
+          "date": "2026-11-18",
+          "scopes": [
+            "systems"
+          ],
+          "notes": [
+            "Ressourcen bekommen je Zuweisung und Entzug eine Anleitung mit Platzhaltern, mit Vorschau im Formular."
+          ],
+          "subject": "feat(systems): edit resource guides and show them in the resource view"
+        },
+        {
+          "version": "1.7.1",
+          "commit": "5c1870d4be23",
+          "date": "2026-11-18",
+          "scopes": [
+            "tasks"
+          ],
+          "notes": [
+            "Aufgaben mit hinterlegter Anleitung zeigen sie über einen Hilfe-Button, mit den Werten der Person und kopierbaren Kennungen."
+          ],
+          "subject": "feat(tasks): resource guide in the task card"
+        },
         {
           "version": "1.7.0",
           "commit": "e955dc305fa9",
